@@ -1353,6 +1353,24 @@ em { font-style: italic; color: var(--ink-warm); }
   transition: color 0.2s ease;
 }
 .foot__cols a:hover { color: var(--ink-warm); }
+.foot__cols .foot__draft {
+  display: block;
+  font-family: var(--font-prose);
+  font-size: 0.94rem;
+  color: var(--ink-faint);
+  padding: 4px 0;
+  font-style: italic;
+  cursor: help;
+}
+.foot__cols .foot__draft::after {
+  content: " · draft";
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  margin-left: 0.4em;
+  font-style: normal;
+}
 
 .foot__sig {
   grid-column: 1 / -1;

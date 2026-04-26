@@ -1024,6 +1024,33 @@ ok(`every page declares a valid og:type`, () => {
     return ogTypeIssues.length === 0;
 });
 
+// ─── placeholder anchors — no <a href="#">label</a> with non-anchor text ─
+// <a href="#"> is acceptable when a JS handler intercepts the click, but
+// when the link text is content-bearing (a label, a project name) and
+// there's no JS handler in the parent, the link is a dead promise.
+// Convert to <span> with appropriate styling.
+
+console.log('placeholder anchors:');
+const placeholderIssues = [];
+for (const f of htmlPages) {
+    const stripped = rawByPage.get(f);
+    for (const m of stripped.matchAll(/<a\b[^>]*\bhref="#"[^>]*>([^<]*)<\/a>/g)) {
+        const txt = m[1].trim();
+        // Allow specific JS-bound patterns: skip-link, top, JS-targeted modals
+        // (those use specific ids like "#main", "#top", not bare "#")
+        // Allow scroll-to-top affordances (text usually contains "top" or "↑")
+        if (!txt) continue;  // empty — caught by another guard
+        if (/^(top|↑|\^)$/i.test(txt)) continue;
+        placeholderIssues.push(`${f}: <a href="#">${txt}</a> — placeholder anchor`);
+    }
+}
+ok(`no placeholder <a href="#">label</a> anchors`, () => {
+    if (placeholderIssues.length) {
+        console.error('   issues:\n' + placeholderIssues.slice(0, 8).map((l) => '     ' + l).join('\n'));
+    }
+    return placeholderIssues.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
