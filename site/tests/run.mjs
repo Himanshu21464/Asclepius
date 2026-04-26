@@ -873,6 +873,37 @@ ok(`every JS-critical page has a <noscript> fallback banner`, () => {
     return noScriptGaps.length === 0;
 });
 
+// ─── OpenSearch search URL is wired up to a real handler ───────────────
+// /opensearch.xml declares a search Url with template {searchTerms}; the
+// handler must actually pick that up at runtime. Without this test, the
+// OpenSearch declaration was a dead promise (round 31 bug).
+
+console.log('OpenSearch ↔ palette wiring:');
+const OPENSEARCH = readFileSync(path.join(SITE_ROOT, 'opensearch.xml'), 'utf-8');
+const osTemplate = /<Url\s+type="text\/html"\s+template="([^"]+)"/.exec(OPENSEARCH);
+ok('opensearch.xml declares a Url template with {searchTerms}',
+   () => osTemplate !== null && osTemplate[1].includes('{searchTerms}'));
+const PALETTE = readFileSync(path.join(SITE_ROOT, 'js', 'palette.js'), 'utf-8');
+ok('palette.js reads ?q= from location.search',
+   () => /URLSearchParams\(location\.search\)/.test(PALETTE) && /params\.get\('q'\)/.test(PALETTE));
+
+// ─── security.txt RFC 9116 compliance ──────────────────────────────────
+// Required fields: Contact (one or more), Expires (single, ISO 8601, future).
+// Strongly recommended: Encryption, Preferred-Languages, Canonical, Policy.
+
+console.log('security.txt (RFC 9116):');
+const SECTXT = readFileSync(path.join(SITE_ROOT, '.well-known', 'security.txt'), 'utf-8');
+ok('security.txt has Contact:', () => /^Contact:/m.test(SECTXT));
+ok('security.txt has Expires:', () => /^Expires:/m.test(SECTXT));
+ok('security.txt Expires is in the future', () => {
+    const m = /^Expires:\s*(\S+)/m.exec(SECTXT);
+    if (!m) return false;
+    const exp = new Date(m[1]);
+    return !isNaN(exp.getTime()) && exp.getTime() > Date.now();
+});
+ok('security.txt has Canonical:', () => /^Canonical:/m.test(SECTXT));
+ok('security.txt has Policy:',    () => /^Policy:/m.test(SECTXT));
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');

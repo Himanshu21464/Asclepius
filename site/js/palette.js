@@ -392,5 +392,16 @@
             if (cta) meta.insertBefore(t, cta);
             else     meta.appendChild(t);
         }
+
+        // OpenSearch / direct-link entry: ?q=foo opens the palette with foo
+        // pre-filled. Used by browsers that registered Asclepius via
+        // /opensearch.xml — the search bar in Firefox / Edge funnels here.
+        const params = new URLSearchParams(location.search);
+        const qParam = params.get('q');
+        if (qParam) {
+            open();
+            $q.value = qParam;
+            update();
+        }
     });
 })();
