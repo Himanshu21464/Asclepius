@@ -962,6 +962,37 @@ ok(`every <img> declares loading= (lazy or eager)`, () => {
     return imgGaps.length === 0;
 });
 
+// ─── og:url + og:site_name on every page ───────────────────────────────
+// Open Graph spec recommends both. og:url disambiguates canonical when
+// the page is shared via short links / redirectors; og:site_name lets
+// social platforms group cards by site. Round 34's audit found 46 of 47
+// pages were missing both.
+
+console.log('og:url + og:site_name:');
+const ogIssues = [];
+const OG_EXEMPT = new Set(['404.html']);
+for (const f of htmlPages) {
+    if (OG_EXEMPT.has(f)) continue;
+    const raw = readFileSync(path.join(SITE_ROOT, f), 'utf-8');
+    const url = /<meta[^>]*property="og:url"[^>]*content="([^"]+)"/.exec(raw);
+    const site = /<meta[^>]*property="og:site_name"[^>]*content="([^"]+)"/.exec(raw);
+    if (!url) ogIssues.push(`${f}: missing og:url`);
+    if (!site) ogIssues.push(`${f}: missing og:site_name`);
+    if (url) {
+        // og:url should match canonical for self-reference
+        const can = /<link[^>]*rel="canonical"[^>]*href="([^"]+)"/.exec(raw);
+        if (can && can[1] !== url[1]) {
+            ogIssues.push(`${f}: og:url=${url[1]} ≠ canonical=${can[1]}`);
+        }
+    }
+}
+ok(`every page has og:url + og:site_name (and og:url == canonical)`, () => {
+    if (ogIssues.length) {
+        console.error('   gaps:\n' + ogIssues.slice(0, 10).map((l) => '     ' + l).join('\n'));
+    }
+    return ogIssues.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
