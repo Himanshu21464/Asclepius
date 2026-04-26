@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Asclepius Contributors
 #include <doctest/doctest.h>
+#include <nlohmann/json.hpp>
 
 #include "asclepius/consent.hpp"
 
@@ -1394,4 +1395,311 @@ TEST_CASE("cleanup_expired fires the observer once per token swept") {
         REQUIRE(g);
         CHECK(g.value().revoked == true);
     }
+}
+
+// ============== active_purposes_for_patient =============================
+
+TEST_CASE("active_purposes_for_patient returns distinct sorted purposes") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_apfp");
+    // Two grants with overlapping purpose lists; expect distinct.
+    REQUIRE(r.grant(p, {Purpose::research, Purpose::triage}, 1h));
+    REQUIRE(r.grant(p, {Purpose::triage, Purpose::ambient_documentation}, 1h));
+    auto out = r.active_purposes_for_patient(p);
+    REQUIRE(out.size() == 3);
+    // Sorted by enum value: ambient_documentation(1) < triage(3) < research(7).
+    CHECK(out[0] == Purpose::ambient_documentation);
+    CHECK(out[1] == Purpose::triage);
+    CHECK(out[2] == Purpose::research);
+}
+
+TEST_CASE("active_purposes_for_patient is empty on empty registry / unknown patient") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ghost");
+    CHECK(r.active_purposes_for_patient(p).empty());
+    REQUIRE(r.grant(PatientId::pseudonymous("other"), {Purpose::triage}, 1h));
+    CHECK(r.active_purposes_for_patient(p).empty());
+}
+
+TEST_CASE("active_purposes_for_patient excludes revoked and expired tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_apfp_skip");
+    // Live grant: triage stays.
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    // Revoked grant: research must NOT appear.
+    auto rv = r.grant(p, {Purpose::research}, 1h).value();
+    REQUIRE(r.revoke(rv.token_id));
+    // Expired grant: operations must NOT appear.
+    ConsentToken ex;
+    ex.token_id   = "ct_apfp_exp";
+    ex.patient    = p;
+    ex.purposes   = {Purpose::operations};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    auto out = r.active_purposes_for_patient(p);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0] == Purpose::triage);
+}
+
+TEST_CASE("active_purposes_for_patient agrees with has_purpose_for_patient") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_apfp_agree");
+    REQUIRE(r.grant(p, {Purpose::ambient_documentation,
+                        Purpose::diagnostic_suggestion,
+                        Purpose::medication_review}, 1h));
+    auto purposes = r.active_purposes_for_patient(p);
+    for (auto pu : purposes) {
+        CHECK(r.has_purpose_for_patient(p, pu));
+    }
+    // The complement should not be permitted.
+    CHECK(!r.has_purpose_for_patient(p, Purpose::research));
+    CHECK(!r.has_purpose_for_patient(p, Purpose::operations));
+}
+
+// ============== extend_to ===============================================
+
+TEST_CASE("extend_to sets expires_at to the absolute deadline") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_ex2");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    auto target = t.expires_at + std::chrono::nanoseconds{std::chrono::hours{5}};
+    auto t2 = r.extend_to(t.token_id, target);
+    REQUIRE(t2);
+    CHECK(t2.value().expires_at == target);
+    auto g = r.get(t.token_id);
+    REQUIRE(g);
+    CHECK(g.value().expires_at == target);
+}
+
+TEST_CASE("extend_to rejects a deadline strictly earlier than current expiry") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_ex2_shrink");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    auto orig = t.expires_at;
+    auto earlier = t.expires_at - std::chrono::nanoseconds{std::chrono::minutes{30}};
+    auto r2 = r.extend_to(t.token_id, earlier);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+    // Unchanged.
+    auto g = r.get(t.token_id);
+    REQUIRE(g);
+    CHECK(g.value().expires_at == orig);
+}
+
+TEST_CASE("extend_to allows deadline equal to current expiry (no shrink, no error)") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_ex2_eq");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    auto r2 = r.extend_to(t.token_id, t.expires_at);
+    REQUIRE(r2);
+    CHECK(r2.value().expires_at == t.expires_at);
+}
+
+TEST_CASE("extend_to rejects revoked tokens with denied") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_ex2_rev");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));
+    auto target = t.expires_at + std::chrono::nanoseconds{std::chrono::hours{1}};
+    auto r2 = r.extend_to(t.token_id, target);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::permission_denied);
+}
+
+TEST_CASE("extend_to rejects unknown token_id with not_found") {
+    ConsentRegistry r;
+    auto target = Time::now() + std::chrono::nanoseconds{std::chrono::hours{1}};
+    auto r2 = r.extend_to("ct_ghost_ex2", target);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("extend_to fires the observer as a granted event") {
+    ConsentRegistry r;
+    int grants = 0;
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken&) {
+        if (e == ConsentRegistry::Event::granted) grants++;
+    });
+    auto p = PatientId::pseudonymous("p_ex2_obs");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();   // grants=1
+    auto target = t.expires_at + std::chrono::nanoseconds{std::chrono::hours{2}};
+    REQUIRE(r.extend_to(t.token_id, target));             // grants=2
+    CHECK(grants == 2);
+}
+
+// ============== expired_for_patient =====================================
+
+TEST_CASE("expired_for_patient returns only that patient's expired non-revoked tokens") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("efp_alice");
+    auto pb = PatientId::pseudonymous("efp_bob");
+
+    // Alice has one expired, one live.
+    ConsentToken a_exp;
+    a_exp.token_id   = "ct_efp_a";
+    a_exp.patient    = pa;
+    a_exp.purposes   = {Purpose::triage};
+    a_exp.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    a_exp.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(a_exp));
+    REQUIRE(r.grant(pa, {Purpose::operations}, 1h));
+
+    // Bob has one expired.
+    ConsentToken b_exp;
+    b_exp.token_id   = "ct_efp_b";
+    b_exp.patient    = pb;
+    b_exp.purposes   = {Purpose::research};
+    b_exp.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{3}};
+    b_exp.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    REQUIRE(r.ingest(b_exp));
+
+    auto a_out = r.expired_for_patient(pa);
+    REQUIRE(a_out.size() == 1);
+    CHECK(a_out[0].token_id == "ct_efp_a");
+
+    auto b_out = r.expired_for_patient(pb);
+    REQUIRE(b_out.size() == 1);
+    CHECK(b_out[0].token_id == "ct_efp_b");
+
+    auto ghost = r.expired_for_patient(PatientId::pseudonymous("ghost"));
+    CHECK(ghost.empty());
+}
+
+TEST_CASE("expired_for_patient excludes revoked tokens (even if expiry passed)") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("efp_rev");
+    ConsentToken e;
+    e.token_id   = "ct_efp_rev";
+    e.patient    = p;
+    e.purposes   = {Purpose::triage};
+    e.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    e.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    e.revoked    = true;
+    REQUIRE(r.ingest(e));
+    CHECK(r.expired_for_patient(p).empty());
+}
+
+TEST_CASE("expired_for_patient excludes live (still-active) tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("efp_live");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(p, {Purpose::operations}, 2h));
+    CHECK(r.expired_for_patient(p).empty());
+}
+
+TEST_CASE("expired_for_patient becomes empty after cleanup_expired sweep") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("efp_sweep");
+    ConsentToken e;
+    e.token_id   = "ct_efp_sweep";
+    e.patient    = p;
+    e.purposes   = {Purpose::triage};
+    e.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    e.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(e));
+    CHECK(r.expired_for_patient(p).size() == 1);
+    auto n = r.cleanup_expired();
+    CHECK(n == 1);
+    // After sweep the token is revoked, so it no longer qualifies as
+    // "expired but not revoked".
+    CHECK(r.expired_for_patient(p).empty());
+}
+
+// ============== dump_state_json =========================================
+
+TEST_CASE("dump_state_json emits stable schema with all fields") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("dump_alice");
+    auto t = r.grant(p, {Purpose::triage, Purpose::research}, 1h).value();
+
+    auto s = r.dump_state_json();
+    auto j = nlohmann::json::parse(s);
+    REQUIRE(j.contains("tokens"));
+    REQUIRE(j["tokens"].is_array());
+    REQUIRE(j["tokens"].size() == 1);
+    const auto& tok = j["tokens"][0];
+    CHECK(tok.contains("token_id"));
+    CHECK(tok.contains("patient"));
+    CHECK(tok.contains("purposes"));
+    CHECK(tok.contains("issued_at"));
+    CHECK(tok.contains("expires_at"));
+    CHECK(tok.contains("revoked"));
+    CHECK(tok["token_id"].get<std::string>() == t.token_id);
+    CHECK(tok["patient"].get<std::string>() == std::string{p.str()});
+    CHECK(tok["revoked"].get<bool>() == false);
+    REQUIRE(tok["purposes"].is_array());
+    REQUIRE(tok["purposes"].size() == 2);
+    // ISO-8601 strings have a 'T' separator.
+    CHECK(tok["issued_at"].get<std::string>().find('T') != std::string::npos);
+    CHECK(tok["expires_at"].get<std::string>().find('T') != std::string::npos);
+}
+
+TEST_CASE("dump_state_json on empty registry returns {\"tokens\": []}") {
+    ConsentRegistry r;
+    auto s = r.dump_state_json();
+    auto j = nlohmann::json::parse(s);
+    REQUIRE(j.contains("tokens"));
+    REQUIRE(j["tokens"].is_array());
+    CHECK(j["tokens"].empty());
+}
+
+TEST_CASE("dump_state_json includes revoked and expired tokens with correct flags") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("dump_mix");
+
+    // Active grant.
+    REQUIRE(r.grant(p, {Purpose::ambient_documentation}, 1h));
+
+    // Revoked grant.
+    auto rv = r.grant(p, {Purpose::operations}, 1h).value();
+    REQUIRE(r.revoke(rv.token_id));
+
+    // Expired (ingested) grant.
+    ConsentToken ex;
+    ex.token_id   = "ct_dump_exp";
+    ex.patient    = p;
+    ex.purposes   = {Purpose::medication_review};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    auto j = nlohmann::json::parse(r.dump_state_json());
+    REQUIRE(j["tokens"].size() == 3);
+
+    int revoked_seen = 0;
+    int active_seen  = 0;
+    int expired_seen = 0;
+    for (const auto& tok : j["tokens"]) {
+        if (tok["revoked"].get<bool>()) {
+            revoked_seen++;
+        } else if (tok["token_id"].get<std::string>() == "ct_dump_exp") {
+            expired_seen++;
+        } else {
+            active_seen++;
+        }
+    }
+    CHECK(revoked_seen == 1);
+    CHECK(active_seen == 1);
+    CHECK(expired_seen == 1);
+}
+
+TEST_CASE("dump_state_json round-trips purposes via purpose_from_string") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("dump_purposes");
+    REQUIRE(r.grant(p, {Purpose::quality_improvement, Purpose::risk_stratification}, 1h));
+    auto j = nlohmann::json::parse(r.dump_state_json());
+    REQUIRE(j["tokens"].size() == 1);
+    const auto& purposes = j["tokens"][0]["purposes"];
+    REQUIRE(purposes.is_array());
+    REQUIRE(purposes.size() == 2);
+    std::unordered_set<std::uint8_t> codes;
+    for (const auto& s : purposes) {
+        auto pr = purpose_from_string(s.get<std::string>());
+        REQUIRE(pr);
+        codes.insert(static_cast<std::uint8_t>(pr.value()));
+    }
+    CHECK(codes.count(static_cast<std::uint8_t>(Purpose::quality_improvement)) == 1);
+    CHECK(codes.count(static_cast<std::uint8_t>(Purpose::risk_stratification)) == 1);
 }

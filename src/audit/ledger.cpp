@@ -874,6 +874,91 @@ Ledger::range_by_patient(const std::string& patient) const {
     return out;
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::tail_for_patient(const std::string& patient, std::size_t n) const {
+    if (patient.empty()) {
+        return Error::invalid("tail_for_patient requires non-empty patient");
+    }
+    if (n == 0) return std::vector<LedgerEntry>{};
+
+    // Ring buffer of the last `n` matches, oldest-first; reversed on
+    // return so callers see most-recent-first. Mirrors tail_by_actor.
+    std::vector<LedgerEntry> ring;
+    ring.reserve(n);
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Only inference-committed events carry the "patient" body field.
+        // Cheap substring prefilter before JSON parse.
+        if (e.header.event_type != "inference.committed") return true;
+        if (e.body_json.find(patient) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("patient");
+            if (it == j.end() || !it->is_string() ||
+                it->get<std::string>() != patient) {
+                return true;
+            }
+        } catch (...) {
+            return true;
+        }
+        if (ring.size() < n) {
+            ring.push_back(e);
+        } else {
+            std::move(ring.begin() + 1, ring.end(), ring.begin());
+            ring.back() = e;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    std::reverse(ring.begin(), ring.end());
+    return ring;
+}
+
+Result<std::vector<LedgerEntry>>
+Ledger::range_for_patient_in_window(const std::string& patient,
+                                    Time from, Time to) const {
+    if (patient.empty()) {
+        return Error::invalid("range_for_patient_in_window requires non-empty patient");
+    }
+    if (from > to) {
+        return Error::invalid("range_for_patient_in_window: from > to");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Half-open [from, to): include from, exclude to.
+        if (e.header.ts < from) return true;
+        if (!(e.header.ts < to)) return true;
+        if (e.header.event_type != "inference.committed") return true;
+        if (e.body_json.find(patient) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("patient");
+            if (it != j.end() && it->is_string() &&
+                it->get<std::string>() == patient) {
+                out.push_back(e);
+            }
+        } catch (...) {}
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+Result<std::vector<LedgerEntry>>
+Ledger::events_after_seq(std::uint64_t after_seq) const {
+    const auto len = impl_->length.load();
+    if (after_seq >= len) return std::vector<LedgerEntry>{};
+    return impl_->storage->select_range(after_seq + 1, len + 1);
+}
+
+Result<Hash> Ledger::content_address(std::uint64_t seq) const {
+    if (seq == 0 || seq > impl_->length.load()) {
+        return Error::invalid("content_address: seq out of range");
+    }
+    auto e = impl_->storage->select_at(seq);
+    if (!e) return e.error();
+    return e.value().entry_hash();
+}
+
 Result<Ledger::HistoricalHead> Ledger::head_at_seq(std::uint64_t seq) const {
     if (seq == 0 || seq > impl_->length.load()) {
         return Error::invalid("head_at_seq: seq out of range");

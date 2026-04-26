@@ -4,6 +4,8 @@
 
 #include "asclepius/asclepius.hpp"
 
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
@@ -2176,4 +2178,226 @@ TEST_CASE("dispatched_inferences: matches metrics().count(\"inference.attempts\"
     CHECK(r.value() ==
           static_cast<std::size_t>(rt.metrics().count("inference.attempts")));
     CHECK(r.value() == 3);
+}
+
+// ============== Inference::body_snapshot ==================================
+
+TEST_CASE("body_snapshot: empty object before run") {
+    auto rt_ = fresh_runtime("snap_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_snap_empty");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto snap = inf.value().body_snapshot();
+    CHECK(snap.is_object());
+    CHECK(snap.empty());
+    // No status, no input_hash yet — handle hasn't run.
+    CHECK(snap.find("status") == snap.end());
+}
+
+TEST_CASE("body_snapshot: reflects post-run status and hashes pre-commit") {
+    auto rt_ = fresh_runtime("snap_run"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_snap_run");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hello",
+        [](std::string s) -> Result<std::string> { return s; }));
+
+    // Pre-commit snapshot already carries the staged status + hashes.
+    auto snap = inf.value().body_snapshot();
+    REQUIRE(snap.contains("status"));
+    CHECK(snap["status"] == "ok");
+    REQUIRE(snap.contains("input_hash"));
+    CHECK(snap["input_hash"].get<std::string>() == inf.value().input_hash());
+    REQUIRE(snap.contains("output_hash"));
+    CHECK(snap["output_hash"].get<std::string>() == inf.value().output_hash());
+    // No commit yet, so no inference_id field appended by commit().
+    CHECK(snap.find("inference_id") == snap.end());
+}
+
+TEST_CASE("body_snapshot: integrates with metadata, returns deep copy") {
+    auto rt_ = fresh_runtime("snap_meta"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_snap_meta");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("trace_id", nlohmann::json{"abc-123"}));
+    REQUIRE(inf.value().run("v",
+        [](std::string s) -> Result<std::string> { return s; }));
+
+    auto snap = inf.value().body_snapshot();
+    REQUIRE(snap.contains("metadata"));
+    REQUIRE(snap["metadata"].contains("trace_id"));
+    // Mutating the returned snapshot must not bleed back into the
+    // pending ledger body (deep copy guarantee).
+    snap["status"] = "tampered";
+    snap["metadata"]["trace_id"] = "tampered";
+    CHECK(inf.value().status() == "ok");
+    auto md = inf.value().get_metadata("trace_id");
+    REQUIRE(md);
+    CHECK(md.value() != "tampered");
+
+    // After commit, the snapshot still reflects what was committed.
+    REQUIRE(inf.value().commit());
+    auto post = inf.value().body_snapshot();
+    CHECK(post["status"] == "ok");
+}
+
+// ============== Runtime::self_attest ======================================
+
+TEST_CASE("self_attest: empty chain produces a checkpoint with seq 0") {
+    auto rt_ = fresh_runtime("attest_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto cp = rt.self_attest();
+    CHECK(cp.seq == 0);
+    // Empty chains have a zero head_hash; matches head_hash() output.
+    CHECK(cp.head_hash.hex() == rt.head_hash());
+}
+
+TEST_CASE("self_attest: matches ledger().checkpoint() exactly after appends") {
+    auto rt_ = fresh_runtime("attest_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_attest_match");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("x",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto via_runtime = rt.self_attest();
+    auto via_ledger  = rt.ledger().checkpoint();
+    CHECK(via_runtime.seq == via_ledger.seq);
+    CHECK(via_runtime.head_hash.hex() == via_ledger.head_hash.hex());
+    CHECK(via_runtime.seq == rt.ledger().length());
+}
+
+TEST_CASE("self_attest: head advances as the chain grows") {
+    auto rt_ = fresh_runtime("attest_grow"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_attest_grow");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto cp_before = rt.self_attest();
+    auto seq_before = cp_before.seq;
+    auto head_before = cp_before.head_hash.hex();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("y",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto cp_after = rt.self_attest();
+    CHECK(cp_after.seq > seq_before);
+    CHECK(cp_after.head_hash.hex() != head_before);
+}
+
+// ============== Runtime::keystore_fingerprint =============================
+
+TEST_CASE("keystore_fingerprint: non-empty and stable across calls") {
+    auto rt_ = fresh_runtime("fp_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto fp = rt.keystore_fingerprint();
+    CHECK(!fp.empty());
+    // Hex-encoded 8-byte BLAKE2b: 16 hex chars.
+    CHECK(fp.size() == 16);
+    // Stable: two calls return the same value.
+    CHECK(rt.keystore_fingerprint() == fp);
+}
+
+TEST_CASE("keystore_fingerprint: matches ledger().attest().fingerprint") {
+    auto rt_ = fresh_runtime("fp_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.keystore_fingerprint() == rt.ledger().attest().fingerprint);
+}
+
+TEST_CASE("keystore_fingerprint: independent of chain length") {
+    auto rt_ = fresh_runtime("fp_grow"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_fp_grow");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto fp_before = rt.keystore_fingerprint();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("z",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // Keystore fingerprint is a property of the signing key, not the
+    // chain — appending entries must not change it.
+    CHECK(rt.keystore_fingerprint() == fp_before);
+}
+
+// ============== Runtime::policy_names =====================================
+
+TEST_CASE("policy_names: empty when no policies registered") {
+    auto rt_ = fresh_runtime("pn_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto names = rt.policy_names();
+    CHECK(names.empty());
+}
+
+TEST_CASE("policy_names: matches policies().names() after install_default_policies") {
+    auto rt_ = fresh_runtime("pn_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.install_default_policies());
+    auto via_runtime = rt.policy_names();
+    auto via_chain   = rt.policies().names();
+    CHECK(via_runtime == via_chain);
+    CHECK(via_runtime.size() == rt.policies().size());
+    CHECK(via_runtime.size() >= 2);  // phi_scrubber + length_limit
+}
+
+TEST_CASE("policy_names: order preserved as policies are pushed") {
+    auto rt_ = fresh_runtime("pn_order"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_phi_scrubber());
+    auto after_one = rt.policy_names();
+    REQUIRE(after_one.size() == 1);
+
+    rt.policies().push(make_length_limit(1024, 1024));
+    auto after_two = rt.policy_names();
+    REQUIRE(after_two.size() == 2);
+    // Order preserved: first-pushed remains at index 0.
+    CHECK(after_two[0] == after_one[0]);
+}
+
+// ============== Runtime::is_chain_empty ===================================
+
+TEST_CASE("is_chain_empty: true on a fresh runtime") {
+    auto rt_ = fresh_runtime("emp_fresh"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.is_chain_empty());
+    CHECK(rt.ledger_length() == 0);
+}
+
+TEST_CASE("is_chain_empty: false after a single committed inference") {
+    auto rt_ = fresh_runtime("emp_one"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_emp_one");
+    // grant() itself appends a consent.granted event, so the chain is
+    // already non-empty — exercise that path explicitly.
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    CHECK(!rt.is_chain_empty());
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    CHECK(!rt.is_chain_empty());
+    CHECK(rt.ledger_length() >= 2);  // consent.granted + inference.committed
+}
+
+TEST_CASE("is_chain_empty: agrees with ledger().length() == 0 invariant") {
+    auto rt_ = fresh_runtime("emp_inv"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Initial state.
+    CHECK(rt.is_chain_empty() == (rt.ledger().length() == 0));
+
+    auto pid = PatientId::pseudonymous("p_emp_inv");
+    (void)rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    CHECK(rt.is_chain_empty() == (rt.ledger().length() == 0));
 }

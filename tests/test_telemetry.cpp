@@ -1114,6 +1114,227 @@ TEST_CASE("MetricRegistry::add integrates with prometheus exposition") {
     CHECK(out.find("# TYPE asclepius_inferences_total counter") != std::string::npos);
 }
 
+// ============== Histogram::variance =====================================
+
+TEST_CASE("Histogram::variance returns 0.0 on empty or single-sample") {
+    Histogram empty{0.0, 1.0, 10};
+    CHECK(empty.variance() == doctest::Approx(0.0));
+
+    Histogram one{0.0, 1.0, 10};
+    one.observe(0.42);
+    CHECK(one.total() == 1);
+    CHECK(one.variance() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::variance equals stddev squared (basic)") {
+    Histogram h{0.0, 10.0, 10};
+    // Two atoms at midpoints 0.5 and 9.5 → variance ((4.5)^2+(4.5)^2)/2 = 20.25.
+    for (int i = 0; i < 50; ++i) h.observe(0.5);
+    for (int i = 0; i < 50; ++i) h.observe(9.5);
+    CHECK(h.variance() == doctest::Approx(20.25).epsilon(1e-9));
+    CHECK(h.variance() == doctest::Approx(h.stddev() * h.stddev()).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::variance is zero for tightly-clustered, integrates with stddev") {
+    Histogram tight{0.0, 10.0, 10};
+    for (int i = 0; i < 50; ++i) tight.observe(4.5);
+    CHECK(tight.variance() == doctest::Approx(0.0));
+
+    // Across a range of distributions, variance == stddev^2 should always hold.
+    Histogram a{0.0, 1.0, 10};
+    for (int i = 0; i < 90; ++i) a.observe(0.05);
+    for (int i = 0; i < 10; ++i) a.observe(0.95);
+    const double sd = a.stddev();
+    CHECK(a.variance() == doctest::Approx(sd * sd).epsilon(1e-9));
+    CHECK(a.variance() > 0.0);
+}
+
+// ============== Histogram::iqr ==========================================
+
+TEST_CASE("Histogram::iqr returns 0.0 on empty histogram") {
+    Histogram empty{0.0, 1.0, 10};
+    CHECK(empty.iqr() == doctest::Approx(0.0));
+
+    Histogram off{5.0, 15.0, 10};
+    CHECK(off.iqr() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::iqr matches quantile(0.75) - quantile(0.25)") {
+    Histogram h{0.0, 1.0, 10};
+    for (int i = 0; i < 100; ++i) h.observe(static_cast<double>(i) / 100.0);
+    const double q25 = h.quantile(0.25);
+    const double q75 = h.quantile(0.75);
+    CHECK(h.iqr() == doctest::Approx(q75 - q25).epsilon(1e-9));
+    // For a roughly-uniform fill on [0, 1], IQR should be ~0.5.
+    CHECK(h.iqr() == doctest::Approx(0.5).epsilon(0.1));
+}
+
+TEST_CASE("Histogram::iqr is zero for a single-bin distribution (integration)") {
+    Histogram tight{0.0, 10.0, 10};
+    // All mass in one bin: q25 and q75 both interpolate inside the same bin.
+    for (int i = 0; i < 100; ++i) tight.observe(4.5);
+    // Both quartiles fall in [4.0, 5.0] so IQR is bounded by the bin width.
+    CHECK(tight.iqr() >= 0.0);
+    CHECK(tight.iqr() <= 1.0);
+
+    // Wider spread → larger IQR.
+    Histogram wide{0.0, 10.0, 10};
+    for (int i = 0; i < 50; ++i) wide.observe(0.5);
+    for (int i = 0; i < 50; ++i) wide.observe(9.5);
+    CHECK(wide.iqr() > tight.iqr());
+}
+
+// ============== Histogram::skewness =====================================
+
+TEST_CASE("Histogram::skewness returns 0.0 for empty / single-sample / zero-variance") {
+    Histogram empty{0.0, 1.0, 10};
+    CHECK(empty.skewness() == doctest::Approx(0.0));
+
+    Histogram one{0.0, 1.0, 10};
+    one.observe(0.42);
+    CHECK(one.skewness() == doctest::Approx(0.0));
+
+    // All mass in one bin → variance==0 → skewness short-circuits to 0.
+    Histogram flat{0.0, 10.0, 10};
+    for (int i = 0; i < 50; ++i) flat.observe(4.5);
+    CHECK(flat.skewness() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::skewness is ~0 for symmetric distributions") {
+    Histogram h{0.0, 10.0, 10};
+    // Symmetric two-atom distribution at midpoints 0.5 and 9.5 with equal mass.
+    for (int i = 0; i < 50; ++i) h.observe(0.5);
+    for (int i = 0; i < 50; ++i) h.observe(9.5);
+    CHECK(h.skewness() == doctest::Approx(0.0).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::skewness sign reflects tail direction (integration)") {
+    // Heavy mass at low end, small tail at high end → POSITIVE skewness.
+    Histogram right_tailed{0.0, 1.0, 10};
+    for (int i = 0; i < 90; ++i) right_tailed.observe(0.05);
+    for (int i = 0; i < 10; ++i) right_tailed.observe(0.95);
+    CHECK(right_tailed.skewness() > 0.0);
+
+    // Heavy mass at high end, small tail at low end → NEGATIVE skewness.
+    Histogram left_tailed{0.0, 1.0, 10};
+    for (int i = 0; i < 10; ++i) left_tailed.observe(0.05);
+    for (int i = 0; i < 90; ++i) left_tailed.observe(0.95);
+    CHECK(left_tailed.skewness() < 0.0);
+
+    // Mirror-image distributions should have skewness of equal magnitude
+    // but opposite sign.
+    CHECK(right_tailed.skewness() == doctest::Approx(-left_tailed.skewness()).epsilon(1e-9));
+}
+
+// ============== DriftMonitor::any_severe ================================
+
+TEST_CASE("DriftMonitor::any_severe returns false on empty monitor") {
+    DriftMonitor dm;
+    CHECK(dm.any_severe() == false);
+}
+
+TEST_CASE("DriftMonitor::any_severe returns false when all features are stable") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("a", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("b", baseline, 0.0, 1.0, 10));
+    // Feed values matching the baseline distribution.
+    for (int i = 0; i < 200; ++i) {
+        REQUIRE(dm.observe("a", 0.5));
+        REQUIRE(dm.observe("b", 0.5));
+    }
+    CHECK(dm.any_severe() == false);
+}
+
+TEST_CASE("DriftMonitor::any_severe true if at least one feature is severe (integration)") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("stable", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("drift",  baseline, 0.0, 1.0, 10));
+
+    // Stable mirrors the baseline.
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("stable", 0.5));
+    // Drift wildly diverges → severe PSI.
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("drift", 0.95));
+
+    CHECK(dm.any_severe() == true);
+
+    // Cross-check against summary().max_severity for consistency.
+    auto s = dm.summary();
+    CHECK(s.max_severity == DriftSeverity::severe);
+
+    // After resetting the offending feature, the current window is empty
+    // against a populated baseline. PSI computed against an empty current
+    // bins to ~13.8 per occupied bin (eps clamping in psi()) — well above
+    // 0.5, so the feature still classifies as severe. This is intentional:
+    // an empty current window is itself a degenerate signal.
+    REQUIRE(dm.reset("drift"));
+    CHECK(dm.any_severe() == true);
+}
+
+// ============== MetricRegistry::diff ====================================
+
+TEST_CASE("MetricRegistry::diff: simple positive deltas against a snapshot") {
+    MetricRegistry m;
+    m.inc("a", 5);
+    m.inc("b", 10);
+    auto snap = m.counter_snapshot();
+
+    // Move forward.
+    m.inc("a", 2);
+    m.inc("b", 3);
+    auto d = m.diff(snap);
+    CHECK(d.at("a") == 2);
+    CHECK(d.at("b") == 3);
+    CHECK(d.size() == 2);
+}
+
+TEST_CASE("MetricRegistry::diff: missing baseline entries treated as 0; new counters surface in full") {
+    MetricRegistry m;
+    // Empty baseline: every current counter shows up as its full value.
+    m.inc("fresh", 7);
+    m.inc("also_fresh", 4);
+    auto d = m.diff({});
+    CHECK(d.at("fresh") == 7);
+    CHECK(d.at("also_fresh") == 4);
+    CHECK(d.size() == 2);
+
+    // Partial baseline: counters absent from baseline contribute their
+    // full current value as the delta.
+    std::unordered_map<std::string, std::uint64_t> partial = {{"fresh", 3}};
+    auto d2 = m.diff(partial);
+    CHECK(d2.at("fresh") == 4);        // 7 - 3
+    CHECK(d2.at("also_fresh") == 4);   // 4 - 0
+}
+
+TEST_CASE("MetricRegistry::diff: counters dropped since baseline emit negative deltas (integration)") {
+    MetricRegistry m;
+    m.inc("survivor", 2);
+    m.inc("doomed", 9);
+    auto snap = m.counter_snapshot();
+
+    // clear() drops every counter; the diff against the prior snapshot
+    // must report -baseline for each.
+    m.clear();
+    auto d = m.diff(snap);
+    CHECK(d.at("survivor") == -2);
+    CHECK(d.at("doomed") == -9);
+    CHECK(d.size() == 2);
+
+    // Rebuild a counter and re-diff. survivor reappears with +new; doomed
+    // is still negative.
+    m.inc("survivor", 5);
+    auto d2 = m.diff(snap);
+    CHECK(d2.at("survivor") == 3);   // 5 - 2
+    CHECK(d2.at("doomed") == -9);    // 0 - 9 (still missing)
+    CHECK(d2.size() == 2);
+
+    // Diff against itself yields all-zero deltas.
+    auto self = m.counter_snapshot();
+    auto zero = m.diff(self);
+    for (const auto& [_, v] : zero) CHECK(v == 0);
+}
+
 TEST_CASE("DriftMonitor::observation_count resets after reset() and rotate()") {
     DriftMonitor dm;
     REQUIRE(dm.register_feature("a", {0.1}, 0.0, 1.0, 10));

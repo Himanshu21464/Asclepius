@@ -2660,3 +2660,237 @@ TEST_CASE("has_event_type agrees with count_by_event_type presence") {
     CHECK(l.has_event_type("beta")  == (counts.value().count("beta")  > 0));
     CHECK(l.has_event_type("gamma") == (counts.value().count("gamma") > 0));
 }
+
+// ============== Ledger::tail_for_patient ================================
+
+TEST_CASE("tail_for_patient returns last n inferences most-recent first") {
+    auto p = tmp_db("tfp_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 6; i++) {
+        REQUIRE(l.append("inference.committed", "x",
+            nlohmann::json{{"inference_id", "i" + std::to_string(i)},
+                           {"patient", "pat:alice"}}, ""));
+    }
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "ib"}, {"patient", "pat:bob"}}, ""));
+    auto r = l.tail_for_patient("pat:alice", 3); REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    auto b2 = nlohmann::json::parse(r.value()[2].body_json);
+    CHECK(b0["inference_id"] == "i5");  // most recent alice
+    CHECK(b1["inference_id"] == "i4");
+    CHECK(b2["inference_id"] == "i3");
+}
+
+TEST_CASE("tail_for_patient: empty patient + n=0 edge cases") {
+    auto p = tmp_db("tfp_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i1"}, {"patient", "pat:alice"}}, ""));
+    auto r1 = l.tail_for_patient("", 5);
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.tail_for_patient("pat:alice", 0); REQUIRE(r2);
+    CHECK(r2.value().empty());
+    auto r3 = l.tail_for_patient("pat:ghost", 10); REQUIRE(r3);
+    CHECK(r3.value().empty());
+}
+
+TEST_CASE("tail_for_patient skips non-inference events and is complement of range_by_patient") {
+    auto p = tmp_db("tfp_complement");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("consent.granted", "x",
+        nlohmann::json{{"patient", "pat:alice"}}, ""));
+    for (int i = 0; i < 4; i++) {
+        REQUIRE(l.append("inference.committed", "x",
+            nlohmann::json{{"inference_id", "i" + std::to_string(i)},
+                           {"patient", "pat:alice"}}, ""));
+    }
+    auto rr = l.range_by_patient("pat:alice"); REQUIRE(rr);
+    auto tt = l.tail_for_patient("pat:alice", 100); REQUIRE(tt);
+    REQUIRE(rr.value().size() == 4);
+    REQUIRE(tt.value().size() == 4);
+    // Same set, opposite order.
+    for (std::size_t i = 0; i < rr.value().size(); ++i) {
+        CHECK(rr.value()[i].header.seq
+              == tt.value()[rr.value().size() - 1 - i].header.seq);
+    }
+}
+
+// ============== Ledger::range_for_patient_in_window =====================
+
+TEST_CASE("range_for_patient_in_window returns matches in [from, to) seq-asc") {
+    auto p = tmp_db("rfpw_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 3; i++) {
+        REQUIRE(l.append("inference.committed", "x",
+            nlohmann::json{{"inference_id", "i" + std::to_string(i)},
+                           {"patient", "pat:alice"}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    auto from = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    for (int i = 3; i < 6; i++) {
+        REQUIRE(l.append("inference.committed", "x",
+            nlohmann::json{{"inference_id", "i" + std::to_string(i)},
+                           {"patient", "pat:alice"}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    auto to = Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}};
+    auto r = l.range_for_patient_in_window("pat:alice", from, to); REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    // seq-ascending invariant.
+    CHECK(r.value()[0].header.seq < r.value()[1].header.seq);
+    CHECK(r.value()[1].header.seq < r.value()[2].header.seq);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    CHECK(b0["inference_id"] == "i3");
+}
+
+TEST_CASE("range_for_patient_in_window edge cases: empty patient, from > to") {
+    auto p = tmp_db("rfpw_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i1"}, {"patient", "pat:alice"}}, ""));
+    auto t1 = Time::now();
+    auto t0 = t1 - std::chrono::nanoseconds{std::chrono::seconds{1}};
+    auto r1 = l.range_for_patient_in_window("", t0, t1);
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.range_for_patient_in_window("pat:alice", t1, t0);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("range_for_patient_in_window filters non-matching patients and event types") {
+    auto p = tmp_db("rfpw_filter");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto t0 = Time::now() - std::chrono::nanoseconds{std::chrono::seconds{1}};
+    REQUIRE(l.append("consent.granted", "x",
+        nlohmann::json{{"patient", "pat:alice"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i1"}, {"patient", "pat:alice"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i2"}, {"patient", "pat:bob"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i3"}, {"patient", "pat:alice"}}, ""));
+    auto t1 = Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}};
+    auto r = l.range_for_patient_in_window("pat:alice", t0, t1); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    CHECK(b0["inference_id"] == "i1");
+    CHECK(b1["inference_id"] == "i3");
+}
+
+// ============== Ledger::events_after_seq ================================
+
+TEST_CASE("events_after_seq returns the tail of the chain after a cursor") {
+    auto p = tmp_db("eas_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 10; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    auto r = l.events_after_seq(7); REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    CHECK(r.value()[0].header.seq == 8);
+    CHECK(r.value()[1].header.seq == 9);
+    CHECK(r.value()[2].header.seq == 10);
+}
+
+TEST_CASE("events_after_seq edge cases: 0, at-tail, past-tail") {
+    auto p = tmp_db("eas_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    // 0 → entire chain.
+    auto r0 = l.events_after_seq(0); REQUIRE(r0);
+    CHECK(r0.value().size() == 5);
+    CHECK(r0.value()[0].header.seq == 1);
+    // At length → empty (caller is caught up).
+    auto r5 = l.events_after_seq(5); REQUIRE(r5);
+    CHECK(r5.value().empty());
+    // Past length → empty (no error).
+    auto r99 = l.events_after_seq(99); REQUIRE(r99);
+    CHECK(r99.value().empty());
+}
+
+TEST_CASE("events_after_seq supports incremental follower replay") {
+    auto p = tmp_db("eas_follower");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 8; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    // Follower sees 0..3 already, then catches up.
+    std::uint64_t cursor = 3;
+    auto delta1 = l.events_after_seq(cursor); REQUIRE(delta1);
+    CHECK(delta1.value().size() == 5);
+    cursor = delta1.value().back().header.seq;
+    CHECK(cursor == 8);
+    // More appends, follower catches up again.
+    for (int i = 8; i < 11; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    auto delta2 = l.events_after_seq(cursor); REQUIRE(delta2);
+    REQUIRE(delta2.value().size() == 3);
+    CHECK(delta2.value()[0].header.seq == 9);
+    CHECK(delta2.value()[2].header.seq == 11);
+}
+
+// ============== Ledger::content_address =================================
+
+TEST_CASE("content_address returns the entry_hash for a given seq") {
+    auto p = tmp_db("ca_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    auto h = l.content_address(2); REQUIRE(h);
+    auto e = l.at(2); REQUIRE(e);
+    CHECK(h.value().hex() == e.value().entry_hash().hex());
+}
+
+TEST_CASE("content_address: out-of-range seq rejected") {
+    auto p = tmp_db("ca_oor");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r0 = l.content_address(0);
+    CHECK(!r0);
+    CHECK(r0.error().code() == ErrorCode::invalid_argument);
+    auto r99 = l.content_address(99);
+    CHECK(!r99);
+    CHECK(r99.error().code() == ErrorCode::invalid_argument);
+    // Empty chain: any seq is out of range.
+    auto p2 = tmp_db("ca_empty");
+    auto l2_ = Ledger::open(p2); REQUIRE(l2_);
+    auto re = l2_.value().content_address(1);
+    CHECK(!re);
+    CHECK(re.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("content_address agrees with head_at_seq.head_hash and chains forward") {
+    auto p = tmp_db("ca_chain");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    for (std::uint64_t s = 1; s <= 5; s++) {
+        auto h = l.content_address(s); REQUIRE(h);
+        auto hs = l.head_at_seq(s); REQUIRE(hs);
+        CHECK(h.value().hex() == hs.value().head_hash.hex());
+    }
+    // The next entry's prev_hash equals content_address(prev seq).
+    for (std::uint64_t s = 2; s <= 5; s++) {
+        auto e = l.at(s); REQUIRE(e);
+        auto prev = l.content_address(s - 1); REQUIRE(prev);
+        CHECK(e.value().header.prev_hash.hex() == prev.value().hex());
+    }
+}

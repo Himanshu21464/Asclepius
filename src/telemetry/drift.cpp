@@ -144,6 +144,68 @@ double Histogram::stddev() const {
     return std::sqrt(var);
 }
 
+double Histogram::variance() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0 || total_ == 1) return 0.0;
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    // Compute mean inline to avoid double-locking mu_.
+    double sum = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        sum += mid * static_cast<double>(counts_[i]);
+    }
+    const double m = sum / static_cast<double>(total_);
+    double var = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        const double d   = mid - m;
+        var += d * d * static_cast<double>(counts_[i]);
+    }
+    return var / static_cast<double>(total_);
+}
+
+double Histogram::iqr() const {
+    // quantile() takes its own lock; check emptiness first under our own
+    // lock to avoid invoking quantile() on an empty histogram (which would
+    // return 0.0 - 0.0 == 0.0 anyway, but the explicit check is cheaper
+    // and matches the documented contract).
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        if (total_ == 0) return 0.0;
+    }
+    return quantile(0.75) - quantile(0.25);
+}
+
+double Histogram::skewness() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ < 2) return 0.0;
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    // Compute mean inline.
+    double sum = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        sum += mid * static_cast<double>(counts_[i]);
+    }
+    const double m = sum / static_cast<double>(total_);
+    // Variance and 3rd central moment in one pass.
+    double m2 = 0.0;
+    double m3 = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        const double d   = mid - m;
+        const double w   = static_cast<double>(counts_[i]);
+        m2 += d * d * w;
+        m3 += d * d * d * w;
+    }
+    const double t = static_cast<double>(total_);
+    const double var = m2 / t;
+    if (var <= 0.0) return 0.0;  // stddev == 0 short-circuit
+    const double sd  = std::sqrt(var);
+    return (m3 / t) / (sd * sd * sd);
+}
+
 double Histogram::min() const {
     std::lock_guard<std::mutex> lk(mu_);
     if (total_ == 0) return lo_;
@@ -412,6 +474,17 @@ DriftMonitor::Summary DriftMonitor::summary() const {
         }
     }
     return s;
+}
+
+bool DriftMonitor::any_severe() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    for (const auto& [_, fs] : features_) {
+        const double psi = Histogram::psi(*fs->reference, *fs->current);
+        if (classify(psi) == DriftSeverity::severe) {
+            return true;
+        }
+    }
+    return false;
 }
 
 Result<std::uint64_t> DriftMonitor::baseline_count(std::string_view feature) const {

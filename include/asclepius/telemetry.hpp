@@ -41,6 +41,20 @@ public:
     // if total()==0 or 1.
     double stddev() const;
 
+    // Empirical population variance (square of stddev). Uses bin
+    // midpoints weighted by counts. Returns 0.0 if total()==0 or 1.
+    double variance() const;
+
+    // Interquartile range = quantile(0.75) - quantile(0.25). Returns
+    // 0.0 on empty histograms.
+    double iqr() const;
+
+    // Normalized 3rd central moment (Pearson's moment skewness):
+    // E[(X - mean)^3] / stddev^3. Positive values indicate a right tail,
+    // negative a left tail, zero a symmetric distribution. Returns 0.0
+    // if stddev == 0 or total() < 2.
+    double skewness() const;
+
     // Lowest bin midpoint that has any count. Returns lo() if the
     // histogram is empty (total()==0). Bin midpoints are computed as
     // lo + bin_w * (i + 0.5).
@@ -190,6 +204,11 @@ public:
     };
     Summary summary() const;
 
+    // True iff any registered feature's current PSI severity classifies
+    // as severe (NaN PSI is treated as severe via classify()). Returns
+    // false on empty monitors. Locked.
+    bool any_severe() const;
+
     // Reset just the current-window histogram for one feature, leaving
     // the reference (baseline) intact. Per-feature variant of rotate(),
     // which clears all features. Returns not_found if the feature was
@@ -286,6 +305,15 @@ public:
     // suitable for diff'ing across two points in time without parsing
     // the prometheus exposition.
     std::unordered_map<std::string, std::uint64_t> counter_snapshot() const;
+
+    // Per-counter delta from a prior counter_snapshot()-shaped baseline.
+    // For every counter currently in this registry, the entry is
+    // (current - baseline_or_0). For every counter present in baseline
+    // but no longer in the registry, the entry is -baseline (a negative
+    // delta indicating the counter was reset/dropped). Used to compute
+    // "what changed since this snapshot." Signed so deltas survive resets.
+    std::unordered_map<std::string, std::int64_t>
+    diff(const std::unordered_map<std::string, std::uint64_t>& baseline) const;
 
 private:
     struct Hist {

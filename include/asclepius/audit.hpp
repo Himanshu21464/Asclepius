@@ -434,6 +434,38 @@ public:
     Result<std::vector<LedgerEntry>>
         range_by_patient(const std::string& patient) const;
 
+    // Last `n` inference-committed entries whose body's "patient" field
+    // matches the supplied PatientId, most-recent-first. Ring-buffer
+    // scan — memory is O(min(n, matches)). Empty patient returns
+    // invalid_argument; n=0 returns the empty vector. Pairs with
+    // range_by_patient (oldest-first, full set) for streaming patient
+    // audit views.
+    Result<std::vector<LedgerEntry>>
+        tail_for_patient(const std::string& patient, std::size_t n) const;
+
+    // Inference-committed entries for a patient whose header.ts falls
+    // in [from, to). Half-open. Seq-ascending. Empty patient or
+    // from > to returns invalid_argument. Combined patient + time
+    // window scan in a single pass for "what inferences ran on this
+    // patient last week?" forensic queries.
+    Result<std::vector<LedgerEntry>>
+        range_for_patient_in_window(const std::string& patient,
+                                    Time from, Time to) const;
+
+    // Entries whose seq > after_seq, in seq-ascending order. Used by
+    // replicas / followers tailing the chain to pull only the deltas
+    // they have not yet observed. after_seq >= length() returns the
+    // empty vector (caller is already caught up). after_seq == 0
+    // returns the entire chain.
+    Result<std::vector<LedgerEntry>>
+        events_after_seq(std::uint64_t after_seq) const;
+
+    // Content-address: return the entry_hash for the entry at `seq`.
+    // seq == 0 or seq > length() returns invalid_argument. Cheap
+    // single-row lookup; the hash is recomputed from the stored
+    // entry rather than read from a cached column.
+    Result<Hash> content_address(std::uint64_t seq) const;
+
     // ---- Subscription ---------------------------------------------------
     //
     // Register a callback that fires after each successful append, on the

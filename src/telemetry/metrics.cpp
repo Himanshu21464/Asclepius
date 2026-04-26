@@ -156,6 +156,30 @@ MetricRegistry::counter_snapshot() const {
     return counters_;
 }
 
+std::unordered_map<std::string, std::int64_t>
+MetricRegistry::diff(const std::unordered_map<std::string, std::uint64_t>& baseline) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::unordered_map<std::string, std::int64_t> out;
+    out.reserve(counters_.size() + baseline.size());
+
+    // Forward pass: every current counter, delta = current - baseline_or_0.
+    for (const auto& [k, v] : counters_) {
+        auto bit = baseline.find(k);
+        const std::int64_t prev = (bit == baseline.end()
+                                   ? 0
+                                   : static_cast<std::int64_t>(bit->second));
+        out[k] = static_cast<std::int64_t>(v) - prev;
+    }
+    // Reverse pass: counters that were in baseline but no longer present
+    // → negative delta equal to -baseline (the counter "disappeared").
+    for (const auto& [k, v] : baseline) {
+        if (counters_.find(k) == counters_.end()) {
+            out[k] = -static_cast<std::int64_t>(v);
+        }
+    }
+    return out;
+}
+
 Result<std::uint64_t> MetricRegistry::histogram_count(std::string_view name) const {
     std::lock_guard<std::mutex> lk(mu_);
     auto it = histograms_.find(std::string{name});

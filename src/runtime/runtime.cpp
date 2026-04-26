@@ -227,6 +227,22 @@ std::string Runtime::head_hash() const {
     return impl_->ledger.head().hex();
 }
 
+LedgerCheckpoint Runtime::self_attest() const {
+    return impl_->ledger.checkpoint();
+}
+
+std::string Runtime::keystore_fingerprint() const {
+    return impl_->ledger.attest().fingerprint;
+}
+
+std::vector<std::string> Runtime::policy_names() const {
+    return impl_->policies.names();
+}
+
+bool Runtime::is_chain_empty() const noexcept {
+    return impl_->ledger.length() == 0;
+}
+
 Result<void> Runtime::install_default_policies() {
     impl_->policies.clear();
     impl_->policies.push(make_phi_scrubber());

@@ -213,6 +213,15 @@ public:
     // record an aborted-inference event.
     bool is_committed() const noexcept;
 
+    // JSON snapshot of the pending ledger_body. Read-only debug
+    // accessor — useful for sidecars that want to inspect what would
+    // be committed before calling commit() (e.g. assert a metadata
+    // key was attached, log the staged status without waiting for the
+    // chain append). Returns an empty object if impl_ is null;
+    // never errors. Independent of commit state — works pre- and
+    // post-commit and reflects whatever is currently staged.
+    nlohmann::json body_snapshot() const;
+
     // True iff run() / run_with_timeout() / run_cancellable() has been
     // called on this handle (regardless of outcome). Distinct from
     // is_committed(): a handle can have run==true and committed==false
@@ -323,6 +332,35 @@ public:
     // ledger_length() — used by sidecars that want to publish the
     // current chain head without juggling Ledger& and Hash types.
     std::string head_hash() const;
+
+    // Sugar over ledger().checkpoint(). Produces a self-contained,
+    // signed beacon of the current chain head (seq + head_hash + ts +
+    // signature) without requiring callers to grab the Ledger&
+    // reference. Used by sidecars publishing periodic external
+    // attestations of the chain — the "self_attest" framing matches
+    // operator vocabulary for "the runtime is signing its own head."
+    LedgerCheckpoint self_attest() const;
+
+    // Sugar over the ledger's signing-key fingerprint (an 8-byte
+    // BLAKE2b hash of the public key, hex-encoded — same shape as
+    // Ledger::Attestation::fingerprint and KeyStore::fingerprint).
+    // Some operators prefer the "keystore" framing when surfacing
+    // this in dashboards and audit reports; this accessor lets
+    // sidecars use that vocabulary without grabbing Ledger&.
+    std::string keystore_fingerprint() const;
+
+    // Sugar over policies().names(). Trivial wrapper for callers that
+    // want the in-order list of registered policy names without
+    // grabbing the PolicyChain& reference (status endpoints, sidecar
+    // dashboards, smoke tests). The returned vector is a copy.
+    std::vector<std::string> policy_names() const;
+
+    // True iff the ledger holds zero entries. Cheap accessor for
+    // "is this a fresh runtime?" probes — sidecars use it to gate
+    // first-boot setup (e.g. install_default_policies, seed initial
+    // consent) without grabbing Ledger&. noexcept; never reads the
+    // backend beyond the existing length() call.
+    bool is_chain_empty() const noexcept;
 
     // Convenience: clear() the policy chain and push the standard
     // production set — make_phi_scrubber() and a reasonable

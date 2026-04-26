@@ -325,6 +325,14 @@
       <dd><pre>Attestation attest()</pre><p>Produces a signed snapshot — head hash, length, key id, timestamp, signature — suitable for posting to a public timestamping service or pinning in a customer&#x27;s git repo. The struct serializes via <code>Attestation::to_json()</code>.</p></dd>
       <dt><code>filter</code></dt>
       <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; filter(std::function&lt;bool(const LedgerEntry&amp;)&gt; predicate, std::size_t limit)</pre><p>Escape hatch for ad-hoc queries. Walks the chain, applies the predicate, returns up to <code>limit</code> matches. The cheaper indexed accessors above should always be preferred when they fit.</p></dd>
+      <dt><code>tail_for_patient</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; tail_for_patient(const PatientId&amp; patient, std::size_t n)</pre><p>Last n entries naming this patient — fast path for the &quot;what did this patient&#x27;s file say last week?&quot; rights workflow without bounding by seq.</p></dd>
+      <dt><code>range_for_patient_in_window</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range_for_patient_in_window(const PatientId&amp; patient, Time from, Time to)</pre><p>Patient-scoped, time-windowed view in one query. The shape that lands a regulator&#x27;s &quot;every event for patient X during March&quot; in one pass.</p></dd>
+      <dt><code>events_after_seq</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; events_after_seq(std::uint64_t after_seq)</pre><p>Strict tail past a known sequence — the cursor primitive for downstream replication, mirrors, and follower verifiers.</p></dd>
+      <dt><code>content_address</code></dt>
+      <dd><pre>Result&lt;Hash&gt; content_address(std::uint64_t seq)</pre><p>The canonical content hash of one entry. Pairs with <code>head_at_seq</code> to reference an event by its bytes alone, independent of file location.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -411,6 +419,14 @@
       <dd><pre>std::vector&lt;ConsentToken&gt; tokens_expiring_within(std::chrono::seconds horizon)</pre><p>Active tokens whose expiry falls inside the next <code>horizon</code>. Drives renewal-reminder workflows ahead of <code>soonest_to_expire</code>.</p></dd>
       <dt><code>summary</code></dt>
       <dd><pre>Summary summary()</pre><p>One-shot snapshot: active / expired / total token counts, distinct patient count, soonest expiry, longest active. Cheap; safe on a status-page hot path.</p></dd>
+      <dt><code>active_purposes_for_patient</code></dt>
+      <dd><pre>std::vector&lt;Purpose&gt; active_purposes_for_patient(const PatientId&amp; patient)</pre><p>Union of purposes currently granted by any unexpired token for one patient. Backs the &quot;what is this AI allowed to do for this person, right now?&quot; UI question.</p></dd>
+      <dt><code>extend_to</code></dt>
+      <dd><pre>Result&lt;void&gt; extend_to(std::string_view token_id, Time absolute_expires_at)</pre><p>Push a token&#x27;s expiry to a fixed wall-clock time, rather than a relative <code>extend()</code>. Useful when renewing tokens to align with policy windows.</p></dd>
+      <dt><code>expired_for_patient</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; expired_for_patient(const PatientId&amp; patient)</pre><p>Only the lapsed tokens for a patient — the audit-trail counterpart to <code>active_tokens_for_patient</code>.</p></dd>
+      <dt><code>dump_state_json</code></dt>
+      <dd><pre>std::string dump_state_json()</pre><p>Full registry state as JSON — every token, active and expired, with grants and timestamps. Snapshot the registry for backup or off-system diff without walking the ledger.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -705,6 +721,8 @@
       <dd><pre>std::optional&lt;Hash&gt; input_hash()</pre><p>BLAKE2b-256 of the post-policy input the model actually saw. <code>nullopt</code> before <code>run</code>. Pairs with <code>output_hash()</code> for content-addressed inference identity.</p></dd>
       <dt><code>output_hash</code></dt>
       <dd><pre>std::optional&lt;Hash&gt; output_hash()</pre><p>BLAKE2b-256 of the post-policy output. <code>nullopt</code> before a successful <code>run</code>. The pair (input_hash, output_hash) is the canonical reproducibility witness.</p></dd>
+      <dt><code>body_snapshot</code></dt>
+      <dd><pre>std::string body_snapshot()</pre><p>JSON-shaped picture of the in-flight inference: id, status, tenant, hashes, policy verdicts, drift observations attached so far. Diagnostic introspection without commit; safe to call mid-run.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -763,6 +781,14 @@
       <dd><pre>std::uint64_t dispatched_inferences()</pre><p>Lifetime count of inferences begun on this Runtime instance — successes, blocks, and aborts together. Pairs with <code>active_inference_count()</code> for queue-depth dashboards.</p></dd>
       <dt><code>system_summary</code></dt>
       <dd><pre>SystemSummary system_summary()</pre><p>Composite snapshot across every component: ledger stats, drift summary, consent summary, metric counts, dispatched inferences, version. The single call a status page actually needs.</p></dd>
+      <dt><code>self_attest</code></dt>
+      <dd><pre>Attestation self_attest()</pre><p>Sign a head snapshot of this runtime&#x27;s ledger with this runtime&#x27;s key — the runtime-level shortcut over <code>ledger().attest()</code>. Pin the result anywhere a third-party timestamp will land.</p></dd>
+      <dt><code>keystore_fingerprint</code></dt>
+      <dd><pre>std::string keystore_fingerprint()</pre><p>16-hex prefix of the public verification key. The string operators read out during a key-rotation ceremony or paste into a status badge.</p></dd>
+      <dt><code>policy_names</code></dt>
+      <dd><pre>std::vector&lt;std::string&gt; policy_names()</pre><p>Names of every policy currently registered on the runtime&#x27;s chain, in evaluation order. Mirrors <code>policies().names()</code> at the runtime level for status pages.</p></dd>
+      <dt><code>is_chain_empty</code></dt>
+      <dd><pre>bool is_chain_empty()</pre><p>True iff the ledger has zero entries. Cheap startup-gate predicate — distinguishes a freshly-opened runtime from one that has already taken traffic.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -819,6 +845,12 @@
       <dd><pre>double max()</pre></dd>
       <dt><code>merge</code></dt>
       <dd><pre>Result&lt;void&gt; merge(const Histogram&amp; other)</pre><p>Bin-wise merge with another histogram of identical shape. Lets you fan out histogram observations across shards and reduce centrally.</p></dd>
+      <dt><code>variance</code></dt>
+      <dd><pre>double variance()</pre><p>Second central moment of the binned distribution — the square of <code>stddev()</code>, surfaced separately because dashboards want both.</p></dd>
+      <dt><code>iqr</code></dt>
+      <dd><pre>double iqr()</pre><p>Interquartile range: <code>quantile(0.75) - quantile(0.25)</code>. Robust spread when the tails are heavy.</p></dd>
+      <dt><code>skewness</code></dt>
+      <dd><pre>double skewness()</pre><p>Fisher-Pearson moment skewness. Negative tail-heavy left, positive tail-heavy right; flags asymmetric drift the PSI bin sum can hide.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -850,6 +882,8 @@
       <dd><pre>Result&lt;void&gt; reset(std::string_view feature)</pre><p>Reset just the current window for one feature; baseline is preserved.</p></dd>
       <dt><code>summary</code></dt>
       <dd><pre>Summary summary()</pre><p>One-shot roll-up across every registered feature: feature count, total observations in current window, count by severity band (none / minor / moderate / severe), and the worst-offender feature. Cheap; safe on a status-page hot path.</p></dd>
+      <dt><code>any_severe</code></dt>
+      <dd><pre>bool any_severe()</pre><p>Cheap predicate — true iff any registered feature is currently in the <code>severe</code> band. Backs the page-the-on-call shortcut without paying for a full <code>report()</code>.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -892,6 +926,8 @@
       <dd><pre>void reset_histograms()</pre><p>Reset only histograms — counters unaffected.</p></dd>
       <dt><code>snapshot_json</code></dt>
       <dd><pre>std::string snapshot_json()</pre><p>JSON-shaped snapshot for export (Prometheus exposition format planned).</p></dd>
+      <dt><code>diff</code></dt>
+      <dd><pre>std::vector&lt;std::pair&lt;std::string, std::int64_t&gt;&gt; diff(const MetricRegistry&amp; baseline)</pre><p>Per-counter delta against another registry. Use to compare two epochs — pre-deploy vs. post-deploy, baseline window vs. current window — without exporting and diffing JSON externally.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>

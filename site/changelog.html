@@ -285,7 +285,42 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.0</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.1</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Patient + window + replication queries.</em> Round 78 lands the
+            shapes operators actually ask for: patient-scoped tails and
+            patient + time-window views in one query, a strict
+            <code>events_after_seq</code> cursor for replicas, and
+            <code>content_address(seq)</code> to reference an entry by its
+            bytes alone. Telemetry grows distribution shape
+            (<code>variance</code> / <code>iqr</code> / <code>skewness</code>),
+            a one-call severe-drift predicate, and counter-registry diffing.
+            Consent gains active-purpose union, fixed-time renewals, an
+            expired-tokens-by-patient view, and a JSON state dump. The
+            runtime exposes <code>self_attest</code>, a stickerable
+            keystore fingerprint, runtime-level policy names, and
+            <code>is_chain_empty</code> for startup gating; <code>Inference</code>
+            adds <code>body_snapshot</code> for mid-run introspection. No
+            on-disk format changes; nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::tail_for_patient(patient, n)</code>, <code>range_for_patient_in_window(patient, from, to)</code> — the regulator&#x27;s &quot;every event for patient X during March&quot; in one call.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::events_after_seq(after_seq)</code> — strict-tail cursor for replicas, mirrors, and follower verifiers.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::content_address(seq)</code> — canonical hash of one entry, independent of file location.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::variance()</code>, <code>iqr()</code>, <code>skewness()</code> — distribution shape beyond mean/stddev; surfaces asymmetric drift the PSI bin sum can hide.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::any_severe()</code> — cheap page-the-on-call predicate without a full <code>report()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::diff(baseline)</code> — per-counter delta against another registry. Compare epochs without exporting and diffing JSON externally.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::active_purposes_for_patient(patient)</code>, <code>extend_to(token, absolute_expires_at)</code>, <code>expired_for_patient(patient)</code>, <code>dump_state_json()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::self_attest()</code>, <code>keystore_fingerprint()</code>, <code>policy_names()</code>, <code>is_chain_empty()</code> — runtime-level shortcuts over the ledger / keystore / policy chain accessors.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::body_snapshot()</code> — JSON-shaped picture of the in-flight inference. Diagnostic introspection without commit.</span></li>
+            <li class="docs"><b>doc</b><span>New <code>/quickstart</code> page — five-minute on-ramp from <code>git clone</code> to <code>ledger verify</code>. <code>/api</code> and <code>/cheatsheet</code> updated.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.0</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Postgres rip; one backend, less drift</em>. The parallel

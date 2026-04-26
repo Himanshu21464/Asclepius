@@ -219,6 +219,35 @@ public:
     // pattern as expire_all_for_patient.
     std::size_t cleanup_expired();
 
+    // Distinct list of purposes that have at least one active (non-revoked,
+    // non-expired) token for `patient`. Sorted by underlying enum value so
+    // callers can diff snapshots over time. Empty if no active grants.
+    // Operator probe: "what can we currently do for this patient?"
+    std::vector<Purpose> active_purposes_for_patient(const PatientId& patient) const;
+
+    // Set the expiry of an existing token to a specific absolute time.
+    // Rejects revoked tokens (denied), unknown ids (not_found), and a
+    // deadline strictly earlier than the existing expires_at
+    // (invalid_argument — shrinking is what revoke is for). Fires the
+    // observer as a granted event, mirroring extend(); the new expiry is
+    // the material change.
+    Result<ConsentToken> extend_to(std::string_view token_id,
+                                   Time             absolute_expires_at);
+
+    // Tokens for `patient` that are not revoked but whose expires_at has
+    // passed. Distinct from active_tokens_for_patient (which excludes
+    // expired) and from tokens_for_patient (which includes everything).
+    // Useful for ops dashboards that want to surface "what just lapsed?"
+    // before cleanup_expired() sweeps it. Order is unspecified.
+    std::vector<ConsentToken> expired_for_patient(const PatientId& patient) const;
+
+    // Full JSON dump of every token for ops debugging and diagnostic
+    // export. Stable schema: {"tokens": [{"token_id", "patient",
+    // "purposes", "issued_at", "expires_at", "revoked"} ...]}. Times are
+    // ISO-8601 strings, purposes are stringified via to_string(Purpose).
+    // Order is unspecified.
+    std::string dump_state_json() const;
+
 private:
     mutable std::mutex                                mu_;
     std::unordered_map<std::string, ConsentToken>    by_id_;

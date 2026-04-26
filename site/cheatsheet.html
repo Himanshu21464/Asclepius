@@ -540,6 +540,27 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 78 <small>patient · window · replication</small></h2>
+      <dl class="pair">
+        <dt><code>tail_for_patient(p, n)</code></dt><dd>last n entries for one patient</dd>
+        <dt><code>range_for_patient_in_window(p, t0, t1)</code></dt><dd>patient + time in one query</dd>
+        <dt><code>events_after_seq(s)</code></dt><dd>cursor for replicas / mirrors</dd>
+        <dt><code>content_address(seq)</code></dt><dd>canonical hash of one entry</dd>
+        <dt><code>hist.variance() · iqr() · skewness()</code></dt><dd>asymmetric drift</dd>
+        <dt><code>drift.any_severe()</code></dt><dd>page-the-on-call predicate</dd>
+        <dt><code>metrics.diff(baseline)</code></dt><dd>epoch-vs-epoch counter delta</dd>
+        <dt><code>active_purposes_for_patient(p)</code></dt><dd>what is permitted, right now</dd>
+        <dt><code>extend_to(token, abs_t)</code></dt><dd>fixed-time renewal</dd>
+        <dt><code>consent.dump_state_json()</code></dt><dd>off-system snapshot</dd>
+        <dt><code>rt.self_attest()</code></dt><dd>signed head shortcut</dd>
+        <dt><code>rt.keystore_fingerprint()</code></dt><dd>16-hex stickerable id</dd>
+        <dt><code>rt.policy_names()</code></dt><dd>chain at runtime level</dd>
+        <dt><code>rt.is_chain_empty()</code></dt><dd>fresh-vs-warm gate</dd>
+        <dt><code>inf.body_snapshot()</code></dt><dd>mid-run JSON introspection</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Where things live</h2>
       <dl class="pair">
         <dt>headers</dt><dd><code>include/asclepius/*.hpp</code></dd>

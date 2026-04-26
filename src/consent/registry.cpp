@@ -3,6 +3,7 @@
 #include "asclepius/consent.hpp"
 
 #include <fmt/core.h>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -411,6 +412,93 @@ Result<ConsentToken> ConsentRegistry::extend(std::string_view     token_id,
     }
     if (obs_copy) obs_copy(Event::granted, snapshot);
     return snapshot;
+}
+
+std::vector<Purpose>
+ConsentRegistry::active_purposes_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::unordered_set<std::uint8_t> seen;
+    std::vector<Purpose> out;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.patient != patient) continue;
+        for (auto p : t.purposes) {
+            auto code = static_cast<std::uint8_t>(p);
+            if (seen.insert(code).second) {
+                out.push_back(p);
+            }
+        }
+    }
+    std::sort(out.begin(), out.end(),
+              [](Purpose a, Purpose b) {
+                  return static_cast<std::uint8_t>(a) <
+                         static_cast<std::uint8_t>(b);
+              });
+    return out;
+}
+
+Result<ConsentToken> ConsentRegistry::extend_to(std::string_view token_id,
+                                                Time absolute_expires_at) {
+    ConsentToken snapshot;
+    Observer     obs_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = by_id_.find(std::string{token_id});
+        if (it == by_id_.end()) {
+            return Error::not_found("consent token not found");
+        }
+        if (it->second.revoked) {
+            return Error::denied("cannot extend a revoked token");
+        }
+        if (absolute_expires_at < it->second.expires_at) {
+            return Error::invalid(
+                "extend_to deadline is earlier than existing expiry");
+        }
+        it->second.expires_at = absolute_expires_at;
+        snapshot  = it->second;
+        obs_copy  = observer_;
+    }
+    if (obs_copy) obs_copy(Event::granted, snapshot);
+    return snapshot;
+}
+
+std::vector<ConsentToken>
+ConsentRegistry::expired_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::vector<ConsentToken> out;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.patient != patient) continue;
+        if (t.expires_at <= now) {
+            out.push_back(t);
+        }
+    }
+    return out;
+}
+
+std::string ConsentRegistry::dump_state_json() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    nlohmann::json tokens = nlohmann::json::array();
+    for (const auto& [_, t] : by_id_) {
+        nlohmann::json purposes = nlohmann::json::array();
+        for (auto p : t.purposes) {
+            purposes.push_back(to_string(p));
+        }
+        tokens.push_back({
+            {"token_id",   t.token_id},
+            {"patient",    std::string{t.patient.str()}},
+            {"purposes",   std::move(purposes)},
+            {"issued_at",  t.issued_at.iso8601()},
+            {"expires_at", t.expires_at.iso8601()},
+            {"revoked",    t.revoked},
+        });
+    }
+    nlohmann::json out;
+    out["tokens"] = std::move(tokens);
+    return out.dump();
 }
 
 std::size_t ConsentRegistry::extend_all_for_patient(const PatientId&     patient,

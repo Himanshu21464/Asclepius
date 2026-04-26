@@ -364,6 +364,12 @@ bool Inference::is_committed() const noexcept {
     return impl_ && impl_->committed;
 }
 
+nlohmann::json Inference::body_snapshot() const {
+    if (!impl_) return nlohmann::json::object();
+    // Deep copy by value so callers can't mutate our pending body.
+    return impl_->ledger_body;
+}
+
 bool Inference::has_run() const noexcept {
     return impl_ && impl_->completed;
 }

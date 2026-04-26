@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T13:00:06Z",
+  "generated_at": "2026-04-26T13:08:34Z",
   "count": 48,
   "pages": [
     {
@@ -157,6 +157,7 @@
         "Threat model TL;DR",
         "What not to expect",
         "Site keyboard shortcuts",
+        "Round 78 patient · window · replication",
         "Where things live"
       ]
     },
@@ -571,34 +572,14 @@
     },
     {
       "url": "quickstart.html",
-      "title": "Quickstart — Asclepius",
-      "description": "From zero to a signed inference in five minutes. C++ · Python · CLI · Docker. The first wrap, the first append, the first verify.",
+      "title": "Quickstart — Asclepius in five minutes",
+      "description": "From git clone to a verified ledger in five minutes. Three commands, one example, one CLI tour, one tiny C++ snippet. The first hands-on for builders.",
       "headings": [
-        "Pick your stack.",
-        "Get the library.",
-        "Open a runtime, push policies.",
-        "Sign one entry.",
-        "Confirm the chain.",
-        "From PyPI.",
-        "Pythonic runtime.",
-        "Context-manager scope.",
-        "One line.",
-        "The asclepius binary.",
-        "Init a ledger.",
-        "Pipe safely.",
-        "One command.",
-        "Multi-arch distroless image.",
-        "Mount a ledger volume.",
-        "Sidecar pattern.",
-        "Same image, verify mode.",
-        "Five things that will trip you up.",
-        "policy chain ordering",
-        "actor scheme prefix",
-        "weights_sha256 changes",
-        "SQLite single writer",
-        "commit() is non-throwing",
-        "HSM optional, recommended",
-        "Five minutes down."
+        "In one minute.",
+        "What you just did.",
+        "Open it up.",
+        "Wrap your own model.",
+        "Where to go next."
       ]
     },
     {

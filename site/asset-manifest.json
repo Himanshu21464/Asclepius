@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T13:00:08Z",
+  "generated_at": "2026-04-26T13:08:39Z",
   "algorithm": "SHA-256",
   "count": 90,
   "files": {
@@ -20,8 +20,8 @@
       "bytes": 18978
     },
     "api.html": {
-      "sha256": "89c567e5e789a3f33cf8e8eeb9b6392333f86a7cfb52bab85f2875dbb7a09a3f",
-      "bytes": 62883
+      "sha256": "a28f456de5090c5e49ee109ad62267945a404cd5230adee17bfaf49e3aac60bd",
+      "bytes": 68010
     },
     "architecture.html": {
       "sha256": "fa4f376af875c541ef212790191e9f183d16856dcc1a8cf699f590a2030f394f",
@@ -100,12 +100,12 @@
       "bytes": 22228
     },
     "changelog.html": {
-      "sha256": "9a01cd565d384523d30b3fd39d922761832c6abdd8b732a43fc79a5abbda60d4",
-      "bytes": 32544
+      "sha256": "c94a7ce3645ddb30f502fae592bac6604b441dad85bc467fde0f46d09e3560ba",
+      "bytes": 36114
     },
     "cheatsheet.html": {
-      "sha256": "2648c93d30987004cf14bf22712b26b5de52f46e670e85ddd3ca4203f53127ec",
-      "bytes": 27259
+      "sha256": "fe1265e97cb863efe1a17690c943485980878484a5f7b376e4e30983435eb2bd",
+      "bytes": 28719
     },
     "colophon.html": {
       "sha256": "0ebb4261654ffa9010c9029a2216f9b87c32b43a2f10e7f7196c62447354b77c",
@@ -184,8 +184,8 @@
       "bytes": 1622
     },
     "index.html": {
-      "sha256": "55ec87846339148d31591cd7103121fcdb708b19eda6245843a409a8d111a8a1",
-      "bytes": 55633
+      "sha256": "a519dddd432ccc49111f2ff729f0bc8bd9422f055228dc8829609ab0fc43c1b5",
+      "bytes": 55981
     },
     "integrations.html": {
       "sha256": "21ba64f427a1dd10cbf63723b1ccbb4033868ee82ea4c3c3d0930869f3a884bf",
@@ -276,8 +276,8 @@
       "bytes": 16278
     },
     "quickstart.html": {
-      "sha256": "9cc33b00ff4b97e4cd41d36c38c4e289ce762e594c97f6053246c05365e96e98",
-      "bytes": 26831
+      "sha256": "c4d49a31d4ebad7bebe2d8bea78e9d5e0374fd474ecdf7306de0e08e955735c3",
+      "bytes": 29646
     },
     "regulator.html": {
       "sha256": "f8481ebf5e6a74ceb0f3b45267440775c0dcff34de68a424e4500f6919d595e3",
@@ -332,7 +332,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "fc02f4de86d8148d56eefe4e78d92bf221271a34d929f0a615ef40f7062b8764",
+      "sha256": "1f2cd3dd83e568a50297bf38f2d8d20aabdb307ea03b5eed141effe6e8cd0168",
       "bytes": 1045
     },
     "styles.css": {
