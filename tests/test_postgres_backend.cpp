@@ -268,6 +268,33 @@ TEST_CASE("[postgres] LedgerMigrator: SQLite → Postgres preserves the chain") 
     std::filesystem::remove(key_path);
 }
 
+TEST_CASE("[postgres] tenant-scoped reads isolate per-tenant data") {
+    if (!pg_available()) return;
+    truncate_pg_ledger();
+
+    auto rt = Runtime::open_uri(pg_uri());
+    REQUIRE(rt);
+
+    nlohmann::json b;
+    REQUIRE(rt.value().ledger().append("t.a", "sys", b, "alpha"));
+    REQUIRE(rt.value().ledger().append("t.b", "sys", b, "alpha"));
+    REQUIRE(rt.value().ledger().append("t.c", "sys", b, "beta"));
+    REQUIRE(rt.value().ledger().append("t.d", "sys", b, ""));
+
+    auto alpha = rt.value().ledger().tail_for_tenant("alpha", 100);
+    REQUIRE(alpha);
+    CHECK(alpha.value().size() == 2);
+    for (const auto& e : alpha.value()) CHECK(e.header.tenant == "alpha");
+
+    auto beta = rt.value().ledger().tail_for_tenant("beta", 100);
+    REQUIRE(beta);
+    CHECK(beta.value().size() == 1);
+
+    auto missing = rt.value().ledger().tail_for_tenant("gamma", 100);
+    REQUIRE(missing);
+    CHECK(missing.value().empty());
+}
+
 TEST_CASE("[postgres] concurrent appends produce a contiguous chain") {
     if (!pg_available()) return;
     truncate_pg_ledger();

@@ -260,6 +260,17 @@ Result<std::vector<LedgerEntry>> Ledger::range_by_time(Time from, Time to) const
                                              to.nanos_since_epoch());
 }
 
+Result<std::vector<LedgerEntry>> Ledger::tail_for_tenant(const std::string& tenant,
+                                                         std::size_t n) const {
+    return impl_->storage->select_tail_for_tenant(tenant, n);
+}
+
+Result<std::vector<LedgerEntry>> Ledger::range_for_tenant(const std::string& tenant,
+                                                          std::uint64_t start,
+                                                          std::uint64_t end) const {
+    return impl_->storage->select_range_for_tenant(tenant, start, end);
+}
+
 Result<void> Ledger::verify() const {
     Hash          expected_prev = Hash::zero();
     std::uint64_t expected_seq  = 1;

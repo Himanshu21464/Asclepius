@@ -124,6 +124,16 @@ public:
     // Read entries by ts_ns in [from, to). Half-open. Index-backed.
     Result<std::vector<LedgerEntry>> range_by_time(Time from, Time to) const;
 
+    // Tenant-scoped reads. Filter to entries whose header.tenant matches
+    // the supplied string. The empty tenant ("") is its own scope; passing
+    // "" returns only those entries, not all entries. Uses an index on
+    // (tenant, seq) for O(log n + k) on each backend.
+    Result<std::vector<LedgerEntry>> tail_for_tenant(const std::string& tenant,
+                                                     std::size_t n) const;
+    Result<std::vector<LedgerEntry>> range_for_tenant(const std::string& tenant,
+                                                      std::uint64_t start,
+                                                      std::uint64_t end) const;
+
     // Verify the entire chain: each entry's prev_hash matches the previous,
     // each signature matches the registered public key, payload_hash matches.
     // Streams through entries one at a time so memory usage is O(1) regardless

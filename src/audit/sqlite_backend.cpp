@@ -37,7 +37,8 @@ constexpr const char* kSchema =
     "  key_id       TEXT    NOT NULL,"
     "  entry_hash   BLOB    NOT NULL"
     ");"
-    "CREATE INDEX IF NOT EXISTS idx_ledger_ts ON asclepius_ledger(ts_ns);";
+    "CREATE INDEX IF NOT EXISTS idx_ledger_ts ON asclepius_ledger(ts_ns);"
+    "CREATE INDEX IF NOT EXISTS idx_ledger_tenant_seq ON asclepius_ledger(tenant, seq);";
 
 constexpr const char* kSelectCols =
     "SELECT seq, ts_ns, prev_hash, payload_hash, actor, event_type, tenant,"
@@ -215,6 +216,40 @@ public:
         }
         sqlite3_bind_int64(st, 1, static_cast<sqlite3_int64>(from_ns));
         sqlite3_bind_int64(st, 2, static_cast<sqlite3_int64>(to_ns));
+        std::vector<LedgerEntry> out;
+        while (sqlite3_step(st) == SQLITE_ROW) out.push_back(row_to_entry(st));
+        sqlite3_finalize(st);
+        return out;
+    }
+
+    Result<std::vector<LedgerEntry>> select_tail_for_tenant(const std::string& tenant,
+                                                            std::size_t n) override {
+        sqlite3_stmt* st = nullptr;
+        std::string sql = std::string{kSelectCols}
+                        + "WHERE tenant = ? ORDER BY seq DESC LIMIT ?;";
+        if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+            return Error::backend(std::string{"sqlite prepare: "} + sqlite3_errmsg(db_));
+        }
+        sqlite3_bind_text (st, 1, tenant.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(st, 2, static_cast<sqlite3_int64>(n));
+        std::vector<LedgerEntry> out;
+        while (sqlite3_step(st) == SQLITE_ROW) out.push_back(row_to_entry(st));
+        sqlite3_finalize(st);
+        return out;
+    }
+
+    Result<std::vector<LedgerEntry>> select_range_for_tenant(const std::string& tenant,
+                                                             std::uint64_t start,
+                                                             std::uint64_t end) override {
+        sqlite3_stmt* st = nullptr;
+        std::string sql = std::string{kSelectCols}
+                        + "WHERE tenant = ? AND seq >= ? AND seq < ? ORDER BY seq ASC;";
+        if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+            return Error::backend(std::string{"sqlite prepare: "} + sqlite3_errmsg(db_));
+        }
+        sqlite3_bind_text (st, 1, tenant.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(st, 2, static_cast<sqlite3_int64>(start));
+        sqlite3_bind_int64(st, 3, static_cast<sqlite3_int64>(end));
         std::vector<LedgerEntry> out;
         while (sqlite3_step(st) == SQLITE_ROW) out.push_back(row_to_entry(st));
         sqlite3_finalize(st);

@@ -55,6 +55,16 @@ public:
     virtual Result<std::vector<LedgerEntry>> select_time_range(std::int64_t from_ns,
                                                                std::int64_t to_ns) = 0;
 
+    // Tenant-scoped reads: same shapes as the unscoped variants but
+    // filter to a specific tenant. The "" tenant (default for entries
+    // without a configured tenant) is its own scope; passing "" returns
+    // only those entries, never all entries.
+    virtual Result<std::vector<LedgerEntry>> select_tail_for_tenant(const std::string& tenant,
+                                                                    std::size_t n) = 0;
+    virtual Result<std::vector<LedgerEntry>> select_range_for_tenant(const std::string& tenant,
+                                                                     std::uint64_t start,
+                                                                     std::uint64_t end) = 0;
+
     // Streaming visit of the entire chain in seq ASC. Stops if the visitor
     // returns false. Lets verify() and large exports skip materialising the
     // whole chain in memory.

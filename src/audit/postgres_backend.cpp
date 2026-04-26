@@ -51,7 +51,8 @@ constexpr const char* kSchemaSql =
     "  key_id       TEXT    NOT NULL,"
     "  entry_hash   BYTEA   NOT NULL"
     ");"
-    "CREATE INDEX IF NOT EXISTS idx_asc_ledger_ts ON asclepius_ledger(ts_ns);";
+    "CREATE INDEX IF NOT EXISTS idx_asc_ledger_ts ON asclepius_ledger(ts_ns);"
+    "CREATE INDEX IF NOT EXISTS idx_asc_ledger_tenant_seq ON asclepius_ledger(tenant, seq);";
 
 constexpr const char* kSelectCols =
     "SELECT seq, ts_ns, prev_hash, payload_hash, actor, event_type, tenant,"
@@ -273,6 +274,41 @@ public:
         std::string sql = std::string{kSelectCols}
                         + "WHERE ts_ns >= $1 AND ts_ns < $2 ORDER BY seq ASC;";
         return run_select(sql, 2, values, lengths, formats);
+    }
+
+    Result<std::vector<LedgerEntry>> select_tail_for_tenant(const std::string& tenant,
+                                                            std::size_t n) override {
+        std::int64_t lim_be;
+        {
+            auto u = htobe64(static_cast<std::uint64_t>(n));
+            std::memcpy(&lim_be, &u, sizeof(lim_be));
+        }
+        const char* values[2] = {
+            tenant.c_str(),
+            reinterpret_cast<const char*>(&lim_be),
+        };
+        int lengths[2] = { static_cast<int>(tenant.size()), sizeof(lim_be) };
+        int formats[2] = { 0, 1 };
+        std::string sql = std::string{kSelectCols}
+                        + "WHERE tenant = $1 ORDER BY seq DESC LIMIT $2;";
+        return run_select(sql, 2, values, lengths, formats);
+    }
+
+    Result<std::vector<LedgerEntry>> select_range_for_tenant(const std::string& tenant,
+                                                             std::uint64_t start,
+                                                             std::uint64_t end) override {
+        std::uint64_t s_be = htobe64(start);
+        std::uint64_t e_be = htobe64(end);
+        const char* values[3] = {
+            tenant.c_str(),
+            reinterpret_cast<const char*>(&s_be),
+            reinterpret_cast<const char*>(&e_be),
+        };
+        int lengths[3] = { static_cast<int>(tenant.size()), sizeof(s_be), sizeof(e_be) };
+        int formats[3] = { 0, 1, 1 };
+        std::string sql = std::string{kSelectCols}
+                        + "WHERE tenant = $1 AND seq >= $2 AND seq < $3 ORDER BY seq ASC;";
+        return run_select(sql, 3, values, lengths, formats);
     }
 
     Result<void> for_each(std::function<bool(const LedgerEntry&)> visitor) override {

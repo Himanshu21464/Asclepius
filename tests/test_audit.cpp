@@ -141,3 +141,65 @@ TEST_CASE("KeyStore serialize/deserialize round-trips") {
     REQUIRE(k2);
     CHECK(k2.value().key_id() == k.key_id());
 }
+
+TEST_CASE("range_by_time covers entries within a window") {
+    auto p   = tmp_db("time_range");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto& l  = led.value();
+
+    Time t0 = Time::now() - std::chrono::seconds{1};
+    nlohmann::json b;
+    REQUIRE(l.append("t.a", "sys", b));
+    REQUIRE(l.append("t.b", "sys", b));
+    REQUIRE(l.append("t.c", "sys", b));
+    Time t1 = Time::now() + std::chrono::seconds{1};
+
+    auto in_window = l.range_by_time(t0, t1);
+    REQUIRE(in_window);
+    CHECK(in_window.value().size() == 3);
+
+    auto future = l.range_by_time(t1 + std::chrono::hours{1}, t1 + std::chrono::hours{2});
+    REQUIRE(future);
+    CHECK(future.value().empty());
+}
+
+TEST_CASE("Tenant-scoped reads isolate per-tenant data") {
+    auto p   = tmp_db("tenant_iso");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto& l  = led.value();
+
+    nlohmann::json b;
+    REQUIRE(l.append("t.a", "sys", b, "alpha"));
+    REQUIRE(l.append("t.b", "sys", b, "alpha"));
+    REQUIRE(l.append("t.c", "sys", b, "beta"));
+    REQUIRE(l.append("t.d", "sys", b, ""));   // default tenant
+
+    CHECK(l.length() == 4);
+
+    auto alpha = l.tail_for_tenant("alpha", 100);
+    REQUIRE(alpha);
+    CHECK(alpha.value().size() == 2);
+    for (const auto& e : alpha.value()) CHECK(e.header.tenant == "alpha");
+
+    auto beta = l.tail_for_tenant("beta", 100);
+    REQUIRE(beta);
+    CHECK(beta.value().size() == 1);
+    CHECK(beta.value()[0].header.tenant == "beta");
+
+    auto def = l.tail_for_tenant("", 100);
+    REQUIRE(def);
+    CHECK(def.value().size() == 1);
+    CHECK(def.value()[0].header.tenant == "");
+
+    auto missing = l.tail_for_tenant("gamma", 100);
+    REQUIRE(missing);
+    CHECK(missing.value().empty());
+
+    // range_for_tenant filters too.
+    auto alpha_range = l.range_for_tenant("alpha", 1, 5);
+    REQUIRE(alpha_range);
+    CHECK(alpha_range.value().size() == 2);
+    for (const auto& e : alpha_range.value()) CHECK(e.header.tenant == "alpha");
+}
