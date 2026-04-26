@@ -152,6 +152,38 @@ Result<void> Inference::commit() {
     return Result<void>::ok();
 }
 
+Result<void> Inference::commit_idempotent(std::size_t lookback) {
+    if (!impl_->completed) {
+        return Error::invalid("inference.commit_idempotent called before run");
+    }
+    if (impl_->committed) {
+        return Result<void>::ok();
+    }
+
+    // Scan the last `lookback` entries for a prior commit of THIS
+    // inference_id. The substrate's body is canonical-JSON so a
+    // straight string-search for `"inference_id":"<id>"` is sound and
+    // dramatically cheaper than json::parse on each entry.
+    const std::string my_id = std::string{impl_->ctx.id()};
+    const std::string needle = "\"inference_id\":\"" + my_id + "\"";
+
+    auto tail = impl_->rt->ledger().tail(lookback);
+    if (!tail) return tail.error();
+    for (const auto& prior : tail.value()) {
+        if (prior.header.event_type != "inference.committed") continue;
+        if (prior.body_json.find(needle) != std::string::npos) {
+            // Found a prior commit for the same inference_id — treat
+            // this handle as already committed; do not re-append.
+            impl_->committed = true;
+            impl_->rt->metrics().inc("inference.idempotent_dedupe");
+            return Result<void>::ok();
+        }
+    }
+
+    // Not seen — fall through to a normal commit.
+    return commit();
+}
+
 Result<void> Inference::capture_override(std::string rationale, nlohmann::json corrected) {
     if (!impl_->committed) {
         // Allow override capture even before commit; we'll auto-commit on

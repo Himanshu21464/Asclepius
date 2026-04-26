@@ -95,9 +95,19 @@ public:
     // model output, or an error if any policy blocked or the model failed.
     Result<std::string> run(std::string input, const ModelCallback& model_call);
 
-    // Commit the inference to the ledger. Idempotent. After commit, drift
-    // observations are flushed and ground-truth/override hooks remain valid.
+    // Commit the inference to the ledger. Idempotent within the lifetime
+    // of this Inference handle (calling commit() twice on the same handle
+    // is a no-op). After commit, drift observations are flushed and
+    // ground-truth/override hooks remain valid.
     Result<void> commit();
+
+    // Cross-handle idempotent commit. Scans the last `lookback` ledger
+    // entries for one with a matching inference_id; if found, marks this
+    // handle as committed WITHOUT inserting a duplicate and returns ok.
+    // Use this when the caller cannot guarantee a single Inference handle
+    // per logical inference (e.g. stateless retry layer, process restart).
+    // Cost: one Ledger::tail(lookback) call per commit; bounded.
+    Result<void> commit_idempotent(std::size_t lookback = 200);
 
     // Capture a clinician override of the model's output. Stored with the
     // inference id so prospective evaluation can join later.
