@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Quickstart — Asclepius</title>
+<meta name="description" content="From zero to a signed inference in five minutes. C++ · Python · CLI · Docker. The first wrap, the first append, the first verify.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/quickstart.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Quickstart">
+<meta property="og:description"  content="From zero to a signed inference in five minutes.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.qs-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.qs-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.qs-hero h1 i { color: var(--primary); font-style: italic; }
+.qs-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.qs-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.qs-clock {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: .6rem; margin: 1.6rem 0 0;
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .04em;
+}
+.qs-clock__cell {
+    padding: .6rem .8rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    color: var(--ink-mute);
+}
+.qs-clock__cell b { display: block; color: var(--primary); font-weight: 500; font-size: 1.1rem; margin-bottom: .15rem; font-family: var(--font-serif); }
+.qs-clock__cell.is-now { border-color: var(--primary); background: rgba(181,123,255,.05); }
+
+.qs-tabs {
+    display: flex; gap: 0;
+    margin: 2rem 0 0;
+    border-bottom: 1px solid var(--rule);
+    flex-wrap: wrap;
+}
+.qs-tabs button {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-mute);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: .7rem 1.2rem;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+    margin-bottom: -1px;
+}
+.qs-tabs button:hover { color: var(--ink-warm); }
+.qs-tabs button.is-active { color: var(--primary); border-bottom-color: var(--primary); }
+
+.qs-pane { display: none; padding-top: 2rem; }
+.qs-pane.is-active { display: block; }
+
+.qs-step {
+    margin: 1rem 0;
+    padding: 1.2rem 1.4rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--primary);
+    border-radius: 6px;
+}
+.qs-step__num {
+    display: inline-block;
+    padding: .15rem .55rem;
+    background: var(--primary);
+    color: var(--bg);
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    border-radius: 3px;
+    margin-bottom: .6rem;
+}
+.qs-step h3 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: 1.4rem;
+    line-height: 1.2;
+    color: var(--ink-warm);
+    margin: 0 0 .6rem;
+}
+.qs-step h3 i { color: var(--primary); font-style: italic; }
+.qs-step p {
+    margin: 0 0 .8em;
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    color: var(--ink);
+    font-size: .98rem;
+}
+.qs-step p:last-child { margin-bottom: 0; }
+.qs-step em { color: var(--ink-warm); font-style: italic; }
+.qs-step code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.qs-code {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    font-family: var(--font-mono);
+    font-size: .82rem; line-height: 1.65;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 4;
+    margin: .8rem 0;
+}
+.qs-code .k { color: var(--primary); }
+.qs-code .s { color: #34D399; }
+.qs-code .n { color: #F4B860; }
+.qs-code .c { color: var(--ink-faint); font-style: italic; }
+.qs-code .t { color: #7DD3FC; }
+
+.qs-out {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-left: 2px solid #34D399;
+    border-radius: 6px;
+    padding: .8rem 1rem;
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    line-height: 1.6;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    margin: .6rem 0;
+}
+.qs-out::before {
+    content: 'expected output';
+    display: block;
+    font-size: .62rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #34D399;
+    margin-bottom: .4rem;
+}
+
+.qs-pitfalls {
+    margin: 4rem 0;
+    padding: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+}
+.qs-pitfalls h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.4rem); margin: 0 0 1rem; color: var(--ink-warm); }
+.qs-pitfalls h2 i { color: var(--primary); font-style: italic; }
+.qs-pitfalls__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.qs-pit {
+    padding: 1rem 1.1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-left: 2px solid #F4B860;
+    border-radius: 6px;
+}
+.qs-pit h3 {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #F4B860;
+    margin: 0 0 .5rem;
+}
+.qs-pit p { font-family: var(--font-prose); font-size: .92rem; line-height: 1.55; color: var(--ink); margin: 0; }
+.qs-pit code { font-family: var(--font-mono); font-size: .88em; padding: .04em .3em; background: var(--bg); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.qs-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.qs-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.qs-coda h2 i { color: var(--primary); font-style: italic; }
+.qs-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.qs-coda .qs-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.qs-coda .qs-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.qs-coda .qs-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",       "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Quickstart", "item": "https://asclepius.health/quickstart.html" }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Quickstart — first signed inference in five minutes",
+  "totalTime": "PT5M",
+  "step": [
+    { "@type": "HowToStep", "name": "Install",       "text": "Install Asclepius via your package manager of choice." },
+    { "@type": "HowToStep", "name": "Initialise",    "text": "Open a runtime against a fresh ledger; push the default policy chain." },
+    { "@type": "HowToStep", "name": "Wrap",          "text": "Wrap a single inference; the substrate signs and appends the entry." },
+    { "@type": "HowToStep", "name": "Verify",        "text": "Run verify_chain to confirm the ledger is intact." }
+  ]
+}
+</script>
+</head>
+<body class="page-quickstart">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="quickstart.html" class="is-active" aria-current="page">quickstart</a>
+      <a href="docs.html">docs</a>
+      <a href="api.html">API</a>
+      <a href="integrations.html">integrations</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="qs-hero">
+  <div class="container">
+    <span class="kbd">§01 · five minutes · pick your stack</span>
+    <h1>From zero to a <i>signed inference.</i></h1>
+    <p>
+      Install Asclepius, open a runtime, push a policy chain, wrap one
+      inference, verify the chain. Five minutes, four steps, four stacks. By
+      the end you have a SQLite ledger with one signed entry and a verify
+      command that prints <code>✓ chain ok · 1 entries</code>. <em>That is
+      the substrate working.</em>
+    </p>
+
+    <div class="qs-clock" aria-label="time budget">
+      <div class="qs-clock__cell is-now"><b>1m</b>install</div>
+      <div class="qs-clock__cell"><b>1m</b>open + chain</div>
+      <div class="qs-clock__cell"><b>2m</b>wrap inference</div>
+      <div class="qs-clock__cell"><b>1m</b>verify</div>
+    </div>
+  </div>
+</section>
+
+<section class="container">
+  <div class="qs-tabs" role="tablist" aria-label="quickstart stack">
+    <button role="tab" class="is-active" data-pane="qs-cpp">C++</button>
+    <button role="tab" data-pane="qs-py">Python</button>
+    <button role="tab" data-pane="qs-cli">CLI</button>
+    <button role="tab" data-pane="qs-docker">Docker</button>
+  </div>
+
+  <!-- ─────────── C++ ─────────── -->
+  <div id="qs-cpp" class="qs-pane is-active" role="tabpanel">
+    <div class="qs-step">
+      <span class="qs-step__num">step 1 · install</span>
+      <h3>Get the <i>library.</i></h3>
+      <p>Asclepius ships as a CMake-friendly C++20 library with libsodium and SQLite as the only required dependencies.</p>
+<pre class="qs-code"><span class="c"># Linux (Ubuntu 24.04 +):</span>
+sudo apt install <span class="s">libasclepius-dev</span>
+<span class="c"># or via FetchContent in your project's CMakeLists:</span>
+FetchContent_Declare(asclepius
+    GIT_REPOSITORY <span class="s">https://github.com/Himanshu21464/Asclepius.git</span>
+    GIT_TAG        <span class="s">v0.1.0</span>)
+FetchContent_MakeAvailable(asclepius)
+target_link_libraries(myapp <span class="t">PRIVATE</span> asclepius::asclepius)</pre>
+    </div>
+
+    <div class="qs-step">
+      <span class="qs-step__num">step 2 · open + chain</span>
+      <h3>Open a runtime, push <i>policies.</i></h3>
+      <p>The runtime owns one ledger. Policies are pushed in execution order.</p>
+<pre class="qs-code"><span class="k">#include</span> <span class="s">&lt;asclepius/asclepius.hpp&gt;</span>
+
+<span class="t">asc::Runtime</span> rt = <span class="t">asc::Runtime</span>::open(<span class="s">"./asclepius.db"</span>).value();
+rt.policies().push(<span class="t">asc::policy</span>::PhiScrub::v4());
+rt.policies().push(<span class="t">asc::policy</span>::SchemaTranscript::v2());
+rt.policies().push(<span class="t">asc::policy</span>::Length::v1(<span class="n">8192</span>));</pre>
+    </div>
+
+    <div class="qs-step">
+      <span class="qs-step__num">step 3 · wrap an inference</span>
+      <h3>Sign one <i>entry.</i></h3>
+      <p>The model lives <em>inside</em> the inference scope. Asclepius scrubs the input, runs your model, signs the output.</p>
+<pre class="qs-code"><span class="k">auto</span> inf = rt.begin_inference({.actor=<span class="s">"clin:dr_marisol"</span>,
+                                .patient=<span class="t">PatientId</span>(<span class="s">"pt:demo"</span>),
+                                .model={<span class="s">"scribe-v3"</span>, <span class="s">"6a0f…e2"</span>},
+                                .purpose=<span class="t">asc::Purpose</span>::Scribe});
+<span class="k">auto</span> safe = inf.policy_chain(transcript);
+<span class="k">auto</span> note = my_scribe::transcribe(safe);
+<span class="k">auto</span> [seq, sig] = inf.commit(note);
+
+std::cout &lt;&lt; <span class="s">"committed seq="</span> &lt;&lt; seq &lt;&lt; <span class="s">"\n"</span>;</pre>
+    </div>
+
+    <div class="qs-step">
+      <span class="qs-step__num">step 4 · verify</span>
+      <h3>Confirm the <i>chain.</i></h3>
+<pre class="qs-code"><span class="k">auto</span> r = rt.ledger().verify();
+<span class="k">if</span> (r.ok()) std::cout &lt;&lt; <span class="s">"✓ chain ok · "</span> &lt;&lt; r.value().count &lt;&lt; <span class="s">" entries\n"</span>;
+<span class="k">else</span>        std::cerr &lt;&lt; <span class="s">"✗ chain broken: "</span> &lt;&lt; r.error().message &lt;&lt; <span class="s">"\n"</span>;</pre>
+      <div class="qs-out">✓ chain ok · 1 entries</div>
+    </div>
+  </div>
+
+  <!-- ─────────── Python ─────────── -->
+  <div id="qs-py" class="qs-pane" role="tabpanel">
+    <div class="qs-step">
+      <span class="qs-step__num">step 1 · install</span>
+      <h3>From <i>PyPI.</i></h3>
+<pre class="qs-code">pip install <span class="s">asclepius</span></pre>
+      <p>Wheels for cp 3.10–3.13 on manylinux_2_28, macOS arm64, and Windows x86-64. <em>libsodium and SQLite are vendored</em>; no system packages needed.</p>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 2 · open + chain</span>
+      <h3>Pythonic <i>runtime.</i></h3>
+<pre class="qs-code"><span class="k">import</span> asclepius <span class="k">as</span> asc
+
+rt = asc.Runtime.open(<span class="s">"./asclepius.db"</span>)
+rt.policies.push(asc.policy.phi_scrub_v4())
+rt.policies.push(asc.policy.schema_transcript_v2())
+rt.policies.push(asc.policy.length_v1(<span class="n">8192</span>))</pre>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 3 · wrap an inference</span>
+      <h3>Context-manager <i>scope.</i></h3>
+<pre class="qs-code"><span class="k">with</span> rt.begin_inference(actor=<span class="s">"clin:dr_marisol"</span>,
+                        patient=<span class="s">"pt:demo"</span>,
+                        model=(<span class="s">"scribe-v3"</span>, weights_sha256),
+                        purpose=asc.Purpose.Scribe) <span class="k">as</span> inf:
+    safe = inf.policy_chain(transcript)
+    note = my_scribe.transcribe(safe)
+    seq, sig = inf.commit(note)
+
+<span class="k">print</span>(<span class="s">f"committed seq={seq}"</span>)</pre>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 4 · verify</span>
+      <h3>One <i>line.</i></h3>
+<pre class="qs-code">r = rt.ledger.verify()
+<span class="k">print</span>(<span class="s">"✓ chain ok"</span> <span class="k">if</span> r.ok <span class="k">else</span> <span class="s">f"✗ {r.error}"</span>)</pre>
+      <div class="qs-out">✓ chain ok · 1 entries</div>
+    </div>
+  </div>
+
+  <!-- ─────────── CLI ─────────── -->
+  <div id="qs-cli" class="qs-pane" role="tabpanel">
+    <div class="qs-step">
+      <span class="qs-step__num">step 1 · install</span>
+      <h3>The <code>asclepius</code> <i>binary.</i></h3>
+<pre class="qs-code"><span class="c"># Linux:</span>
+curl -L https://github.com/Himanshu21464/Asclepius/releases/latest/download/asclepius-linux-x86_64.tar.zst \
+   | tar -I zstd -x -C /usr/local/bin
+<span class="c"># macOS arm64:</span>
+brew install asclepius-ai/tap/asclepius</pre>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 2 · open + chain</span>
+      <h3>Init a <i>ledger.</i></h3>
+<pre class="qs-code">asclepius ledger init <span class="s">./asclepius.db</span>
+asclepius policy push <span class="s">phi.v4 schema.transcript.v2 length.v1=8192</span></pre>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 3 · wrap an inference</span>
+      <h3>Pipe <i>safely.</i></h3>
+<pre class="qs-code">asclepius wrap \
+    --actor   <span class="s">clin:dr_marisol</span> \
+    --patient <span class="s">pt:demo</span> \
+    --model   <span class="s">scribe-v3:6a0f…e2</span> \
+    --purpose <span class="s">scribe</span> \
+    --in  <span class="s">transcript.txt</span> \
+    --out <span class="s">soap.txt</span> \
+    --cmd <span class="s">"my_scribe --read /dev/stdin"</span></pre>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 4 · verify</span>
+      <h3>One <i>command.</i></h3>
+<pre class="qs-code">asclepius ledger verify <span class="s">./asclepius.db</span></pre>
+      <div class="qs-out">✓ chain ok · 1 entries · root blake2b:1d2e…</div>
+    </div>
+  </div>
+
+  <!-- ─────────── Docker ─────────── -->
+  <div id="qs-docker" class="qs-pane" role="tabpanel">
+    <div class="qs-step">
+      <span class="qs-step__num">step 1 · install</span>
+      <h3>Multi-arch <i>distroless image.</i></h3>
+<pre class="qs-code">docker pull <span class="s">ghcr.io/Himanshu21464/Asclepius:0.1.0</span></pre>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 2 · open + chain</span>
+      <h3>Mount a <i>ledger volume.</i></h3>
+<pre class="qs-code">docker volume create asclepius-db
+docker run --rm \
+    -v asclepius-db:/var/asclepius \
+    ghcr.io/Himanshu21464/Asclepius:0.1.0 \
+    ledger init <span class="s">/var/asclepius/asclepius.db</span></pre>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 3 · wrap an inference</span>
+      <h3>Sidecar <i>pattern.</i></h3>
+<pre class="qs-code">docker run -d --name asc \
+    -p <span class="n">9090</span>:9090 \
+    -v asclepius-db:/var/asclepius \
+    ghcr.io/Himanshu21464/Asclepius:0.1.0 \
+    svc --port <span class="n">9090</span> --db /var/asclepius/asclepius.db
+
+curl -X POST http://localhost:9090/v1/wrap -H <span class="s">"content-type: application/json"</span> \
+    -d <span class="s">@bundle.json</span></pre>
+    </div>
+    <div class="qs-step">
+      <span class="qs-step__num">step 4 · verify</span>
+      <h3>Same <i>image, verify mode.</i></h3>
+<pre class="qs-code">docker exec asc asclepius ledger verify /var/asclepius/asclepius.db</pre>
+      <div class="qs-out">✓ chain ok · 1 entries · root blake2b:1d2e…</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────── pitfalls ─────────── -->
+<section class="container">
+  <div class="qs-pitfalls">
+    <h2>Five things that will <i>trip you up.</i></h2>
+    <p style="margin: 0 0 1.4rem; font-family: var(--font-prose); line-height: 1.6; color: var(--ink-mute); max-width: 64ch;">
+      The substrate is small but opinionated. These are the patterns that
+      reliably waste the first hour. Read them before you debug — most
+      problems are one of these.
+    </p>
+    <div class="qs-pitfalls__grid">
+      <div class="qs-pit">
+        <h3>policy chain ordering</h3>
+        <p>Policies run in the order pushed. <code>PhiScrub</code> must come <em>before</em> any policy that hashes input — otherwise the hash binds to PHI bytes that should never have been hashed.</p>
+      </div>
+      <div class="qs-pit">
+        <h3>actor scheme prefix</h3>
+        <p>Actor ids must match <code>(clin|svc|sys|agent):name</code>. <em>Plain strings are rejected.</em> See <a href="schemas/audit-entry.v1.json">audit-entry schema</a>.</p>
+      </div>
+      <div class="qs-pit">
+        <h3>weights_sha256 changes</h3>
+        <p>If your model's weights file changes byte-for-byte, the hash changes and that is recorded — see <a href="threat-tabletop.html#tt-03">TT-03</a>. Always pin and verify in production.</p>
+      </div>
+      <div class="qs-pit">
+        <h3>SQLite single writer</h3>
+        <p>One writer per ledger. Two processes opening the same DB will deadlock on append. <em>The runtime is a long-lived handle</em>; share it via your service framework.</p>
+      </div>
+      <div class="qs-pit">
+        <h3>commit() is non-throwing</h3>
+        <p>Returns <code>Result&lt;Committed, Error&gt;</code>. Check <code>.ok()</code>. Letting the result destruct without inspection is a build warning; <em>don't ignore it</em>.</p>
+      </div>
+      <div class="qs-pit">
+        <h3>HSM optional, recommended</h3>
+        <p>The default keystore is on-disk for development. <em>For production</em>, point <code>KeyStore</code> at an HSM-backed implementation — see <a href="deploy.html">deploy</a> · PB-02.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="qs-coda">
+    <h2>Five minutes <i>down.</i></h2>
+    <p>
+      You have one signed entry, a verifiable chain, a reproducible setup.
+      From here: pick the integration recipe that matches your shape, read
+      the API reference for the type signatures, or wire the CLI into your
+      pipeline. <em>The substrate is yours.</em>
+    </p>
+    <div class="qs-coda__links">
+      <a href="integrations.html">integrations →</a>
+      <a href="api.html">API reference</a>
+      <a href="docs.html">full docs</a>
+      <a href="demo.html">in-browser playground</a>
+      <a href="deploy.html">deploy guide</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>start</b>
+        <a href="quickstart.html">quickstart</a>
+        <a href="integrations.html">integrations</a>
+        <a href="demo.html">playground</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">docs</a>
+        <a href="api.html">API reference</a>
+        <a href="spec.html">spec</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/Himanshu21464/Asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="cheatsheet.html">cheatsheet</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+    'use strict';
+    document.querySelectorAll('.qs-tabs button[data-pane]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.pane;
+            document.querySelectorAll('.qs-tabs button').forEach((b) => b.classList.remove('is-active'));
+            document.querySelectorAll('.qs-pane').forEach((p) => p.classList.remove('is-active'));
+            btn.classList.add('is-active');
+            const pane = document.getElementById(target);
+            if (pane) pane.classList.add('is-active');
+        });
+    });
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

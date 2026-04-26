@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-26T07:01:52Z",
-  "count": 46,
+  "generated_at": "2026-04-26T07:11:23Z",
+  "count": 47,
   "pages": [
     {
       "url": "accessibility.html",
@@ -535,6 +535,37 @@
         "Substrate, not SaaS.",
         "Specific over clever.",
         "Patients, not dashboards."
+      ]
+    },
+    {
+      "url": "quickstart.html",
+      "title": "Quickstart — Asclepius",
+      "description": "From zero to a signed inference in five minutes. C++ · Python · CLI · Docker. The first wrap, the first append, the first verify.",
+      "headings": [
+        "Get the library.",
+        "Open a runtime, push policies.",
+        "Sign one entry.",
+        "Confirm the chain.",
+        "From PyPI.",
+        "Pythonic runtime.",
+        "Context-manager scope.",
+        "One line.",
+        "The asclepius binary.",
+        "Init a ledger.",
+        "Pipe safely.",
+        "One command.",
+        "Multi-arch distroless image.",
+        "Mount a ledger volume.",
+        "Sidecar pattern.",
+        "Same image, verify mode.",
+        "Five things that will trip you up.",
+        "policy chain ordering",
+        "actor scheme prefix",
+        "weights_sha256 changes",
+        "SQLite single writer",
+        "commit() is non-throwing",
+        "HSM optional, recommended",
+        "Five minutes down."
       ]
     },
     {

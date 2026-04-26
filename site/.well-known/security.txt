@@ -1,6 +1,6 @@
 # Asclepius — security contact (RFC 9116)
 Contact: mailto:security@asclepius.health
-Contact: https://github.com/asclepius-ai/asclepius/security/advisories
+Contact: https://github.com/Himanshu21464/Asclepius/security/advisories
 Expires: 2027-04-25T00:00:00Z
 Encryption: https://asclepius.health/assets/pgp.asc
 Preferred-Languages: en

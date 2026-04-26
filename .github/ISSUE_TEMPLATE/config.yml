@@ -7,5 +7,5 @@ contact_links:
     url: https://asclepius.health/docs.html
     about: Architecture, spec, threat model.
   - name: GitHub Discussions
-    url: https://github.com/asclepius-ai/asclepius/discussions
+    url: https://github.com/Himanshu21464/Asclepius/discussions
     about: Questions, design conversations, sharing how you wired Asclepius into your stack.

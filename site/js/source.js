@@ -9,7 +9,7 @@
 (() => {
     'use strict';
 
-    const REPO_BASE = 'https://github.com/asclepius-ai/asclepius/edit/main';
+    const REPO_BASE = 'https://github.com/Himanshu21464/Asclepius/edit/main';
 
     // pages that are auto-rendered from /docs/*.md should edit the markdown
     const MD_SOURCED = {

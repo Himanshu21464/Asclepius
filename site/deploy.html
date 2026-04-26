@@ -157,7 +157,7 @@
         <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
         <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
       </button>
-      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
     </div>
   </div>
   <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
@@ -201,7 +201,7 @@
 <h2 id="dev">Development.</h2>
 <p>One command. SQLite-backed ledger, fresh signing key generated on first run, key written to a sidecar file with mode <code>0600</code>.</p>
 
-<pre><code>git clone https://github.com/asclepius-ai/asclepius
+<pre><code>git clone https://github.com/Himanshu21464/Asclepius
 cd asclepius
 
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -258,12 +258,12 @@ volumes:
 </div>
 
 <h2 id="sidecar">Sidecar (gRPC).</h2>
-<p>Hosts that don't link <code>libasclepius</code> directly — Java, Go, .NET, internal-language apps — talk to the sidecar via gRPC. The wire format is in <a href="https://github.com/asclepius-ai/asclepius/blob/main/proto/asclepius/v1/sidecar.proto"><code>proto/asclepius/v1/sidecar.proto</code></a>.</p>
+<p>Hosts that don't link <code>libasclepius</code> directly — Java, Go, .NET, internal-language apps — talk to the sidecar via gRPC. The wire format is in <a href="https://github.com/Himanshu21464/Asclepius/blob/main/proto/asclepius/v1/sidecar.proto"><code>proto/asclepius/v1/sidecar.proto</code></a>.</p>
 
 <pre><code class="lang-go">// Go example, using the generated stub
 import (
     "context"
-    pb "github.com/asclepius-ai/asclepius-go/v1"
+    pb "github.com/Himanshu21464/Asclepius-go/v1"
     "google.golang.org/grpc"
 )
 
@@ -385,7 +385,7 @@ spec:
 </div>
 
 <h2>What's next.</h2>
-<p>Read the <a href="threat-model.html">threat model</a> before you scale this past one team. Skim the <a href="conformance.html">conformance suite</a> to see which level of evidence you'll need for your regulator. Open a <a href="https://github.com/asclepius-ai/asclepius/discussions">discussion</a> if your stack doesn't fit any of the patterns above; we'd rather extend the recipe than have you hand-roll.</p>
+<p>Read the <a href="threat-model.html">threat model</a> before you scale this past one team. Skim the <a href="conformance.html">conformance suite</a> to see which level of evidence you'll need for your regulator. Open a <a href="https://github.com/Himanshu21464/Asclepius/discussions">discussion</a> if your stack doesn't fit any of the patterns above; we'd rather extend the recipe than have you hand-roll.</p>
 
   </article>
 </section>
@@ -414,7 +414,7 @@ spec:
       </div>
       <div>
         <b>code</b>
-        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="https://github.com/Himanshu21464/Asclepius">github&nbsp;↗</a>
         <a href="benchmarks.html">benchmarks</a>
         <a href="demo.html">playground</a>
         <a href="sandbox.html">policy sandbox</a>

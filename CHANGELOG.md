@@ -99,4 +99,4 @@ chain. No policies, no consent, no drift — just the substrate's spine.
 
 ---
 
-[0.1.0]: https://github.com/asclepius-ai/asclepius/releases/tag/v0.1.0
+[0.1.0]: https://github.com/Himanshu21464/Asclepius/releases/tag/v0.1.0

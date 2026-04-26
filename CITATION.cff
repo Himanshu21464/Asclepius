@@ -10,7 +10,7 @@ license: Apache-2.0
 version: 0.1.0
 date-released: 2026-04-25
 url: "https://asclepius.health/"
-repository-code: "https://github.com/asclepius-ai/asclepius"
+repository-code: "https://github.com/Himanshu21464/Asclepius"
 keywords:
   - "clinical AI"
   - "trust substrate"
@@ -41,7 +41,7 @@ identifiers:
     value: "https://asclepius.health/"
     description: "Project home"
   - type: url
-    value: "https://github.com/asclepius-ai/asclepius"
+    value: "https://github.com/Himanshu21464/Asclepius"
     description: "Source repository"
 references:
   - type: report

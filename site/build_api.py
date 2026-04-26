@@ -369,7 +369,7 @@ SHELL = """<!doctype html>
     <div class="status__meta">
       <span>apache&nbsp;2.0</span>
       <span class="dot"></span>
-      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
     </div>
   </div>
 </header>
@@ -388,7 +388,7 @@ SHELL = """<!doctype html>
 {body}
   <p class="api-meta">
     generated from {n_headers} public headers · run <code>python3 build_api.py</code> from <code>site/</code> to refresh ·
-    canonical source: <a href="https://github.com/asclepius-ai/asclepius/tree/main/include/asclepius">include/asclepius/</a>
+    canonical source: <a href="https://github.com/Himanshu21464/Asclepius/tree/main/include/asclepius">include/asclepius/</a>
   </p>
 </section>
 
@@ -417,7 +417,7 @@ SHELL = """<!doctype html>
       </div>
       <div>
         <b>code</b>
-        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="https://github.com/Himanshu21464/Asclepius">github&nbsp;↗</a>
         <a href="deploy.html">deploy</a>
         <a href="demo.html">playground</a>
       </div>

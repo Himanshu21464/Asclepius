@@ -22,7 +22,7 @@ HTTP/gRPC sidecar, Postgres backend, and managed evidence service are stubs.
 ## Build
 
 ```sh
-git clone https://github.com/asclepius-ai/asclepius
+git clone https://github.com/Himanshu21464/Asclepius
 cd asclepius
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j

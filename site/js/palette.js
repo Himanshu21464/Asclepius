@@ -30,6 +30,7 @@
         { title: 'Migrations — version-to-version', url: 'migrations.html',                     kind: 'page',    terms: 'migrations migrate upgrade version postgres ml-dsa dual sign m-001 m-002 m-003 m-004' },
         { title: 'Threat tabletop — adversarial scenarios', url: 'threat-tabletop.html',         kind: 'page',    terms: 'tabletop threat exercises adversarial insider rewrite consent forgery model swap drift gaslighting key leak tt-01 tt-02 tt-03 tt-04 tt-05' },
         { title: 'Release process — sign · attest · advise', url: 'release-process.html',        kind: 'page',    terms: 'release process pipeline cut sign sbom attest publish advise pgp sigstore slsa cosign' },
+        { title: 'Quickstart — first inference in 5 minutes', url: 'quickstart.html',             kind: 'page',    terms: 'quickstart getting started install run first inference c++ python cli docker tabs how to' },
         { title: 'Tabletop — insider re-write',     url: 'threat-tabletop.html#tt-01',           kind: 'section', terms: 'tt-01 insider rewrite chain broken' },
         { title: 'Tabletop — consent forgery',      url: 'threat-tabletop.html#tt-02',           kind: 'section', terms: 'tt-02 consent forgery backdate' },
         { title: 'Tabletop — model swap',           url: 'threat-tabletop.html#tt-03',           kind: 'section', terms: 'tt-03 model weights swap version vendor' },
@@ -141,7 +142,7 @@
         { title: 'What verify() proves',              url: 'threat-model.html#what-verify-proves',                                kind: 'topic', terms: 'verify proves guarantees' },
 
         // external
-        { title: 'GitHub repository',                 url: 'https://github.com/asclepius-ai/asclepius', kind: 'extern', terms: 'github code source repo' },
+        { title: 'GitHub repository',                 url: 'https://github.com/Himanshu21464/Asclepius', kind: 'extern', terms: 'github code source repo' },
     ];
 
     // ── fuzzy ranking ────────────────────────────────────────────────────

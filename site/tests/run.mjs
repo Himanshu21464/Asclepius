@@ -480,6 +480,68 @@ ok('pattern violation on actor',         () => {
     return validateMini(bad, schema).some((e) => e.code === 'pattern' && e.path.endsWith('.actor'));
 });
 
+// ─── cross-link integrity (every href + every anchor) ──────────────────
+// Walks every *.html page under the site root, strips <script> and
+// <style> blocks (so template literals and regex literals don't generate
+// false positives), and verifies that:
+//   · every internal link target exists on disk
+//   · every #anchor referenced exists as an id="…" on the target page
+// Catches the class of bugs introduced when a page is renamed or an
+// anchor is removed.
+
+import { readdirSync } from 'node:fs';
+
+console.log('cross-link integrity:');
+const SITE_ROOT  = path.join(HERE, '..');
+const SCRIPT_RE  = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
+const STYLE_RE   = /<style\b[^>]*>[\s\S]*?<\/style>/gi;
+const HREF_RE    = /href="([^"]+)"/g;
+const ID_RE      = /id="([^"]+)"/g;
+
+const htmlPages = readdirSync(SITE_ROOT).filter((f) => f.endsWith('.html'));
+const idsByPage = new Map();
+const rawByPage = new Map();
+for (const f of htmlPages) {
+    const raw = readFileSync(path.join(SITE_ROOT, f), 'utf-8');
+    const stripped = raw.replace(SCRIPT_RE, '').replace(STYLE_RE, '');
+    rawByPage.set(f, stripped);
+    idsByPage.set(f, new Set([...stripped.matchAll(ID_RE)].map((m) => m[1])));
+}
+
+const linkIssues = [];
+for (const f of htmlPages) {
+    const stripped = rawByPage.get(f);
+    for (const m of stripped.matchAll(HREF_RE)) {
+        const url = m[1];
+        if (/^(https?:|mailto:|tel:|javascript:|#|\/)/.test(url)) {
+            if (url.startsWith('#')) {
+                const aid = url.slice(1);
+                if (aid && !idsByPage.get(f).has(aid)) {
+                    linkIssues.push(`${f}: same-page #${aid} not defined`);
+                }
+            }
+            continue;
+        }
+        const [target, anchor] = url.includes('#') ? url.split('#', 2) : [url, null];
+        if (target && !htmlPages.includes(target)) {
+            // allow non-HTML targets that exist on disk (e.g. schemas/, feeds, assets)
+            try { readFileSync(path.join(SITE_ROOT, target)); }
+            catch { linkIssues.push(`${f}: link target "${target}" missing`); }
+        }
+        if (anchor && htmlPages.includes(target)) {
+            if (!idsByPage.get(target).has(anchor)) {
+                linkIssues.push(`${f}: ${target}#${anchor} anchor missing`);
+            }
+        }
+    }
+}
+ok(`every internal link resolves (${htmlPages.length} pages walked)`, () => {
+    if (linkIssues.length) {
+        console.error('   issues:\n' + linkIssues.slice(0, 10).map((l) => '     ' + l).join('\n'));
+    }
+    return linkIssues.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
