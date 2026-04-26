@@ -9,7 +9,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
 <meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
 <title>Deploy — Asclepius</title>
-<meta name="description" content="Production deployment recipes for Asclepius: docker-compose, Postgres backend, sidecar, key custody, retention, multi-tenant. Read this first.">
+<meta name="description" content="Production deployment recipes for Asclepius: docker-compose, SQLite-backed ledger, sidecar, key custody, retention, multi-tenant. Read this first.">
 <meta name="generator" content="asclepius-site · hand-rolled vanilla">
 <meta name="theme-color" content="#0A0710">
 
@@ -24,7 +24,7 @@
 <link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
 
 <meta property="og:title"        content="Asclepius — Deploy">
-<meta property="og:description"  content="Docker compose, Postgres, sidecar, key custody, retention.">
+<meta property="og:description"  content="Docker compose, SQLite, sidecar, key custody, retention.">
 <meta property="og:image"        content="assets/og-card.png">
 <meta property="og:type"         content="article">
 <meta property="og:url"        content="https://asclepius.health/deploy.html">
@@ -173,9 +173,9 @@
     <h1>Stand it up. <i>Honestly.</i></h1>
     <p>
       The page the production-ops engineer reads first. Docker-compose for development,
-      Postgres for the ledger backend in production, key-custody patterns,
-      retention policy, multi-tenant isolation. Use these as a starting point
-      and adapt to your existing stack.
+      a SQLite-backed ledger on a persistent volume in production, key-custody
+      patterns, retention policy, multi-tenant isolation. Use these as a
+      starting point and adapt to your existing stack.
     </p>
   </div>
 </section>
@@ -216,7 +216,7 @@ cmake --build build -j
 <p>To run against your own model, replace <code>fake_scribe</code> in <code>examples/01_wrap_scribe/main.cpp</code> with a callable that hits your real inference endpoint. The ledger structure does not change.</p>
 
 <h2 id="prod">Production.</h2>
-<p>Two pieces: the runtime (linked into your service), and a Postgres-backed ledger. Below is a docker-compose that wires both together with the gRPC sidecar for non-C++ hosts.</p>
+<p>Two pieces: the runtime (linked into your service), and a SQLite ledger file on a persistent volume. Below is a docker-compose that wires the runtime together with the gRPC sidecar for non-C++ hosts.</p>
 
 <pre><code class="lang-yaml"># docker-compose.production.yml
 version: '3.8'
@@ -225,38 +225,24 @@ services:
     image: asclepius/sidecar:0.1.0
     restart: unless-stopped
     environment:
-      ASCLEPIUS_LEDGER_BACKEND: postgres
-      ASCLEPIUS_LEDGER_DSN:     postgresql://asclepius:${PG_PASS}@db/asclepius
-      ASCLEPIUS_KEY_PATH:       /var/lib/asclepius/keys/signing.key
-      ASCLEPIUS_TENANT:         ${TENANT_ID}
+      ASCLEPIUS_LEDGER_PATH: /var/lib/asclepius/ledger.db
+      ASCLEPIUS_KEY_PATH:    /var/lib/asclepius/keys/signing.key
+      ASCLEPIUS_TENANT:      ${TENANT_ID}
     volumes:
+      - ledger:/var/lib/asclepius
       - keys:/var/lib/asclepius/keys:ro
       - bundles:/var/lib/asclepius/bundles
     ports:
       - "9090:9090"
-    depends_on: [db]
-
-  db:
-    image: postgres:16
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER:     asclepius
-      POSTGRES_DB:       asclepius
-      POSTGRES_PASSWORD: ${PG_PASS}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'asclepius']
-      interval: 10s
 
 volumes:
-  pgdata:
+  ledger:
   keys:
   bundles:
 </code></pre>
 
 <div class="dp-callout">
-<b>Why Postgres.</b> SQLite WAL is fine for single-node deployments and small ledgers (&lt; 10M rows). Postgres lets you fan out reads, replicate to a second region for compliance, and run point-in-time recovery — all of which a regulator will eventually ask about. The ledger schema is identical; only the backend pointer changes.
+<b>Why one SQLite file per sidecar.</b> The substrate is single-node by design. One DB file, one trust anchor, one chain — verifiable end-to-end with stock <code>sqlite3</code> on any auditor's laptop. No daemon to monitor, no DSN to rotate, no replication lag to reason about. <em>One backend, less drift.</em> Replicate the file by snapshot-and-copy; recover by restoring the snapshot.
 </div>
 
 <h2 id="sidecar">Sidecar (gRPC).</h2>
@@ -313,7 +299,7 @@ soap := resp.Output  // already PHI-scrubbed, schema-validated, signed-and-commi
 <p>If your jurisdiction requires deletion (GDPR right-to-erasure for non-clinical data), use a separate erasure-store for the actual content; the ledger holds only hashes by default, so erasing the content does not break the chain.</p>
 
 <h2 id="multitenant">Multi-tenant.</h2>
-<p>One sidecar, one Postgres database, many tenants. Each ledger row carries a <code>tenant</code> field; the harness's <code>export_bundle</code> filters by tenant when producing per-tenant bundles. The signing key may be shared (cheap, one trust anchor for the whole platform) or per-tenant (expensive but more defensible if a tenant later leaves).</p>
+<p>One sidecar per tenant boundary, one SQLite ledger file per sidecar. Each ledger row still carries a <code>tenant</code> field for sub-tenant slicing inside one boundary; the harness's <code>export_bundle</code> filters by tenant when producing per-tenant bundles. The signing key may be shared across boundaries (one trust anchor for the whole platform) or per-tenant (more defensible if a tenant later leaves). Cross-tenant mixing is a procurement red flag — keep the boundaries crisp.</p>
 
 <pre><code>asclepius evidence bundle ./asclepius.db \
     --tenant kp-northwest \
@@ -347,14 +333,15 @@ soap := resp.Output  // already PHI-scrubbed, schema-validated, signed-and-commi
 <p>Mount that directory read-only into your cold-archive store; the SHA-256 file is the canonical artifact for a board-attestation memo.</p>
 
 <h2 id="k8s">Kubernetes.</h2>
-<p>For larger deployments, run the sidecar as a per-namespace Deployment with a Postgres StatefulSet (or external managed Postgres):</p>
+<p>For larger deployments, run the sidecar as a per-tenant StatefulSet with a PVC-backed ledger file:</p>
 
-<pre><code class="lang-yaml"># asclepius-sidecar.yaml — Deployment + Service + ConfigMap
+<pre><code class="lang-yaml"># asclepius-sidecar.yaml — StatefulSet + Service + Secrets
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata: { name: asclepius-svc, namespace: clinical-ai }
 spec:
-  replicas: 3                # stateless; horizontal scale freely
+  serviceName: asclepius-svc
+  replicas: 1                # single writer per ledger; scale by tenant boundary
   selector: { matchLabels: { app: asclepius-svc } }
   template:
     metadata: { labels: { app: asclepius-svc } }
@@ -365,10 +352,10 @@ spec:
         image: asclepius/sidecar:0.1.0
         ports: [ { containerPort: 9090 } ]
         env:
-        - { name: ASCLEPIUS_LEDGER_BACKEND, value: postgres }
-        - { name: ASCLEPIUS_LEDGER_DSN, valueFrom: { secretKeyRef: { name: asclepius-pg, key: dsn } } }
-        - { name: ASCLEPIUS_KEY_PATH,   value: /run/asclepius/key }
+        - { name: ASCLEPIUS_LEDGER_PATH, value: /var/lib/asclepius/ledger.db }
+        - { name: ASCLEPIUS_KEY_PATH,    value: /run/asclepius/key }
         volumeMounts:
+        - { name: ledger,      mountPath: /var/lib/asclepius }
         - { name: signing-key, mountPath: /run/asclepius, readOnly: true }
         readinessProbe:
           grpc: { port: 9090 }
@@ -380,6 +367,11 @@ spec:
       - name: signing-key
         secret:
           secretName: asclepius-signing-key   # mounts as 0400 by default
+  volumeClaimTemplates:
+  - metadata: { name: ledger }
+    spec:
+      accessModes: [ ReadWriteOnce ]
+      resources: { requests: { storage: 50Gi } }
 </code></pre>
 
 <div class="dp-callout">

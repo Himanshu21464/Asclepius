@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T12:31:56Z",
+  "generated_at": "2026-04-26T12:54:21Z",
   "algorithm": "SHA-256",
   "count": 89,
   "files": {
@@ -24,8 +24,8 @@
       "bytes": 62883
     },
     "architecture.html": {
-      "sha256": "9fcd0defe93b4a1c7669a5c3b3aff6cfcf88db76b4c74fd2ea90aecb50d41b78",
-      "bytes": 24479
+      "sha256": "fa4f376af875c541ef212790191e9f183d16856dcc1a8cf699f590a2030f394f",
+      "bytes": 24527
     },
     "assets/apple-touch-icon.png": {
       "sha256": "db96009398e8d877d5529dbdfa9333064080e1486dbd90e35fe0768e3edb0bf8",
@@ -96,12 +96,12 @@
       "bytes": 16020
     },
     "benchmarks.html": {
-      "sha256": "56655b393d7614229660468e38b4bc401a2e3c71051a71286fe04477df74d2aa",
-      "bytes": 22262
+      "sha256": "3c69044c01fb64e7d61c8956fa1f5f942f3303d8fb78ecf6c52f821a028e1a5a",
+      "bytes": 22228
     },
     "changelog.html": {
-      "sha256": "988df9cbfb38601a3e9ef5b15b71766832c2c747e1ef5fe5c750a3fd4851733b",
-      "bytes": 30919
+      "sha256": "9a01cd565d384523d30b3fd39d922761832c6abdd8b732a43fc79a5abbda60d4",
+      "bytes": 32544
     },
     "cheatsheet.html": {
       "sha256": "2648c93d30987004cf14bf22712b26b5de52f46e670e85ddd3ca4203f53127ec",
@@ -132,8 +132,8 @@
       "bytes": 25403
     },
     "decisions.html": {
-      "sha256": "756b69387896d63172c1268d5f46b5e18496e944e9a33cd05b4343b9187f76a9",
-      "bytes": 36050
+      "sha256": "db0fd95da4071561af2c9f42da2a6adc0b681528ad718b27eb2d9dd5c0e08680",
+      "bytes": 39614
     },
     "demo.css": {
       "sha256": "de86845501b61d7ba01cf1630691c9fa95a5e358138480c80c8ea52bc46c193d",
@@ -144,16 +144,16 @@
       "bytes": 16446
     },
     "deploy.html": {
-      "sha256": "7d8e5b2d26a7d34f60772154759ec53308545518c71a53333509f456e47f5645",
-      "bytes": 20337
+      "sha256": "df88255a67865ef8cc886966a972af4d4a6504dcbd65d65ea8e5d8aee94e2ec6",
+      "bytes": 20340
     },
     "docs.html": {
       "sha256": "ab3545490c846983ede40213820920964636182e357bc62b2886f1b2c61da489",
       "bytes": 16411
     },
     "economics.html": {
-      "sha256": "69fbc0f43ab5109ba83f78989c1dfeb1ce5b353309b46195e287a1ebc7a7e9be",
-      "bytes": 24913
+      "sha256": "1749d8d05ac2326b1ea50b58540197acca5efc454ed759f8ff49b151d8d1b117",
+      "bytes": 24931
     },
     "explorer.html": {
       "sha256": "02bf801a69569b45a04d31a713a1603a389c88b008039b2c13f98b08a25415a9",
@@ -168,8 +168,8 @@
       "bytes": 3633
     },
     "glossary.html": {
-      "sha256": "ee3c568e22a70d8d3525920a05c787c49df0b443a4ccb674f65c1996cdd56564",
-      "bytes": 27714
+      "sha256": "7f4cb9ae80db1fd8926d7ce23e3fe4fffd2d6795a04a4839016545cd714caa5b",
+      "bytes": 27724
     },
     "governance.html": {
       "sha256": "da9dec4e7793c3c6a012f7dc6167923f461e8158e8e5575be7508761c3057c8b",
@@ -220,8 +220,8 @@
       "bytes": 11832
     },
     "js/palette.js": {
-      "sha256": "ebe2d39ba6c4e763dd8302a53ffb83e3aff33c4831e2ed66dd753185d63da897",
-      "bytes": 33556
+      "sha256": "28d70187d1967621fab9fc4e2537be11beb56a58656e300eef733738d7a6d692",
+      "bytes": 33762
     },
     "js/source.js": {
       "sha256": "e22c7b1e89bfddbd6971f6b7286ddba0be59d2f825c95d60644ffd48946fc253",
@@ -248,8 +248,8 @@
       "bytes": 2884
     },
     "migrations.html": {
-      "sha256": "d905d7188befd90f6d16c81fbbb5491e09abded6989bb61a9e05d075e6329387",
-      "bytes": 25182
+      "sha256": "d656de4a63d67cb21a33327777b60c81679477e49496b40c18ad18bf56c949f5",
+      "bytes": 25415
     },
     "observability.html": {
       "sha256": "a200531f64bc49eb45883cc9c1803cefc8c0f29fe2c0e02d0500d7a34138ef8a",
@@ -288,8 +288,8 @@
       "bytes": 28527
     },
     "roadmap.html": {
-      "sha256": "6e05e3e0f8339dead40d586b2a3f4fd73df1404898acbb4a051b841e67127d4d",
-      "bytes": 15578
+      "sha256": "9f04eeed5af4b88caeacf717cea778cde32eb4cf9a11c417da9667744b81ffe6",
+      "bytes": 15487
     },
     "robots.txt": {
       "sha256": "4abfb58c2b7cd6ab54b54d4286c848e098eb80ad36b4229fa8cf3ae6f0720d10",
@@ -328,7 +328,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "8c8e6d06af86a2133a06198d22308d988828f34ba5c6f75705a78a3ccd762696",
+      "sha256": "bc2bfa8bde16e8dbf383c6985b99e7160255fc5e95d94e433d97015e98877232",
       "bytes": 1045
     },
     "styles.css": {

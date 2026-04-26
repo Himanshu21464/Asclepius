@@ -45,7 +45,7 @@ clinical-AI inference, and the rationale behind each component.
 The layers are deliberately decoupled: PolicyChain knows nothing about
 Ledger, Ledger knows nothing about Drift. The Runtime is the only object
 that wires them, and it does so through narrow interfaces. Callers can
-swap any layer (e.g. a Postgres-backed Ledger) without touching the rest.
+swap any layer without touching the rest.
 
 ## Data flow for a single inference
 
@@ -88,12 +88,14 @@ We did not use a blockchain. There is no decentralized trust to bootstrap;
 the trust anchor is the operator's public key. A blockchain would buy us
 nothing and cost us latency and complexity.
 
-## Why SQLite (for now)
+## Why SQLite
 
 SQLite's WAL mode gives durable, single-writer-many-reader semantics with
-no daemon. This is ideal for single-node sidecar deployment. The Postgres
-backend (planned) shares the same `Ledger` interface; the choice is a
-build option.
+no daemon. The substrate is single-node by design — sidecars get one DB
+file each, one trust anchor each, one chain each. *One backend, less
+drift.* A previous prototype shipped a parallel Postgres backend; we
+ripped it in v0.4.0 after benchmarks came in 30× in SQLite's favour and
+the substrate-not-app posture made shared-write semantics irrelevant.
 
 ## Why Ed25519 + BLAKE2b
 
@@ -194,7 +196,6 @@ manifest. No network access required.
 
 ## Future work
 
-* **Postgres backend.** Multi-node ledger replication.
 * **Object-store body archive.** Encrypted-at-rest storage of full inputs
   and outputs for customers that need replay-with-content.
 * **HTTP/gRPC sidecar (`asclepius-svc`).** For non-C++ tools.

@@ -262,7 +262,6 @@
           </p>
           <ul class="ch__items">
             <li class="add"><b>add</b><span>L1 / L2 / L3 conformance test battery, third-party-runnable.</span></li>
-            <li class="add"><b>add</b><span>Postgres-backed ledger backend behind <code>ASCLEPIUS_LEDGER=postgres</code>.</span></li>
             <li class="add"><b>add</b><span>HSM-backed <code>KeyStore</code> implementation (PKCS#11).</span></li>
             <li class="brk"><b>brk</b><span>Drop pre-1.0 sidecar fields marked <em>deprecated</em>; old clients migrated by <code>asclepius migrate v0_to_v1</code>.</span></li>
           </ul>
@@ -270,7 +269,7 @@
 
         <article class="ch__rel ch__rel--unreleased h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.0</b><time class="dt-planned">target · 2026 Q3</time><span class="pill">planned</span>
+            <b class="p-name">v0.5.0</b><time class="dt-planned">target · 2026 Q3</time><span class="pill">planned</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Sidecar GA</em>. Java, Go, .NET hosts can deploy in production
@@ -286,7 +285,31 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.3.2</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.0</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Postgres rip; one backend, less drift</em>. The parallel
+            Postgres backend is gone. SQLite (WAL mode) is the only
+            ledger; sidecars get one DB file each, single-node by design.
+            ~1430 lines of substrate code deleted. The bench harness came
+            in 30× in SQLite's favour, and the substrate-not-app posture
+            never needed shared-write semantics. See
+            <a href="decisions.html#adr-011">ADR-011</a> for the full
+            rationale.
+          </p>
+          <ul class="ch__items">
+            <li class="brk"><b>brk</b><span><code>Ledger::open_uri</code> and <code>Runtime::open_uri</code> are removed. Use <code>Ledger::open(path)</code> / <code>Runtime::open(path)</code>.</span></li>
+            <li class="brk"><b>brk</b><span>The <code>postgres://</code> URI scheme is no longer accepted anywhere — runtime, CLI, sidecar.</span></li>
+            <li class="brk"><b>brk</b><span><code>ASCLEPIUS_WITH_POSTGRES</code> CMake flag removed; <code>libpq-dev</code> is no longer a build dependency.</span></li>
+            <li class="brk"><b>brk</b><span><code>docs/BACKENDS.md</code> deleted — there is no backend matrix to compare any more.</span></li>
+            <li class="add"><b>add</b><span><code>LedgerMigrator</code> is the supported tool for SQLite-to-SQLite copies (snapshot · restore · move). See <a href="migrations.html#m-002">M-002</a>.</span></li>
+            <li class="docs"><b>doc</b><span><a href="decisions.html#adr-011">ADR-011</a> records the decision; ADR-003 cross-links it.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.3.2</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Operator surface deepens</em>. Round 75 adds the calls a status page actually wants — composite system summaries, drift &amp; consent roll-ups, content-addressed inference identity, partial-integrity probes. No on-disk format changes; nothing breaks.
@@ -401,7 +424,6 @@
           <p>Active development. PRs welcome.</p>
           <ul>
             <li class="wip"><svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>gRPC sidecar (asclepius-svc)</span></li>
-            <li class="wip"><svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>Postgres ledger backend</span></li>
             <li class="wip"><svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>HSM-backed KeyStore (PKCS#11)</span></li>
             <li class="wip"><svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>Rust bindings (cxx)</span></li>
             <li class="wip"><svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>Encrypted body-store (opt-in PHI retention)</span></li>

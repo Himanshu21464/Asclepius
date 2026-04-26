@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T12:31:43Z",
+  "generated_at": "2026-04-26T12:54:21Z",
   "count": 47,
   "pages": [
     {
@@ -80,7 +80,7 @@
         "Component map",
         "Data flow for a single inference",
         "Why a Merkle-chained signed ledger",
-        "Why SQLite (for now)",
+        "Why SQLite",
         "Why Ed25519 + BLAKE2b",
         "Why C++20",
         "Storage model",
@@ -251,6 +251,7 @@
         "Strong typedefs for IDs.",
         "ML-DSA migration path (post-quantum).",
         "decision (proposed)",
+        "Remove the Postgres backend · SQLite-only.",
         "What an ADR is, and is not."
       ]
     },
@@ -269,7 +270,7 @@
     {
       "url": "deploy.html",
       "title": "Deploy — Asclepius",
-      "description": "Production deployment recipes for Asclepius: docker-compose, Postgres backend, sidecar, key custody, retention, multi-tenant. Read this first.",
+      "description": "Production deployment recipes for Asclepius: docker-compose, SQLite-backed ledger, sidecar, key custody, retention, multi-tenant. Read this first.",
       "headings": [
         "Development.",
         "Production.",
@@ -446,16 +447,15 @@
     {
       "url": "migrations.html",
       "title": "Migrations — Asclepius",
-      "description": "Version-to-version upgrade guides for Asclepius. v0.0→v0.1, v0.1→v0.2 (Postgres), v0.2→v1.0 (ML-DSA). Pre-flight, runbook, rollback, verify.",
+      "description": "Version-to-version upgrade guides for Asclepius. v0.0→v0.1, snapshot/restore, gRPC sidecar GA, v0.3→v1.0 (ML-DSA). Pre-flight, runbook, rollback, verify.",
       "headings": [
         "v0.0.x → v0.1 · initial GA.",
         "pre-flight",
         "migrate",
         "verify",
         "rollback",
-        "v0.1 → v0.2 · Postgres backend.",
-        "copy-forward",
-        "cutover",
+        "Snapshot · restore · move.",
+        "copy",
         "v0.2 → v0.3 · gRPC sidecar GA.",
         "deploy",
         "v0.3 → v1.0 · ML-DSA dual-sign window.",
@@ -655,7 +655,7 @@
     {
       "url": "roadmap.html",
       "title": "Roadmap — Asclepius",
-      "description": "Asclepius roadmap: gRPC sidecar, Postgres backend, HSM signer, conformance suite L1/L2/L3, multi-tenant evidence-bundle service.",
+      "description": "Asclepius roadmap: gRPC sidecar, HSM signer, conformance suite L1/L2/L3, multi-tenant evidence-bundle service.",
       "headings": [
         "Q2&nbsp;2026",
         "shipped",

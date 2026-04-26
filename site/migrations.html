@@ -9,7 +9,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
 <meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
 <title>Migrations — Asclepius</title>
-<meta name="description" content="Version-to-version upgrade guides for Asclepius. v0.0→v0.1, v0.1→v0.2 (Postgres), v0.2→v1.0 (ML-DSA). Pre-flight, runbook, rollback, verify.">
+<meta name="description" content="Version-to-version upgrade guides for Asclepius. v0.0→v0.1, snapshot/restore, gRPC sidecar GA, v0.3→v1.0 (ML-DSA). Pre-flight, runbook, rollback, verify.">
 <meta name="generator" content="asclepius-site · hand-rolled vanilla">
 <meta name="theme-color" content="#0A0710">
 
@@ -237,9 +237,9 @@
       </a>
       <a class="mg-toc__pill" href="#m-002">
         <span class="mg-toc__num">M-002</span>
-        <span class="mg-toc__t">v0.1 → v0.2 · Postgres backend</span>
-        <span class="mg-toc__sub">pluggable backend · multi-writer</span>
-        <span class="mg-toc__bk is-planned">planned · 2026 Q3</span>
+        <span class="mg-toc__t">snapshot · restore · move</span>
+        <span class="mg-toc__sub">SQLite-to-SQLite ledger copies · LedgerMigrator</span>
+        <span class="mg-toc__bk is-shipped">shipped · v0.4.0</span>
       </a>
       <a class="mg-toc__pill" href="#m-003">
         <span class="mg-toc__num">M-003</span>
@@ -329,59 +329,61 @@ asclepius ledger verify --range <span class="s">0:tail</span></pre>
 <section class="container mg-rec" id="m-002">
   <div class="mg-rec__head">
     <span class="mg-rec__num">M-002</span>
-    <span class="mg-rec__bk is-planned">planned · 2026 Q3</span>
-    <span class="mg-rec__date">target v0.2.0</span>
+    <span class="mg-rec__bk is-shipped">shipped · v0.4.0</span>
+    <span class="mg-rec__date">2026-04-26</span>
   </div>
-  <h2>v0.1 → v0.2 · <i>Postgres</i> backend.</h2>
+  <h2>Snapshot · restore · <i>move.</i></h2>
   <p class="mg-rec__lede">
-    SQLite is the right default for single-tenant deployments. Multi-tenant
-    operators want a real database. v0.2 introduces a pluggable backend
-    interface; the SQLite implementation remains; a Postgres implementation
-    ships alongside. <em>The on-disk format does not change — only the
-    storage engine.</em>
+    The substrate is single-node by design — sidecars get one DB file each.
+    The migration that operators actually need is <em>SQLite-to-SQLite</em>:
+    snapshot a ledger, hand the snapshot to an auditor, restore it on a new
+    host, or roll the live file forward into a fresh DB once a quarter.
+    <code>LedgerMigrator</code> is the supported tool for these moves; the
+    on-disk format does not change.
   </p>
 
   <div class="mg-grid">
     <div class="mg-step">
       <h3 data-step="1">pre-flight</h3>
       <ul>
-        <li>provision Postgres 15+ · enable WAL archiving</li>
-        <li>verify SQLite chain · snapshot to cold storage</li>
-        <li>capacity plan: 2× expected entry rate for migration window</li>
+        <li>verify the source chain · <code>asclepius ledger verify</code></li>
+        <li>quiesce the writer (or use SQLite's online backup API)</li>
+        <li>plan a destination volume with ≥ 2× source size headroom</li>
       </ul>
     </div>
     <div class="mg-step">
-      <h3 data-step="2">copy-forward</h3>
+      <h3 data-step="2">copy</h3>
       <ul>
-        <li><code>asclepius backend export --from sqlite --to pg-stream</code></li>
-        <li>reads SQLite tail-forward, streams to Postgres in entry order</li>
-        <li>preserves seq, prev_hash, sig bit-identical</li>
+        <li><code>asclepius ledger snapshot --src ./asc.db --dst ./asc.snap.db</code></li>
+        <li>uses <code>LedgerMigrator</code> · streams entries in seq order</li>
+        <li>preserves seq, prev_hash, signature bit-identical</li>
       </ul>
     </div>
     <div class="mg-step">
-      <h3 data-step="3">cutover</h3>
+      <h3 data-step="3">verify</h3>
       <ul>
-        <li>flip read/write target · <code>backend.primary=pg</code></li>
-        <li>SQLite remains read-only mirror for 30 days</li>
-        <li>verify both backends agree on tail Merkle root</li>
+        <li>verify the destination · <code>verify --strict</code></li>
+        <li>compare tail Merkle roots · source and destination must match</li>
+        <li>the signing key file remains the trust anchor — it does not move</li>
       </ul>
     </div>
     <div class="mg-step">
       <h3 data-step="4">rollback</h3>
       <ul>
-        <li>flip <code>backend.primary=sqlite</code></li>
-        <li>SQLite mirror has every row up to cutover; no data loss</li>
-        <li>any post-cutover entries on PG can be re-streamed back</li>
+        <li>the source file is untouched · cut traffic back to it</li>
+        <li>destination snapshot is independent · keep, archive, or delete</li>
+        <li>no on-disk effects to undo</li>
       </ul>
     </div>
   </div>
 
-  <p class="mg-warn">
-    <b>Single-writer invariant.</b> Even with Postgres as the backend, the
-    runtime preserves single-writer semantics per ledger. Postgres unlocks
-    multi-tenant <em>parallel</em> ledgers, not multi-writer per ledger. If
-    you genuinely need multi-writer-per-ledger, talk to us — that is its own
-    ADR.
+  <p class="mg-callout">
+    <b>One backend, less drift.</b> A pre-v0.4 prototype shipped a
+    parallel Postgres backend; we ripped it after benchmarks came in 30×
+    in SQLite's favour and the substrate-not-app posture made shared-write
+    semantics irrelevant. The supported migration shape is now
+    <em>file-to-file</em>, not engine-to-engine. See
+    <a href="decisions.html#adr-011">ADR-011</a>.
   </p>
 </section>
 

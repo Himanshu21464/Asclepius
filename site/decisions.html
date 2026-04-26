@@ -231,6 +231,7 @@
           <tr><td class="dc-toc__id">ADR-008</td><td><a href="#adr-008">Result&lt;T,Error&gt; over exceptions</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-03-01</td></tr>
           <tr><td class="dc-toc__id">ADR-009</td><td><a href="#adr-009">Strong typedefs for IDs</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-03-08</td></tr>
           <tr><td class="dc-toc__id">ADR-010</td><td><a href="#adr-010">ML-DSA migration path (post-quantum)</a></td><td><span class="dc-toc__st is-proposed">proposed</span></td><td>2026-04-19</td></tr>
+          <tr><td class="dc-toc__id">ADR-011</td><td><a href="#adr-011">Remove the Postgres backend (SQLite-only)</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-04-26</td></tr>
         </tbody>
       </table>
     </div>
@@ -362,14 +363,14 @@
     <ul>
       <li>single-file ledger trivially replicates (<code>cp</code> works)</li>
       <li>no separate process to run, monitor, or upgrade</li>
-      <li>single-writer is a real limit; ADR-Postgres (TBD) will lift it for multi-tenant</li>
+      <li>single-writer is a real limit; multi-tenant deployments scale by per-tenant sidecar (one ledger per boundary), see <a href="#adr-011">ADR-011</a></li>
       <li>WAL must be checkpointed periodically · runbook PB-07 handles partition recovery</li>
     </ul>
   </div>
   <div class="dc-section is-alts">
     <h3>alternatives considered</h3>
     <ul>
-      <li><b>Postgres.</b> Right answer at scale, but mandatory dependency at v1 would gate on every customer's DBA team. Planned as a pluggable v0.2 backend.</li>
+      <li><b>Postgres.</b> Prototyped through round 75 and ripped in v0.4.0; see <a href="#adr-011">ADR-011</a> for the rationale.</li>
       <li><b>LMDB.</b> Faster reads, but auditor ergonomics are worse — no <code>SELECT</code>, no tooling.</li>
       <li><b>Custom append-only file.</b> We are not in the business of writing yet another WAL.</li>
     </ul>
@@ -699,6 +700,69 @@
       <li><b>SLH-DSA (SPHINCS+, FIPS 205).</b> Hash-based, conservative, but signatures are 8–17 KB; bundle size becomes painful.</li>
       <li><b>Falcon / FN-DSA (FIPS 206 draft).</b> Smaller sigs, but floating-point implementation hazard.</li>
       <li><b>Wait.</b> Considered and rejected — substrate-grade durability requires we are ahead of the migration, not behind it.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-011 ─────────────── -->
+<section class="container dc-adr" id="adr-011">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-011</span>
+    <span class="dc-adr__date">2026-04-26</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>Remove the Postgres backend · <i>SQLite-only.</i></h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      A pre-v0.4 prototype shipped a parallel Postgres backend behind
+      <code>ASCLEPIUS_WITH_POSTGRES</code>, with a <code>postgres://</code>
+      URI accepted by <code>Runtime::open_uri</code> and
+      <code>Ledger::open_uri</code>. The original premise was that
+      multi-tenant SaaS operators would want shared-write semantics across
+      processes and a managed-DB ops story.
+    </p>
+    <p>
+      Two facts caught up with the premise. <em>First</em>, the substrate-
+      not-app posture (<a href="principles.html">"the Linux kernel for
+      clinical AI"</a>) doesn't need shared-write semantics — sidecars get
+      one DB file each, one trust anchor each, one chain each. <em>Second</em>,
+      the bench harness in <code>examples/04_bench</code> consistently came
+      in around 30× in SQLite's favour on append for the workloads we
+      actually run, and Postgres added an entire mandatory-DBA-team
+      dependency for the privilege.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Rip the Postgres backend. <em>One backend: SQLite (WAL mode), single-
+      node by design.</em> The public API drops <code>open_uri</code>
+      everywhere; <code>Ledger::open(path)</code> /
+      <code>Runtime::open(path)</code> are the only constructors. The
+      <code>ASCLEPIUS_WITH_POSTGRES</code> CMake flag is gone. The
+      <code>postgres://</code> URI scheme is gone. The
+      <code>docs/BACKENDS.md</code> decision matrix is deleted.
+      Approximately 1 430 lines of substrate code go with it.
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>build deps shrink: no <code>libpq-dev</code>, no Postgres in CI</li>
+      <li>one set of tests, one set of bench numbers, one storage shape</li>
+      <li>multi-tenant scale-out happens by per-boundary sidecar (one ledger per tenant boundary), not by shared DB</li>
+      <li>migrations become file-to-file via <code>LedgerMigrator</code>; see <a href="migrations.html#m-002">M-002</a></li>
+      <li>operators previously running on the prototype Postgres backend cut over by snapshot-and-replay; the on-wire format is unchanged</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>Keep both backends.</b> Twice the surface, twice the bench matrix, twice the bug reports — for a feature that the substrate-not-app posture made redundant.</li>
+      <li><b>Replace Postgres with a different shared backend (FoundationDB, etcd).</b> Same posture mismatch as Postgres; trades one operational burden for another.</li>
+      <li><b>Sharded SQLite + replication daemon.</b> Reinvents what <em>one DB file per sidecar</em> already gives us, and reintroduces a daemon to monitor.</li>
     </ul>
   </div>
 </section>

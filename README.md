@@ -17,7 +17,7 @@ consent-aware, and replayable through one runtime.
 
 Early prototype. The runtime, ledger, policy chain, telemetry, consent registry,
 evaluation harness, CLI, and Python bindings are functional and tested. The
-HTTP/gRPC sidecar, Postgres backend, and managed evidence service are stubs.
+HTTP/gRPC sidecar and managed evidence service are stubs.
 
 ## Build
 
@@ -33,38 +33,29 @@ Required system packages on Debian/Ubuntu:
 
 ```sh
 sudo apt install build-essential cmake ninja-build \
-                 libsodium-dev libsqlite3-dev libpq-dev
+                 libsodium-dev libsqlite3-dev
 ```
-
-`libpq-dev` is required at build time for the PostgreSQL backend. If
-your deployment will only use SQLite, you can drop `libpq-dev` once we
-make Postgres support optional via a CMake flag (planned).
 
 Header-only deps (`fmt`, `nlohmann_json`, `spdlog`, `doctest`, `pybind11`) are
 fetched at configure time via CMake's `FetchContent`.
 
-## Storage backends
+## Storage
 
-The substrate ships two interchangeable backends — same chain bytes,
-same signatures, same `verify()`. Pick by URI:
+One backend: SQLite in WAL mode. Single-node by design — sidecars get one
+DB file each, one trust anchor each, one chain each. Open by path:
 
 ```cpp
-Runtime::open("/var/asc/ledger.db");                  // SQLite (default)
-Runtime::open_uri("postgres://u:pw@host/dbname");     // PostgreSQL
+Runtime::open("/var/asc/ledger.db");
 ```
 
 ```sh
 asclepius ledger verify /var/asc/ledger.db
-asclepius ledger verify postgres://user:pw@host/dbname
 ```
 
-**Pick SQLite for** single-tenant sidecars, lab/pilot deployments,
-edge appliances, auditor handoff. Default; ~30× faster on append.
-
-**Pick Postgres for** multi-tenant SaaS hosting, HA/replication, cross-
-process subscription, existing PG ops shops.
-
-Full decision matrix and migration recipes in [docs/BACKENDS.md](docs/BACKENDS.md).
+A previous prototype shipped a parallel Postgres backend; it was ripped in
+v0.4.0 after benchmarks came in 30× in SQLite's favour and the
+substrate-not-app posture made shared-write semantics irrelevant. *One
+backend, less drift.*
 
 ## Quick start (C++)
 
