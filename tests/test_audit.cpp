@@ -7,9 +7,11 @@
 #include <nlohmann/json.hpp>
 #include <sqlite3.h>
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <thread>
 
 using namespace asclepius;
 
@@ -1643,4 +1645,89 @@ TEST_CASE("find_by_inference_id survives reopen") {
     auto e = l_.value().find_by_inference_id("inf_42"); REQUIRE(e);
     auto body = nlohmann::json::parse(e.value().body_json);
     CHECK(body["inference_id"] == "inf_42");
+}
+
+// ============== Ledger::range_by_event_type =============================
+
+TEST_CASE("range_by_event_type returns matching entries in seq order") {
+    auto p = tmp_db("ret_seq");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("beta",  "x", nlohmann::json{{"i", 2}}, ""));
+    REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", 3}}, ""));
+    REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", 4}}, ""));
+    auto r = l.range_by_event_type("alpha"); REQUIRE(r);
+    CHECK(r.value().size() == 3);
+    CHECK(r.value()[0].header.seq == 1);
+    CHECK(r.value()[1].header.seq == 3);
+    CHECK(r.value()[2].header.seq == 4);
+}
+
+TEST_CASE("range_by_event_type empty event_type rejected") {
+    auto p = tmp_db("ret_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().range_by_event_type("");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("range_by_event_type unknown type returns empty vector") {
+    auto p = tmp_db("ret_unknown");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), ""));
+    auto r = l.range_by_event_type("ghost"); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+// ============== Ledger::head_at_time ====================================
+
+TEST_CASE("head_at_time on empty chain returns zero") {
+    auto p = tmp_db("hat_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto h = l_.value().head_at_time(Time::now()); REQUIRE(h);
+    CHECK(h.value().seq == 0);
+}
+
+TEST_CASE("head_at_time returns last entry seq for now") {
+    auto p = tmp_db("hat_now");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 10; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto h = l.head_at_time(Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}});
+    REQUIRE(h);
+    CHECK(h.value().seq == 10);
+    CHECK(h.value().head_hash.hex() == l.head().hex());
+}
+
+TEST_CASE("head_at_time before chain start returns zero") {
+    auto p = tmp_db("hat_before");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    // Time well before any entry.
+    auto h = l.head_at_time(Time{0}); REQUIRE(h);
+    CHECK(h.value().seq == 0);
+}
+
+TEST_CASE("head_at_time returns mid-chain head for in-between time") {
+    auto p = tmp_db("hat_mid");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    // Sleep, then more entries.
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    auto cutoff = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    for (int i = 5; i < 8; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto h = l.head_at_time(cutoff); REQUIRE(h);
+    CHECK(h.value().seq == 5);
 }

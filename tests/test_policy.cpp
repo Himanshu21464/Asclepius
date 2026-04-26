@@ -110,3 +110,20 @@ TEST_CASE("PolicyChain BLOCK short-circuits with policy_violation error") {
     REQUIRE(!out);
     CHECK(out.error().code() == ErrorCode::policy_violation);
 }
+
+TEST_CASE("PolicyChain::clear drops all policies") {
+    PolicyChain c;
+    c.push(make_phi_scrubber());
+    c.push(make_length_limit(0, 1024));
+    REQUIRE(c.size() == 2);
+    c.clear();
+    CHECK(c.size() == 0);
+    CHECK(c.names().empty());
+}
+
+TEST_CASE("PolicyChain::clear is idempotent") {
+    PolicyChain c;
+    c.clear();
+    c.clear();
+    CHECK(c.size() == 0);
+}

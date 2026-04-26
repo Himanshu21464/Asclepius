@@ -68,6 +68,11 @@ public:
     // Names of registered policies, in order.
     std::vector<std::string> names() const;
 
+    // Drop all policies. Used by tests and live policy-reload operations.
+    // Not thread-safe with concurrent evaluate_*() — caller is responsible
+    // for ordering reload outside the inference hot path.
+    void clear();
+
     // Evaluate against input. Returns the (possibly modified) payload, or the
     // first blocker's Error.
     Result<std::string> evaluate_input(const InferenceContext& ctx, std::string payload) const;

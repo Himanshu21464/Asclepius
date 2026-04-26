@@ -116,6 +116,14 @@ public:
     using AlertSink = std::function<void(const DriftReport&)>;
     void set_alert_sink(AlertSink sink, DriftSeverity threshold = DriftSeverity::moder);
 
+    // Names of all registered features, in unspecified order. Used by
+    // dashboards to enumerate what the monitor is watching without
+    // computing a full report().
+    std::vector<std::string> list_features() const;
+
+    // Number of registered features. O(1).
+    std::size_t feature_count() const;
+
 private:
     struct FeatureState;
     std::unordered_map<std::string, std::unique_ptr<FeatureState>> features_;
@@ -152,6 +160,11 @@ public:
     // is suitable for serving at /metrics with Content-Type:
     // text/plain; version=0.0.4; charset=utf-8.
     std::string snapshot_prometheus() const;
+
+    // Names of all registered counters, in unspecified order. For health
+    // dashboards and operator tooling that wants to enumerate what's
+    // being measured without parsing the prometheus exposition.
+    std::vector<std::string> list_counters() const;
 
 private:
     struct Hist {

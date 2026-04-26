@@ -74,6 +74,19 @@ public:
     // Snapshot for serialization / replay.
     std::vector<ConsentToken> snapshot() const;
 
+    // List all (non-expired and revoked alike) tokens for a given patient.
+    // Useful for operational queries: "which tokens does this patient
+    // currently have on file?" Order is unspecified.
+    std::vector<ConsentToken> tokens_for_patient(const PatientId& patient) const;
+
+    // Push the expiry of an existing token forward by `additional_ttl`.
+    // Rejects revoked tokens (denied) and unknown tokens (not_found). The
+    // observer fires as a "granted" event — the new expiry is the
+    // material change, and downstream consumers can detect the extension
+    // by comparing token_id against existing state.
+    Result<ConsentToken> extend(std::string_view     token_id,
+                                std::chrono::seconds additional_ttl);
+
     // Install (or clear, by passing {}) the observer fired on grant/revoke.
     // Idempotent: repeat calls replace the previous observer.
     void set_observer(Observer obs);

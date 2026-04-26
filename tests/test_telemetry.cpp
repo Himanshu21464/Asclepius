@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <random>
+#include <set>
 
 using namespace asclepius;
 
@@ -232,4 +233,44 @@ TEST_CASE("MetricRegistry counters and histograms coexist in Prometheus output")
     CHECK(out.find("# TYPE asclepius_append_latency_seconds histogram") != std::string::npos);
     CHECK(out.find("asclepius_appends_total 10")                          != std::string::npos);
     CHECK(out.find("asclepius_append_latency_seconds_count 2")            != std::string::npos);
+}
+
+// ============== list_features / list_counters ===========================
+
+TEST_CASE("DriftMonitor::list_features enumerates registered features") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", {0.1, 0.2}, 0.0, 1.0, 4));
+    REQUIRE(dm.register_feature("b", {0.3, 0.4}, 0.0, 1.0, 4));
+    REQUIRE(dm.register_feature("c", {0.5}, 0.0, 1.0, 4));
+    auto names = dm.list_features();
+    CHECK(names.size() == 3);
+    std::set<std::string> s(names.begin(), names.end());
+    CHECK(s.count("a") == 1);
+    CHECK(s.count("b") == 1);
+    CHECK(s.count("c") == 1);
+}
+
+TEST_CASE("DriftMonitor::feature_count matches list_features().size()") {
+    DriftMonitor dm;
+    CHECK(dm.feature_count() == 0);
+    REQUIRE(dm.register_feature("x", {0.1}, 0.0, 1.0, 4));
+    CHECK(dm.feature_count() == 1);
+    CHECK(dm.list_features().size() == 1);
+}
+
+TEST_CASE("MetricRegistry::list_counters enumerates incremented counters") {
+    MetricRegistry m;
+    m.inc("alpha");
+    m.inc("beta", 3);
+    m.inc("gamma", 7);
+    auto names = m.list_counters();
+    std::set<std::string> s(names.begin(), names.end());
+    CHECK(s.count("alpha") == 1);
+    CHECK(s.count("beta")  == 1);
+    CHECK(s.count("gamma") == 1);
+}
+
+TEST_CASE("MetricRegistry::list_counters: empty registry returns empty vector") {
+    MetricRegistry m;
+    CHECK(m.list_counters().empty());
 }

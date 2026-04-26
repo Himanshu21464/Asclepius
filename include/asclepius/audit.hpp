@@ -269,6 +269,25 @@ public:
     Result<std::vector<LedgerEntry>> tail_by_actor(std::string_view actor,
                                                    std::size_t      n) const;
 
+    // Return entries whose header.event_type matches `event_type`,
+    // ordered by seq ascending. O(n) scan via for_each. Empty
+    // event_type returns invalid_argument; unknown event_type returns
+    // empty vector. Used by dashboards ("show me all drift.crossed
+    // events") and by the consent replay path on Runtime restart.
+    Result<std::vector<LedgerEntry>>
+        range_by_event_type(std::string_view event_type) const;
+
+    // Find the chain head as it existed at-or-before time `t`. Returns
+    // {seq=0, head_hash=zero} for empty chains or for a `t` earlier than
+    // the first entry's timestamp. Used to anchor retroactive checkpoints
+    // (e.g. "what was the chain head one hour ago?").
+    struct HistoricalHead {
+        std::uint64_t seq{};
+        Hash          head_hash{};
+        Time          ts{};
+    };
+    Result<HistoricalHead> head_at_time(Time t) const;
+
     // ---- Subscription ---------------------------------------------------
     //
     // Register a callback that fires after each successful append, on the

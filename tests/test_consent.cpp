@@ -294,3 +294,78 @@ TEST_CASE("ingested revoked token correctly stops permitting") {
     CHECK(p.value() == false);
 }
 
+
+// ============== tokens_for_patient + extend =============================
+
+TEST_CASE("tokens_for_patient returns just that patient's tokens") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("a");
+    auto pb = PatientId::pseudonymous("b");
+    REQUIRE(r.grant(pa, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(pa, {Purpose::ambient_documentation}, 1h));
+    REQUIRE(r.grant(pb, {Purpose::triage}, 1h));
+    auto a = r.tokens_for_patient(pa);
+    CHECK(a.size() == 2);
+    auto b = r.tokens_for_patient(pb);
+    CHECK(b.size() == 1);
+    auto c = r.tokens_for_patient(PatientId::pseudonymous("ghost"));
+    CHECK(c.empty());
+}
+
+TEST_CASE("tokens_for_patient includes revoked tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));
+    auto out = r.tokens_for_patient(p);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].revoked == true);
+}
+
+TEST_CASE("extend pushes expires_at forward") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    auto orig_expires = t.expires_at;
+    auto t2 = r.extend(t.token_id, 1h);
+    REQUIRE(t2);
+    CHECK(t2.value().expires_at > orig_expires);
+}
+
+TEST_CASE("extend rejects revoked tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));
+    auto r2 = r.extend(t.token_id, 1h);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::permission_denied);
+}
+
+TEST_CASE("extend rejects unknown token_id") {
+    ConsentRegistry r;
+    auto r2 = r.extend("ghost", 1h);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("extend rejects non-positive ttl") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    auto r2 = r.extend(t.token_id, std::chrono::seconds{0});
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("extend fires the observer as a granted event") {
+    ConsentRegistry r;
+    int n = 0;
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken&) {
+        if (e == ConsentRegistry::Event::granted) n++;
+    });
+    auto p = PatientId::pseudonymous("p");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();  // n=1
+    REQUIRE(r.extend(t.token_id, 1h));                   // n=2
+    CHECK(n == 2);
+}

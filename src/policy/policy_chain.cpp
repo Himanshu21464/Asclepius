@@ -27,6 +27,10 @@ std::size_t PolicyChain::size() const noexcept {
     return policies_.size();
 }
 
+void PolicyChain::clear() {
+    policies_.clear();
+}
+
 std::vector<std::string> PolicyChain::names() const {
     std::vector<std::string> out;
     out.reserve(policies_.size());

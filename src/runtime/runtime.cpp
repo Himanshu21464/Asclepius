@@ -228,4 +228,36 @@ MetricRegistry&    Runtime::metrics()         { return impl_->metrics; }
 const PolicyChain& Runtime::policies() const  { return impl_->policies; }
 const Ledger&      Runtime::ledger()   const  { return impl_->ledger; }
 
+Runtime::Health Runtime::health() const {
+    Health h;
+    h.ledger_length         = impl_->ledger.length();
+    h.ledger_head_hex       = impl_->ledger.head().hex();
+    h.ledger_key_id         = impl_->ledger.key_id();
+    h.policy_count          = impl_->policies.size();
+    h.drift_features        = impl_->drift.feature_count();
+    // Active = not revoked, not expired.
+    auto snap = impl_->consent.snapshot();
+    auto now  = Time::now();
+    std::size_t active = 0;
+    for (const auto& t : snap) {
+        if (!t.revoked && t.expires_at > now) active++;
+    }
+    h.active_consent_tokens = active;
+    h.ok = true;
+    return h;
+}
+
+std::string Runtime::Health::to_json() const {
+    nlohmann::json j;
+    j["ok"]                    = ok;
+    j["ledger_length"]         = ledger_length;
+    j["ledger_head_hex"]       = ledger_head_hex;
+    j["ledger_key_id"]         = ledger_key_id;
+    j["policy_count"]          = policy_count;
+    j["active_consent_tokens"] = active_consent_tokens;
+    j["drift_features"]        = drift_features;
+    if (!reason.empty()) j["reason"] = reason;
+    return j.dump();
+}
+
 }  // namespace asclepius

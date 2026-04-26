@@ -139,4 +139,39 @@ std::vector<ConsentToken> ConsentRegistry::snapshot() const {
     return out;
 }
 
+std::vector<ConsentToken>
+ConsentRegistry::tokens_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<ConsentToken> out;
+    for (const auto& [_, t] : by_id_) {
+        if (t.patient == patient) out.push_back(t);
+    }
+    return out;
+}
+
+Result<ConsentToken> ConsentRegistry::extend(std::string_view     token_id,
+                                             std::chrono::seconds additional_ttl) {
+    if (additional_ttl.count() <= 0) {
+        return Error::invalid("extend requires positive additional_ttl");
+    }
+    ConsentToken snapshot;
+    Observer     obs_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = by_id_.find(std::string{token_id});
+        if (it == by_id_.end()) {
+            return Error::not_found("consent token not found");
+        }
+        if (it->second.revoked) {
+            return Error::denied("cannot extend a revoked token");
+        }
+        it->second.expires_at = it->second.expires_at +
+            std::chrono::nanoseconds{additional_ttl};
+        snapshot  = it->second;
+        obs_copy  = observer_;
+    }
+    if (obs_copy) obs_copy(Event::granted, snapshot);
+    return snapshot;
+}
+
 }  // namespace asclepius

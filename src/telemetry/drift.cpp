@@ -214,4 +214,17 @@ void DriftMonitor::rotate() {
     }
 }
 
+std::vector<std::string> DriftMonitor::list_features() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<std::string> out;
+    out.reserve(features_.size());
+    for (const auto& [name, _] : features_) out.push_back(name);
+    return out;
+}
+
+std::size_t DriftMonitor::feature_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    return features_.size();
+}
+
 }  // namespace asclepius

@@ -134,4 +134,12 @@ std::string MetricRegistry::snapshot_prometheus() const {
     return out;
 }
 
+std::vector<std::string> MetricRegistry::list_counters() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<std::string> out;
+    out.reserve(counters_.size());
+    for (const auto& [name, _] : counters_) out.push_back(name);
+    return out;
+}
+
 }  // namespace asclepius

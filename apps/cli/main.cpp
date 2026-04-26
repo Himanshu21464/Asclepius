@@ -68,6 +68,39 @@ int cmd_ledger_stats_tenant(const std::string& db, const std::string& tenant) {
     return 0;
 }
 
+int cmd_ledger_tail_actor(const std::string& db,
+                          const std::string& actor,
+                          std::size_t        n) {
+    if (actor.empty()) {
+        fmt::print(stderr, "tail-actor: actor is required\n");
+        return 2;
+    }
+    auto led = Ledger::open_uri(db);
+    if (!led) {
+        fmt::print(stderr, "open: {}\n", led.error().what());
+        return 2;
+    }
+    auto entries = led.value().tail_by_actor(actor, n);
+    if (!entries) {
+        fmt::print(stderr, "tail-actor: {}\n", entries.error().what());
+        return 2;
+    }
+    for (const auto& e : entries.value()) {
+        nlohmann::json out;
+        out["seq"]        = e.header.seq;
+        out["ts"]         = e.header.ts.iso8601();
+        out["actor"]      = e.header.actor;
+        out["event_type"] = e.header.event_type;
+        out["tenant"]     = e.header.tenant;
+        out["body"]       = nlohmann::json::parse(e.body_json,
+                                                   nullptr,
+                                                   false);
+        out["entry_hash"] = e.entry_hash().hex();
+        std::cout << out.dump() << '\n';
+    }
+    return 0;
+}
+
 int cmd_ledger_event_counts(const std::string& db) {
     auto led = Ledger::open_uri(db);
     if (!led) {
@@ -437,6 +470,21 @@ int main(int argc, char** argv) {
         ec->add_option("db", db_uri,
                        "ledger: SQLite path or postgres://...")->required();
         ec->callback([&]() { std::exit(cmd_ledger_event_counts(db_uri)); });
+    }
+    std::string actor_arg;
+    std::size_t actor_n = 50;
+    {
+        auto* ta = ledger->add_subcommand("tail-actor",
+            "print the last N entries by a given actor (most recent first)");
+        ta->add_option("db", db_uri,
+                       "ledger: SQLite path or postgres://...")->required();
+        ta->add_option("actor", actor_arg,
+                       "actor string to scope to "
+                       "(e.g. 'system:drift_monitor')")->required();
+        ta->add_option("--n", actor_n, "how many entries (default 50)");
+        ta->callback([&]() {
+            std::exit(cmd_ledger_tail_actor(db_uri, actor_arg, actor_n));
+        });
     }
     std::string find_id;
     {

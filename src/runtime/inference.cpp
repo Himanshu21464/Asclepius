@@ -39,6 +39,7 @@ struct Inference::Impl {
     nlohmann::json     ledger_body = nlohmann::json::object();
     bool               committed   = false;
     bool               completed   = false;
+    std::uint64_t      committed_seq = 0;  // 0 = not committed yet
 
     Impl(Runtime* runtime, InferenceContext c, std::string token)
         : rt(runtime), ctx(std::move(c)), consent_token_id(std::move(token)) {}
@@ -343,8 +344,16 @@ Result<void> Inference::commit() {
                                          std::move(body),
                                          std::string(impl_->ctx.tenant().str()));
     if (!e) return e.error();
-    impl_->committed = true;
+    impl_->committed     = true;
+    impl_->committed_seq = e.value().header.seq;
     return Result<void>::ok();
+}
+
+Result<std::uint64_t> Inference::seq() const noexcept {
+    if (!impl_->committed) {
+        return Error::invalid("inference.seq called before commit");
+    }
+    return impl_->committed_seq;
 }
 
 Result<void> Inference::commit_idempotent(std::size_t lookback) {
@@ -369,7 +378,8 @@ Result<void> Inference::commit_idempotent(std::size_t lookback) {
         if (prior.body_json.find(needle) != std::string::npos) {
             // Found a prior commit for the same inference_id — treat
             // this handle as already committed; do not re-append.
-            impl_->committed = true;
+            impl_->committed     = true;
+            impl_->committed_seq = prior.header.seq;
             impl_->rt->metrics().inc("inference.idempotent_dedupe");
             return Result<void>::ok();
         }

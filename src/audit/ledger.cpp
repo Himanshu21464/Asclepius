@@ -733,6 +733,34 @@ Ledger::count_by_event_type() const {
 }
 
 Result<std::vector<LedgerEntry>>
+Ledger::range_by_event_type(std::string_view event_type) const {
+    if (event_type.empty()) {
+        return Error::invalid("range_by_event_type requires non-empty event_type");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.event_type == event_type) out.push_back(e);
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+Result<Ledger::HistoricalHead> Ledger::head_at_time(Time t) const {
+    HistoricalHead h{};
+    if (impl_->length.load() == 0) return h;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.ts > t) return false;  // stop at first entry past t
+        h.seq       = e.header.seq;
+        h.head_hash = e.entry_hash();
+        h.ts        = e.header.ts;
+        return true;
+    });
+    if (!r) return r.error();
+    return h;
+}
+
+Result<std::vector<LedgerEntry>>
 Ledger::tail_by_actor(std::string_view actor, std::size_t n) const {
     if (actor.empty()) {
         return Error::invalid("tail_by_actor requires non-empty actor");

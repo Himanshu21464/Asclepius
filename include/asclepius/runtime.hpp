@@ -167,6 +167,15 @@ public:
     // Attach a numeric drift observation under a registered feature.
     Result<void> observe_drift(std::string_view feature, double value);
 
+    // Return the seq number of the inference.committed entry in the
+    // ledger. Only valid AFTER a successful commit() / commit_idempotent()
+    // / capture_override() / attach_ground_truth(). Before commit returns
+    // invalid_argument; the seq is captured at commit time so subsequent
+    // ledger growth doesn't affect it. Used by sidecars to publish a
+    // stable cross-system reference for the inference (e.g. as part of a
+    // response header, queue metadata, or webhook payload).
+    Result<std::uint64_t> seq() const noexcept;
+
     const InferenceContext& ctx() const noexcept;
 
 private:
@@ -216,6 +225,27 @@ public:
 
     const PolicyChain&  policies() const;
     const Ledger&       ledger()   const;
+
+    // ---- Health snapshot ------------------------------------------------
+    //
+    // A single-call summary of the runtime's overall liveness. Designed
+    // for /healthz endpoints, deployment readiness probes, and operator
+    // dashboards. The fields are O(1)/bounded — no full chain scan.
+
+    struct Health {
+        bool          ok = true;        // false if any subsystem unhealthy
+        std::uint64_t ledger_length = 0;
+        std::string   ledger_head_hex;
+        std::string   ledger_key_id;
+        std::size_t   policy_count = 0;
+        std::size_t   active_consent_tokens = 0;
+        std::size_t   drift_features = 0;
+        std::string   reason;           // populated when ok == false
+
+        std::string to_json() const;
+    };
+
+    Health health() const;
 
 private:
     Runtime();
