@@ -676,6 +676,84 @@ ok(`every page has a friendly /name → /name.html redirect`, () => {
     return redirectGaps.length === 0;
 });
 
+// ─── img dimensions — declare width + height to prevent CLS ────────────
+// Cumulative Layout Shift hits when an image loads after layout settles
+// and the page reflows. Declaring intrinsic width + height lets the
+// browser reserve space immediately. This catches future <img> tags
+// that forget the dimensions.
+
+console.log('img CLS guard:');
+const noDimImgs = [];
+for (const f of htmlPages) {
+    const stripped = rawByPage.get(f);
+    for (const m of stripped.matchAll(/<img\b([^>]*)>/g)) {
+        const attrs = m[1];
+        if (!/\bwidth=/.test(attrs) || !/\bheight=/.test(attrs)) {
+            const src = /\bsrc="([^"]+)"/.exec(attrs);
+            noDimImgs.push(`${f}: <img src="${src ? src[1] : '?'}"> missing width/height`);
+        }
+    }
+}
+ok(`every <img> declares width + height`, () => {
+    if (noDimImgs.length) {
+        console.error('   issues:\n' + noDimImgs.slice(0, 8).map((l) => '     ' + l).join('\n'));
+    }
+    return noDimImgs.length === 0;
+});
+
+// ─── skip-link target — every skip-link points to an existing id ───────
+// A common bug: page restructure removes the #main element but keeps the
+// skip-link. Screen-reader users press the link, focus jumps nowhere.
+
+console.log('skip-link integrity:');
+const skipIssues = [];
+for (const f of htmlPages) {
+    const stripped = rawByPage.get(f);
+    const ids = idsByPage.get(f);
+    for (const m of stripped.matchAll(/<a[^>]*\bclass="[^"]*skip-link[^"]*"[^>]*\bhref="#([^"]+)"/g)) {
+        if (!ids.has(m[1])) {
+            skipIssues.push(`${f}: skip-link → #${m[1]} but no such id exists`);
+        }
+    }
+}
+ok(`every skip-link points to a real id`, () => {
+    if (skipIssues.length) {
+        console.error('   issues:\n' + skipIssues.slice(0, 8).map((l) => '     ' + l).join('\n'));
+    }
+    return skipIssues.length === 0;
+});
+
+// ─── SVG safety — no embedded scripts in any /assets/**/*.svg ──────────
+
+console.log('SVG safety:');
+import { readdirSync as _readdir, statSync as _stat } from 'node:fs';
+function walkSvgs(dir) {
+    const out = [];
+    for (const e of _readdir(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) out.push(...walkSvgs(full));
+        else if (e.name.endsWith('.svg')) out.push(full);
+    }
+    return out;
+}
+let svgCount = 0;
+const unsafeSvg = [];
+try {
+    for (const p of walkSvgs(path.join(SITE_ROOT, 'assets'))) {
+        svgCount++;
+        const txt = readFileSync(p, 'utf-8');
+        if (/<script\b/i.test(txt) || /\bon[a-z]+=/i.test(txt)) {
+            unsafeSvg.push(p);
+        }
+    }
+} catch { /* assets dir might not exist; skip */ }
+ok(`no SVG contains <script> or inline event handlers (${svgCount} svgs)`, () => {
+    if (unsafeSvg.length) {
+        console.error('   unsafe:\n' + unsafeSvg.map((l) => '     ' + l).join('\n'));
+    }
+    return unsafeSvg.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
