@@ -689,6 +689,38 @@ std::string Ledger::Stats::to_json() const {
     return j.dump();
 }
 
+Result<Ledger::Stats> Ledger::stats_for_tenant(const std::string& tenant) const {
+    Stats s{};
+    s.head_hash = impl_->head;
+    s.key_id    = impl_->key_id;
+
+    const auto chain_len = impl_->length.load();
+    if (chain_len == 0) return s;
+
+    constexpr std::uint64_t kChunk = 1024;
+    bool first = true;
+    for (std::uint64_t start = 1; start <= chain_len; start += kChunk) {
+        std::uint64_t end = std::min(chain_len + 1, start + kChunk);
+        auto rng = impl_->storage->select_range_for_tenant(tenant, start, end);
+        if (!rng) return rng.error();
+        for (const auto& e : rng.value()) {
+            if (first) {
+                s.oldest_seq = e.header.seq;
+                s.oldest_ts  = e.header.ts;
+                first = false;
+            }
+            s.newest_seq        = e.header.seq;
+            s.newest_ts         = e.header.ts;
+            s.total_body_bytes += e.body_json.size();
+            s.entry_count      += 1;
+        }
+    }
+    s.avg_body_bytes = s.entry_count == 0
+        ? 0
+        : s.total_body_bytes / s.entry_count;
+    return s;
+}
+
 Result<std::unordered_map<std::string, std::uint64_t>>
 Ledger::count_by_event_type() const {
     std::unordered_map<std::string, std::uint64_t> out;

@@ -234,6 +234,12 @@ public:
 
     Result<Stats> stats() const;
 
+    // Per-tenant variant. Same shape as stats() but counts only entries
+    // whose header.tenant matches the supplied string. The empty tenant
+    // ("") is its own scope. Implemented via paginated tenant-scoped
+    // range queries so memory stays bounded for large chains.
+    Result<Stats> stats_for_tenant(const std::string& tenant) const;
+
     // Count entries grouped by event_type. Returns a map keyed by the
     // header.event_type string. O(n) scan over the chain via for_each;
     // O(1) memory aside from the result map. Useful for dashboards

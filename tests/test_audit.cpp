@@ -1292,6 +1292,101 @@ TEST_CASE("Ledger::stats handles 1000-entry chain") {
     CHECK(s.value().avg_body_bytes > 0);
 }
 
+// ============== Ledger::stats_for_tenant ================================
+
+TEST_CASE("stats_for_tenant counts only the matching tenant") {
+    auto p = tmp_db("stats_tenant_split");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, "alpha"));
+    for (int i = 0; i < 7; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, "beta"));
+    auto sa = l.stats_for_tenant("alpha"); REQUIRE(sa);
+    CHECK(sa.value().entry_count == 5);
+    auto sb = l.stats_for_tenant("beta"); REQUIRE(sb);
+    CHECK(sb.value().entry_count == 7);
+    auto se = l.stats_for_tenant("");      REQUIRE(se);
+    CHECK(se.value().entry_count == 0);
+}
+
+TEST_CASE("stats_for_tenant: empty-tenant scope is its own bucket") {
+    auto p = tmp_db("stats_tenant_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "alpha"));
+    auto se = l.stats_for_tenant(""); REQUIRE(se);
+    CHECK(se.value().entry_count == 2);
+    auto sa = l.stats_for_tenant("alpha"); REQUIRE(sa);
+    CHECK(sa.value().entry_count == 1);
+}
+
+TEST_CASE("stats_for_tenant: oldest/newest seq + ts are tenant-local") {
+    auto p = tmp_db("stats_tenant_seq");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "alpha"));  // seq 1
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "beta"));   // seq 2
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "alpha"));  // seq 3
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "beta"));   // seq 4
+    auto sa = l.stats_for_tenant("alpha"); REQUIRE(sa);
+    CHECK(sa.value().oldest_seq == 1);
+    CHECK(sa.value().newest_seq == 3);
+    auto sb = l.stats_for_tenant("beta"); REQUIRE(sb);
+    CHECK(sb.value().oldest_seq == 2);
+    CHECK(sb.value().newest_seq == 4);
+}
+
+TEST_CASE("stats_for_tenant on missing tenant returns zero-count Stats") {
+    auto p = tmp_db("stats_tenant_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "alpha"));
+    auto sg = l.stats_for_tenant("gamma"); REQUIRE(sg);
+    CHECK(sg.value().entry_count      == 0);
+    CHECK(sg.value().total_body_bytes == 0);
+    CHECK(sg.value().avg_body_bytes   == 0);
+    CHECK(!sg.value().key_id.empty());  // key_id always populated
+}
+
+TEST_CASE("stats_for_tenant: per-tenant counts sum to global stats.entry_count") {
+    auto p = tmp_db("stats_tenant_sum");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 13; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json::object(), "alpha"));
+    for (int i = 0; i < 17; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json::object(), "beta"));
+    for (int i = 0; i < 4; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto sa = l.stats_for_tenant("alpha"); REQUIRE(sa);
+    auto sb = l.stats_for_tenant("beta");  REQUIRE(sb);
+    auto se = l.stats_for_tenant("");      REQUIRE(se);
+    auto g  = l.stats();                   REQUIRE(g);
+    CHECK(sa.value().entry_count + sb.value().entry_count + se.value().entry_count
+          == g.value().entry_count);
+}
+
+TEST_CASE("stats_for_tenant: large multi-chunk scan still correct") {
+    auto p = tmp_db("stats_tenant_chunk");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // > kChunk (1024) entries to exercise the pagination loop.
+    for (int i = 0; i < 1500; i++) {
+        REQUIRE(l.append("e", "x",
+            nlohmann::json{{"i", i}},
+            (i % 3 == 0) ? "alpha" : "beta"));
+    }
+    auto sa = l.stats_for_tenant("alpha"); REQUIRE(sa);
+    auto sb = l.stats_for_tenant("beta");  REQUIRE(sb);
+    CHECK(sa.value().entry_count + sb.value().entry_count == 1500);
+    // every third (0,3,6,...) goes to alpha → 500 entries.
+    CHECK(sa.value().entry_count == 500);
+    CHECK(sb.value().entry_count == 1000);
+}
+
 // ============== Ledger::count_by_event_type =============================
 
 TEST_CASE("count_by_event_type tallies one type") {
