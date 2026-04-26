@@ -19,8 +19,8 @@ using namespace asclepius;
 
 namespace {
 
-int cmd_ledger_verify(const std::filesystem::path& db) {
-    auto led = Ledger::open(db);
+int cmd_ledger_verify(const std::string& db) {
+    auto led = Ledger::open_uri(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -38,8 +38,8 @@ int cmd_ledger_verify(const std::filesystem::path& db) {
     return 0;
 }
 
-int cmd_ledger_inspect(const std::filesystem::path& db, std::size_t tail) {
-    auto led = Ledger::open(db);
+int cmd_ledger_inspect(const std::string& db, std::size_t tail) {
+    auto led = Ledger::open_uri(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -65,7 +65,7 @@ int cmd_ledger_inspect(const std::filesystem::path& db, std::size_t tail) {
     return 0;
 }
 
-int cmd_drift_report(const std::filesystem::path& /*db*/) {
+int cmd_drift_report(const std::string& /*db*/) {
     // Drift state is in-process; reading drift from a long-lived sidecar is
     // a future enhancement. For now we emit an empty report so scripts have
     // something stable to consume.
@@ -73,10 +73,10 @@ int cmd_drift_report(const std::filesystem::path& /*db*/) {
     return 0;
 }
 
-int cmd_evidence_bundle(const std::filesystem::path& db,
+int cmd_evidence_bundle(const std::string&           db,
                         const std::filesystem::path& out,
                         const std::string&           since) {
-    auto rt = Runtime::open(db);
+    auto rt = Runtime::open_uri(db);
     if (!rt) { fmt::print(stderr, "open: {}\n", rt.error().what()); return 2; }
 
     // Parse the "since" duration (e.g. "30d", "24h"). Default 30 days.
@@ -138,27 +138,32 @@ int main(int argc, char** argv) {
     auto* ledger = app.add_subcommand("ledger", "ledger operations");
     ledger->require_subcommand(1);
 
-    std::filesystem::path db_path;
+    // db can be a SQLite filesystem path or a postgres:// URI; we don't apply
+    // CLI::ExistingFile because postgres URIs aren't files.
+    std::string db_uri;
     {
         auto* verify = ledger->add_subcommand("verify", "verify chain integrity");
-        verify->add_option("db", db_path, "ledger database file")
-              ->required()->check(CLI::ExistingFile);
-        verify->callback([&]() { std::exit(cmd_ledger_verify(db_path)); });
+        verify->add_option("db", db_uri,
+                           "ledger: SQLite path or postgres://user:pass@host/dbname")
+              ->required();
+        verify->callback([&]() { std::exit(cmd_ledger_verify(db_uri)); });
     }
     std::size_t tail_n = 20;
     {
         auto* inspect = ledger->add_subcommand("inspect", "print recent entries as JSON");
-        inspect->add_option("db", db_path)->required()->check(CLI::ExistingFile);
+        inspect->add_option("db", db_uri,
+                            "ledger: SQLite path or postgres://...")
+               ->required();
         inspect->add_option("--tail", tail_n, "number of entries (default 20)");
-        inspect->callback([&]() { std::exit(cmd_ledger_inspect(db_path, tail_n)); });
+        inspect->callback([&]() { std::exit(cmd_ledger_inspect(db_uri, tail_n)); });
     }
 
     auto* drift = app.add_subcommand("drift", "drift operations");
     drift->require_subcommand(1);
     {
         auto* report = drift->add_subcommand("report", "emit drift report (json)");
-        report->add_option("db", db_path)->required()->check(CLI::ExistingFile);
-        report->callback([&]() { std::exit(cmd_drift_report(db_path)); });
+        report->add_option("db", db_uri)->required();
+        report->callback([&]() { std::exit(cmd_drift_report(db_uri)); });
     }
 
     auto* evidence = app.add_subcommand("evidence", "evidence bundle ops");
@@ -167,10 +172,12 @@ int main(int argc, char** argv) {
     std::string           since = "30d";
     {
         auto* bundle = evidence->add_subcommand("bundle", "export an evidence bundle");
-        bundle->add_option("db", db_path)->required()->check(CLI::ExistingFile);
+        bundle->add_option("db", db_uri,
+                           "ledger: SQLite path or postgres://...")
+              ->required();
         bundle->add_option("--out", bundle_out, "output tar path")->required();
         bundle->add_option("--window", since, "lookback window (e.g. 30d, 24h)");
-        bundle->callback([&]() { std::exit(cmd_evidence_bundle(db_path, bundle_out, since)); });
+        bundle->callback([&]() { std::exit(cmd_evidence_bundle(db_uri, bundle_out, since)); });
     }
     {
         auto* verify = evidence->add_subcommand("verify", "verify a bundle file");
