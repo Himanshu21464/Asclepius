@@ -213,6 +213,26 @@ public:
     // record an aborted-inference event.
     bool is_committed() const noexcept;
 
+    // Owning string copy of the actor id (i.e. the human or service
+    // that initiated this inference). Sugar over
+    // `std::string{ctx().actor().str()}` — useful when the caller
+    // needs to capture the actor by value into a logger sink, queue
+    // payload, or async task that outlives this handle's stack frame.
+    // The underlying `actor().str()` returns a string_view tied to
+    // the InferenceContext; this accessor lets callers escape that
+    // lifetime without manual conversion at every call site.
+    std::string actor_str() const;
+
+    // True iff the inference is committed AND its started_at time is
+    // strictly later than `t`. Useful as a "did this inference happen
+    // after our last checkpoint?" guard for sidecars walking forward
+    // from a saved bookmark. Returns false on uncommitted handles
+    // (no terminal record exists yet) and on null impl. The
+    // comparison uses the same Time type the ledger header records,
+    // so callers can pass a Time captured from a prior ledger entry
+    // without conversion.
+    bool was_committed_after(Time t) const noexcept;
+
     // True iff status() begins with "blocked." (i.e. "blocked.input"
     // or "blocked.output"). Cheap accessor — sidecars on the hot path
     // would otherwise re-allocate / re-compare the status string each
@@ -354,6 +374,33 @@ public:
     // length; never errors. The middle dot (·) separator is U+00B7
     // — the same character the website uses in eyebrow lines.
     std::string quick_status() const;
+
+    // Multi-line, human-readable runtime summary. Distinct from
+    // quick_status() — that's a single line for log eyebrows, this
+    // is the verbose form used by sidecar startup banners and the
+    // `asclepius runtime status` CLI surface. Roughly 6-8 lines,
+    // includes: ledger length, head hex (truncated to 12 chars), key
+    // id, signing fingerprint, active consent token count, drift
+    // feature count, policy count, runtime version. Pulls from
+    // health() + version() + keystore_fingerprint() — never errors.
+    std::string summary_string() const;
+
+    // Sugar over ledger().key_id(). The ledger's signing key id is
+    // routinely surfaced in sidecar logs alongside the head hash, but
+    // grabbing it requires the caller to drill through the Ledger&
+    // accessor; this trivial wrapper saves the indirection at the
+    // call site (and matches the framing used by other sugar
+    // accessors here — head_hash(), keystore_fingerprint() etc.).
+    std::string signing_key_id() const;
+
+    // Cheap bool over consent().permits(patient, purpose). Sidecars
+    // running pre-flight checks before begin_inference() typically
+    // want a yes/no verdict and treat any registry error the same as
+    // "not permitted" — this wrapper folds the Result<bool> into a
+    // bool via .value_or(false), saving the boilerplate at every
+    // gate. Use begin_inference() itself for the auth-grade check
+    // (which surfaces the specific consent_missing / expired error).
+    bool has_consent_for(const PatientId& patient, Purpose purpose) const;
 
     // Wallclock duration since the oldest entry in the chain.
     // Returns std::chrono::nanoseconds::zero() on an empty chain

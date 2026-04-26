@@ -365,6 +365,16 @@ bool Inference::is_committed() const noexcept {
     return impl_ && impl_->committed;
 }
 
+std::string Inference::actor_str() const {
+    if (!impl_) return std::string{};
+    return std::string{impl_->ctx.actor().str()};
+}
+
+bool Inference::was_committed_after(Time t) const noexcept {
+    if (!impl_ || !impl_->committed) return false;
+    return impl_->ctx.started_at() > t;
+}
+
 bool Inference::was_blocked() const noexcept {
     if (!impl_) return false;
     auto it = impl_->ledger_body.find("status");

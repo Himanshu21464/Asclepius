@@ -88,6 +88,23 @@ double Histogram::quantile(double q) const {
     return hi_;
 }
 
+double Histogram::median() const {
+    // Convenience wrapper. quantile() takes its own lock and handles
+    // the empty case (returns 0.0).
+    return quantile(0.5);
+}
+
+bool Histogram::is_empty() const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        return total_ == 0;
+    } catch (...) {
+        // Lock acquisition can theoretically throw. Contract is
+        // noexcept; degrade to "treat as empty" rather than propagate.
+        return true;
+    }
+}
+
 double Histogram::percentile(double p) const {
     // p in [0, 100]; quantile() expects [0, 1] and clamps internally,
     // but we clamp here too so the conversion is well-defined for any
@@ -517,6 +534,21 @@ Result<std::uint64_t> DriftMonitor::baseline_count(std::string_view feature) con
         return Error::not_found(fmt::format("unregistered feature: {}", feature));
     }
     return it->second->reference->total();
+}
+
+void DriftMonitor::clear_alerts() {
+    std::lock_guard<std::mutex> lk(mu_);
+    last_severity_.clear();
+}
+
+Result<DriftSeverity> DriftMonitor::feature_severity(std::string_view feature) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = features_.find(std::string{feature});
+    if (it == features_.end()) {
+        return Error::not_found(fmt::format("unregistered feature: {}", feature));
+    }
+    const double psi = Histogram::psi(*it->second->reference, *it->second->current);
+    return classify(psi);
 }
 
 Result<std::string> DriftMonitor::most_drifted_feature() const {

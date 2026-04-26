@@ -285,7 +285,67 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.2</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.3</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Compact attestations, hard-delete consent, verbose runtime
+            summary.</em> Round 80 lands the bytes operators want to print
+            and the verbs administrators want for correction without
+            history-rewriting. Audit grows
+            <code>head_attestation_json()</code> — one line, head plus
+            length plus key id plus fingerprint plus signature, the shape
+            a status badge or webhook payload wants without the
+            multi-line <code>attestation_json()</code>;
+            <code>oldest_n_for_tenant(t, n)</code> as the head-end mirror
+            of <code>tail_for_patient</code>;
+            <code>events_between(t0, t1, type)</code> composes time-window
+            and event-type filters in one query;
+            <code>has_inference_id(id)</code> cheap-bool wrapper avoids
+            materializing the row when only existence matters. Telemetry
+            adds <code>Histogram::median()</code> and
+            <code>is_empty()</code>; a kind-agnostic
+            <code>MetricRegistry::has(name)</code>;
+            <code>DriftMonitor::feature_severity(name)</code> drills into
+            one feature; <code>clear_alerts()</code> resets the latch
+            after on-call ack. Consent grows
+            <code>permits_any_purpose(patient)</code> as the cheap
+            existence predicate, <code>token_count_for_patient</code>,
+            <code>tokens_granted_within(horizon)</code> as the symmetric
+            grant-side queue against <code>recently_revoked</code>,
+            <code>find_by_purpose(patient, purpose)</code> for the patient
+            × purpose intersection, and — distinct from
+            <code>revoke()</code> — a <code>remove(token_id)</code>
+            <strong>hard delete</strong> that bypasses the observer for
+            administrative correction. Runtime sugar:
+            <code>signing_key_id()</code>, <code>has_consent_for</code>,
+            <code>summary_string()</code> (multi-line composite
+            distinct from one-line <code>quick_status()</code>);
+            <code>Inference::actor_str()</code> and
+            <code>was_committed_after(t)</code>. New
+            <em>/operators</em> page — production-ops-shaped runbook
+            covering deploy, daily probes, incident response, capacity,
+            DR, multi-tenant, and what you'll actually page on. No
+            on-disk format changes; nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::head_attestation_json()</code> — compact one-line head attestation: length + head + key_id + fingerprint + signature, no trailing newline. Status-badge / webhook shape.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::oldest_n_for_tenant(tenant, n)</code> — head-end mirror of <code>tail_for_patient</code>, scoped to one tenant. Per-customer onboarding archaeology in one call.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::events_between(from, to, event_type)</code> — composite filter, time + event-type. "Every <code>consent.revoked</code> last week" without composing <code>tail_in_window</code> with a predicate.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::has_inference_id(id)</code> — cheap bool wrapper over <code>find_by_inference_id</code>; avoids materializing the row when only existence matters.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::median()</code>, <code>is_empty()</code> — tail-robust central tendency · "n/a vs zero" predicate dashboards want.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::has(name)</code> — kind-agnostic existence predicate over counters and histograms in one call.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::feature_severity(name)</code>, <code>clear_alerts()</code> — drill into one feature without the full <code>report()</code>; reset the alert latch after on-call ack without rotating windows.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::permits_any_purpose(patient)</code>, <code>token_count_for_patient(patient)</code>, <code>tokens_granted_within(horizon)</code>, <code>find_by_purpose(patient, purpose)</code>.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::remove(token_id)</code> — <strong>hard delete</strong>, admin-only; does <em>not</em> fire the observer. <code>revoke()</code> remains the patient-driven, ledger-emitting path.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::actor_str()</code>, <code>was_committed_after(t)</code> — owning string copy of the actor; "did this row land in the current verification window?"</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::signing_key_id()</code>, <code>has_consent_for(patient, purpose)</code>, <code>summary_string()</code> — runtime-level shortcuts; multi-line verbose status distinct from one-line <code>quick_status()</code>.</span></li>
+            <li class="docs"><b>doc</b><span>New <code>/operators</code> page — production-ops runbook (deploy, daily probes, incident response, capacity, DR, multi-tenant, what you'll page on). <code>/api</code> and <code>/cheatsheet</code> updated.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.2</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Inclusion proofs, drift ranking, per-patient stats.</em>

@@ -331,6 +331,51 @@ std::string Runtime::quick_status() const {
     return out;
 }
 
+std::string Runtime::summary_string() const {
+    auto h = health();
+    // Truncate the head hex to 12 chars for human comparison; the
+    // full hex is available on Health::ledger_head_hex if a caller
+    // needs it. The string is built line-by-line so it reads cleanly
+    // when written to a log or a tty.
+    std::string head12 = h.ledger_head_hex.size() > 12
+                             ? h.ledger_head_hex.substr(0, 12)
+                             : h.ledger_head_hex;
+    std::string out;
+    out.reserve(256);
+    out += "asclepius runtime ";
+    out += version();
+    out += '\n';
+    out += "  ledger length: ";
+    out += std::to_string(h.ledger_length);
+    out += '\n';
+    out += "  ledger head: ";
+    out += head12;
+    out += '\n';
+    out += "  signing key id: ";
+    out += h.ledger_key_id;
+    out += '\n';
+    out += "  signing fingerprint: ";
+    out += keystore_fingerprint();
+    out += '\n';
+    out += "  active consent tokens: ";
+    out += std::to_string(h.active_consent_tokens);
+    out += '\n';
+    out += "  drift features: ";
+    out += std::to_string(h.drift_features);
+    out += '\n';
+    out += "  policies: ";
+    out += std::to_string(h.policy_count);
+    return out;
+}
+
+std::string Runtime::signing_key_id() const {
+    return impl_->ledger.key_id();
+}
+
+bool Runtime::has_consent_for(const PatientId& patient, Purpose purpose) const {
+    return impl_->consent.permits(patient, purpose).value_or(false);
+}
+
 std::chrono::nanoseconds Runtime::ledger_age() const {
     if (impl_->ledger.length() == 0) {
         return std::chrono::nanoseconds::zero();

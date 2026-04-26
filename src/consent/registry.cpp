@@ -124,6 +124,60 @@ Result<bool> ConsentRegistry::permits(const PatientId& patient, Purpose purpose)
     return false;
 }
 
+bool ConsentRegistry::permits_any_purpose(const PatientId& patient) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        const auto now = Time::now();
+        for (const auto& [_, t] : by_id_) {
+            if (t.revoked)            continue;
+            if (t.expires_at <= now)  continue;
+            if (t.patient != patient) continue;
+            if (!t.purposes.empty()) {
+                return true;
+            }
+        }
+        return false;
+    } catch (...) {
+        return false;
+    }
+}
+
+Result<ConsentToken>
+ConsentRegistry::find_by_purpose(const PatientId& patient, Purpose purpose) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.patient != patient) continue;
+        if (std::find(t.purposes.begin(), t.purposes.end(), purpose)
+            != t.purposes.end()) {
+            return t;
+        }
+    }
+    return Error::not_found("no active consent token for patient/purpose");
+}
+
+std::size_t
+ConsentRegistry::token_count_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::size_t n = 0;
+    for (const auto& [_, t] : by_id_) {
+        if (t.patient == patient) n++;
+    }
+    return n;
+}
+
+Result<void> ConsentRegistry::remove(std::string_view token_id) {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = by_id_.find(std::string{token_id});
+    if (it == by_id_.end()) {
+        return Error::not_found("consent token not found");
+    }
+    by_id_.erase(it);
+    return Result<void>::ok();
+}
+
 Result<ConsentToken> ConsentRegistry::get(std::string_view token_id) const {
     std::lock_guard<std::mutex> lk(mu_);
     auto it = by_id_.find(std::string{token_id});
@@ -545,6 +599,26 @@ ConsentRegistry::recently_revoked(std::chrono::seconds window) const {
     for (const auto& [_, t] : by_id_) {
         if (!t.revoked)            continue;
         if (t.issued_at < cutoff)  continue;
+        out.push_back(t);
+    }
+    std::sort(out.begin(), out.end(),
+              [](const ConsentToken& a, const ConsentToken& b) {
+                  return a.issued_at > b.issued_at;
+              });
+    return out;
+}
+
+std::vector<ConsentToken>
+ConsentRegistry::tokens_granted_within(std::chrono::seconds horizon) const {
+    std::vector<ConsentToken> out;
+    if (horizon.count() <= 0) {
+        return out;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now    = Time::now();
+    const auto cutoff = now - std::chrono::nanoseconds{horizon};
+    for (const auto& [_, t] : by_id_) {
+        if (t.issued_at < cutoff) continue;
         out.push_back(t);
     }
     std::sort(out.begin(), out.end(),

@@ -3103,3 +3103,426 @@ TEST_CASE("inclusion_proof: to_json round-trips fields and hex digests") {
         CHECK(chain[k].get<std::string>() == proof.chain_to_head[k].hex());
     }
 }
+
+// ---- oldest_n_for_tenant ------------------------------------------------
+
+TEST_CASE("oldest_n_for_tenant: basic seq-ascending tenant slice") {
+    auto p = tmp_db("oldest_n_for_tenant_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Interleave two tenants so ordering is non-trivial.
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, "alpha"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, "beta"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 2}}, "alpha"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 3}}, "beta"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 4}}, "alpha"));
+
+    auto first2 = l.oldest_n_for_tenant("alpha", 2);
+    REQUIRE(first2);
+    REQUIRE(first2.value().size() == 2);
+    CHECK(first2.value()[0].header.seq == 1u);
+    CHECK(first2.value()[1].header.seq == 3u);
+    // Oldest first.
+    CHECK(first2.value()[0].header.seq < first2.value()[1].header.seq);
+}
+
+TEST_CASE("oldest_n_for_tenant edges: n=0, empty chain, larger n than matches, empty tenant scope") {
+    auto p = tmp_db("oldest_n_for_tenant_edges");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain — n=0 and n>0 both give empty.
+    auto a = l.oldest_n_for_tenant("alpha", 0);
+    REQUIRE(a); CHECK(a.value().empty());
+    auto b = l.oldest_n_for_tenant("alpha", 5);
+    REQUIRE(b); CHECK(b.value().empty());
+
+    // One alpha, two empty-tenant.
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, "alpha"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 2}}, ""));
+
+    // n=0 cheap no-op.
+    auto z = l.oldest_n_for_tenant("alpha", 0);
+    REQUIRE(z); CHECK(z.value().empty());
+
+    // n much larger than matches: returns only the matches.
+    auto big = l.oldest_n_for_tenant("alpha", 100);
+    REQUIRE(big); REQUIRE(big.value().size() == 1u);
+    CHECK(big.value()[0].header.seq == 1u);
+
+    // Empty tenant ("") is its own scope.
+    auto empt = l.oldest_n_for_tenant("", 10);
+    REQUIRE(empt); REQUIRE(empt.value().size() == 2u);
+    CHECK(empt.value()[0].header.seq == 2u);
+    CHECK(empt.value()[1].header.seq == 3u);
+}
+
+TEST_CASE("oldest_n_for_tenant integration: paginates across the 1024 chunk size") {
+    auto p = tmp_db("oldest_n_for_tenant_paginate");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Append 2050 entries, all under tenant "t". This forces the chunked
+    // loop (kChunk=1024) to run at least 2 full chunks before stopping.
+    constexpr int N = 2050;
+    for (int i = 0; i < N; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, "t"));
+    }
+    // Ask for n=1500, which spans two chunk boundaries.
+    auto r = l.oldest_n_for_tenant("t", 1500);
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 1500u);
+    CHECK(r.value().front().header.seq == 1u);
+    CHECK(r.value().back().header.seq == 1500u);
+    // Strictly seq-ascending.
+    for (std::size_t k = 1; k < r.value().size(); k++) {
+        CHECK(r.value()[k - 1].header.seq < r.value()[k].header.seq);
+    }
+    // Asking for more than exist returns just the available set.
+    auto all = l.oldest_n_for_tenant("t", N + 999);
+    REQUIRE(all);
+    CHECK(all.value().size() == static_cast<std::size_t>(N));
+}
+
+// ---- events_between -----------------------------------------------------
+
+TEST_CASE("events_between: basic time + event_type filter") {
+    auto p = tmp_db("events_between_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto t0 = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    REQUIRE(l.append("inference.committed", "x", nlohmann::json{{"i", 0}}, ""));
+    REQUIRE(l.append("drift.crossed",       "x", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("inference.committed", "x", nlohmann::json{{"i", 2}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    auto t1 = Time::now();
+    // Wide window — should pick up the two inference.committed entries.
+    auto r = l.events_between(t0, t1, "inference.committed");
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 2u);
+    CHECK(r.value()[0].header.event_type == "inference.committed");
+    CHECK(r.value()[1].header.event_type == "inference.committed");
+    // Seq-ascending.
+    CHECK(r.value()[0].header.seq < r.value()[1].header.seq);
+}
+
+TEST_CASE("events_between edges: empty event_type, from > to, empty window") {
+    auto p = tmp_db("events_between_edges");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+
+    // Empty event_type rejected.
+    auto bad1 = l.events_between(Time{0}, Time::now(), "");
+    REQUIRE(!bad1);
+    CHECK(bad1.error().code() == ErrorCode::invalid_argument);
+
+    // from > to rejected.
+    auto now = Time::now();
+    auto bad2 = l.events_between(now, Time{0}, "e");
+    REQUIRE(!bad2);
+    CHECK(bad2.error().code() == ErrorCode::invalid_argument);
+
+    // Empty interval [t, t) returns nothing (half-open).
+    auto t = Time::now();
+    auto empty_range = l.events_between(t, t, "e");
+    REQUIRE(empty_range); CHECK(empty_range.value().empty());
+
+    // Unknown event type returns empty.
+    auto none = l.events_between(Time{0}, Time::now(), "no.such.type");
+    REQUIRE(none); CHECK(none.value().empty());
+}
+
+TEST_CASE("events_between integration: half-open interval excludes upper bound") {
+    auto p = tmp_db("events_between_halfopen");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 2}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    REQUIRE(l.append("other", "x", nlohmann::json{{"i", 3}}, ""));
+
+    auto e2 = l.at(2); REQUIRE(e2);
+    auto e3 = l.at(3); REQUIRE(e3);
+    // [e2.ts, e3.ts) — e2 included, e3 excluded.
+    auto r = l.events_between(e2.value().header.ts, e3.value().header.ts, "e");
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 1u);
+    CHECK(r.value()[0].header.seq == 2u);
+
+    // event_type filter sieves out the "other" entry even when in window.
+    auto r2 = l.events_between(Time{0}, Time::now(), "e");
+    REQUIRE(r2);
+    CHECK(r2.value().size() == 3u);
+    for (const auto& e : r2.value()) CHECK(e.header.event_type == "e");
+}
+
+// ---- has_inference_id ---------------------------------------------------
+
+TEST_CASE("has_inference_id: basic hit and miss") {
+    auto p = tmp_db("has_iid_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "x",
+                     nlohmann::json{{"inference_id", "infer-abc"},
+                                    {"patient", "P1"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+                     nlohmann::json{{"inference_id", "infer-xyz"},
+                                    {"patient", "P2"}}, ""));
+    CHECK(l.has_inference_id("infer-abc") == true);
+    CHECK(l.has_inference_id("infer-xyz") == true);
+    CHECK(l.has_inference_id("infer-nope") == false);
+}
+
+TEST_CASE("has_inference_id edges: empty id, empty chain, non-JSON-string field") {
+    auto p = tmp_db("has_iid_edges");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain — must be false, no allocation.
+    CHECK(l.has_inference_id("anything") == false);
+    // Empty id — false (no scan).
+    CHECK(l.has_inference_id("") == false);
+    // Non-string inference_id field shouldn't false-positive.
+    REQUIRE(l.append("inference.committed", "x",
+                     nlohmann::json{{"inference_id", 12345}}, ""));
+    CHECK(l.has_inference_id("12345") == false);
+    // Body containing the id substring but not as the field's value.
+    REQUIRE(l.append("inference.committed", "x",
+                     nlohmann::json{{"inference_id", "real-id"},
+                                    {"note", "decoy-id"}}, ""));
+    CHECK(l.has_inference_id("decoy-id") == false);
+    CHECK(l.has_inference_id("real-id") == true);
+}
+
+TEST_CASE("has_inference_id integration: parity with find_by_inference_id") {
+    auto p = tmp_db("has_iid_parity");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 50; i++) {
+        REQUIRE(l.append("inference.committed", "x",
+                         nlohmann::json{{"inference_id",
+                                         std::string{"id-"} + std::to_string(i)},
+                                        {"patient", "P"}}, ""));
+    }
+    // Every id we appended must report true and resolve via find.
+    for (int i = 0; i < 50; i++) {
+        std::string id = "id-" + std::to_string(i);
+        CHECK(l.has_inference_id(id) == true);
+        auto found = l.find_by_inference_id(id);
+        REQUIRE(found);
+        CHECK(found.value().body_json.find(id) != std::string::npos);
+    }
+    // Absent ids: both report negative.
+    CHECK(l.has_inference_id("id-9999") == false);
+    auto miss = l.find_by_inference_id("id-9999");
+    REQUIRE(!miss);
+    CHECK(miss.error().code() == ErrorCode::not_found);
+}
+
+// ---- attestation_json ---------------------------------------------------
+
+TEST_CASE("attestation_json: basic — keys present, head/key match attest()") {
+    auto p = tmp_db("attestation_json_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, ""));
+
+    auto j = nlohmann::json::parse(l.attestation_json());
+    auto a = l.attest();
+
+    CHECK(j.at("length").get<std::uint64_t>() == 2u);
+    CHECK(j.at("head_hash").get<std::string>() == a.head.hex());
+    CHECK(j.at("key_id").get<std::string>() == a.key_id);
+    CHECK(j.at("fingerprint").get<std::string>() == a.fingerprint);
+    REQUIRE(j.contains("oldest_ts"));
+    REQUIRE(j.contains("newest_ts"));
+    CHECK(!j.at("oldest_ts").get<std::string>().empty());
+    CHECK(!j.at("newest_ts").get<std::string>().empty());
+}
+
+TEST_CASE("attestation_json edges: empty chain emits empty oldest/newest ts") {
+    auto p = tmp_db("attestation_json_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    auto j = nlohmann::json::parse(l.attestation_json());
+    CHECK(j.at("length").get<std::uint64_t>() == 0u);
+    CHECK(j.at("oldest_ts").get<std::string>() == "");
+    CHECK(j.at("newest_ts").get<std::string>() == "");
+    // head_hash is the all-zero head hex; still present and well-formed.
+    CHECK(j.at("head_hash").get<std::string>().size() == Hash::size * 2);
+    // key_id and fingerprint always present (open() generated/loaded a key).
+    CHECK(!j.at("key_id").get<std::string>().empty());
+    CHECK(!j.at("fingerprint").get<std::string>().empty());
+}
+
+TEST_CASE("attestation_json integration: oldest_ts/newest_ts match oldest/newest_entry") {
+    auto p = tmp_db("attestation_json_ts");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto oldest = l.oldest_entry(); REQUIRE(oldest);
+    auto newest = l.newest_entry(); REQUIRE(newest);
+
+    auto j = nlohmann::json::parse(l.attestation_json());
+    CHECK(j.at("oldest_ts").get<std::string>() ==
+          oldest.value().header.ts.iso8601());
+    CHECK(j.at("newest_ts").get<std::string>() ==
+          newest.value().header.ts.iso8601());
+    CHECK(j.at("length").get<std::uint64_t>() == l.length());
+    // Single-entry chain: oldest_ts == newest_ts.
+    auto p2 = tmp_db("attestation_json_single");
+    auto l2_ = Ledger::open(p2); REQUIRE(l2_);
+    auto& l2 = l2_.value();
+    REQUIRE(l2.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+    auto j2 = nlohmann::json::parse(l2.attestation_json());
+    CHECK(j2.at("oldest_ts").get<std::string>() ==
+          j2.at("newest_ts").get<std::string>());
+}
+
+// ---- head_attestation_json ----------------------------------------------
+
+namespace {
+
+// Test-local hex decoder: convert a hex string into a fixed-size byte
+// array. Returns false on length or charset mismatch.
+template <std::size_t N>
+bool hex_to_bytes(std::string_view s, std::array<std::uint8_t, N>& out) {
+    if (s.size() != N * 2) return false;
+    auto val = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    for (std::size_t i = 0; i < N; ++i) {
+        int hi = val(s[2*i]);
+        int lo = val(s[2*i + 1]);
+        if (hi < 0 || lo < 0) return false;
+        out[i] = static_cast<std::uint8_t>((hi << 4) | lo);
+    }
+    return true;
+}
+
+}  // namespace
+
+TEST_CASE("head_attestation_json: keys present and consistent with public API") {
+    auto p = tmp_db("head_attestation_json_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, ""));
+
+    auto s = l.head_attestation_json();
+    auto j = nlohmann::json::parse(s);
+
+    // Single-line JSON: no embedded newline.
+    CHECK(s.find('\n') == std::string::npos);
+
+    // All five required keys present.
+    REQUIRE(j.contains("length"));
+    REQUIRE(j.contains("head_hex"));
+    REQUIRE(j.contains("key_id"));
+    REQUIRE(j.contains("key_fingerprint"));
+    REQUIRE(j.contains("head_signature"));
+
+    CHECK(j.at("length").get<std::uint64_t>() == 2u);
+    CHECK(j.at("head_hex").get<std::string>() == l.head().hex());
+    CHECK(j.at("key_id").get<std::string>() == l.key_id());
+    // Fingerprint matches what attest() reports (both delegate to the
+    // same KeyStore::fingerprint).
+    auto a = l.attest();
+    CHECK(j.at("key_fingerprint").get<std::string>() == a.fingerprint);
+
+    // head_signature is 64 bytes hex == 128 chars.
+    CHECK(j.at("head_signature").get<std::string>().size() ==
+          KeyStore::sig_bytes * 2);
+}
+
+TEST_CASE("head_attestation_json: signature verifies against the ledger's public key") {
+    auto p = tmp_db("head_attestation_json_verify");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 3; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+
+    auto j = nlohmann::json::parse(l.head_attestation_json());
+
+    std::array<std::uint8_t, KeyStore::sig_bytes> sig{};
+    REQUIRE(hex_to_bytes(j.at("head_signature").get<std::string>(), sig));
+
+    auto head = l.head();
+    auto pk   = l.public_key();
+
+    CHECK(KeyStore::verify(
+        Bytes{head.bytes.data(), head.bytes.size()},
+        std::span<const std::uint8_t, KeyStore::sig_bytes>{sig.data(), sig.size()},
+        std::span<const std::uint8_t, KeyStore::pk_bytes>{pk.data(),   pk.size()}));
+
+    // Tampering with the head bytes invalidates the signature.
+    auto bad_head = head.bytes;
+    bad_head[0] = static_cast<std::uint8_t>(bad_head[0] ^ 0xFFu);
+    CHECK(!KeyStore::verify(
+        Bytes{bad_head.data(), bad_head.size()},
+        std::span<const std::uint8_t, KeyStore::sig_bytes>{sig.data(), sig.size()},
+        std::span<const std::uint8_t, KeyStore::pk_bytes>{pk.data(),   pk.size()}));
+}
+
+TEST_CASE("head_attestation_json edges: empty chain emits well-formed signature over zero head") {
+    auto p = tmp_db("head_attestation_json_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    auto j = nlohmann::json::parse(l.head_attestation_json());
+    CHECK(j.at("length").get<std::uint64_t>() == 0u);
+    // head_hex is the all-zero head hex; still well-formed.
+    CHECK(j.at("head_hex").get<std::string>().size() == Hash::size * 2);
+    CHECK(j.at("head_hex").get<std::string>() == Hash::zero().hex());
+    // key_id and key_fingerprint always present.
+    CHECK(!j.at("key_id").get<std::string>().empty());
+    CHECK(!j.at("key_fingerprint").get<std::string>().empty());
+
+    // Signature is well-formed and verifies over the zero head bytes.
+    std::array<std::uint8_t, KeyStore::sig_bytes> sig{};
+    REQUIRE(hex_to_bytes(j.at("head_signature").get<std::string>(), sig));
+    auto pk   = l.public_key();
+    auto zero = Hash::zero();
+    CHECK(KeyStore::verify(
+        Bytes{zero.bytes.data(), zero.bytes.size()},
+        std::span<const std::uint8_t, KeyStore::sig_bytes>{sig.data(), sig.size()},
+        std::span<const std::uint8_t, KeyStore::pk_bytes>{pk.data(),   pk.size()}));
+}
+
+TEST_CASE("head_attestation_json: signature changes as the chain advances") {
+    auto p = tmp_db("head_attestation_json_advance");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+    auto j1 = nlohmann::json::parse(l.head_attestation_json());
+    auto sig1 = j1.at("head_signature").get<std::string>();
+    auto head1 = j1.at("head_hex").get<std::string>();
+
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, ""));
+    auto j2 = nlohmann::json::parse(l.head_attestation_json());
+    auto sig2 = j2.at("head_signature").get<std::string>();
+    auto head2 = j2.at("head_hex").get<std::string>();
+
+    // Advancing the chain advances both the head and (with overwhelming
+    // probability) the signature over those head bytes.
+    CHECK(head1 != head2);
+    CHECK(sig1 != sig2);
+    CHECK(j2.at("length").get<std::uint64_t>() == 2u);
+    // key_id / fingerprint remain stable across appends.
+    CHECK(j1.at("key_id").get<std::string>() ==
+          j2.at("key_id").get<std::string>());
+    CHECK(j1.at("key_fingerprint").get<std::string>() ==
+          j2.at("key_fingerprint").get<std::string>());
+}

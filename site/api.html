@@ -341,6 +341,16 @@
       <dd><pre>Result&lt;std::uint64_t&gt; seq_at_time(Time t)</pre><p>Inverse of <code>head_at_time</code>: the highest seq whose timestamp is &le; <code>t</code>. The "where was the chain at midnight?" primitive — pairs with <code>verify_range</code> for "verify everything before incident&nbsp;X."</p></dd>
       <dt><code>inclusion_proof</code></dt>
       <dd><pre>Result&lt;InclusionProof&gt; inclusion_proof(std::uint64_t seq)</pre><p>Produce a compact inclusion witness for one entry against the current head. Lets a verifier confirm a single seq belongs to the published chain without replaying every prior row.</p></dd>
+      <dt><code>oldest_n_for_tenant</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; oldest_n_for_tenant(const TenantId&amp; tenant, std::size_t n)</pre><p>The first n entries scoped to one tenant — the head-end mirror of <code>tail_for_patient</code> for per-customer onboarding archaeology and per-tenant bootstrap audits.</p></dd>
+      <dt><code>events_between</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; events_between(Time from, Time to, std::string_view event_type)</pre><p>Time-windowed and event-type-scoped in one query. The shape that lands "every <code>consent.revoked</code> last week" without composing <code>tail_in_window</code> with a filter.</p></dd>
+      <dt><code>has_inference_id</code></dt>
+      <dd><pre>bool has_inference_id(std::string_view id)</pre><p>Cheap predicate over <code>find_by_inference_id</code> — true iff a committed inference under <code>id</code> exists. Avoids materializing the row when only existence matters.</p></dd>
+      <dt><code>attestation_json</code></dt>
+      <dd><pre>std::string attestation_json()</pre><p>Canonical JSON of the current signed head snapshot — head, length, key id, timestamp, signature — without going through <code>attest()</code>+<code>to_json()</code>. Pin into a public timestamping service in one call.</p></dd>
+      <dt><code>head_attestation_json</code></dt>
+      <dd><pre>std::string head_attestation_json()</pre><p>Compact one-line head attestation — <code>length</code>, <code>head</code>, <code>key_id</code>, <code>fingerprint</code>, <code>signature</code> on a single JSON line, no trailing newline. The shape a status badge or webhook payload wants; cheaper than the multi-line <code>attestation_json()</code> and grep-friendly in logs.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -451,6 +461,16 @@
       <dd><pre>std::vector&lt;ConsentToken&gt; recently_revoked(std::chrono::seconds window)</pre><p>Tokens revoked within the past <code>window</code> — flushes the right-of-withdrawal queue for downstream replicas without scanning the full ledger.</p></dd>
       <dt><code>most_recently_granted</code></dt>
       <dd><pre>std::optional&lt;ConsentToken&gt; most_recently_granted()</pre><p>The newest grant in the registry — the canary for "is consent flowing at all" on a status page.</p></dd>
+      <dt><code>permits_any_purpose</code></dt>
+      <dd><pre>bool permits_any_purpose(const PatientId&amp; patient)</pre><p>Cheap predicate — true iff this patient currently consents to <em>any</em> purpose. Faster than enumerating <code>active_purposes_for_patient</code> when only existence matters.</p></dd>
+      <dt><code>token_count_for_patient</code></dt>
+      <dd><pre>std::size_t token_count_for_patient(const PatientId&amp; patient)</pre><p>Total tokens (active, expired, revoked) ever issued for one patient. Pairs with <code>stats_for_patient</code> for "how many grants has this person seen" on a compliance row.</p></dd>
+      <dt><code>remove</code></dt>
+      <dd><pre>Result&lt;void&gt; remove(std::string_view token_id)</pre><p><strong>Hard delete</strong> a token from the registry. <em>Does not fire the observer</em> — distinct from <code>revoke</code>, which emits <code>consent.revoked</code> through the runtime to the ledger. Use only for administrative correction (token issued in error, never used); the ledger remains the source of truth for the historical record. <code>revoke</code> is the right call for patient-driven withdrawal.</p></dd>
+      <dt><code>find_by_purpose</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; find_by_purpose(const PatientId&amp; patient, Purpose purpose)</pre><p>Tokens for one patient that grant a specific purpose — the patient × purpose intersection in one call. Backs the "show me every consent for ambient_documentation on patient X" UI.</p></dd>
+      <dt><code>tokens_granted_within</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; tokens_granted_within(std::chrono::seconds horizon)</pre><p>Tokens whose <code>granted_at</code> falls inside the past <code>horizon</code>. The "what consent landed today?" view — pairs with <code>recently_revoked</code> as the symmetric grant-side queue.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -752,6 +772,10 @@
       <dd><pre>bool was_blocked()</pre><p>True iff a policy in the input or output chain returned <code>block</code> during this run. Distinct from <code>status() == blocked</code>: stable across <code>commit_idempotent</code> retries.</p></dd>
       <dt><code>has_completed</code></dt>
       <dd><pre>bool has_completed()</pre><p>True after <code>commit</code>, <code>commit_idempotent</code>, or an aborted run — i.e., the handle has reached a terminal state and will not append further entries.</p></dd>
+      <dt><code>actor_str</code></dt>
+      <dd><pre>std::string actor_str()</pre><p>Stable string form of the actor that began this inference (e.g., <code>clinician:dr.smith</code>). The string a CLI prints; cheaper than reaching through <code>tenant()</code> + spec for log lines.</p></dd>
+      <dt><code>was_committed_after</code></dt>
+      <dd><pre>bool was_committed_after(Time t)</pre><p>True iff this inference reached a terminal commit and did so after wall time <code>t</code>. Backs "did this row land in the current verification window?" without re-reading the ledger.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -824,6 +848,12 @@
       <dd><pre>bool is_healthy()</pre><p>Composite predicate over <code>self_test()</code>, <code>audit_spot_check()</code>, and <code>drift().any_severe()</code>. The single boolean a <code>/healthz</code> endpoint actually wants.</p></dd>
       <dt><code>ledger_age</code></dt>
       <dd><pre>std::chrono::seconds ledger_age()</pre><p>Wall-clock time since the first entry was appended — the chain's lifespan. Backs the "this substrate has been running for N days without a break" line on a status page.</p></dd>
+      <dt><code>signing_key_id</code></dt>
+      <dd><pre>std::string signing_key_id()</pre><p>The 16-hex key id this runtime is currently signing with — runtime-level shortcut over <code>ledger().key_id()</code>. The string an operator pastes into a status badge or reads out during a key-rotation ceremony.</p></dd>
+      <dt><code>has_consent_for</code></dt>
+      <dd><pre>bool has_consent_for(const PatientId&amp; patient, Purpose purpose)</pre><p>Cheap predicate — true iff the consent registry currently permits <code>purpose</code> for <code>patient</code>. Runtime-level shortcut over <code>consent().has_purpose_for_patient(...)</code>; the call a pre-flight gate actually wants.</p></dd>
+      <dt><code>summary_string</code></dt>
+      <dd><pre>std::string summary_string()</pre><p>Multi-line human-readable composite — version, ledger length, key id, drift summary, consent counts, dispatched inferences. The block a CLI prints in one go; richer than <code>quick_status()</code>, cheaper than <code>system_summary()</code>, and not JSON.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -890,6 +920,10 @@
       <dd><pre>double sum()</pre><p>Sum of every observed value (bin-midpoint weighted). Pairs with <code>count</code> for averages without re-walking observations.</p></dd>
       <dt><code>range</code></dt>
       <dd><pre>double range()</pre><p>Convenience over <code>max() - min()</code> — the observed span of the distribution.</p></dd>
+      <dt><code>median</code></dt>
+      <dd><pre>double median()</pre><p>Convenience over <code>quantile(0.5)</code> — the central tendency dashboards expect alongside <code>mean()</code>. Robust to tails the mean is not.</p></dd>
+      <dt><code>is_empty</code></dt>
+      <dd><pre>bool is_empty()</pre><p>Cheap predicate — true iff no observations have landed. Pairs with <code>has_histogram()</code> on dashboards that want to render "n/a" rather than zero.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -925,6 +959,10 @@
       <dd><pre>bool any_severe()</pre><p>Cheap predicate — true iff any registered feature is currently in the <code>severe</code> band. Backs the page-the-on-call shortcut without paying for a full <code>report()</code>.</p></dd>
       <dt><code>most_drifted_feature</code></dt>
       <dd><pre>std::optional&lt;std::string&gt; most_drifted_feature()</pre><p>Name of the feature with the highest current PSI, or <code>nullopt</code> when no features are registered. The "what should I look at first" pointer for an on-call who just got paged.</p></dd>
+      <dt><code>clear_alerts</code></dt>
+      <dd><pre>void clear_alerts()</pre><p>Reset the alert latch on every registered feature without rotating windows or wiping baselines. Use after on-call has acknowledged a <code>drift.crossed</code> incident — the underlying observations remain, the "you have unacknowledged severe drift" flag does not.</p></dd>
+      <dt><code>feature_severity</code></dt>
+      <dd><pre>DriftSeverity feature_severity(std::string_view feature)</pre><p>One feature&#x27;s current severity band without computing the full <code>report()</code>. Pairs with <code>most_drifted_feature</code> for the "show me only this one" drill-down.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -973,6 +1011,10 @@
       <dd><pre>bool has_counter(std::string_view name)</pre><p>Cheap predicate — true iff a counter under <code>name</code> has been registered. Avoids a phantom-zero from <code>count()</code> on a typo.</p></dd>
       <dt><code>has_histogram</code></dt>
       <dd><pre>bool has_histogram(std::string_view name)</pre><p>Same shape, for histograms. Pairs with <code>histogram_count</code> / <code>histogram_sum</code> on dashboards that want to render "n/a" rather than zero.</p></dd>
+      <dt><code>increment_or_create</code></dt>
+      <dd><pre>void increment_or_create(std::string_view name, std::uint64_t delta = 1)</pre><p>Atomic upsert: register the counter if absent, then add <code>delta</code>. The single call ad-hoc instrumentation actually wants — no <code>has_counter</code> guard, no race between register and inc.</p></dd>
+      <dt><code>has</code></dt>
+      <dd><pre>bool has(std::string_view name)</pre><p>Cheap kind-agnostic predicate — true iff a counter <em>or</em> histogram is registered under <code>name</code>. Use when you don't care which kind, only existence.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>

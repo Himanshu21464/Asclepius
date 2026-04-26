@@ -92,6 +92,14 @@ public:
     // Empty histograms return 0.0 (matching quantile()).
     double percentile(double p) const;
 
+    // Convenience wrapper over quantile(0.5). Returns 0.0 on an empty
+    // histogram (matching quantile()).
+    double median() const;
+
+    // True iff total() == 0. Locked. Cheap predicate for callers that
+    // want to gate work without computing a full snapshot.
+    bool is_empty() const noexcept;
+
     // Cumulative distribution function: for each bin i, the fraction of
     // total observations that fall at or below that bin's upper edge.
     // Length == bin_count(). The last entry is 1.0 for any non-empty
@@ -232,6 +240,16 @@ public:
     // never registered.
     Result<void> reset(std::string_view feature);
 
+    // Reset the internal last_severity_ tracking map. Used after an
+    // operator acknowledges drift alerts so the alert sink can fire
+    // again on the next severity rise (per-crossing semantics are
+    // preserved, but the "previous" severity is forgotten).
+    void clear_alerts();
+
+    // Compute the current PSI severity for a single registered feature.
+    // Returns Error::not_found if the feature was never registered.
+    Result<DriftSeverity> feature_severity(std::string_view feature) const;
+
 private:
     struct FeatureState;
     std::unordered_map<std::string, std::unique_ptr<FeatureState>> features_;
@@ -254,6 +272,12 @@ public:
     // than recording a tick.
     void  add(std::string_view name, std::uint64_t delta);
 
+    // Verbose alias for inc(name, delta). Some operator codebases
+    // prefer the explicit name at the call site even though the
+    // semantics — create-on-first-use, then increment — are identical
+    // to inc(). Trivial forward.
+    void  increment_or_create(std::string_view name, std::uint64_t delta = 1);
+
     // Record a measurement into a histogram. Buckets are exponential with
     // bases at the supplied list (le upper bounds). If a histogram of this
     // name already exists, value is added; otherwise it's created with the
@@ -272,6 +296,14 @@ public:
     // observe()'d. Distinct from has_counter() — counters and
     // histograms occupy independent name spaces. Locked, no alloc.
     bool has_histogram(std::string_view name) const noexcept;
+
+    // Cheap discoverability predicate: true iff a counter OR histogram
+    // with this name has been observed. Equivalent to
+    // `has_counter(name) || has_histogram(name)`, but acquires the
+    // mutex once. noexcept; on internal failure (e.g. lock or string
+    // construction throw) returns false rather than propagating —
+    // matching has_counter()/has_histogram().
+    bool has(std::string_view name) const noexcept;
 
     // Read the count of a registered histogram by name. Returns not_found
     // if no histogram of that name has been observe()'d. Distinct from

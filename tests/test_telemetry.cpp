@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <random>
 #include <set>
+#include <utility>
 
 using namespace asclepius;
 
@@ -1583,4 +1584,268 @@ TEST_CASE("DriftMonitor::observation_count resets after reset() and rotate()") {
         CHECK(ca.value() == 0);
         CHECK(cb.value() == 0);
     }
+}
+
+// ---- Feature 1: Histogram::median ---------------------------------------
+
+TEST_CASE("Histogram::median basic — symmetric distribution") {
+    Histogram h{0.0, 1.0, 10};
+    for (int i = 0; i < 100; ++i) h.observe(0.5);
+    // All mass in the bin covering 0.5; median lands inside it.
+    CHECK(h.median() == doctest::Approx(0.5).epsilon(0.1));
+}
+
+TEST_CASE("Histogram::median edge — empty histogram returns 0.0") {
+    Histogram h{0.0, 1.0, 10};
+    CHECK(h.median() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::median integration — agrees with quantile(0.5)") {
+    Histogram h{0.0, 1.0, 20};
+    std::mt19937 rng{42};
+    std::uniform_real_distribution<double> d{0.0, 1.0};
+    for (int i = 0; i < 1000; ++i) h.observe(d(rng));
+    CHECK(h.median() == doctest::Approx(h.quantile(0.5)));
+    CHECK(h.median() == doctest::Approx(h.percentile(50.0)));
+}
+
+// ---- Feature 2: Histogram::is_empty -------------------------------------
+
+TEST_CASE("Histogram::is_empty basic — fresh histogram is empty") {
+    Histogram h{0.0, 1.0, 10};
+    CHECK(h.is_empty());
+}
+
+TEST_CASE("Histogram::is_empty edge — flips to false after a single observe") {
+    Histogram h{-5.0, 5.0, 50};
+    CHECK(h.is_empty());
+    h.observe(0.0);
+    CHECK_FALSE(h.is_empty());
+    CHECK(h.total() == 1);
+}
+
+TEST_CASE("Histogram::is_empty integration — agrees with total() after merge") {
+    Histogram a{0.0, 1.0, 10};
+    Histogram b{0.0, 1.0, 10};
+    CHECK(a.is_empty());
+    CHECK(b.is_empty());
+    for (int i = 0; i < 7; ++i) b.observe(0.3);
+    REQUIRE(a.merge(b));
+    CHECK_FALSE(a.is_empty());
+    CHECK(a.total() == 7);
+    // b is unaffected by merge.
+    CHECK_FALSE(b.is_empty());
+}
+
+// ---- Feature 3: DriftMonitor::clear_alerts ------------------------------
+
+TEST_CASE("DriftMonitor::clear_alerts basic — no-op on a fresh monitor") {
+    DriftMonitor dm;
+    // Nothing registered, nothing tracked → calling is harmless.
+    dm.clear_alerts();
+    CHECK(dm.feature_count() == 0);
+}
+
+TEST_CASE("DriftMonitor::clear_alerts edge — re-fires alert sink after ack") {
+    DriftMonitor dm;
+    std::vector<double> baseline(500, 0.2);
+    REQUIRE(dm.register_feature("score", baseline, 0.0, 1.0, 10));
+
+    int fire_count = 0;
+    dm.set_alert_sink(
+        [&](const DriftReport&) { ++fire_count; },
+        DriftSeverity::moder);
+
+    // Drive severity from none → severe; sink fires exactly once on the
+    // crossing.
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("score", 0.85));
+    CHECK(fire_count == 1);
+
+    // Further observations at the same severity must NOT re-fire.
+    for (int i = 0; i < 50; ++i) REQUIRE(dm.observe("score", 0.85));
+    CHECK(fire_count == 1);
+
+    // Operator acknowledges → clear tracking → next observation that
+    // remains at the same severity should re-fire (the recorded
+    // "previous" severity has been forgotten, so the rise from none →
+    // severe is detected anew).
+    dm.clear_alerts();
+    REQUIRE(dm.observe("score", 0.85));
+    CHECK(fire_count == 2);
+}
+
+TEST_CASE("DriftMonitor::clear_alerts integration — preserves observations and reports") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("a", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("b", baseline, 0.0, 1.0, 10));
+
+    int fired = 0;
+    dm.set_alert_sink(
+        [&](const DriftReport&) { ++fired; },
+        DriftSeverity::moder);
+
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("a", 0.95));
+    const int fired_before = fired;
+    CHECK(fired_before >= 1);
+
+    dm.clear_alerts();
+
+    // clear_alerts must NOT touch the histograms — observation counts,
+    // PSI, and severity classification are all unchanged.
+    auto ca = dm.observation_count("a");
+    REQUIRE(ca);
+    CHECK(ca.value() == 200);
+    auto rep = dm.report();
+    REQUIRE(rep.size() == 2);
+    bool saw_a = false;
+    for (const auto& r : rep) {
+        if (r.feature == "a") {
+            saw_a = true;
+            CHECK(r.severity == DriftSeverity::severe);
+            CHECK(r.current_n == 200);
+        }
+    }
+    CHECK(saw_a);
+}
+
+// ---- Feature 4: DriftMonitor::feature_severity --------------------------
+
+TEST_CASE("DriftMonitor::feature_severity basic — none for matching distributions") {
+    DriftMonitor dm;
+    std::vector<double> baseline;
+    baseline.reserve(500);
+    std::mt19937 rng{7};
+    std::uniform_real_distribution<double> d{0.0, 1.0};
+    for (int i = 0; i < 500; ++i) baseline.push_back(d(rng));
+    REQUIRE(dm.register_feature("x", baseline, 0.0, 1.0, 10));
+
+    // Mirror the baseline → small PSI → severity none.
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("x", d(rng)));
+
+    auto sev = dm.feature_severity("x");
+    REQUIRE(sev);
+    CHECK(sev.value() == DriftSeverity::none);
+}
+
+TEST_CASE("DriftMonitor::feature_severity edge — not_found for unregistered feature") {
+    DriftMonitor dm;
+    auto sev = dm.feature_severity("missing");
+    REQUIRE_FALSE(sev);
+    CHECK(sev.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("DriftMonitor::feature_severity integration — agrees with report() and classify()") {
+    DriftMonitor dm;
+    std::vector<double> baseline(500, 0.2);
+    REQUIRE(dm.register_feature("score", baseline, 0.0, 1.0, 10));
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("score", 0.85));
+
+    auto sev = dm.feature_severity("score");
+    REQUIRE(sev);
+    CHECK(sev.value() == DriftSeverity::severe);
+
+    // Cross-check against report() which computes the same thing in bulk.
+    auto rep = dm.report();
+    REQUIRE(rep.size() == 1);
+    CHECK(rep[0].severity == sev.value());
+    CHECK(DriftMonitor::classify(rep[0].psi) == sev.value());
+}
+
+// ---- Feature 5: MetricRegistry::increment_or_create ---------------------
+
+TEST_CASE("MetricRegistry::increment_or_create basic — creates on first call") {
+    MetricRegistry m;
+    CHECK_FALSE(m.has_counter("inferences_total"));
+    m.increment_or_create("inferences_total");
+    CHECK(m.has_counter("inferences_total"));
+    CHECK(m.count("inferences_total") == 1);
+}
+
+TEST_CASE("MetricRegistry::increment_or_create edge — explicit delta accumulates") {
+    MetricRegistry m;
+    m.increment_or_create("bytes", 100);
+    m.increment_or_create("bytes", 50);
+    // Default-arg call (delta=1).
+    m.increment_or_create("bytes");
+    CHECK(m.count("bytes") == 151);
+}
+
+TEST_CASE("MetricRegistry::increment_or_create integration — interchangeable with inc/add") {
+    MetricRegistry m;
+    m.inc("ticks");                          // +1
+    m.add("ticks", 2);                       // +2
+    m.increment_or_create("ticks", 3);       // +3
+    m.increment_or_create("ticks");          // +1
+    CHECK(m.count("ticks") == 7);
+
+    // And the alias surfaces in the prometheus exposition just like inc().
+    auto prom = m.snapshot_prometheus();
+    CHECK(prom.find("asclepius_ticks 7") != std::string::npos);
+}
+
+// ---- Feature 5: MetricRegistry::has -------------------------------------
+
+TEST_CASE("MetricRegistry::has basic — false on fresh registry, true after inc/observe") {
+    MetricRegistry m;
+    CHECK_FALSE(m.has("inferences_total"));
+    CHECK_FALSE(m.has("latency_seconds"));
+
+    m.inc("inferences_total");
+    m.observe("latency_seconds", 0.123);
+
+    CHECK(m.has("inferences_total"));
+    CHECK(m.has("latency_seconds"));
+    // Unknown names still return false.
+    CHECK_FALSE(m.has("not_emitted"));
+}
+
+TEST_CASE("MetricRegistry::has edge — survives reset/clear semantics correctly") {
+    MetricRegistry m;
+    m.inc("a", 5);
+    m.observe("b", 0.5);
+    REQUIRE(m.has("a"));
+    REQUIRE(m.has("b"));
+
+    // reset() zeroes the counter but leaves the name registered → has() still true.
+    REQUIRE(m.reset("a"));
+    CHECK(m.has("a"));
+    CHECK(m.count("a") == 0);
+
+    // reset_histograms() drops histograms entirely → has(b) flips to false,
+    // has(a) stays true (counters untouched).
+    m.reset_histograms();
+    CHECK(m.has("a"));
+    CHECK_FALSE(m.has("b"));
+
+    // clear() drops everything → has() universally false.
+    m.clear();
+    CHECK_FALSE(m.has("a"));
+    CHECK_FALSE(m.has("b"));
+}
+
+TEST_CASE("MetricRegistry::has integration — agrees with has_counter || has_histogram") {
+    MetricRegistry m;
+    m.inc("c1");
+    m.observe("h1", 0.01);
+
+    // Counter-only name.
+    CHECK(m.has("c1"));
+    CHECK(m.has_counter("c1"));
+    CHECK_FALSE(m.has_histogram("c1"));
+    CHECK(m.has("c1") == (m.has_counter("c1") || m.has_histogram("c1")));
+
+    // Histogram-only name.
+    CHECK(m.has("h1"));
+    CHECK_FALSE(m.has_counter("h1"));
+    CHECK(m.has_histogram("h1"));
+    CHECK(m.has("h1") == (m.has_counter("h1") || m.has_histogram("h1")));
+
+    // Unknown name — both predicates and the union are false.
+    CHECK_FALSE(m.has("missing"));
+    CHECK(m.has("missing") == (m.has_counter("missing") || m.has_histogram("missing")));
+
+    // noexcept contract: the call site below must compile under noexcept.
+    static_assert(noexcept(std::declval<const MetricRegistry&>().has("x")),
+                  "MetricRegistry::has must be noexcept");
 }

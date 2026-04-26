@@ -561,6 +561,25 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 80 <small>tenant slices · hard-delete · attestation JSON</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.oldest_n_for_tenant(t, n)</code></dt><dd>head-end mirror of <code>tail_for_patient</code>, scoped to one tenant</dd>
+        <dt><code>ledger.events_between(t0, t1, type)</code></dt><dd>"every <code>consent.revoked</code> last week" in one query</dd>
+        <dt><code>ledger.has_inference_id(id)</code></dt><dd>cheap existence check — no row materialization</dd>
+        <dt><code>ledger.attestation_json() · head_attestation_json()</code></dt><dd>signed-head JSON · grep-friendly one-liner with fingerprint</dd>
+        <dt><code>hist.median() · is_empty()</code></dt><dd>tail-robust central tendency · "n/a vs zero" predicate</dd>
+        <dt><code>drift.clear_alerts() · feature_severity(n)</code></dt><dd>ack the page · drill into one feature</dd>
+        <dt><code>metrics.increment_or_create(n, d) · has(n)</code></dt><dd>atomic upsert — no register-then-inc race · kind-agnostic existence</dd>
+        <dt><code>consent.permits_any_purpose(p)</code></dt><dd>cheap "is this patient consented to anything"</dd>
+        <dt><code>consent.token_count_for_patient(p) · find_by_purpose(p, x)</code></dt><dd>per-patient roll-up · purpose intersection</dd>
+        <dt><code>consent.tokens_granted_within(window)</code></dt><dd>"what consent landed today?" — symmetric with <code>recently_revoked</code></dd>
+        <dt><code>consent.remove(id)</code></dt><dd><strong>hard delete</strong> · admin-only · <em>does not</em> fire observer; <code>revoke()</code> is the patient-driven path</dd>
+        <dt><code>inf.actor_str() · was_committed_after(t)</code></dt><dd>stable string form · in-window predicate</dd>
+        <dt><code>rt.signing_key_id() · has_consent_for(p, x) · summary_string()</code></dt><dd>runtime-level shortcuts the CLI prints</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Round 79 <small>inclusion proofs · drift ranking · per-patient stats</small></h2>
       <dl class="pair">
         <dt><code>ledger.inclusion_proof(seq)</code></dt><dd>compact witness against the current head</dd>

@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Operators — running Asclepius in production</title>
+<meta name="description" content="Production-ops runbook: day-one checklist, daily probes, incident response, capacity planning, disaster recovery, multi-tenant ops, what you'll page on.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/operators.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Operators">
+<meta property="og:description"  content="What to do on day one, every day, and the day something pages.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta property="og:url"          content="https://asclepius.health/operators.html">
+<meta property="og:site_name"    content="Asclepius">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .op { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .op__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2.4rem; margin-bottom: 3rem; max-width: 64ch; }
+  .op__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .op__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.6rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .op__hero h1 i { color: var(--primary); font-style: italic; }
+  .op__hero p {
+    color: var(--ink-mute); font-family: var(--font-prose);
+    font-size: 1.1rem; line-height: 1.65; margin: 0 0 1rem;
+  }
+  .op__hero p em { color: var(--primary); font-style: italic; }
+  .op__hero p code {
+    font-family: var(--font-mono); font-size: .9em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .08em .35em; color: var(--ink-warm);
+  }
+
+  .op-toc {
+    margin: 1.6rem 0 0;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    max-width: 64ch;
+  }
+  .op-toc b {
+    display: block; margin-bottom: .55rem;
+    font-family: var(--font-mono); font-size: .72rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .op-toc ol {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .15rem .9rem;
+    font-family: var(--font-prose); font-size: .94rem;
+  }
+  .op-toc li::before {
+    content: "§" counter(toc, decimal-leading-zero) "  ";
+    counter-increment: toc;
+    font-family: var(--font-mono); color: var(--ink-faint);
+    font-size: .76rem; letter-spacing: .04em;
+  }
+  .op-toc ol { counter-reset: toc; }
+  .op-toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted transparent; }
+  .op-toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+  .op-toc a em { color: var(--primary); font-style: italic; }
+
+  .op-sec { padding: 2.2rem 0 1.6rem; border-bottom: 1px solid var(--rule-soft); }
+  .op-sec:last-of-type { border-bottom: 0; }
+  .op-sec h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em;
+    margin: .4rem 0 1.2rem; line-height: 1.2;
+    max-width: 52ch;
+  }
+  .op-sec h2 i { color: var(--primary); font-style: italic; }
+  .op-sec h3 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.35rem; color: var(--ink-warm);
+    margin: 1.6rem 0 .6rem; letter-spacing: -.005em;
+  }
+  .op-sec h3 i { color: var(--primary); font-style: italic; }
+  .op-sec p {
+    font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7;
+    color: var(--ink); margin: 0 0 1rem; max-width: 64ch;
+  }
+  .op-sec p em { color: var(--primary); font-style: italic; }
+  .op-sec p code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .08em .35em; color: var(--ink-warm);
+  }
+  .op-sec ul, .op-sec ol {
+    font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7;
+    color: var(--ink); max-width: 64ch;
+    margin: 0 0 1rem; padding-left: 1.4rem;
+  }
+  .op-sec li { margin: .35rem 0; }
+  .op-sec li em { color: var(--primary); font-style: italic; }
+  .op-sec li code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .op-cmd {
+    margin: 1rem 0;
+    padding: .9rem 1.05rem;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: .82rem; line-height: 1.65;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    max-width: 78ch;
+    white-space: pre;
+  }
+  .op-cmd .prompt { color: var(--accent); user-select: none; }
+  .op-cmd .out { color: var(--ink-mute); }
+  .op-cmd .ok  { color: var(--accent); }
+  .op-cmd .bad { color: #F08C8C; }
+  .op-cmd .c   { color: var(--ink-faint); font-style: italic; }
+  .op-cmd .k   { color: var(--primary); }
+
+  .op-callout {
+    margin: 1.4rem 0 1rem;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-prose);
+    font-size: .98rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    max-width: 64ch;
+  }
+  .op-callout b {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: .35rem;
+  }
+  .op-callout em { color: var(--ink); font-style: italic; }
+  .op-callout code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .op-callout--warn { border-left-color: var(--primary); }
+  .op-callout--warn b { color: var(--primary); }
+
+  .op-disk {
+    list-style: none; padding: 0; margin: 1rem 0 1.4rem;
+    max-width: 70ch;
+    display: grid; grid-template-columns: minmax(0, auto) 1fr;
+    gap: .35rem 1rem;
+  }
+  .op-disk dt {
+    font-family: var(--font-mono); font-size: .82rem;
+    color: var(--primary);
+  }
+  .op-disk dd {
+    font-family: var(--font-prose); font-size: .96rem;
+    margin: 0; color: var(--ink); line-height: 1.55;
+  }
+  .op-disk dd em { color: var(--primary); font-style: italic; }
+  .op-disk dd code {
+    font-family: var(--font-mono); font-size: .82em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .op-pages {
+    list-style: none; padding: 0; margin: 1.6rem 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 11px 14px;
+    counter-reset: pg;
+  }
+  .op-pages li {
+    counter-increment: pg;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    margin: 0;
+  }
+  .op-pages li::before {
+    content: counter(pg, decimal-leading-zero);
+    display: block;
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .14em; color: var(--accent);
+    margin-bottom: .25rem;
+  }
+  .op-pages li b {
+    font-family: var(--font-mono); font-size: .72rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-faint); display: block;
+    margin-bottom: .25rem;
+  }
+  .op-pages li b.sev { color: #F08C8C; }
+  .op-pages li b.warn { color: var(--primary); }
+  .op-pages li b.info { color: var(--accent); }
+  .op-pages li p {
+    font-family: var(--font-prose); font-size: .94rem;
+    line-height: 1.55; color: var(--ink-mute);
+    margin: 0; max-width: none;
+  }
+  .op-pages li p em { color: var(--ink); font-style: italic; }
+  .op-pages li p code {
+    font-family: var(--font-mono); font-size: .82em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .op-next {
+    list-style: none; padding: 0; margin: 1.2rem 0 .6rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .8rem;
+  }
+  .op-next a {
+    display: block;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, transform .15s;
+  }
+  .op-next a:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .op-next b {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.15rem; color: var(--ink-warm);
+    display: block; margin-bottom: .3rem;
+  }
+  .op-next b i { color: var(--primary); font-style: italic; }
+  .op-next em {
+    font-family: var(--font-mono); font-size: .75rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint); font-style: normal;
+  }
+
+  .op-coda {
+    margin-top: 3.4rem; padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+    max-width: 64ch;
+    font-family: var(--font-prose); color: var(--ink-mute);
+    font-size: 1rem; line-height: 1.7;
+  }
+  .op-coda em { color: var(--primary); font-style: italic; }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",      "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Operators", "item": "https://asclepius.health/operators.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-operators">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="quickstart.html">quickstart</a>
+      <a href="operators.html" class="is-active" aria-current="page">operators</a>
+      <a href="docs.html">docs</a>
+      <a href="api.html">api</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="op">
+  <div class="container">
+
+    <header class="op__hero">
+      <span class="kbd">production&nbsp;ops&nbsp;·&nbsp;runbook</span>
+      <h1>Operators, <i>at the desk.</i></h1>
+      <p>
+        For the people whose pager actually goes off. <em>Day one</em>
+        through <em>disaster recovery</em>, in the order you'll meet
+        them. No marketing words; the substrate is small enough that the
+        runbook fits on one page.
+      </p>
+      <p>
+        If you're standing up a fresh Asclepius node, do <em>§01</em>.
+        If you're already running and the dashboard is green, do
+        <em>§02</em> on a cron. If something paged, jump to
+        <em>§03</em>. If the planet wants to know the math behind your
+        capacity numbers, that's <em>§04</em>.
+      </p>
+
+      <nav class="op-toc" aria-label="contents">
+        <b>contents</b>
+        <ol>
+          <li><a href="#dayone"><em>Day one.</em></a></li>
+          <li><a href="#daily"><em>Daily probes.</em></a></li>
+          <li><a href="#paged"><em>When something paged.</em></a></li>
+          <li><a href="#capacity"><em>Capacity planning.</em></a></li>
+          <li><a href="#dr"><em>Disaster recovery.</em></a></li>
+          <li><a href="#tenant"><em>Multi-tenant ops.</em></a></li>
+          <li><a href="#alerts"><em>What you'll page on.</em></a></li>
+          <li><a href="#more"><em>Where to read more.</em></a></li>
+        </ol>
+      </nav>
+    </header>
+
+    <!-- §01 ──────────────────────────────────────────────────────────────── -->
+    <section class="op-sec" id="dayone">
+      <div class="section-head">
+        <span class="section-num">§01</span>
+        <span class="section-name">day one</span>
+      </div>
+
+      <h2>Day <i>one.</i></h2>
+      <p>
+        First-deploy checklist. Walk it once per box. <em>Two files
+        matter</em>: the SQLite ledger and the Ed25519 keypair sitting
+        next to it. Everything else is recoverable from those two.
+      </p>
+
+      <h3>The two <i>files.</i></h3>
+      <dl class="op-disk">
+        <dt><code>asclepius.db</code></dt>
+        <dd>The SQLite-WAL ledger. Holds <em>every</em> appended row, every signature, the key registry, drift baselines, consent grants and revocations. <em>Read-mostly</em> in steady state; one writer per process. Mode <code>0640</code>; owner is the runtime's service account.</dd>
+        <dt><code>asclepius.db.key</code></dt>
+        <dd>The Ed25519 keypair the runtime signs entries with. <em>Mode <code>0600</code></em>. Generated on first <code>Runtime::open</code> if absent. <strong>This file is the signing capability.</strong> Treat it like a TLS private key: backed up to an HSM-equivalent store, never checked into source, never world-readable.</dd>
+        <dt><code>asclepius.db-wal</code></dt>
+        <dd>SQLite's write-ahead log. Transient; rolls into <code>asclepius.db</code> on checkpoint. Don't back this up in isolation — the ledger and the WAL are one logical artifact.</dd>
+        <dt><code>asclepius.db-shm</code></dt>
+        <dd>SQLite shared-memory file. Same lifetime as the WAL. Excluded from backups.</dd>
+      </dl>
+
+      <h3>Filesystem <i>layout.</i></h3>
+      <p>
+        Pick a single directory and stay there. The default the docs
+        assume:
+      </p>
+
+<pre class="op-cmd"><span class="c"># recommended layout for a single-node sidecar</span>
+/var/lib/asclepius/
+├── asclepius.db          <span class="c"># the chain</span>
+├── asclepius.db.key      <span class="c"># 0600, owned by service account</span>
+├── asclepius.db-wal      <span class="c"># transient</span>
+└── asclepius.db-shm      <span class="c"># transient</span>
+
+/etc/asclepius/
+├── asclepius.toml        <span class="c"># runtime config (policies, drift baselines)</span>
+└── policies/             <span class="c"># DSL or YAML policy chain (when present)</span>
+
+/var/log/asclepius/
+└── runtime.log           <span class="c"># stdout/stderr; structured JSON lines</span></pre>
+
+      <h3>Permissions <i>checklist.</i></h3>
+      <ol>
+        <li>Service account owns <code>/var/lib/asclepius/</code>; nobody else has write.</li>
+        <li><code>asclepius.db.key</code> is <code>0600</code> and owned by the service account; <em>not</em> world-readable, <em>not</em> group-readable.</li>
+        <li><code>asclepius.db</code> is <code>0640</code>; the operator group can read for backups; nobody else.</li>
+        <li>The directory is on a filesystem with <code>fsync</code> honoured. <em>No</em> network mounts; <em>no</em> shared volumes between nodes.</li>
+        <li>SELinux / AppArmor profile (when present) labels the directory <code>asclepius_data_t</code>; the runtime binary is the only writer.</li>
+      </ol>
+
+      <h3>Backups <i>on day one.</i></h3>
+      <p>
+        Before the first inference lands, set the backup. The chain
+        verifies offline; backups verify offline. <em>If the production
+        ledger goes away tomorrow, the backup is your full history.</em>
+      </p>
+      <ul>
+        <li><em>Cadence:</em> hourly snapshot of <code>asclepius.db</code> (full file copy after a SQLite <code>PRAGMA wal_checkpoint(TRUNCATE)</code>). Daily snapshot kept for 90 days. Monthly for the regulator-retention horizon (often 6+ years).</li>
+        <li><em>Mechanism:</em> <code>sqlite3 asclepius.db ".backup /backup/asclepius-$(date -u +%Y%m%dT%H%MZ).db"</code>. Streams a consistent copy without locking writers. <em>Do not</em> <code>cp</code> a hot WAL.</li>
+        <li><em>Off-host:</em> ship snapshots to encrypted object storage, separate trust domain. The snapshot is content-addressed by its head hash; the object key can be the head hex.</li>
+        <li><em>Key file:</em> back up <code>asclepius.db.key</code> separately, into the HSM / KMS the rest of your private keys live in. <em>Never</em> co-located with the chain backup. (See <em>§05</em> for why.)</li>
+      </ul>
+
+      <p class="op-callout">
+        <b>verify the backup, not the chain</b>
+        <em>Restore the latest snapshot to a scratch directory and run
+        <code>asclepius ledger verify</code> against it. Do this on
+        first deploy and quarterly thereafter. Backups that have never
+        been restored are not backups; they're claims.</em>
+      </p>
+
+      <h3>Who has <i>read access.</i></h3>
+      <p>
+        The substrate's job is to make the chain's <em>bytes</em>
+        portable. The chain is not secret — anyone with the public key
+        can verify it; that's the design. So read access is a question
+        about the operational artifact (the <code>.db</code>), not the
+        information (the chain).
+      </p>
+      <ul>
+        <li><em>Service account:</em> reads + writes; the runtime process and nothing else.</li>
+        <li><em>Operator group:</em> reads, for backups and emergency triage. Two named humans, rotated quarterly.</li>
+        <li><em>Auditor / regulator:</em> reads, on request, against a snapshot — never the live file. Hand them an evidence bundle (see <em>§03</em>).</li>
+        <li><em>Everyone else:</em> nothing. The <code>.key</code> is <em>only</em> the service account.</li>
+      </ul>
+    </section>
+
+    <!-- §02 ──────────────────────────────────────────────────────────────── -->
+    <section class="op-sec" id="daily">
+      <div class="section-head">
+        <span class="section-num">§02</span>
+        <span class="section-name">daily probes</span>
+      </div>
+
+      <h2>Daily <i>probes.</i></h2>
+      <p>
+        Three commands cover the steady-state. Run the first on every
+        scrape; the second on a slow cron; the third on every
+        deployment.
+      </p>
+
+      <h3><code>runtime health</code> — <i>every minute.</i></h3>
+      <p>
+        Cheap composite: ledger length, head prefix, key id, drift
+        feature count, active inference count. The line a status page
+        renders.
+      </p>
+
+<pre class="op-cmd"><span class="prompt">$</span> ./build/apps/cli/asclepius runtime health /var/lib/asclepius/asclepius.db
+<span class="out">  {</span>
+<span class="out">    "version":           "0.4.3",</span>
+<span class="out">    "ledger_length":     142091,</span>
+<span class="out">    "ledger_head":       "8e510bf4...c20e",</span>
+<span class="out">    "ledger_size_bytes": 1283604480,</span>
+<span class="out">    "key_id":            "a1f274e6",</span>
+<span class="out">    "drift_features":    8,</span>
+<span class="out">    "active_inferences": 3,</span>
+<span class="out">    "is_chain_empty":    false</span>
+<span class="out">  }</span></pre>
+
+      <p>
+        Wire <code>runtime health</code> behind your existing
+        <code>/healthz</code>. Fail the probe on any of: process exit
+        non-zero, <code>active_inferences</code> wedged at the same
+        positive value across three consecutive scrapes, or
+        <code>ledger_size_bytes</code> shrinking.
+      </p>
+
+      <h3><code>ledger verify</code> — <i>every hour.</i></h3>
+      <p>
+        Walks the chain, recomputes each entry's hash, re-checks each
+        Ed25519 signature, confirms every <code>prev_hash</code>. <em>The
+        thing the regulator runs.</em> A green here is the strongest
+        single guarantee the substrate produces.
+      </p>
+
+<pre class="op-cmd"><span class="prompt">$</span> ./build/apps/cli/asclepius ledger verify /var/lib/asclepius/asclepius.db
+<span class="out ok">  OK · 142091 entries · head=8e510bf4...c20e · key=a1f274e6 · 14.2s</span></pre>
+
+      <p>
+        On a chain past a few million entries, switch to
+        <code>asclepius ledger verify --parallel</code> for the
+        background job and to <code>runtime audit-spot-check
+        --lookback 1024</code> for the per-minute startup gate. The
+        spot-check verifies only the last 1024 rows; cheap, but enough
+        to catch a corrupted tail before traffic resumes.
+      </p>
+
+      <h3><code>runtime self-test</code> — <i>every deploy.</i></h3>
+      <p>
+        Smoke test: hash a known input, sign and verify, append to an
+        in-memory chain, verify again. Returns <code>ok</code> only if
+        every component is wired correctly. Use as a deployment gate
+        before traffic-shifting.
+      </p>
+
+<pre class="op-cmd"><span class="prompt">$</span> ./build/apps/cli/asclepius runtime self-test
+<span class="out ok">  ok · libsodium present · keystore round-trip · in-memory chain verifies</span></pre>
+
+      <h3>Cron <i>sketch.</i></h3>
+
+<pre class="op-cmd"><span class="c"># /etc/cron.d/asclepius — runs as the service account</span>
+<span class="c"># every minute: scrape /healthz (your existing probe wraps `runtime health`)</span>
+<span class="c"># every hour: full chain verify, alert on non-zero</span>
+17 * * * *  asclepius  /usr/local/bin/asclepius ledger verify /var/lib/asclepius/asclepius.db || \
+                       /usr/local/bin/page-oncall "ledger.verify failed on $(hostname)"
+
+<span class="c"># every 6h: WAL checkpoint + content-addressed snapshot</span>
+3  */6 * * * asclepius  sqlite3 /var/lib/asclepius/asclepius.db \
+                          "PRAGMA wal_checkpoint(TRUNCATE);" && \
+                        sqlite3 /var/lib/asclepius/asclepius.db \
+                          ".backup /backup/asclepius-$(date -u +\%Y\%m\%dT\%HZ).db"
+
+<span class="c"># daily 03:14: verify the latest backup against itself</span>
+14 3  * * * asclepius  /usr/local/bin/asclepius ledger verify \
+                          $(ls -t /backup/asclepius-*.db | head -1)</pre>
+
+      <p class="op-callout">
+        <b>read the bytes once</b>
+        <em>The substrate is designed so that an operator can produce
+        every claim it ever made by reading the chain. If your dashboard
+        and your <code>ledger verify</code> disagree, the chain is the
+        ground truth — fix the dashboard, not the chain.</em>
+      </p>
+    </section>
+
+    <!-- §03 ──────────────────────────────────────────────────────────────── -->
+    <section class="op-sec" id="paged">
+      <div class="section-head">
+        <span class="section-num">§03</span>
+        <span class="section-name">when something paged</span>
+      </div>
+
+      <h2>When something <i>paged.</i></h2>
+      <p>
+        Incident response. Five subcommands cover ninety percent of
+        what you'll do in the first twenty minutes after the alert
+        fires.
+      </p>
+
+      <h3>Find the <i>row.</i></h3>
+      <p>
+        Almost every incident starts with an inference id. The clinician
+        complained about a draft; the EHR logged a refusal; a regulator
+        wants the row for patient X on date Y. Pull the entry.
+      </p>
+
+<pre class="op-cmd"><span class="c"># O(log n) lookup — pulls the inference.committed row</span>
+<span class="prompt">$</span> ./build/apps/cli/asclepius ledger find /var/lib/asclepius/asclepius.db \
+        --inference-id 01HXVBS3DHTNG7KQNJZ4RFG7XK
+<span class="out">  seq=128431 ts=2026-04-26T14:22:11.503Z actor=clinician:dr.demo</span>
+<span class="out">    model=ambient-scribe-v3 input=8e510bf4... output=fa14b6c7...</span>
+<span class="out">    policies=[phi_scrubber:allow, length_limit:allow]</span>
+<span class="out">    consent_token=ct_3f8a... purposes=[ambient_documentation]</span>
+
+<span class="c"># existence-only — cheap, doesn't materialize the row</span>
+<span class="prompt">$</span> ./build/apps/cli/asclepius ledger has-inference-id /var/lib/asclepius/asclepius.db \
+        --id 01HXVBS3DHTNG7KQNJZ4RFG7XK
+<span class="out ok">  true</span></pre>
+
+      <h3>What did this <i>actor</i> do today?</h3>
+      <p>
+        A clinician rage-pages the help desk; the on-call needs every
+        inference that account authored in the past hour. <code>tail-actor</code>
+        pulls them in one query, descending.
+      </p>
+
+<pre class="op-cmd"><span class="prompt">$</span> ./build/apps/cli/asclepius ledger tail-actor /var/lib/asclepius/asclepius.db \
+        --actor "clinician:dr.demo" --n 50
+<span class="out">  142091  2026-04-26T14:22:11Z  inference.committed  ambient-scribe-v3</span>
+<span class="out">  142087  2026-04-26T14:18:43Z  inference.committed  ambient-scribe-v3</span>
+<span class="out">  142080  2026-04-26T14:11:02Z  inference.aborted    ambient-scribe-v3</span>
+<span class="out">  ...</span></pre>
+
+      <h3>Time + event-type, in <i>one query.</i></h3>
+      <p>
+        Round-80 ergonomic: <code>events_between</code> takes a
+        time window <em>and</em> an event type, and lands the
+        composite filter in one indexed read.
+      </p>
+
+<pre class="op-cmd"><span class="c"># every consent.revoked landed in the last 24h</span>
+<span class="prompt">$</span> ./build/apps/cli/asclepius ledger events-between /var/lib/asclepius/asclepius.db \
+        --from "2026-04-25T14:00:00Z" --to "2026-04-26T14:00:00Z" \
+        --event-type "consent.revoked"
+<span class="out">  142091  2026-04-26T14:22:11Z  consent.revoked  patient=p_9f1a  token=ct_3f8a...</span>
+<span class="out">  141823  2026-04-26T11:08:22Z  consent.revoked  patient=p_a801  token=ct_b2cc...</span>
+<span class="out">  ...</span></pre>
+
+      <p>
+        For more general ad-hoc work, <code>ledger filter</code>
+        accepts a predicate. It's slow (walks the chain); the indexed
+        accessors above should always be preferred when they fit.
+      </p>
+
+      <h3>Hand it to a <i>third party.</i></h3>
+      <p>
+        When the regulator (or your security team) asks for "every
+        event for patient X during March," produce an evidence bundle.
+        The bundle is a USTAR tar with the ledger excerpt, manifest,
+        signed head, every inclusion proof, and the verifier
+        instructions baked in. <em>Verifiable offline.</em>
+      </p>
+
+<pre class="op-cmd"><span class="prompt">$</span> ./build/apps/cli/asclepius evidence bundle /var/lib/asclepius/asclepius.db \
+        --patient "p_9f1a" --from "2026-03-01" --to "2026-04-01" \
+        --out /tmp/p_9f1a-march.tar
+<span class="out">  wrote /tmp/p_9f1a-march.tar · 814 entries · 4.2 MB · head=8e51...c20e</span>
+
+<span class="c"># the regulator runs this on a clean machine, no Asclepius needed</span>
+<span class="prompt">$</span> ./build/apps/cli/asclepius evidence verify /tmp/p_9f1a-march.tar
+<span class="out ok">  OK · 814 entries · manifest signed by key=a1f274e6 · all hashes match</span></pre>
+
+      <p class="op-callout">
+        <b>compact attestations</b>
+        <em><code>asclepius runtime head-attestation</code> emits the
+        one-line <code>head_attestation_json()</code> — length, head,
+        key id, fingerprint, signature on a single grep-friendly line.
+        Pin it into a public timestamping service or your status page;
+        if the chain is later challenged, the timestamped attestation
+        bounds the worst-case backdating window.</em>
+      </p>
+
+      <h3>If <code>ledger verify</code> <i>failed.</i></h3>
+      <p>
+        This is the page that should never fire. If it does:
+      </p>
+      <ol>
+        <li><em>Stop traffic to the runtime.</em> A failed verify means the chain on disk no longer signs to the head it published. Until you know which row, do not append more.</li>
+        <li><em>Find the break.</em> <code>asclepius ledger verify --bisect</code> walks the chain in halves; reports the first seq whose hash or signature does not match. The break is at <em>exactly</em> that row.</li>
+        <li><em>Compare against backup.</em> Restore the previous-hour snapshot to scratch and run <code>verify</code> there. If the backup verifies and the live file doesn't, the integrity loss is bounded by the backup horizon.</li>
+        <li><em>Capture an evidence bundle</em> of the live file before any recovery action — the corruption itself is auditable. <em>Then</em> restore from the last verifying snapshot.</li>
+        <li><em>Treat the key as suspect.</em> If the break is at multiple discontiguous seqs, assume the key file was used outside the runtime. Rotate. (See <em>§05</em>.)</li>
+      </ol>
+    </section>
+
+    <!-- §04 ──────────────────────────────────────────────────────────────── -->
+    <section class="op-sec" id="capacity">
+      <div class="section-head">
+        <span class="section-num">§04</span>
+        <span class="section-name">capacity planning</span>
+      </div>
+
+      <h2>Capacity <i>planning.</i></h2>
+      <p>
+        Three numbers carry the math. <em>Per-entry size</em>,
+        <em>drift state</em>, <em>checkpoint cadence</em>. With those
+        three you can size a year of disk in your head.
+      </p>
+
+      <h3>Ledger growth, in <i>bytes per inference.</i></h3>
+      <p>
+        A canonical <code>inference.committed</code> entry is roughly
+        <em>~8&nbsp;KB</em> on disk after SQLite overhead — header,
+        canonical body, prev_hash, signature, indexed columns.
+        <code>consent.granted</code> / <code>consent.revoked</code>
+        rows are smaller (~1.2&nbsp;KB). Round to <em>10&nbsp;KB
+        per logical event</em> for a worst-case sizing exercise.
+      </p>
+
+      <p>
+        For a department running 5,000 inferences a day:
+      </p>
+
+<pre class="op-cmd"><span class="c"># back-of-envelope</span>
+5,000 inferences/day  ×  10 KB/event  =  50 MB/day
+                                       1.5 GB/month
+                                        18 GB/year
+
+<span class="c"># with 6-year regulator retention</span>
+                                       108 GB / chain</pre>
+
+      <p>
+        The chain compresses well (Merkle prev_hashes are
+        high-entropy but the canonical-body fields are not); a
+        <code>VACUUM</code> after a quarter typically reclaims 5–10%.
+        The on-disk total is <em>linear</em> in entries — no compaction
+        magic, no archival tier. Plan for it as a flat-line.
+      </p>
+
+      <h3>Drift state.</h3>
+      <p>
+        <code>DriftMonitor</code> holds, per registered feature, two
+        histograms (reference + current) and a small alert latch.
+        Histograms are typically 64 or 128 bins of <code>uint64_t</code>.
+        Round to <em>2&nbsp;KB per feature in memory</em>, persisted
+        into the ledger only on baseline-reset.
+      </p>
+      <ul>
+        <li>10 features → 20&nbsp;KB resident, plus the per-inference observation cost (a single <code>uint64_t</code> increment).</li>
+        <li>100 features → 200&nbsp;KB. Still negligible.</li>
+        <li>If you find yourself registering thousands of features, you're using <code>DriftMonitor</code> wrong; switch to a metric per shard with embedding-drift on top (planned, post-1.0).</li>
+      </ul>
+
+      <h3>When to <i>checkpoint.</i></h3>
+      <p>
+        SQLite's WAL mode rolls writes into a separate file and
+        checkpoints back into the main file periodically. The runtime
+        triggers an automatic checkpoint at <em>1,000 entries</em> or
+        <em>16&nbsp;MB of WAL</em>, whichever comes first. For a
+        steady-state department, that's roughly one checkpoint per
+        twenty minutes.
+      </p>
+      <p>
+        You should manually <code>PRAGMA wal_checkpoint(TRUNCATE)</code>
+        before every backup, before any <code>VACUUM</code>, and
+        immediately before a planned process restart. Backing up a hot
+        WAL is the most common way to make a backup that doesn't
+        verify.
+      </p>
+
+      <p class="op-callout op-callout--warn">
+        <b>watch for</b>
+        <em>If <code>asclepius.db-wal</code> grows past
+        ~64&nbsp;MB and stays there, the auto-checkpoint isn't firing
+        — usually because a long-running read transaction is blocking
+        truncation. Find the reader (<code>SELECT * FROM
+        sqlite_master</code> at the bottom of an analytics job is the
+        usual culprit) and fix it; do not just delete the WAL file.</em>
+      </p>
+    </section>
+
+    <!-- §05 ──────────────────────────────────────────────────────────────── -->
+    <section class="op-sec" id="dr">
+      <div class="section-head">
+        <span class="section-num">§05</span>
+        <span class="section-name">disaster recovery</span>
+      </div>
+
+      <h2>Disaster <i>recovery.</i></h2>
+      <p>
+        Two questions. <em>What can be recovered from the chain
+        alone</em>, and <em>what can't</em>. Knowing the difference
+        sizes your backup strategy.
+      </p>
+
+      <h3>What the <i>chain alone</i> recovers.</h3>
+      <ul>
+        <li><em>Every inference.</em> The full record of who asked what, when, what the model returned, which policies ran, with what verdicts, against which inputs. Reproducibility witness lives in the entry; nothing is lost.</li>
+        <li><em>Consent state.</em> The runtime replays consent grants and revocations from the chain on startup; the in-memory <code>ConsentRegistry</code> is rebuilt from the audit log. <em>The audit chain is the source of truth for consent.</em></li>
+        <li><em>Drift baselines.</em> Persisted into the chain on every <code>register_feature</code>. Restart-recoverable.</li>
+        <li><em>Policy chain configuration.</em> <code>policy.config_change</code> rows record every push / remove / rename. Replayable.</li>
+        <li><em>Aggregates.</em> Stats, tenant counts, actor counts — all derivable from the chain in one pass; no separate state to lose.</li>
+      </ul>
+
+      <h3>What the chain alone <i>cannot</i> recover.</h3>
+      <ul>
+        <li><em>The signing key.</em> If <code>asclepius.db.key</code> is gone <em>and</em> the public key is not registered elsewhere, you have a chain you can read but cannot extend with the same authoring identity. <em>Append a new <code>key.rotated</code> entry signed by a fresh keypair</em>; the regulator-facing trust now requires the old public key (cached in archived <code>head_attestation_json</code> outputs and in any evidence bundle ever emitted).</li>
+        <li><em>Off-chain bodies.</em> If you opt into the encrypted body-store (post-1.0), the body is encrypted-at-rest in object storage. Lose that bucket and you lose the bodies, but the <em>hashes</em> remain — you can prove a body of given content existed, you just can't show it.</li>
+        <li><em>External timestamps.</em> Rebuilding the chain from a backup re-creates the exact same row-hashes — but a third-party timestamp service that anchored a head at time T cannot re-issue the anchoring. Pin <code>head_attestation_json</code> outputs into your archive separately.</li>
+      </ul>
+
+      <h3>Key <i>rotation.</i></h3>
+      <p>
+        Rotation is a planned event, not a recovery one. The procedure:
+      </p>
+      <ol>
+        <li>Generate a new keypair on the same node (or in your HSM): <code>asclepius keystore generate --out /var/lib/asclepius/asclepius.db.key.new</code>.</li>
+        <li>Append a <code>key.rotated</code> entry signed by the <em>old</em> key, naming the new public key. <em>This is the cryptographic handoff.</em> Regulators tracking your chain will see the rotation row and accept signatures from the new key for entries past that seq.</li>
+        <li>Atomically swap: <code>mv asclepius.db.key.new asclepius.db.key</code> after a clean SIGTERM, restart the runtime.</li>
+        <li>Archive the old <code>.key</code> file in your HSM under a "retired" tag. <em>Don't delete it</em>; you may need it to verify pre-rotation entries on a recovered backup.</li>
+        <li>Re-emit a fresh attestation: <code>asclepius runtime head-attestation</code>. The new attestation references the new key id; pin it into your timestamping service.</li>
+      </ol>
+
+      <h3>Backup <i>cadence,</i> with the math.</h3>
+      <ul>
+        <li><em>Hourly</em> snapshot of the live ledger. Worst-case data-loss horizon: 1 hour.</li>
+        <li><em>Daily</em> snapshot kept 90 days, on independent storage. Worst-case integrity-loss horizon: 1 day.</li>
+        <li><em>Monthly</em> snapshot kept for the regulator-retention horizon (often 6+ years), on cold storage with cryptographic head pinning.</li>
+        <li><em>Restore drill quarterly:</em> pull the most recent monthly snapshot, restore to scratch, run <code>asclepius ledger verify</code>, write the timestamp into your DR registry. <em>An untested backup is a wish.</em></li>
+      </ul>
+    </section>
+
+    <!-- §06 ──────────────────────────────────────────────────────────────── -->
+    <section class="op-sec" id="tenant">
+      <div class="section-head">
+        <span class="section-num">§06</span>
+        <span class="section-name">multi-tenant ops</span>
+      </div>
+
+      <h2>Multi-tenant <i>ops.</i></h2>
+      <p>
+        The substrate is single-node, but a single node can serve many
+        tenants. Every entry carries a <code>TenantId</code>; every
+        per-tenant query reads only that tenant's slice. The CLI
+        commands below all accept <code>--tenant</code>; <em>without
+        it, you get the empty-tenant default scope, which is its own
+        thing</em>.
+      </p>
+
+      <h3>Per-tenant <i>stats.</i></h3>
+
+<pre class="op-cmd"><span class="prompt">$</span> ./build/apps/cli/asclepius ledger stats-tenant /var/lib/asclepius/asclepius.db \
+        --tenant "stmary-cardiology"
+<span class="out">  entries          18421</span>
+<span class="out">  bytes_on_disk    192987136</span>
+<span class="out">  actors           14</span>
+<span class="out">  oldest           2026-01-04T08:11:02Z (seq 1024)</span>
+<span class="out">  newest           2026-04-26T14:22:11Z (seq 142091)</span></pre>
+
+      <p>
+        For per-customer billing, <code>byte_size_per_tenant</code>
+        emits the per-tenant byte slice in one pass — useful when the
+        commercial offering bills on retention.
+      </p>
+
+      <h3>Per-tenant <i>queries.</i></h3>
+      <ul>
+        <li><code>asclepius ledger oldest-n-for-tenant --tenant T --n 10</code> — head-end mirror of <code>tail_for_patient</code>; useful for "how did this tenant onboard?"</li>
+        <li><code>asclepius ledger range-by-actor --tenant T --actor A</code> — same shape, indexed.</li>
+        <li><code>asclepius consent stats-for-patient --tenant T --patient P</code> — per-patient rollup, scoped.</li>
+      </ul>
+
+      <p class="op-callout op-callout--warn">
+        <b>the empty-tenant gotcha</b>
+        <em>If a caller never set <code>InferenceSpec::tenant</code>,
+        the entry lands under the default <code>TenantId{""}</code>
+        — the empty tenant. <code>ledger stats</code> with no
+        <code>--tenant</code> flag returns the <em>global</em>
+        cross-tenant view, not the empty-tenant view. To inspect just
+        the empty-tenant slice, pass <code>--tenant ""</code>
+        explicitly.</em>
+
+        <em>This bites teams during the first week of a multi-tenant
+        rollout: every entry shows up under the empty default until
+        the integration sets the tenant. Audit the empty-tenant slice
+        on day one of the rollout; if it's nonzero past the
+        integration, fix the caller, not the chain.</em>
+      </p>
+
+      <h3>Tenant <i>isolation.</i></h3>
+      <p>
+        Asclepius does not enforce tenant <em>secrecy</em> — anyone
+        with read access to the <code>.db</code> can see every
+        tenant's slice. Isolation lives one layer up: a sidecar per
+        tenant, a separate <code>.db</code> per tenant, or
+        application-layer authn before the runtime is reached. The
+        substrate is the <em>audit</em> layer; the
+        <em>access-control</em> layer is your job.
+      </p>
+    </section>
+
+    <!-- §07 ──────────────────────────────────────────────────────────────── -->
+    <section class="op-sec" id="alerts">
+      <div class="section-head">
+        <span class="section-num">§07</span>
+        <span class="section-name">what you'll page on</span>
+      </div>
+
+      <h2>What you'll <i>page on.</i></h2>
+      <p>
+        Four signals carry the alert traffic. Listed in descending
+        severity. Each row: what the runtime emits, what it means,
+        what to do.
+      </p>
+
+      <ul class="op-pages">
+        <li>
+          <b class="sev">P1 · drift.crossed</b>
+          <p>
+            One or more registered drift features moved into the
+            <em>severe</em> band — <code>DriftMonitor::any_severe()</code>
+            is true. Population the model is now serving has shifted
+            enough that the held-out baseline no longer applies.
+            <em>Response:</em> page the model owner, freeze the
+            policy chain on the affected scope, run
+            <code>most_drifted_feature</code> for the drill-down,
+            <code>clear_alerts()</code> only after acknowledgement.
+          </p>
+        </li>
+        <li>
+          <b class="sev">P1 · ledger.verify failure</b>
+          <p>
+            <code>ledger verify</code> non-zero exit. <em>The chain
+            on disk no longer signs.</em> Treat as a candidate
+            integrity incident. <em>Response:</em> stop traffic,
+            bisect to the break, capture an evidence bundle of the
+            corrupted live file, restore from last verifying snapshot,
+            consider the key suspect if the break pattern is
+            non-contiguous. Procedure in <em>§03</em>.
+          </p>
+        </li>
+        <li>
+          <b class="warn">P2 · consent_missing</b>
+          <p>
+            <code>begin_inference</code> rejected with
+            <code>denied</code> on a <code>consent.permits</code>
+            check. The clinician has tried to invoke a tool the
+            patient has not consented to — sometimes legitimate
+            (consent expired); sometimes a misconfiguration of the
+            EHR-side consent flow. <em>Response:</em>
+            <code>recently_revoked(window)</code> tells you whether
+            the patient's withdrawal landed; if not, escalate to the
+            consent-flow owner.
+          </p>
+        </li>
+        <li>
+          <b class="warn">P2 · slow inference</b>
+          <p>
+            <code>elapsed_ms</code> on an <code>inference.committed</code>
+            entry crossed the SLO. Most often the model behind the
+            wrap, not the substrate — Asclepius adds &lt;200&nbsp;µs
+            in the hot path. <em>Response:</em> walk
+            <code>tail_by_actor</code> on the affected service for
+            the slow window; pair with <code>elapsed_ms</code>
+            quantiles from the metric registry.
+          </p>
+        </li>
+        <li>
+          <b class="info">P3 · key.rotated</b>
+          <p>
+            Informational. A <code>key.rotated</code> entry was
+            appended; the runtime is now signing with a new key.
+            Confirm the rotation was planned; if not, treat as a P1
+            integrity event and assume the old key is compromised.
+          </p>
+        </li>
+        <li>
+          <b class="info">P3 · WAL stuck</b>
+          <p>
+            <code>asclepius.db-wal</code> exceeds 64&nbsp;MB and is
+            not draining. A long-running read transaction is blocking
+            checkpoint truncation. Find the reader; do not delete the
+            WAL.
+          </p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- §08 ──────────────────────────────────────────────────────────────── -->
+    <section class="op-sec" id="more">
+      <div class="section-head">
+        <span class="section-num">§08</span>
+        <span class="section-name">where to read more</span>
+      </div>
+
+      <h2>Where to <i>read more.</i></h2>
+      <p>
+        Three pages cover the long tail. Pick by where the next
+        question lands.
+      </p>
+
+      <ul class="op-next">
+        <li>
+          <a href="deploy.html">
+            <b>The <i>deploy guide</i></b>
+            <em>HSM · sidecar · k8s · /deploy</em>
+          </a>
+        </li>
+        <li>
+          <a href="playbooks.html">
+            <b>The <i>playbooks</i></b>
+            <em>scenario runbooks · /playbooks</em>
+          </a>
+        </li>
+        <li>
+          <a href="threat-model.html">
+            <b>The <i>threat model</i></b>
+            <em>what defends what · /threat-model</em>
+          </a>
+        </li>
+      </ul>
+
+      <p>
+        Or sideways: <a href="api.html">/api</a> for every public C++
+        symbol the CLI calls; <a href="cheatsheet.html">/cheatsheet</a>
+        for the printable one-pager;
+        <a href="observability.html">/observability</a> for the metric
+        catalog; <a href="conformance.html">/conformance</a> for the
+        L1/L2/L3 test battery.
+      </p>
+    </section>
+
+    <p class="op-coda">
+      <em>Read the bytes; trust the math.</em> The substrate is small
+      because operators have to read it. If a runbook step on this page
+      doesn't survive contact with your incident, open an issue or send
+      a patch via <a href="contributing.html">/contributing</a> —
+      replacing a bad runbook line with a better one is the most
+      welcome of all.
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — operators.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>start here</b>
+        <a href="quickstart.html">quickstart</a>
+        <a href="explained.html">explained</a>
+        <a href="concepts.html">concepts</a>
+        <a href="operators.html">operators</a>
+      </div>
+      <div>
+        <b>operate</b>
+        <a href="deploy.html">deploy</a>
+        <a href="playbooks.html">playbooks</a>
+        <a href="cheatsheet.html">cheatsheet</a>
+        <a href="observability.html">observability</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="api.html">API reference</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/Himanshu21464/Asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/floating.js" defer></script>
+</body>
+</html>

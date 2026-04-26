@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-26T13:24:49Z",
-  "count": 49,
+  "generated_at": "2026-04-26T15:39:07Z",
+  "count": 50,
   "pages": [
     {
       "url": "accessibility.html",
@@ -159,6 +159,7 @@
         "What not to expect",
         "Site keyboard shortcuts",
         "Round 78 patient · window · replication",
+        "Round 80 tenant slices · hard-delete · attestation JSON",
         "Round 79 inclusion proofs · drift ranking · per-patient stats",
         "Where things live"
       ]
@@ -525,6 +526,45 @@
         "Logs — JSON Lines, structured.",
         "Alert rules.",
         "Visibility is the other half of trust."
+      ]
+    },
+    {
+      "url": "operators.html",
+      "title": "Operators — running Asclepius in production",
+      "description": "Production-ops runbook: day-one checklist, daily probes, incident response, capacity planning, disaster recovery, multi-tenant ops, what you'll page on.",
+      "headings": [
+        "Day one.",
+        "The two files.",
+        "Filesystem layout.",
+        "Permissions checklist.",
+        "Backups on day one.",
+        "Who has read access.",
+        "Daily probes.",
+        "runtime health — every minute.",
+        "ledger verify — every hour.",
+        "runtime self-test — every deploy.",
+        "Cron sketch.",
+        "When something paged.",
+        "Find the row.",
+        "What did this actor do today?",
+        "Time + event-type, in one query.",
+        "Hand it to a third party.",
+        "If ledger verify failed.",
+        "Capacity planning.",
+        "Ledger growth, in bytes per inference.",
+        "Drift state.",
+        "When to checkpoint.",
+        "Disaster recovery.",
+        "What the chain alone recovers.",
+        "What the chain alone cannot recover.",
+        "Key rotation.",
+        "Backup cadence, with the math.",
+        "Multi-tenant ops.",
+        "Per-tenant stats.",
+        "Per-tenant queries.",
+        "Tenant isolation.",
+        "What you'll page on.",
+        "Where to read more."
       ]
     },
     {

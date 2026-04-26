@@ -58,6 +58,12 @@ void MetricRegistry::add(std::string_view name, std::uint64_t delta) {
     inc(name, delta);
 }
 
+void MetricRegistry::increment_or_create(std::string_view name, std::uint64_t delta) {
+    // Verbose alias for inc(). Forwards verbatim — inc() already has
+    // create-on-first-use semantics via operator[] on counters_.
+    inc(name, delta);
+}
+
 void MetricRegistry::observe(std::string_view name, double value) {
     std::lock_guard<std::mutex> lk(mu_);
     auto& h = histograms_[std::string{name}];
@@ -253,6 +259,20 @@ bool MetricRegistry::has_histogram(std::string_view name) const noexcept {
         std::lock_guard<std::mutex> lk(mu_);
         return histograms_.find(std::string{name}) != histograms_.end();
     } catch (...) {
+        return false;
+    }
+}
+
+bool MetricRegistry::has(std::string_view name) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        const std::string key{name};
+        return counters_.find(key)   != counters_.end()
+            || histograms_.find(key) != histograms_.end();
+    } catch (...) {
+        // Lock acquisition or string construction can theoretically throw.
+        // Contract is noexcept; degrade to "not present" rather than
+        // propagate.
         return false;
     }
 }

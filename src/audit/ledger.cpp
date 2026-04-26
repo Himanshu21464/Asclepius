@@ -835,6 +835,118 @@ Ledger::range_by_model(std::string_view model_id) const {
     return out;
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::oldest_n_for_tenant(const std::string& tenant, std::size_t n) const {
+    if (n == 0) return std::vector<LedgerEntry>{};
+
+    const auto chain_len = impl_->length.load();
+    if (chain_len == 0) return std::vector<LedgerEntry>{};
+
+    constexpr std::uint64_t kChunk = 1024;
+    std::vector<LedgerEntry> out;
+    out.reserve(std::min<std::size_t>(n, 1024));
+    for (std::uint64_t start = 1; start <= chain_len && out.size() < n;
+         start += kChunk) {
+        std::uint64_t end = std::min(chain_len + 1, start + kChunk);
+        auto rng = impl_->storage->select_range_for_tenant(tenant, start, end);
+        if (!rng) return rng.error();
+        for (const auto& e : rng.value()) {
+            out.push_back(e);
+            if (out.size() >= n) break;
+        }
+    }
+    return out;
+}
+
+Result<std::vector<LedgerEntry>>
+Ledger::events_between(Time from, Time to, std::string_view event_type) const {
+    if (event_type.empty()) {
+        return Error::invalid("events_between requires non-empty event_type");
+    }
+    if (from > to) {
+        return Error::invalid("events_between: from > to");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Half-open [from, to): include from, exclude to.
+        if (e.header.ts < from) return true;
+        if (!(e.header.ts < to)) return true;
+        if (e.header.event_type == event_type) out.push_back(e);
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+bool Ledger::has_inference_id(std::string_view id) const {
+    if (id.empty()) return false;
+    bool found = false;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Cheap prefilter: skip entries whose body can't contain the id.
+        if (e.body_json.find(id) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("inference_id");
+            if (it != j.end() && it->is_string() &&
+                it->get<std::string>() == id) {
+                found = true;
+                return false;  // stop scanning on first match
+            }
+        } catch (...) {
+            // body is not JSON — ignore; defensive against future event types.
+        }
+        return true;
+    });
+    (void)r;  // best-effort probe; backend errors are observable via verify()
+    return found;
+}
+
+std::string Ledger::attestation_json() const {
+    json j;
+    j["length"]      = impl_->length.load();
+    j["head_hash"]   = impl_->head.hex();
+    j["key_id"]      = impl_->key_id;
+    j["fingerprint"] = impl_->signer.fingerprint();
+
+    std::string oldest_ts;
+    std::string newest_ts;
+    if (impl_->length.load() > 0) {
+        auto oldest = impl_->storage->select_at(1);
+        if (oldest) oldest_ts = oldest.value().header.ts.iso8601();
+        auto newest = impl_->storage->select_at(impl_->length.load());
+        if (newest) newest_ts = newest.value().header.ts.iso8601();
+    }
+    j["oldest_ts"] = oldest_ts;
+    j["newest_ts"] = newest_ts;
+    return j.dump();
+}
+
+std::string Ledger::head_attestation_json() const {
+    // Sign the 32 bytes of the current head with the same key that signs
+    // ledger entries. Empty chain -> head.bytes is all-zero; we still
+    // return a well-formed signature (over the zero bytes), so the JSON
+    // shape is constant regardless of length.
+    const auto& head = impl_->head;
+    auto sig = impl_->signer.sign(
+        Bytes{head.bytes.data(), head.bytes.size()});
+
+    static const char* d = "0123456789abcdef";
+    std::string sig_hex;
+    sig_hex.resize(sig.size() * 2);
+    for (std::size_t i = 0; i < sig.size(); ++i) {
+        sig_hex[2 * i + 0] = d[(sig[i] >> 4) & 0xF];
+        sig_hex[2 * i + 1] = d[(sig[i] >> 0) & 0xF];
+    }
+
+    json j;
+    j["length"]          = impl_->length.load();
+    j["head_hex"]        = head.hex();
+    j["key_id"]          = impl_->key_id;
+    j["key_fingerprint"] = impl_->signer.fingerprint();
+    j["head_signature"]  = sig_hex;
+    return j.dump();
+}
+
 Result<std::uint64_t> Ledger::count_in_window(Time from, Time to) const {
     std::uint64_t n = 0;
     auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {

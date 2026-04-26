@@ -360,6 +360,49 @@ public:
     // themselves.
     Result<std::uint64_t> count_in_window(Time from, Time to) const;
 
+    // First `n` entries (oldest), seq-ascending, scoped to a tenant.
+    // Complement to tail_for_tenant (which is most-recent-first). The
+    // empty tenant ("") is its own scope. n=0 returns the empty vector
+    // (cheap no-op). Uses paginated tenant-scoped range queries
+    // (chunked at 1024) so memory stays bounded for large chains.
+    Result<std::vector<LedgerEntry>>
+        oldest_n_for_tenant(const std::string& tenant, std::size_t n) const;
+
+    // Composite filter: entries whose header.ts falls in [from, to)
+    // AND whose header.event_type matches `event_type`. Half-open
+    // interval. Empty event_type returns invalid_argument; from > to
+    // returns invalid_argument. Seq-ascending. O(n) scan via for_each.
+    // Used by SLO probes that need to bound the entries returned by
+    // both time and class ("how many drift.crossed events in the last
+    // hour, with bodies?").
+    Result<std::vector<LedgerEntry>>
+        events_between(Time from, Time to, std::string_view event_type) const;
+
+    // Cheap O(n)-worst-case existence check: would
+    // find_by_inference_id(id) succeed? Stops the scan on the first
+    // hit. Empty id returns false (no allocation, no scan). Used by
+    // feature gates and idempotency probes that don't need the entry
+    // itself.
+    bool has_inference_id(std::string_view id) const;
+
+    // Compact JSON containing length, head_hash hex, key_id,
+    // fingerprint, oldest_ts iso8601 (or "" if empty), newest_ts
+    // iso8601 (or ""). Sugar for handing a third party a single
+    // self-describing string. Different from attest() (which is the
+    // structured Attestation; this is the text form expanded with
+    // timestamp bounds).
+    std::string attestation_json() const;
+
+    // Single-line JSON object containing length, head_hex, key_id,
+    // key_fingerprint (from KeyStore::fingerprint), and head_signature
+    // (hex of sign_attestation(head.bytes)). Useful for status pages
+    // that want a one-line proof-of-current-state without going through
+    // the full Checkpoint struct: cheaper than checkpoint() (no
+    // canonical encoding step, no embedded pubkey) but stronger than
+    // attestation_json() (includes a real Ed25519 signature over the
+    // current head bytes).
+    std::string head_attestation_json() const;
+
     // Sum of body_json sizes (bytes) grouped by header.tenant. O(n) scan
     // via for_each; result map memory is O(distinct tenants). The empty
     // tenant ("") is its own bucket if any entries carry it. Complements

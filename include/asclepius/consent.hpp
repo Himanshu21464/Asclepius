@@ -67,7 +67,38 @@ public:
 
     Result<void> revoke(std::string_view token_id);
 
+    // HARD delete: erase the entry from the registry entirely. Distinct
+    // from revoke(), which marks a token revoked but keeps the row so
+    // the audit chain can still reconstruct the token's history. remove()
+    // wipes the row — after this call get(), token_exists(), and the
+    // various enumerators behave as if the token never existed.
+    //
+    // Returns Error::not_found if no token with this id exists.
+    //
+    // Does NOT fire the observer. The runtime mirrors consent state into
+    // the audit ledger by replaying observer events; a removed token
+    // would be invisible to that replay, which is intentionally
+    // destructive — the opposite of the "ledger is source of truth"
+    // pattern. Use revoke() for normal lifecycle, remove() only for
+    // tests and explicit administrative cleanup.
+    Result<void> remove(std::string_view token_id);
+
     Result<bool> permits(const PatientId& patient, Purpose purpose) const;
+
+    // Cheap noexcept "is this patient consented to anything right now?"
+    // True iff at least one active (non-revoked, non-expired) token
+    // exists for the patient (any purpose). Useful for /healthz
+    // dashboards and gate logic that just wants a yes/no on whether
+    // any grant is currently in force for the patient.
+    bool permits_any_purpose(const PatientId& patient) const noexcept;
+
+    // First active (non-revoked, non-expired) token for `patient` whose
+    // purposes list contains `purpose`. Returns Error::not_found if no
+    // such token exists. Tiebreak among multiple matches is unspecified —
+    // callers that need ordering should use active_tokens_for_patient
+    // and filter themselves.
+    Result<ConsentToken> find_by_purpose(const PatientId& patient,
+                                         Purpose          purpose) const;
 
     Result<ConsentToken> get(std::string_view token_id) const;
 
@@ -78,6 +109,12 @@ public:
     // Useful for operational queries: "which tokens does this patient
     // currently have on file?" Order is unspecified.
     std::vector<ConsentToken> tokens_for_patient(const PatientId& patient) const;
+
+    // Total number of tokens for a patient across all states (active +
+    // revoked + expired). Equivalent to tokens_for_patient(patient).size()
+    // but cheaper — no token copies are made. Useful for /healthz
+    // breakdowns and "do we hold N tokens for this patient?" checks.
+    std::size_t token_count_for_patient(const PatientId& patient) const;
 
     // Variant of tokens_for_patient that returns only non-revoked,
     // non-expired tokens. Used by operational checks that want the
@@ -197,6 +234,14 @@ public:
     // window <= 0 returns empty.
     std::vector<ConsentToken>
     recently_revoked(std::chrono::seconds window) const;
+
+    // Mirror of recently_revoked, but for grants: every token (active OR
+    // revoked) whose issued_at falls within the past `horizon`. Used by
+    // ops dashboards that want a "recent grant velocity" view alongside
+    // the revocation view. Order: by issued_at descending (newest first).
+    // horizon <= 0 returns empty.
+    std::vector<ConsentToken>
+    tokens_granted_within(std::chrono::seconds horizon) const;
 
     // Token with the largest issued_at across the entire registry,
     // regardless of revoked / expired state. Returns Error::not_found

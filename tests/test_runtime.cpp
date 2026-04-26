@@ -2642,3 +2642,286 @@ TEST_CASE("ledger_age: pinned to the OLDEST entry, monotonically grows") {
                     : (expected - later_age);
     CHECK(delta < std::chrono::milliseconds{50});
 }
+
+// ============== Inference::actor_str ======================================
+
+TEST_CASE("actor_str: returns owning string copy of the actor id") {
+    auto rt_ = fresh_runtime("as_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_as_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+
+    auto s = inf.value().actor_str();
+    CHECK(!s.empty());
+    // Same string the InferenceContext exposes through actor().str().
+    CHECK(s == std::string{inf.value().ctx().actor().str()});
+}
+
+TEST_CASE("actor_str: outlives the InferenceContext's string_view") {
+    // Edge: the whole point of actor_str() is that the returned string
+    // owns its bytes — capture it, drop the original handle, and the
+    // string must still be valid.
+    auto rt_ = fresh_runtime("as_outlive"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_as_o");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    std::string captured;
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        captured = inf.value().actor_str();
+    }
+    CHECK(!captured.empty());
+    // The clinician id format is "clinician:<name>"; the test runtime
+    // helper uses ActorId::clinician("smith"), so the captured string
+    // must contain "smith" regardless of any prefix shape.
+    CHECK(captured.find("smith") != std::string::npos);
+}
+
+TEST_CASE("actor_str: integration — survives commit and matches ledger body") {
+    auto rt_ = fresh_runtime("as_int"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_as_i");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    auto pre  = inf.value().actor_str();
+    REQUIRE(inf.value().commit());
+    auto post = inf.value().actor_str();
+    CHECK(pre == post);
+
+    // The committed ledger entry's body actor field must agree.
+    auto seq = inf.value().seq().value();
+    auto entry = rt.ledger().at(seq);
+    REQUIRE(entry);
+    auto j = nlohmann::json::parse(entry.value().body_json);
+    CHECK(j.value("actor", std::string{}) == pre);
+}
+
+// ============== Runtime::signing_key_id ===================================
+
+TEST_CASE("signing_key_id: non-empty and matches ledger().key_id()") {
+    auto rt_ = fresh_runtime("ski_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto kid = rt.signing_key_id();
+    CHECK(!kid.empty());
+    CHECK(kid == rt.ledger().key_id());
+}
+
+TEST_CASE("signing_key_id: stable across calls and across activity") {
+    auto rt_ = fresh_runtime("ski_stable"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto first = rt.signing_key_id();
+
+    auto pid = PatientId::pseudonymous("p_ski");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    CHECK(rt.signing_key_id() == first);
+    // And still matches the ledger() accessor after commits.
+    CHECK(rt.signing_key_id() == rt.ledger().key_id());
+}
+
+TEST_CASE("signing_key_id: distinct runtimes report distinct ids") {
+    auto a_ = fresh_runtime("ski_a"); REQUIRE(a_);
+    auto b_ = fresh_runtime("ski_b"); REQUIRE(b_);
+    // Two freshly-created runtimes should mint independent signing
+    // keys — the fingerprint and the key id should both differ.
+    CHECK(a_.value().signing_key_id() != b_.value().signing_key_id());
+}
+
+// ============== Runtime::has_consent_for ==================================
+
+TEST_CASE("has_consent_for: false on a fresh runtime, true after grant") {
+    auto rt_ = fresh_runtime("hc_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hc_b");
+    CHECK(!rt.has_consent_for(pid, Purpose::ambient_documentation));
+    (void)rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    CHECK(rt.has_consent_for(pid, Purpose::ambient_documentation));
+}
+
+TEST_CASE("has_consent_for: false for a different purpose / different patient") {
+    auto rt_ = fresh_runtime("hc_edge"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid    = PatientId::pseudonymous("p_hc_e");
+    auto other  = PatientId::pseudonymous("p_hc_other");
+    (void)rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // Same patient, wrong purpose.
+    CHECK(!rt.has_consent_for(pid, Purpose::diagnostic_suggestion));
+    // Different patient, granted purpose.
+    CHECK(!rt.has_consent_for(other, Purpose::ambient_documentation));
+}
+
+TEST_CASE("has_consent_for: gates begin_inference correctly") {
+    // Integration: the sugar should agree with begin_inference()'s
+    // own consent gate. If has_consent_for returns true, begin_inference
+    // (without an explicit token_id) must succeed; if false, it must
+    // fail with consent_missing.
+    auto rt_ = fresh_runtime("hc_int"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hc_i");
+
+    REQUIRE(!rt.has_consent_for(pid, Purpose::ambient_documentation));
+    auto bad = rt.begin_inference({
+        .model     = ModelId{"m","v1"},
+        .actor     = ActorId::clinician("smith"),
+        .patient   = pid,
+        .encounter = EncounterId::make(),
+        .purpose   = Purpose::ambient_documentation,
+    });
+    REQUIRE(!bad);
+    CHECK(bad.error().code() == ErrorCode::consent_missing);
+
+    (void)rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    REQUIRE(rt.has_consent_for(pid, Purpose::ambient_documentation));
+    auto ok = rt.begin_inference({
+        .model     = ModelId{"m","v1"},
+        .actor     = ActorId::clinician("smith"),
+        .patient   = pid,
+        .encounter = EncounterId::make(),
+        .purpose   = Purpose::ambient_documentation,
+    });
+    CHECK(ok);
+}
+
+// ============== Runtime::summary_string ===================================
+
+TEST_CASE("summary_string: contains all the documented fields on a fresh runtime") {
+    auto rt_ = fresh_runtime("ss_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto s = rt.summary_string();
+    CHECK(!s.empty());
+    // Documented fields — substring-check rather than full layout to
+    // give us latitude on formatting tweaks.
+    CHECK(s.find("ledger length")   != std::string::npos);
+    CHECK(s.find("ledger head")     != std::string::npos);
+    CHECK(s.find("signing key id")  != std::string::npos);
+    CHECK(s.find("signing fingerprint") != std::string::npos);
+    CHECK(s.find("active consent")  != std::string::npos);
+    CHECK(s.find("drift features")  != std::string::npos);
+    CHECK(s.find("policies")        != std::string::npos);
+    CHECK(s.find(rt.version())      != std::string::npos);
+    // Multi-line — six or more newlines (~6-8 lines).
+    auto nl = std::count(s.begin(), s.end(), '\n');
+    CHECK(nl >= 5);
+    CHECK(nl <= 9);
+}
+
+TEST_CASE("summary_string: head hash truncated to 12 chars") {
+    // Edge: even after activity grows the head hex, the summary
+    // shows only a 12-char prefix. Verify by writing a real entry
+    // and confirming the full 64-char hex does NOT appear, but the
+    // 12-char prefix does.
+    auto rt_ = fresh_runtime("ss_trunc"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ss_t");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto full = rt.head_hash();
+    REQUIRE(full.size() > 12);
+    auto s = rt.summary_string();
+    // Truncated form must appear; full form must NOT.
+    CHECK(s.find(full.substr(0, 12)) != std::string::npos);
+    CHECK(s.find(full)               == std::string::npos);
+}
+
+TEST_CASE("summary_string: integration — counts move with activity") {
+    auto rt_ = fresh_runtime("ss_int"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto before = rt.summary_string();
+    CHECK(before.find("ledger length: 0") != std::string::npos);
+    CHECK(before.find("policies: 0")      != std::string::npos);
+
+    rt.policies().push(make_phi_scrubber());
+    auto pid = PatientId::pseudonymous("p_ss_i");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto after = rt.summary_string();
+    // policies went from 0 to 1; ledger_length grew (consent grant +
+    // inference.committed ≥ 2).
+    CHECK(after.find("policies: 1")        != std::string::npos);
+    CHECK(after.find("ledger length: 0")   == std::string::npos);
+    CHECK(after.find("active consent tokens: 1") != std::string::npos);
+}
+
+// ============== Inference::was_committed_after ============================
+
+TEST_CASE("was_committed_after: false before commit, true after for an earlier t") {
+    auto rt_ = fresh_runtime("wca_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_wca_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    // Capture a baseline timestamp BEFORE the inference begins.
+    auto baseline = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // Pre-commit: must be false even though started_at > baseline.
+    CHECK(!inf.value().was_committed_after(baseline));
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    CHECK(!inf.value().was_committed_after(baseline));  // still uncommitted
+    REQUIRE(inf.value().commit());
+    CHECK(inf.value().was_committed_after(baseline));   // now true
+}
+
+TEST_CASE("was_committed_after: false when t is in the future / equal to started_at") {
+    // Edge: strict "later than" semantics — equal timestamps and
+    // future ones must both return false.
+    auto rt_ = fresh_runtime("wca_edge"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_wca_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto started = inf.value().ctx().started_at();
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    // Equal: started_at > started_at is false.
+    CHECK(!inf.value().was_committed_after(started));
+    // Future t: clearly false.
+    auto future = Time::now() + std::chrono::seconds{60};
+    CHECK(!inf.value().was_committed_after(future));
+}
+
+TEST_CASE("was_committed_after: integration — partitions a stream of inferences by checkpoint") {
+    auto rt_ = fresh_runtime("wca_int"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_wca_i");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    // First inference, BEFORE the checkpoint.
+    auto i1 = begin(rt, pid, tok.token_id); REQUIRE(i1);
+    REQUIRE(i1.value().run("a",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(i1.value().commit());
+
+    std::this_thread::sleep_for(std::chrono::milliseconds{3});
+    auto checkpoint = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds{3});
+
+    // Second inference, AFTER the checkpoint.
+    auto i2 = begin(rt, pid, tok.token_id); REQUIRE(i2);
+    REQUIRE(i2.value().run("b",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(i2.value().commit());
+
+    CHECK(!i1.value().was_committed_after(checkpoint));
+    CHECK( i2.value().was_committed_after(checkpoint));
+}
