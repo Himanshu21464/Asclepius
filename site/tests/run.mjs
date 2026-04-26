@@ -993,6 +993,37 @@ ok(`every page has og:url + og:site_name (and og:url == canonical)`, () => {
     return ogIssues.length === 0;
 });
 
+// ─── og:type validity — must be one of the registered OG types ─────────
+// Open Graph defines a closed set of object types. Pages can declare any
+// of: website, article, profile, book, music.*, video.*. Anything else
+// is silently ignored by share-card parsers.
+
+console.log('og:type validity:');
+const VALID_OG_TYPES = new Set([
+    'website', 'article', 'profile', 'book',
+    'music.song', 'music.album', 'music.playlist', 'music.radio_station',
+    'video.movie', 'video.episode', 'video.tv_show', 'video.other',
+]);
+const ogTypeIssues = [];
+for (const f of htmlPages) {
+    if (f === '404.html') continue;
+    const raw = readFileSync(path.join(SITE_ROOT, f), 'utf-8');
+    const m = /<meta[^>]*property="og:type"[^>]*content="([^"]+)"/.exec(raw);
+    if (!m) {
+        ogTypeIssues.push(`${f}: missing og:type`);
+        continue;
+    }
+    if (!VALID_OG_TYPES.has(m[1])) {
+        ogTypeIssues.push(`${f}: og:type="${m[1]}" not in valid OG types`);
+    }
+}
+ok(`every page declares a valid og:type`, () => {
+    if (ogTypeIssues.length) {
+        console.error('   issues:\n' + ogTypeIssues.slice(0, 8).map((l) => '     ' + l).join('\n'));
+    }
+    return ogTypeIssues.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
