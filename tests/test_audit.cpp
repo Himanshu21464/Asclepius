@@ -395,6 +395,180 @@ TEST_CASE("Migrator refuses non-empty destination") {
     CHECK(!r);
 }
 
+// ============== verify_parallel ==========================================
+
+TEST_CASE("verify_parallel matches verify on a 600-entry chain") {
+    auto p   = tmp_db("vp_600");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs(600, {"e","sys",nlohmann::json{},""});
+    REQUIRE(led.value().append_batch(std::move(specs)));
+    REQUIRE(led.value().verify());
+    REQUIRE(led.value().verify_parallel());          // hardware_concurrency
+    REQUIRE(led.value().verify_parallel(1));         // single-thread fallback
+    REQUIRE(led.value().verify_parallel(2));
+    REQUIRE(led.value().verify_parallel(4));
+    REQUIRE(led.value().verify_parallel(8));
+}
+
+TEST_CASE("verify_parallel falls back gracefully on tiny chains") {
+    // <512 entries: implementation falls through to plain verify(),
+    // so it should still succeed and return the same Result.
+    auto p   = tmp_db("vp_small");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    for (int i = 0; i < 50; ++i) REQUIRE(led.value().append("e","sys",b));
+    REQUIRE(led.value().verify_parallel());
+    REQUIRE(led.value().verify_parallel(8));
+}
+
+TEST_CASE("verify_parallel handles empty chain") {
+    auto p   = tmp_db("vp_empty");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    REQUIRE(led.value().verify_parallel());
+}
+
+TEST_CASE("verify_parallel detects tampered body (1k entries, threads=4)") {
+    auto p   = tmp_db("vp_tamper_body");
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+        std::vector<Ledger::AppendSpec> specs(1000, {"e","sys",nlohmann::json{},""});
+        REQUIRE(led.value().append_batch(std::move(specs)));
+    }
+
+    // Tamper with seq 500's body via raw SQLite.
+    sqlite3* raw = nullptr;
+    REQUIRE(sqlite3_open(p.string().c_str(), &raw) == SQLITE_OK);
+    REQUIRE(sqlite3_exec(raw,
+        "UPDATE asclepius_ledger SET body = body || ' ' WHERE seq = 500;",
+        nullptr, nullptr, nullptr) == SQLITE_OK);
+    sqlite3_close(raw);
+
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto r = led.value().verify_parallel(4);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::integrity_failure);
+}
+
+TEST_CASE("verify_parallel detects tampered signature") {
+    auto p   = tmp_db("vp_tamper_sig");
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+        std::vector<Ledger::AppendSpec> specs(800, {"e","sys",nlohmann::json{},""});
+        REQUIRE(led.value().append_batch(std::move(specs)));
+    }
+
+    // XOR a byte of seq 600's signature.
+    sqlite3* raw = nullptr;
+    REQUIRE(sqlite3_open(p.string().c_str(), &raw) == SQLITE_OK);
+    sqlite3_stmt* st = nullptr;
+    REQUIRE(sqlite3_prepare_v2(raw,
+        "UPDATE asclepius_ledger SET signature = "
+        "  zeroblob(64) WHERE seq = 600;",
+        -1, &st, nullptr) == SQLITE_OK);
+    REQUIRE(sqlite3_step(st) == SQLITE_DONE);
+    sqlite3_finalize(st);
+    sqlite3_close(raw);
+
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    CHECK(!led.value().verify_parallel(4));
+}
+
+TEST_CASE("verify_parallel single-threaded equals verify") {
+    auto p   = tmp_db("vp_single_eq");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs(700, {"e","sys",nlohmann::json{},""});
+    REQUIRE(led.value().append_batch(std::move(specs)));
+
+    auto a = led.value().verify();
+    auto b = led.value().verify_parallel(1);
+    CHECK(static_cast<bool>(a) == static_cast<bool>(b));
+}
+
+TEST_CASE("verify_parallel honors hardware_concurrency") {
+    auto p   = tmp_db("vp_hw");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs(550, {"e","sys",nlohmann::json{},""});
+    REQUIRE(led.value().append_batch(std::move(specs)));
+    REQUIRE(led.value().verify_parallel(0));  // 0 → hardware_concurrency
+}
+
+TEST_CASE("verify_parallel detects gap (ledger truncation simulation)") {
+    auto p   = tmp_db("vp_gap");
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+        std::vector<Ledger::AppendSpec> specs(700, {"e","sys",nlohmann::json{},""});
+        REQUIRE(led.value().append_batch(std::move(specs)));
+    }
+
+    // Delete seq 350 to simulate truncation/gap.
+    sqlite3* raw = nullptr;
+    REQUIRE(sqlite3_open(p.string().c_str(), &raw) == SQLITE_OK);
+    REQUIRE(sqlite3_exec(raw, "DELETE FROM asclepius_ledger WHERE seq = 350;",
+                         nullptr, nullptr, nullptr) == SQLITE_OK);
+    sqlite3_close(raw);
+
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto r = led.value().verify_parallel(4);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::integrity_failure);
+}
+
+TEST_CASE("verify_parallel passes for a clean 2000-entry chain") {
+    auto p   = tmp_db("vp_2k");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs(2000, {"e","sys",nlohmann::json{},""});
+    REQUIRE(led.value().append_batch(std::move(specs)));
+    REQUIRE(led.value().verify_parallel());
+    REQUIRE(led.value().verify_parallel(2));
+    REQUIRE(led.value().verify_parallel(4));
+}
+
+TEST_CASE("verify_parallel detects the exact seq of a tampered entry") {
+    auto p   = tmp_db("vp_pinpoint");
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+        std::vector<Ledger::AppendSpec> specs(600, {"e","sys",nlohmann::json{},""});
+        REQUIRE(led.value().append_batch(std::move(specs)));
+    }
+
+    sqlite3* raw = nullptr;
+    REQUIRE(sqlite3_open(p.string().c_str(), &raw) == SQLITE_OK);
+    REQUIRE(sqlite3_exec(raw,
+        "UPDATE asclepius_ledger SET body = body || 'X' WHERE seq = 123;",
+        nullptr, nullptr, nullptr) == SQLITE_OK);
+    sqlite3_close(raw);
+
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto r = led.value().verify_parallel(4);
+    REQUIRE(!r);
+    CHECK(std::string{r.error().what()}.find("seq 123") != std::string::npos);
+}
+
+TEST_CASE("verify_parallel idempotent: running it twice returns same result") {
+    auto p   = tmp_db("vp_idemp");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs(600, {"e","sys",nlohmann::json{},""});
+    REQUIRE(led.value().append_batch(std::move(specs)));
+    REQUIRE(led.value().verify_parallel(4));
+    REQUIRE(led.value().verify_parallel(4));
+    REQUIRE(led.value().verify_parallel(4));
+}
+
 // ============== append_batch ==============================================
 
 TEST_CASE("append_batch with empty input is a no-op") {

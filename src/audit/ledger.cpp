@@ -26,6 +26,7 @@
 #include <fstream>
 #include <mutex>
 #include <optional>
+#include <thread>
 
 #if defined(__unix__) || defined(__APPLE__)
 #  include <sys/stat.h>
@@ -361,6 +362,119 @@ Result<std::vector<LedgerEntry>> Ledger::range_for_tenant(const std::string& ten
                                                           std::uint64_t start,
                                                           std::uint64_t end) const {
     return impl_->storage->select_range_for_tenant(tenant, start, end);
+}
+
+Result<void> Ledger::verify_parallel(unsigned threads) const {
+    // Strategy: collect entries into a vector via for_each (so the
+    // streaming interface still drives the read), parallelise the per-
+    // entry self-verification (signature + payload_hash + body parse —
+    // the expensive ~140µs per entry), then walk the chain sequentially
+    // in this thread to check prev_hash continuity and seq gap-freeness.
+    //
+    // For small chains the parallel split is pure overhead; fall through
+    // to plain verify().
+    constexpr std::size_t kMinForParallel = 512;
+
+    if (threads == 0) {
+        threads = std::thread::hardware_concurrency();
+        if (threads == 0) threads = 2;
+    }
+    if (threads == 1) return verify();
+
+    // Drain the chain into memory.
+    std::vector<LedgerEntry> all;
+    {
+        std::optional<Error> err;
+        auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+            all.push_back(e);
+            return true;
+        });
+        if (!r) return r.error();
+        if (err) return err.value();
+    }
+    if (all.size() < kMinForParallel) return verify();
+
+    // Per-entry self-verification (signature + payload_hash). Parallelised
+    // with N workers each owning a contiguous slice.
+    std::atomic<bool> any_failed{false};
+    std::mutex        err_mu;
+    std::optional<Error> first_error;
+
+    auto worker = [&](std::size_t lo, std::size_t hi) {
+        for (std::size_t i = lo; i < hi; ++i) {
+            if (any_failed.load(std::memory_order_relaxed)) return;
+            const auto& e = all[i];
+            json body;
+            try { body = json::parse(e.body_json); }
+            catch (...) {
+                std::lock_guard<std::mutex> lk(err_mu);
+                if (!first_error) {
+                    first_error = Error::integrity(fmt::format(
+                        "body parse failure at seq {}", e.header.seq));
+                }
+                any_failed.store(true);
+                return;
+            }
+            auto recomputed = compute_payload_hash(e.header.event_type, body);
+            if (!(recomputed == e.header.payload_hash)) {
+                std::lock_guard<std::mutex> lk(err_mu);
+                if (!first_error) {
+                    first_error = Error::integrity(fmt::format(
+                        "payload hash mismatch at seq {}", e.header.seq));
+                }
+                any_failed.store(true);
+                return;
+            }
+            auto sb = bytes_to_sign(e.header, e.body_json);
+            if (!KeyStore::verify(
+                    Bytes{sb.data(), sb.size()},
+                    std::span<const std::uint8_t, KeyStore::sig_bytes>{
+                        e.signature.data(), KeyStore::sig_bytes},
+                    std::span<const std::uint8_t, KeyStore::pk_bytes>{
+                        impl_->public_key.data(), KeyStore::pk_bytes})) {
+                std::lock_guard<std::mutex> lk(err_mu);
+                if (!first_error) {
+                    first_error = Error::integrity(fmt::format(
+                        "bad signature at seq {}", e.header.seq));
+                }
+                any_failed.store(true);
+                return;
+            }
+        }
+    };
+
+    std::vector<std::thread> pool;
+    pool.reserve(threads);
+    std::size_t per = (all.size() + threads - 1) / threads;
+    for (unsigned t = 0; t < threads; ++t) {
+        std::size_t lo = t * per;
+        if (lo >= all.size()) break;
+        std::size_t hi = std::min(lo + per, all.size());
+        pool.emplace_back(worker, lo, hi);
+    }
+    for (auto& th : pool) th.join();
+    if (first_error) return first_error.value();
+
+    // Chain-consistency walk (sequential, fast).
+    Hash          expected_prev = Hash::zero();
+    std::uint64_t expected_seq  = 1;
+    for (const auto& e : all) {
+        if (e.header.seq != expected_seq) {
+            return Error::integrity(fmt::format(
+                "ledger gap at seq {} (expected {})",
+                e.header.seq, expected_seq));
+        }
+        if (!(e.header.prev_hash == expected_prev)) {
+            return Error::integrity(fmt::format(
+                "chain break at seq {}", e.header.seq));
+        }
+        expected_prev = compute_entry_hash(
+            e.header, e.body_json,
+            Bytes{e.signature.data(), e.signature.size()},
+            e.key_id);
+        ++expected_seq;
+    }
+    return Result<void>::ok();
 }
 
 Result<void> Ledger::verify() const {

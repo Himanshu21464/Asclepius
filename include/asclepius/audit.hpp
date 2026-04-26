@@ -174,6 +174,21 @@ public:
     // of chain length.
     Result<void> verify() const;
 
+    // Multi-threaded verify. Streams entries, verifies signatures and
+    // payload-hash recomputation in parallel across `threads` workers,
+    // then walks the chain sequentially in the calling thread to check
+    // prev_hash continuity and gap-free seq.
+    //
+    // Equivalent semantically to verify(): same Result, same error
+    // codes, same diagnostics. ~Nx faster on a chain large enough that
+    // signature verification dominates (>~10k entries) when run on N
+    // cores.
+    //
+    // threads=0 picks std::thread::hardware_concurrency() at runtime.
+    // For tiny chains (<512 entries) falls back to single-threaded
+    // verify() to avoid pool overhead.
+    Result<void> verify_parallel(unsigned threads = 0) const;
+
     // Current chain head (hash of the most recent entry, or zero if empty).
     Hash          head() const;
     std::uint64_t length() const;
