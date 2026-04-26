@@ -7,6 +7,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <future>
+#include <memory>
+#include <thread>
 
 namespace asclepius {
 
@@ -121,6 +124,96 @@ Result<std::string> Inference::run(std::string input, const ModelCallback& model
     metrics.inc("inference.ok");
     // Record latency in seconds into a histogram so operators get
     // distribution data (p50, p95, p99) directly in Prometheus.
+    metrics.observe("inference_latency_seconds",
+                    static_cast<double>(latency_ns) / 1e9);
+    return post_output;
+}
+
+Result<std::string> Inference::run_with_timeout(
+        std::string input,
+        const ModelCallback& model_call,
+        std::chrono::milliseconds timeout) {
+
+    if (impl_->completed) {
+        return Error::invalid("inference.run called twice on the same handle");
+    }
+    impl_->completed = true;
+    auto& metrics = impl_->rt->metrics();
+    metrics.inc("inference.attempts");
+
+    // Pre-guard (same path as run()).
+    auto in_v = impl_->rt->policies().evaluate_input(impl_->ctx, std::move(input));
+    if (!in_v) {
+        metrics.inc("inference.blocked.input");
+        impl_->ledger_body["status"]     = "blocked.input";
+        impl_->ledger_body["block_code"] = to_string(in_v.error().code());
+        impl_->ledger_body["block_msg"]  = std::string{in_v.error().what()};
+        return in_v.error();
+    }
+    const std::string post_input = std::move(in_v).value();
+    auto in_hash = hash(post_input);
+
+    // Run the model on a detachable worker thread; wait up to `timeout`.
+    // The promise/future lives in a shared_ptr so the worker can outlive
+    // this function: if we time out we detach() and the worker continues
+    // running until done; its result is dropped (no listener on the
+    // promise). std::thread::detach is safe because the promise's
+    // shared state owns its memory via the shared_ptr.
+    auto promise = std::make_shared<std::promise<Result<std::string>>>();
+    auto future  = promise->get_future();
+    // Capture inputs by value: if we time out and detach the worker, the
+    // worker may outlive this stack frame, so it cannot reference any of
+    // our locals. Copy the callback (std::function) and the post-policy
+    // input into the lambda's storage.
+    std::thread worker([promise, cb = model_call, in = post_input]() {
+        try {
+            promise->set_value(cb(in));
+        } catch (...) {
+            try { promise->set_exception(std::current_exception()); }
+            catch (...) { /* set_exception itself can throw on already-satisfied;
+                              swallow. */ }
+        }
+    });
+
+    if (future.wait_for(timeout) != std::future_status::ready) {
+        // Mark the inference as timed out. Detach the worker; the
+        // promise's shared state outlives both of us via shared_ptr.
+        worker.detach();
+        metrics.inc("inference.timeout");
+        impl_->ledger_body["status"]     = "timeout";
+        impl_->ledger_body["timeout_ms"] = static_cast<std::int64_t>(timeout.count());
+        impl_->ledger_body["input_hash"] = in_hash.hex();
+        return Error::timeout("model_call exceeded "
+            + std::to_string(timeout.count()) + "ms");
+    }
+    worker.join();
+    auto out_r = future.get();
+    if (!out_r) {
+        metrics.inc("inference.model_error");
+        impl_->ledger_body["status"]    = "model_error";
+        impl_->ledger_body["error_msg"] = std::string{out_r.error().what()};
+        return out_r.error();
+    }
+
+    auto out_v = impl_->rt->policies().evaluate_output(impl_->ctx, std::move(out_r).value());
+    if (!out_v) {
+        metrics.inc("inference.blocked.output");
+        impl_->ledger_body["status"]     = "blocked.output";
+        impl_->ledger_body["block_code"] = to_string(out_v.error().code());
+        impl_->ledger_body["block_msg"]  = std::string{out_v.error().what()};
+        return out_v.error();
+    }
+
+    const std::string post_output = std::move(out_v).value();
+    auto out_hash = hash(post_output);
+
+    impl_->ledger_body["status"]      = "ok";
+    impl_->ledger_body["input_hash"]  = in_hash.hex();
+    impl_->ledger_body["output_hash"] = out_hash.hex();
+    auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
+    impl_->ledger_body["latency_ns"] = latency_ns;
+
+    metrics.inc("inference.ok");
     metrics.observe("inference_latency_seconds",
                     static_cast<double>(latency_ns) / 1e9);
     return post_output;

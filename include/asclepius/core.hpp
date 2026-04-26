@@ -57,6 +57,8 @@ public:
     static Error schema(std::string m)    { return {ErrorCode::schema_violation, std::move(m)}; }
     static Error integrity(std::string m) { return {ErrorCode::integrity_failure,std::move(m)}; }
     static Error backend(std::string m)   { return {ErrorCode::backend_failure,  std::move(m)}; }
+    static Error timeout(std::string m)   { return {ErrorCode::deadline_exceeded,std::move(m)}; }
+    static Error cancelled(std::string m) { return {ErrorCode::cancelled,        std::move(m)}; }
     static Error internal(std::string m)  { return {ErrorCode::internal,         std::move(m)}; }
 
 private:

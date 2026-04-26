@@ -95,6 +95,18 @@ public:
     // model output, or an error if any policy blocked or the model failed.
     Result<std::string> run(std::string input, const ModelCallback& model_call);
 
+    // Same as run() but bounds the model_call duration. If model_call
+    // exceeds `timeout`, this method returns Error::timeout and marks
+    // the inference as `status: timeout` in its ledger body. The model
+    // thread may still be running (no cooperative cancellation primitive
+    // is required of the callback) — it's detached and its result is
+    // discarded. Subsequent commit() will record the timeout, not the
+    // late result.
+    Result<std::string> run_with_timeout(
+        std::string input,
+        const ModelCallback& model_call,
+        std::chrono::milliseconds timeout);
+
     // Commit the inference to the ledger. Idempotent within the lifetime
     // of this Inference handle (calling commit() twice on the same handle
     // is a no-op). After commit, drift observations are flushed and

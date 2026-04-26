@@ -4,8 +4,10 @@
 
 #include "asclepius/asclepius.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <random>
+#include <thread>
 
 using namespace asclepius;
 using namespace std::chrono_literals;
@@ -119,6 +121,254 @@ TEST_CASE("Runtime: output policy block is recorded with status=blocked.output")
     REQUIRE(!out);
     CHECK(out.error().code() == ErrorCode::policy_violation);
     REQUIRE(inf.value().commit());
+}
+
+// ============== run_with_timeout ==========================================
+
+namespace {
+auto fresh_runtime(const char* tag) -> Result<Runtime> {
+    auto p = std::filesystem::temp_directory_path()
+           / ("asc_to_" + std::string{tag} + "_"
+              + std::to_string(std::random_device{}()) + ".db");
+    std::filesystem::remove(p);
+    std::filesystem::remove(std::filesystem::path{p}.replace_extension(".key"));
+    return Runtime::open(p);
+}
+auto begin(Runtime& rt, PatientId pid, std::string token_id) {
+    return rt.begin_inference({
+        .model = ModelId{"m","v1"}, .actor = ActorId::clinician("smith"),
+        .patient = pid, .encounter = EncounterId::make(),
+        .purpose = Purpose::ambient_documentation,
+        .tenant  = TenantId{},
+        .consent_token_id = std::move(token_id),
+    });
+}
+}  // namespace
+
+TEST_CASE("run_with_timeout: fast callback returns normally") {
+    auto rt_ = fresh_runtime("fast"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_fast");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    auto r = inf.value().run_with_timeout("hi",
+        [](std::string s) -> Result<std::string> { return s; },
+        std::chrono::milliseconds{500});
+    REQUIRE(r);
+    CHECK(r.value() == "hi");
+    REQUIRE(inf.value().commit());
+}
+
+TEST_CASE("run_with_timeout: slow callback exceeds timeout, returns deadline_exceeded") {
+    auto rt_ = fresh_runtime("slow"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_slow");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    auto r = inf.value().run_with_timeout("hi",
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{300});
+            return s;
+        },
+        std::chrono::milliseconds{50});
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::deadline_exceeded);
+    // commit() should still record the timeout entry.
+    REQUIRE(inf.value().commit());
+}
+
+TEST_CASE("run_with_timeout: deadline_exceeded message names the threshold") {
+    auto rt_ = fresh_runtime("msg"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_msg");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    auto r = inf.value().run_with_timeout("x",
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{200});
+            return s;
+        },
+        std::chrono::milliseconds{42});
+    CHECK(!r);
+    CHECK(std::string{r.error().what()}.find("42ms") != std::string::npos);
+}
+
+TEST_CASE("run_with_timeout: timed-out inference body has status=timeout") {
+    auto rt_ = fresh_runtime("body"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_body");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    REQUIRE(!inf.value().run_with_timeout("x",
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{200});
+            return s;
+        },
+        std::chrono::milliseconds{30}));
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1);
+    REQUIRE(tail);
+    REQUIRE(!tail.value().empty());
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body["status"]        == "timeout");
+    CHECK(body["timeout_ms"]    == 30);
+    CHECK(body.contains("input_hash"));
+}
+
+TEST_CASE("run_with_timeout: 0ms timeout always trips") {
+    auto rt_ = fresh_runtime("zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_zero");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    auto r = inf.value().run_with_timeout("x",
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+            return s;
+        },
+        std::chrono::milliseconds{0});
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::deadline_exceeded);
+}
+
+TEST_CASE("run_with_timeout: model error inside callback propagates as model_error, not timeout") {
+    auto rt_ = fresh_runtime("merr"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_merr");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    auto r = inf.value().run_with_timeout("x",
+        [](std::string) -> Result<std::string> { return Error::internal("bad"); },
+        std::chrono::milliseconds{500});
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::internal);
+    REQUIRE(inf.value().commit());
+}
+
+TEST_CASE("run_with_timeout: input policy block beats timeout (no thread spawned)") {
+    auto rt_ = fresh_runtime("inblock"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_phi_scrubber());
+    rt.policies().push(make_length_limit(/*input_max=*/4, /*output_max=*/200));
+
+    auto pid = PatientId::pseudonymous("p_to_inblock");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    // 100-byte input violates the input length limit (4) — should never
+    // reach the model_call thread.
+    auto r = inf.value().run_with_timeout(std::string(100, 'a'),
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{500});
+            return s;
+        },
+        std::chrono::milliseconds{50});
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::policy_violation);
+}
+
+TEST_CASE("run_with_timeout: very short timeout doesn't deadlock the runtime") {
+    // Stress test: many short-timeout inferences in a row — the detached
+    // worker threads must not back up the system.
+    auto rt_ = fresh_runtime("stress"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_stress");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    int timeouts = 0;
+    for (int i = 0; i < 10; ++i) {
+        auto inf = begin(rt, pid, tok.token_id);
+        REQUIRE(inf);
+        auto r = inf.value().run_with_timeout("x",
+            [](std::string s) -> Result<std::string> {
+                std::this_thread::sleep_for(std::chrono::milliseconds{100});
+                return s;
+            },
+            std::chrono::milliseconds{1});
+        if (!r && r.error().code() == ErrorCode::deadline_exceeded) ++timeouts;
+        REQUIRE(inf.value().commit());
+    }
+    CHECK(timeouts >= 8);  // allow occasional fast machines, mostly timeouts
+    REQUIRE(rt.ledger().verify());
+}
+
+TEST_CASE("run_with_timeout: late-completing thread doesn't corrupt subsequent inferences") {
+    auto rt_ = fresh_runtime("late"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_late");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    // First: timeout fires; worker is still running 200ms in the background.
+    {
+        auto inf = begin(rt, pid, tok.token_id);
+        REQUIRE(inf);
+        REQUIRE(!inf.value().run_with_timeout("x",
+            [](std::string s) -> Result<std::string> {
+                std::this_thread::sleep_for(std::chrono::milliseconds{200});
+                return s;
+            },
+            std::chrono::milliseconds{20}));
+        REQUIRE(inf.value().commit());
+    }
+    // Second: a normal fast inference should succeed cleanly.
+    {
+        auto inf = begin(rt, pid, tok.token_id);
+        REQUIRE(inf);
+        auto r = inf.value().run_with_timeout("y",
+            [](std::string s) -> Result<std::string> { return s; },
+            std::chrono::milliseconds{500});
+        REQUIRE(r);
+        CHECK(r.value() == "y");
+        REQUIRE(inf.value().commit());
+    }
+    REQUIRE(rt.ledger().verify());
+}
+
+TEST_CASE("run_with_timeout: cannot be called after run() on same handle") {
+    auto rt_ = fresh_runtime("twice"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_twice");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    REQUIRE(inf.value().run("x", [](std::string s)->Result<std::string>{ return s; }));
+    auto r = inf.value().run_with_timeout("y",
+        [](std::string s)->Result<std::string>{ return s; },
+        std::chrono::milliseconds{100});
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("run_with_timeout: cannot be called twice on same handle") {
+    auto rt_ = fresh_runtime("dbl"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_to_dbl");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    REQUIRE(inf.value().run_with_timeout("x",
+        [](std::string s)->Result<std::string>{ return s; },
+        std::chrono::milliseconds{500}));
+    auto r = inf.value().run_with_timeout("y",
+        [](std::string s)->Result<std::string>{ return s; },
+        std::chrono::milliseconds{500});
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
 }
 
 TEST_CASE("Inference::commit_idempotent dedupes across handles by inference_id") {
