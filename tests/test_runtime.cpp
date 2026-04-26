@@ -733,3 +733,171 @@ TEST_CASE("commit_idempotent dedupes when a matching inference_id is in the tail
 
     REQUIRE(rt.ledger().verify());
 }
+
+// ============== consent ledger-mirror + restart replay ==================
+
+TEST_CASE("Consent grant is mirrored to ledger as consent.granted event") {
+    auto p = tmp_db("consent_mirror");
+    auto rt_ = Runtime::open(p); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("pmirror");
+    auto tok = rt.consent().grant(pid, {Purpose::triage}, 1h).value();
+
+    auto e = rt.ledger().find_by_inference_id(tok.token_id);
+    // find_by_inference_id looks for inference_id field; consent events
+    // use token_id, so this should not match.
+    CHECK(!e);
+
+    // Direct scan: most recent entry should be the grant.
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    REQUIRE(!tail.value().empty());
+    CHECK(tail.value()[0].header.event_type == "consent.granted");
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body["token_id"] == tok.token_id);
+    CHECK(body["revoked"] == false);
+    CHECK(body["purposes"].is_array());
+    CHECK(body["purposes"][0] == "triage");
+}
+
+TEST_CASE("Consent revoke is mirrored to ledger as consent.revoked event") {
+    auto p = tmp_db("consent_revoke");
+    auto rt_ = Runtime::open(p); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto tok = rt.consent().grant(PatientId::pseudonymous("p"),
+                                  {Purpose::triage}, 1h).value();
+    REQUIRE(rt.consent().revoke(tok.token_id));
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    CHECK(tail.value()[0].header.event_type == "consent.revoked");
+}
+
+TEST_CASE("Consent state survives runtime restart via ledger replay") {
+    auto p = tmp_db("consent_replay");
+    std::string token_id;
+    {
+        auto rt_ = Runtime::open(p); REQUIRE(rt_);
+        auto tok = rt_.value().consent().grant(
+            PatientId::pseudonymous("preplay"),
+            {Purpose::ambient_documentation}, 1h);
+        REQUIRE(tok);
+        token_id = tok.value().token_id;
+    }
+    // Reopen — registry should have the token back.
+    auto rt2_ = Runtime::open(p); REQUIRE(rt2_);
+    auto t = rt2_.value().consent().get(token_id);
+    REQUIRE(t);
+    CHECK(t.value().token_id == token_id);
+    CHECK(t.value().revoked  == false);
+    auto perm = rt2_.value().consent().permits(
+        PatientId::pseudonymous("preplay"), Purpose::ambient_documentation);
+    REQUIRE(perm);
+    CHECK(perm.value());
+}
+
+TEST_CASE("Revocations carry over restart") {
+    auto p = tmp_db("consent_rev_replay");
+    std::string token_id;
+    {
+        auto rt_ = Runtime::open(p); REQUIRE(rt_);
+        auto tok = rt_.value().consent().grant(
+            PatientId::pseudonymous("prev"),
+            {Purpose::triage}, 1h);
+        REQUIRE(tok);
+        token_id = tok.value().token_id;
+        REQUIRE(rt_.value().consent().revoke(token_id));
+    }
+    auto rt2_ = Runtime::open(p); REQUIRE(rt2_);
+    auto t = rt2_.value().consent().get(token_id);
+    REQUIRE(t);
+    CHECK(t.value().revoked == true);
+    auto perm = rt2_.value().consent().permits(
+        PatientId::pseudonymous("prev"), Purpose::triage);
+    REQUIRE(perm);
+    CHECK(perm.value() == false);
+}
+
+TEST_CASE("Replay does not duplicate consent events on second open") {
+    auto p = tmp_db("consent_no_dupe");
+    {
+        auto rt_ = Runtime::open(p); REQUIRE(rt_);
+        REQUIRE(rt_.value().consent().grant(
+            PatientId::pseudonymous("p"), {Purpose::triage}, 1h));
+    }
+    std::uint64_t after_first;
+    {
+        auto rt_ = Runtime::open(p); REQUIRE(rt_);
+        after_first = rt_.value().ledger().length();
+    }
+    {
+        auto rt_ = Runtime::open(p); REQUIRE(rt_);
+        // Reopen without granting anything new — chain length unchanged.
+        CHECK(rt_.value().ledger().length() == after_first);
+    }
+}
+
+TEST_CASE("Replay handles many grants and one revoke correctly") {
+    auto p = tmp_db("consent_many");
+    std::vector<std::string> ids;
+    {
+        auto rt_ = Runtime::open(p); REQUIRE(rt_);
+        for (int i = 0; i < 12; i++) {
+            auto t = rt_.value().consent().grant(
+                PatientId::pseudonymous("p" + std::to_string(i)),
+                {Purpose::triage}, 1h);
+            REQUIRE(t);
+            ids.push_back(t.value().token_id);
+        }
+        REQUIRE(rt_.value().consent().revoke(ids[3]));
+    }
+    auto rt2_ = Runtime::open(p); REQUIRE(rt2_);
+    auto& reg = rt2_.value().consent();
+    for (size_t i = 0; i < ids.size(); i++) {
+        auto t = reg.get(ids[i]); REQUIRE(t);
+        if (i == 3) {
+            CHECK(t.value().revoked == true);
+        } else {
+            CHECK(t.value().revoked == false);
+        }
+    }
+}
+
+TEST_CASE("Restart preserves chain integrity (verify() passes after replay)") {
+    auto p = tmp_db("consent_verify");
+    {
+        auto rt_ = Runtime::open(p); REQUIRE(rt_);
+        REQUIRE(rt_.value().consent().grant(
+            PatientId::pseudonymous("p"), {Purpose::triage}, 1h));
+    }
+    auto rt2_ = Runtime::open(p); REQUIRE(rt2_);
+    REQUIRE(rt2_.value().ledger().verify());
+}
+
+TEST_CASE("Inference begin succeeds with replayed consent token after restart") {
+    auto p = tmp_db("consent_inference_replay");
+    std::string token_id;
+    auto pid = PatientId::pseudonymous("pinf");
+    {
+        auto rt_ = Runtime::open(p); REQUIRE(rt_);
+        auto tok = rt_.value().consent().grant(
+            pid, {Purpose::ambient_documentation}, 1h);
+        REQUIRE(tok);
+        token_id = tok.value().token_id;
+    }
+    auto rt2_ = Runtime::open(p); REQUIRE(rt2_);
+    auto inf = rt2_.value().begin_inference(InferenceSpec{
+        .model            = ModelId{"m", "1.0"},
+        .actor            = ActorId::clinician("doc"),
+        .patient          = pid,
+        .encounter        = EncounterId::make(),
+        .purpose          = Purpose::ambient_documentation,
+        .tenant           = TenantId{},
+        .consent_token_id = token_id,
+    });
+    CHECK(inf);
+}
+
+TEST_CASE("Empty ledger replay is a clean no-op") {
+    auto p = tmp_db("consent_empty");
+    auto rt_ = Runtime::open(p); REQUIRE(rt_);
+    CHECK(rt_.value().ledger().length() == 0);
+    CHECK(rt_.value().consent().snapshot().empty());
+}

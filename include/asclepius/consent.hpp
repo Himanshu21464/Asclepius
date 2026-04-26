@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -51,6 +52,13 @@ struct ConsentToken {
 
 class ConsentRegistry {
 public:
+    // Observer fires after a successful grant() or revoke(). Used by the
+    // Runtime to mirror consent state into the audit ledger so it can be
+    // replayed on restart. The observer is called while no lock is held,
+    // so it may safely call back into the registry (idempotent).
+    enum class Event : std::uint8_t { granted, revoked };
+    using Observer = std::function<void(Event, const ConsentToken&)>;
+
     ConsentRegistry() = default;
 
     Result<ConsentToken> grant(PatientId            patient,
@@ -66,9 +74,20 @@ public:
     // Snapshot for serialization / replay.
     std::vector<ConsentToken> snapshot() const;
 
+    // Install (or clear, by passing {}) the observer fired on grant/revoke.
+    // Idempotent: repeat calls replace the previous observer.
+    void set_observer(Observer obs);
+
+    // Restore a token verbatim — preserves token_id, issued_at, expires_at,
+    // revoked. Used by Runtime restart to replay consent events from the
+    // ledger. Does NOT fire the observer (the source of truth is already
+    // the ledger). Returns conflict if a token with the same id exists.
+    Result<void> ingest(ConsentToken token);
+
 private:
     mutable std::mutex                                mu_;
     std::unordered_map<std::string, ConsentToken>    by_id_;
+    Observer                                         observer_;
 };
 
 }  // namespace asclepius

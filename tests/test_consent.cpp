@@ -178,3 +178,119 @@ TEST_CASE("Concurrent grants produce unique token ids") {
     CHECK(all.size() == kThreads * kPerThread);
     CHECK(r.snapshot().size() == kThreads * kPerThread);
 }
+
+// ============== observer hook ===========================================
+
+TEST_CASE("set_observer fires on grant") {
+    ConsentRegistry r;
+    int granted_count = 0;
+    int revoked_count = 0;
+    std::string seen_token;
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken& t) {
+        if (e == ConsentRegistry::Event::granted) granted_count++;
+        if (e == ConsentRegistry::Event::revoked) revoked_count++;
+        seen_token = t.token_id;
+    });
+    auto t = r.grant(PatientId::pseudonymous("p"),
+                     {Purpose::ambient_documentation}, 1h);
+    REQUIRE(t);
+    CHECK(granted_count == 1);
+    CHECK(revoked_count == 0);
+    CHECK(seen_token == t.value().token_id);
+}
+
+TEST_CASE("set_observer fires on revoke") {
+    ConsentRegistry r;
+    auto t = r.grant(PatientId::pseudonymous("p"),
+                     {Purpose::ambient_documentation}, 1h).value();
+    int revoked_count = 0;
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken&) {
+        if (e == ConsentRegistry::Event::revoked) revoked_count++;
+    });
+    REQUIRE(r.revoke(t.token_id));
+    CHECK(revoked_count == 1);
+}
+
+TEST_CASE("set_observer can be cleared with empty function") {
+    ConsentRegistry r;
+    int n = 0;
+    r.set_observer([&](ConsentRegistry::Event, const ConsentToken&) { n++; });
+    REQUIRE(r.grant(PatientId::pseudonymous("p"),
+                    {Purpose::triage}, 1h));
+    r.set_observer({});
+    REQUIRE(r.grant(PatientId::pseudonymous("p"),
+                    {Purpose::triage}, 1h));
+    CHECK(n == 1);
+}
+
+TEST_CASE("set_observer is replaced on subsequent calls") {
+    ConsentRegistry r;
+    int a = 0, b = 0;
+    r.set_observer([&](ConsentRegistry::Event, const ConsentToken&) { a++; });
+    r.set_observer([&](ConsentRegistry::Event, const ConsentToken&) { b++; });
+    REQUIRE(r.grant(PatientId::pseudonymous("p"),
+                    {Purpose::triage}, 1h));
+    CHECK(a == 0);
+    CHECK(b == 1);
+}
+
+TEST_CASE("ingest restores a token verbatim") {
+    ConsentRegistry r;
+    ConsentToken t;
+    t.token_id   = "ct_imported";
+    t.patient    = PatientId::pseudonymous("p");
+    t.purposes   = {Purpose::medication_review};
+    t.issued_at  = Time::now();
+    t.expires_at = t.issued_at + std::chrono::nanoseconds{std::chrono::hours{1}};
+    t.revoked    = false;
+    REQUIRE(r.ingest(t));
+    auto got = r.get("ct_imported");
+    REQUIRE(got);
+    CHECK(got.value().token_id == "ct_imported");
+    CHECK(got.value().purposes.size() == 1);
+}
+
+TEST_CASE("ingest does not fire the observer (replay safety)") {
+    ConsentRegistry r;
+    int n = 0;
+    r.set_observer([&](ConsentRegistry::Event, const ConsentToken&) { n++; });
+    ConsentToken t;
+    t.token_id  = "ct_imported";
+    t.patient   = PatientId::pseudonymous("p");
+    t.purposes  = {Purpose::triage};
+    t.issued_at = Time::now();
+    t.expires_at= t.issued_at + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(t));
+    CHECK(n == 0);
+}
+
+TEST_CASE("ingest rejects duplicate token_id with conflict") {
+    ConsentRegistry r;
+    ConsentToken t;
+    t.token_id   = "ct_dup";
+    t.patient    = PatientId::pseudonymous("p");
+    t.purposes   = {Purpose::triage};
+    t.issued_at  = Time::now();
+    t.expires_at = t.issued_at + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(t));
+    auto r2 = r.ingest(t);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::conflict);
+}
+
+TEST_CASE("ingested revoked token correctly stops permitting") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p");
+    ConsentToken t;
+    t.token_id  = "ct_revoked";
+    t.patient   = pid;
+    t.purposes  = {Purpose::triage};
+    t.issued_at = Time::now();
+    t.expires_at= t.issued_at + std::chrono::nanoseconds{std::chrono::hours{1}};
+    t.revoked   = true;
+    REQUIRE(r.ingest(t));
+    auto p = r.permits(pid, Purpose::triage);
+    REQUIRE(p);
+    CHECK(p.value() == false);
+}
+

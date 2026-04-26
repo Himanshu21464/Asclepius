@@ -34,3 +34,4 @@ asclepius.db-*
 # signing keys generated at runtime — never commit
 *.key
 asclepius.key.LEAKED.*
+build_nopg/

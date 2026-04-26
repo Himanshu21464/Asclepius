@@ -62,21 +62,49 @@ Result<ConsentToken> ConsentRegistry::grant(PatientId            patient,
     t.issued_at  = Time::now();
     t.expires_at = t.issued_at + std::chrono::nanoseconds{ttl};
 
-    std::lock_guard<std::mutex> lk(mu_);
-    auto [it, inserted] = by_id_.emplace(t.token_id, std::move(t));
-    if (!inserted) {
-        return Error::internal("token id collision");
+    ConsentToken snapshot;
+    Observer     obs_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto [it, inserted] = by_id_.emplace(t.token_id, std::move(t));
+        if (!inserted) {
+            return Error::internal("token id collision");
+        }
+        snapshot = it->second;
+        obs_copy = observer_;
     }
-    return it->second;
+    if (obs_copy) obs_copy(Event::granted, snapshot);
+    return snapshot;
 }
 
 Result<void> ConsentRegistry::revoke(std::string_view token_id) {
-    std::lock_guard<std::mutex> lk(mu_);
-    auto it = by_id_.find(std::string{token_id});
-    if (it == by_id_.end()) {
-        return Error::not_found("consent token not found");
+    ConsentToken snapshot;
+    Observer     obs_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = by_id_.find(std::string{token_id});
+        if (it == by_id_.end()) {
+            return Error::not_found("consent token not found");
+        }
+        it->second.revoked = true;
+        snapshot = it->second;
+        obs_copy = observer_;
     }
-    it->second.revoked = true;
+    if (obs_copy) obs_copy(Event::revoked, snapshot);
+    return Result<void>::ok();
+}
+
+void ConsentRegistry::set_observer(Observer obs) {
+    std::lock_guard<std::mutex> lk(mu_);
+    observer_ = std::move(obs);
+}
+
+Result<void> ConsentRegistry::ingest(ConsentToken token) {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto [it, inserted] = by_id_.emplace(token.token_id, std::move(token));
+    if (!inserted) {
+        return Error{ErrorCode::conflict, "consent token already present"};
+    }
     return Result<void>::ok();
 }
 
