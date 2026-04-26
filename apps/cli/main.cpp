@@ -38,6 +38,54 @@ int cmd_ledger_verify(const std::string& db) {
     return 0;
 }
 
+int cmd_ledger_stats(const std::string& db) {
+    auto led = Ledger::open_uri(db);
+    if (!led) {
+        fmt::print(stderr, "open: {}\n", led.error().what());
+        return 2;
+    }
+    auto s = led.value().stats();
+    if (!s) {
+        fmt::print(stderr, "stats: {}\n", s.error().what());
+        return 2;
+    }
+    std::cout << s.value().to_json() << '\n';
+    return 0;
+}
+
+int cmd_ledger_find(const std::string& db, const std::string& inference_id) {
+    if (inference_id.empty()) {
+        fmt::print(stderr, "find: inference_id is required\n");
+        return 2;
+    }
+    auto led = Ledger::open_uri(db);
+    if (!led) {
+        fmt::print(stderr, "open: {}\n", led.error().what());
+        return 2;
+    }
+    auto e = led.value().find_by_inference_id(inference_id);
+    if (!e) {
+        if (e.error().code() == ErrorCode::not_found) {
+            fmt::print(stderr, "not found: {}\n", inference_id);
+            return 1;
+        }
+        fmt::print(stderr, "find: {}\n", e.error().what());
+        return 2;
+    }
+    nlohmann::json out;
+    out["seq"]        = e.value().header.seq;
+    out["ts"]         = e.value().header.ts.iso8601();
+    out["actor"]      = e.value().header.actor;
+    out["event_type"] = e.value().header.event_type;
+    out["tenant"]     = e.value().header.tenant;
+    out["body"]       = nlohmann::json::parse(e.value().body_json,
+                                              nullptr,
+                                              false);
+    out["entry_hash"] = e.value().entry_hash().hex();
+    std::cout << out.dump(2) << '\n';
+    return 0;
+}
+
 int cmd_ledger_inspect(const std::string& db, std::size_t tail) {
     auto led = Ledger::open_uri(db);
     if (!led) {
@@ -332,6 +380,23 @@ int main(int argc, char** argv) {
         metrics->add_option("db", db_uri,
                             "ledger: SQLite path or postgres://...")->required();
         metrics->callback([&]() { std::exit(cmd_metrics_export(db_uri)); });
+    }
+    {
+        auto* stats = ledger->add_subcommand("stats",
+            "emit chain summary as JSON (count, head, oldest/newest, key id)");
+        stats->add_option("db", db_uri,
+                          "ledger: SQLite path or postgres://...")->required();
+        stats->callback([&]() { std::exit(cmd_ledger_stats(db_uri)); });
+    }
+    std::string find_id;
+    {
+        auto* find = ledger->add_subcommand("find",
+            "look up a single ledger entry by inference_id (incident response)");
+        find->add_option("db", db_uri,
+                         "ledger: SQLite path or postgres://...")->required();
+        find->add_option("inference_id", find_id,
+                         "the inference_id to locate")->required();
+        find->callback([&]() { std::exit(cmd_ledger_find(db_uri, find_id)); });
     }
     std::filesystem::path jsonl_path;
     {
