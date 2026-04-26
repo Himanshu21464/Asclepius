@@ -101,6 +101,31 @@ int cmd_ledger_tail_actor(const std::string& db,
     return 0;
 }
 
+int cmd_runtime_health(const std::string& db) {
+    auto rt = Runtime::open_uri(db);
+    if (!rt) {
+        fmt::print(stderr, "open: {}\n", rt.error().what());
+        return 2;
+    }
+    std::cout << rt.value().health().to_json() << '\n';
+    return 0;
+}
+
+int cmd_runtime_self_test(const std::string& db) {
+    auto rt = Runtime::open_uri(db);
+    if (!rt) {
+        fmt::print(stderr, "open: {}\n", rt.error().what());
+        return 2;
+    }
+    auto r = rt.value().self_test();
+    if (!r) {
+        fmt::print(stderr, "self-test FAILED: {}\n", r.error().what());
+        return 1;
+    }
+    fmt::print("self-test OK\n");
+    return 0;
+}
+
 int cmd_ledger_event_counts(const std::string& db) {
     auto led = Ledger::open_uri(db);
     if (!led) {
@@ -527,6 +552,23 @@ int main(int argc, char** argv) {
         imp->add_option("--key", key_path,
                         "signing key (PEM-shaped); required to validate the import")->required();
         imp->callback([&]() { std::exit(cmd_ledger_import_jsonl(jsonl_path, db_uri, key_path)); });
+    }
+
+    auto* runtime = app.add_subcommand("runtime", "runtime status / probes");
+    runtime->require_subcommand(1);
+    {
+        auto* health = runtime->add_subcommand("health",
+            "emit a /healthz JSON snapshot for the runtime");
+        health->add_option("db", db_uri,
+                           "ledger: SQLite path or postgres://...")->required();
+        health->callback([&]() { std::exit(cmd_runtime_health(db_uri)); });
+    }
+    {
+        auto* st = runtime->add_subcommand("self-test",
+            "run runtime invariants (full chain verify, consent + drift sanity)");
+        st->add_option("db", db_uri,
+                       "ledger: SQLite path or postgres://...")->required();
+        st->callback([&]() { std::exit(cmd_runtime_self_test(db_uri)); });
     }
 
     auto* drift = app.add_subcommand("drift", "drift operations");

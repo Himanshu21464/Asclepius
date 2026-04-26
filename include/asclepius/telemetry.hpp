@@ -124,6 +124,12 @@ public:
     // Number of registered features. O(1).
     std::size_t feature_count() const;
 
+    // Reset just the current-window histogram for one feature, leaving
+    // the reference (baseline) intact. Per-feature variant of rotate(),
+    // which clears all features. Returns not_found if the feature was
+    // never registered.
+    Result<void> reset(std::string_view feature);
+
 private:
     struct FeatureState;
     std::unordered_map<std::string, std::unique_ptr<FeatureState>> features_;
@@ -165,6 +171,11 @@ public:
     // dashboards and operator tooling that wants to enumerate what's
     // being measured without parsing the prometheus exposition.
     std::vector<std::string> list_counters() const;
+
+    // Reset a single counter to zero. Used when a sidecar wants to
+    // emit per-deploy metric resets (e.g. on restart). Returns not_found
+    // if no such counter exists. Histograms are not affected.
+    Result<void> reset(std::string_view name);
 
 private:
     struct Hist {

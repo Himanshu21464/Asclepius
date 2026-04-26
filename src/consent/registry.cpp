@@ -149,6 +149,21 @@ ConsentRegistry::tokens_for_patient(const PatientId& patient) const {
     return out;
 }
 
+std::size_t ConsentRegistry::active_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::size_t n = 0;
+    for (const auto& [_, t] : by_id_) {
+        if (!t.revoked && t.expires_at > now) n++;
+    }
+    return n;
+}
+
+std::size_t ConsentRegistry::total_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    return by_id_.size();
+}
+
 Result<ConsentToken> ConsentRegistry::extend(std::string_view     token_id,
                                              std::chrono::seconds additional_ttl) {
     if (additional_ttl.count() <= 0) {

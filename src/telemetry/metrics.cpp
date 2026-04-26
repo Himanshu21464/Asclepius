@@ -134,6 +134,16 @@ std::string MetricRegistry::snapshot_prometheus() const {
     return out;
 }
 
+Result<void> MetricRegistry::reset(std::string_view name) {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = counters_.find(std::string{name});
+    if (it == counters_.end()) {
+        return Error::not_found("unknown counter");
+    }
+    it->second = 0;
+    return Result<void>::ok();
+}
+
 std::vector<std::string> MetricRegistry::list_counters() const {
     std::lock_guard<std::mutex> lk(mu_);
     std::vector<std::string> out;

@@ -87,6 +87,12 @@ public:
     Result<ConsentToken> extend(std::string_view     token_id,
                                 std::chrono::seconds additional_ttl);
 
+    // Counts of currently-active (non-revoked, non-expired) tokens and
+    // total tokens (active + revoked + expired). O(n) over the registry,
+    // bounded by the number of tokens the runtime has seen.
+    std::size_t active_count() const;
+    std::size_t total_count() const;
+
     // Install (or clear, by passing {}) the observer fired on grant/revoke.
     // Idempotent: repeat calls replace the previous observer.
     void set_observer(Observer obs);

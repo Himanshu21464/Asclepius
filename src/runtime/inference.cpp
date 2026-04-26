@@ -356,6 +356,17 @@ Result<std::uint64_t> Inference::seq() const noexcept {
     return impl_->committed_seq;
 }
 
+bool Inference::is_committed() const noexcept {
+    return impl_ && impl_->committed;
+}
+
+std::string Inference::status() const {
+    if (!impl_) return std::string{};
+    auto it = impl_->ledger_body.find("status");
+    if (it == impl_->ledger_body.end() || !it->is_string()) return std::string{};
+    return it->get<std::string>();
+}
+
 Result<void> Inference::commit_idempotent(std::size_t lookback) {
     if (!impl_->completed) {
         return Error::invalid("inference.commit_idempotent called before run");

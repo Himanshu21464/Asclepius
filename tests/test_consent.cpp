@@ -369,3 +369,16 @@ TEST_CASE("extend fires the observer as a granted event") {
     REQUIRE(r.extend(t.token_id, 1h));                   // n=2
     CHECK(n == 2);
 }
+
+TEST_CASE("active_count vs total_count: revoked counts toward total only") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p");
+    auto t1 = r.grant(p, {Purpose::triage}, 1h).value();
+    REQUIRE(r.grant(p, {Purpose::ambient_documentation}, 1h));
+    REQUIRE(r.grant(p, {Purpose::medication_review}, 1h));
+    CHECK(r.total_count() == 3);
+    CHECK(r.active_count() == 3);
+    REQUIRE(r.revoke(t1.token_id));
+    CHECK(r.total_count() == 3);
+    CHECK(r.active_count() == 2);
+}

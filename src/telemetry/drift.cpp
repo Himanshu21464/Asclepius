@@ -214,6 +214,19 @@ void DriftMonitor::rotate() {
     }
 }
 
+Result<void> DriftMonitor::reset(std::string_view feature) {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = features_.find(std::string{feature});
+    if (it == features_.end()) {
+        return Error::not_found("unregistered feature");
+    }
+    auto& fs = it->second;
+    fs->current = std::make_unique<Histogram>(
+        fs->current->lo(), fs->current->hi(), fs->current->bin_count());
+    last_severity_.erase(std::string{feature});
+    return Result<void>::ok();
+}
+
 std::vector<std::string> DriftMonitor::list_features() const {
     std::lock_guard<std::mutex> lk(mu_);
     std::vector<std::string> out;

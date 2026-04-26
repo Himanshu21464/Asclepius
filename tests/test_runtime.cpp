@@ -1291,3 +1291,62 @@ TEST_CASE("Runtime::Health::to_json round-trips through JSON") {
     CHECK(j["ok"].get<bool>() == true);
 }
 
+
+// ============== is_committed / status / self_test =======================
+
+TEST_CASE("Inference::is_committed flips on successful commit") {
+    auto rt_ = fresh_runtime("ic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ic");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(!inf.value().is_committed());
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    CHECK(!inf.value().is_committed());  // run does not commit
+    REQUIRE(inf.value().commit());
+    CHECK(inf.value().is_committed());
+}
+
+TEST_CASE("Inference::status reflects current ledger_body status") {
+    auto rt_ = fresh_runtime("st"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_st");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(inf.value().status() == "");  // no run yet
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    CHECK(inf.value().status() == "ok");
+}
+
+TEST_CASE("Inference::status reflects timeout") {
+    auto rt_ = fresh_runtime("st_to"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_st_to");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(!inf.value().run_with_timeout("x",
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{100});
+            return s;
+        },
+        std::chrono::milliseconds{5}));
+    CHECK(inf.value().status() == "timeout");
+}
+
+TEST_CASE("Runtime::self_test passes on a healthy runtime") {
+    auto rt_ = fresh_runtime("self_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_st1");
+    REQUIRE(rt.consent().grant(pid, {Purpose::triage}, 1h));
+    REQUIRE(rt.self_test());
+}
+
+TEST_CASE("Runtime::self_test on empty runtime is OK") {
+    auto rt_ = fresh_runtime("self_empty"); REQUIRE(rt_);
+    REQUIRE(rt_.value().self_test());
+}

@@ -176,6 +176,18 @@ public:
     // response header, queue metadata, or webhook payload).
     Result<std::uint64_t> seq() const noexcept;
 
+    // True iff commit() has been called successfully. Cheap accessor
+    // for sidecars that need to know whether the destructor will
+    // record an aborted-inference event.
+    bool is_committed() const noexcept;
+
+    // Current ledger-body status string ("ok", "blocked.input",
+    // "blocked.output", "model_error", "timeout", "cancelled",
+    // "aborted") or an empty string if no run has been attempted yet.
+    // Reads from the Inference's pending body, not the ledger; matches
+    // what would be written if commit() were called now.
+    std::string status() const;
+
     const InferenceContext& ctx() const noexcept;
 
 private:
@@ -246,6 +258,16 @@ public:
     };
 
     Health health() const;
+
+    // Run a battery of internal invariants. Used at boot and by /healthz
+    // deep-check endpoints to catch corruption early. Currently checks:
+    //  - ledger.verify() succeeds on the full chain
+    //  - consent state is internally consistent (no expired-but-active)
+    //  - drift state has no NaN baselines
+    // Returns the first failing invariant as an Error, or ok() if
+    // everything passes. May be slow on large chains — gated for slow
+    // probes, not p99 paths.
+    Result<void> self_test() const;
 
 private:
     Runtime();

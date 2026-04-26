@@ -1731,3 +1731,88 @@ TEST_CASE("head_at_time returns mid-chain head for in-between time") {
     auto h = l.head_at_time(cutoff); REQUIRE(h);
     CHECK(h.value().seq == 5);
 }
+
+// ============== Ledger::tail_by_event_type ==============================
+
+TEST_CASE("tail_by_event_type returns last n matches most-recent first") {
+    auto p = tmp_db("tbet_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 20; i++)
+        REQUIRE(l.append(i % 2 ? "alpha" : "beta",
+                         "x", nlohmann::json{{"i", i}}, ""));
+    auto r = l.tail_by_event_type("alpha", 3); REQUIRE(r);
+    CHECK(r.value().size() == 3);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    CHECK(b0["i"] == 19);
+}
+
+TEST_CASE("tail_by_event_type rejects empty type, n=0 returns empty") {
+    auto p = tmp_db("tbet_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r1 = l.tail_by_event_type("", 5);
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.tail_by_event_type("e", 0); REQUIRE(r2);
+    CHECK(r2.value().empty());
+}
+
+// ============== Ledger::verify_range ====================================
+
+TEST_CASE("verify_range succeeds on a valid sub-range") {
+    auto p = tmp_db("vr_ok");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 10; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    REQUIRE(l.verify_range(3, 8));
+}
+
+TEST_CASE("verify_range rejects bad bounds") {
+    auto p = tmp_db("vr_bad");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r1 = l.verify_range(0, 5);
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.verify_range(5, 3);
+    CHECK(!r2);
+    auto r3 = l.verify_range(1, 100);
+    CHECK(!r3);
+}
+
+TEST_CASE("verify_range matches verify() on full chain") {
+    auto p = tmp_db("vr_full");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.verify_range(1, l.length() + 1));
+    REQUIRE(l.verify());
+}
+
+// ============== Ledger::head_at_seq =====================================
+
+TEST_CASE("head_at_seq returns entry_hash at the given seq") {
+    auto p = tmp_db("has_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    auto h = l.head_at_seq(3); REQUIRE(h);
+    CHECK(h.value().seq == 3);
+    auto e = l.at(3); REQUIRE(e);
+    CHECK(h.value().head_hash.hex() == e.value().entry_hash().hex());
+}
+
+TEST_CASE("head_at_seq: out-of-range rejected") {
+    auto p = tmp_db("has_oor");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    CHECK(!l.head_at_seq(0));
+    CHECK(!l.head_at_seq(99));
+}

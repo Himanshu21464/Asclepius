@@ -277,6 +277,19 @@ public:
     Result<std::vector<LedgerEntry>>
         range_by_event_type(std::string_view event_type) const;
 
+    // Last `n` entries of a given event type, most recent first. Pairs
+    // with range_by_event_type for streaming dashboards: range gives
+    // the full set; tail gives just the latest.
+    Result<std::vector<LedgerEntry>>
+        tail_by_event_type(std::string_view event_type, std::size_t n) const;
+
+    // Verify a sub-range of the chain [start, end). Same correctness
+    // guarantees as verify(): prev_hash continuity, payload-hash match,
+    // ed25519 signature match. Cheaper than verify() when only a subset
+    // matters (e.g. evidence bundle attestation, post-restart spot
+    // check). Returns invalid_argument if start >= end or end > length.
+    Result<void> verify_range(std::uint64_t start, std::uint64_t end) const;
+
     // Find the chain head as it existed at-or-before time `t`. Returns
     // {seq=0, head_hash=zero} for empty chains or for a `t` earlier than
     // the first entry's timestamp. Used to anchor retroactive checkpoints
@@ -287,6 +300,11 @@ public:
         Time          ts{};
     };
     Result<HistoricalHead> head_at_time(Time t) const;
+
+    // Historical head as of a particular seq. Returns the entry_hash of
+    // the entry at `seq` and the seq itself, or invalid_argument if
+    // seq > length() or seq == 0.
+    Result<HistoricalHead> head_at_seq(std::uint64_t seq) const;
 
     // ---- Subscription ---------------------------------------------------
     //

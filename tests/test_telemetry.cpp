@@ -274,3 +274,42 @@ TEST_CASE("MetricRegistry::list_counters: empty registry returns empty vector") 
     MetricRegistry m;
     CHECK(m.list_counters().empty());
 }
+
+TEST_CASE("DriftMonitor::reset clears one feature's window") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", {0.1, 0.2}, 0.0, 1.0, 4));
+    REQUIRE(dm.register_feature("b", {0.1, 0.2}, 0.0, 1.0, 4));
+    for (int i = 0; i < 50; i++) {
+        REQUIRE(dm.observe("a", 0.5));
+        REQUIRE(dm.observe("b", 0.5));
+    }
+    REQUIRE(dm.reset("a"));
+    auto rep = dm.report();
+    for (const auto& r : rep) {
+        if (r.feature == "a") CHECK(r.current_n == 0);
+        if (r.feature == "b") CHECK(r.current_n == 50);
+    }
+}
+
+TEST_CASE("DriftMonitor::reset on unknown feature returns not_found") {
+    DriftMonitor dm;
+    auto r = dm.reset("ghost");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("MetricRegistry::reset zeroes one counter only") {
+    MetricRegistry m;
+    m.inc("a", 5);
+    m.inc("b", 10);
+    REQUIRE(m.reset("a"));
+    CHECK(m.count("a") == 0);
+    CHECK(m.count("b") == 10);
+}
+
+TEST_CASE("MetricRegistry::reset on unknown counter returns not_found") {
+    MetricRegistry m;
+    auto r = m.reset("ghost");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}

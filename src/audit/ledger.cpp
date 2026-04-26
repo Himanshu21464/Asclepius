@@ -733,6 +733,96 @@ Ledger::count_by_event_type() const {
 }
 
 Result<std::vector<LedgerEntry>>
+Ledger::tail_by_event_type(std::string_view event_type, std::size_t n) const {
+    if (event_type.empty()) {
+        return Error::invalid("tail_by_event_type requires non-empty event_type");
+    }
+    if (n == 0) return std::vector<LedgerEntry>{};
+    std::vector<LedgerEntry> ring;
+    ring.reserve(n);
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.event_type != event_type) return true;
+        if (ring.size() < n) {
+            ring.push_back(e);
+        } else {
+            std::move(ring.begin() + 1, ring.end(), ring.begin());
+            ring.back() = e;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    std::reverse(ring.begin(), ring.end());
+    return ring;
+}
+
+Result<void> Ledger::verify_range(std::uint64_t start, std::uint64_t end) const {
+    if (start == 0 || start >= end) {
+        return Error::invalid("verify_range: requires 0 < start < end");
+    }
+    const auto len = impl_->length.load();
+    if (end > len + 1) {
+        return Error::invalid("verify_range: end exceeds chain length");
+    }
+    auto rng = impl_->storage->select_range(start, end);
+    if (!rng) return rng.error();
+
+    Hash expected_prev{};  // zero for start==1
+    if (start > 1) {
+        auto anchor = impl_->storage->select_at(start - 1);
+        if (!anchor) return anchor.error();
+        expected_prev = anchor.value().entry_hash();
+    }
+
+    std::uint64_t expected_seq = start;
+    for (const auto& e : rng.value()) {
+        if (e.header.seq != expected_seq) {
+            return Error::integrity("ledger gap at seq " +
+                                    std::to_string(e.header.seq));
+        }
+        if (!(e.header.prev_hash == expected_prev)) {
+            return Error::integrity("chain break at seq " +
+                                    std::to_string(e.header.seq));
+        }
+        nlohmann::json body;
+        try { body = nlohmann::json::parse(e.body_json); }
+        catch (...) {
+            return Error::integrity("body parse failure at seq " +
+                                    std::to_string(e.header.seq));
+        }
+        auto recomputed = compute_payload_hash(e.header.event_type, body);
+        if (!(recomputed == e.header.payload_hash)) {
+            return Error::integrity("payload hash mismatch at seq " +
+                                    std::to_string(e.header.seq));
+        }
+        auto sb = bytes_to_sign(e.header, e.body_json);
+        if (!KeyStore::verify(Bytes{sb.data(), sb.size()},
+                              std::span<const std::uint8_t, KeyStore::sig_bytes>{
+                                  e.signature.data(), KeyStore::sig_bytes},
+                              std::span<const std::uint8_t, KeyStore::pk_bytes>{
+                                  impl_->public_key.data(), KeyStore::pk_bytes})) {
+            return Error::integrity("bad signature at seq " +
+                                    std::to_string(e.header.seq));
+        }
+        expected_prev = e.entry_hash();
+        ++expected_seq;
+    }
+    return Result<void>::ok();
+}
+
+Result<Ledger::HistoricalHead> Ledger::head_at_seq(std::uint64_t seq) const {
+    if (seq == 0 || seq > impl_->length.load()) {
+        return Error::invalid("head_at_seq: seq out of range");
+    }
+    auto e = impl_->storage->select_at(seq);
+    if (!e) return e.error();
+    HistoricalHead h;
+    h.seq       = e.value().header.seq;
+    h.head_hash = e.value().entry_hash();
+    h.ts        = e.value().header.ts;
+    return h;
+}
+
+Result<std::vector<LedgerEntry>>
 Ledger::range_by_event_type(std::string_view event_type) const {
     if (event_type.empty()) {
         return Error::invalid("range_by_event_type requires non-empty event_type");
