@@ -137,6 +137,18 @@ public:
     // Cost: one Ledger::tail(lookback) call per commit; bounded.
     Result<void> commit_idempotent(std::size_t lookback = 200);
 
+    // Attach an arbitrary key/value pair to the inference's ledger body.
+    // Stored under a "metadata" sub-object so it can't collide with the
+    // runtime's reserved fields (status, input_hash, output_hash, etc.).
+    // Useful for cross-system correlation: trace_id, span_id, request_id,
+    // sidecar_version, ab_cohort, retry_count.
+    //
+    // Reserved keys and empty keys are rejected. Values may be any
+    // canonicalizable JSON. Calling twice with the same key replaces the
+    // prior value. Must be called before commit() — after commit it
+    // returns invalid_argument with "metadata after commit".
+    Result<void> add_metadata(std::string_view key, nlohmann::json value);
+
     // Capture a clinician override of the model's output. Stored with the
     // inference id so prospective evaluation can join later.
     Result<void> capture_override(std::string rationale, nlohmann::json corrected);

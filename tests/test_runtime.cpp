@@ -901,3 +901,166 @@ TEST_CASE("Empty ledger replay is a clean no-op") {
     CHECK(rt_.value().ledger().length() == 0);
     CHECK(rt_.value().consent().snapshot().empty());
 }
+
+// ============== Inference::add_metadata =================================
+
+TEST_CASE("add_metadata writes under metadata sub-object on commit") {
+    auto rt_ = fresh_runtime("md_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_md");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("trace_id", "trace_abc123"));
+    REQUIRE(inf.value().add_metadata("retry_count", 3));
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    REQUIRE(body.contains("metadata"));
+    CHECK(body["metadata"]["trace_id"]   == "trace_abc123");
+    CHECK(body["metadata"]["retry_count"] == 3);
+}
+
+TEST_CASE("add_metadata accepts nested JSON objects") {
+    auto rt_ = fresh_runtime("md_nested"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_md_n");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    nlohmann::json span = {
+        {"trace_id", "abc"}, {"parent_span_id", "p1"},
+        {"baggage", {{"region", "us-east"}, {"tier", "prod"}}},
+    };
+    REQUIRE(inf.value().add_metadata("otel", span));
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body["metadata"]["otel"]["trace_id"] == "abc");
+    CHECK(body["metadata"]["otel"]["baggage"]["region"] == "us-east");
+}
+
+TEST_CASE("add_metadata rejects empty key") {
+    auto rt_ = fresh_runtime("md_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_md_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto r = inf.value().add_metadata("", "v");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("add_metadata rejects reserved keys") {
+    auto rt_ = fresh_runtime("md_reserved"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_md_r");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    for (auto* k : {"status", "input_hash", "output_hash", "latency_ns",
+                    "metadata", "inference_id"}) {
+        auto r = inf.value().add_metadata(k, "v");
+        CHECK(!r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+}
+
+TEST_CASE("add_metadata replaces value on duplicate key") {
+    auto rt_ = fresh_runtime("md_dup"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_md_d");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("k", "first"));
+    REQUIRE(inf.value().add_metadata("k", "second"));
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body["metadata"]["k"] == "second");
+}
+
+TEST_CASE("add_metadata after commit is rejected") {
+    auto rt_ = fresh_runtime("md_after"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_md_a");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+    auto r = inf.value().add_metadata("late", "v");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("add_metadata works with run_with_timeout / run_cancellable too") {
+    auto rt_ = fresh_runtime("md_timeout"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_md_t");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("trace_id", "t1"));
+    REQUIRE(inf.value().run_with_timeout("hi",
+        [](std::string s)->Result<std::string>{ return s; },
+        std::chrono::milliseconds{500}));
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body["metadata"]["trace_id"] == "t1");
+}
+
+TEST_CASE("add_metadata is preserved on blocked.input ledger entry") {
+    auto rt_ = fresh_runtime("md_block"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_length_limit(/*input_max=*/4, 0));
+    auto pid = PatientId::pseudonymous("p_md_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("retry_count", 5));
+    auto r = inf.value().run(std::string(100, 'a'),
+        [](std::string s)->Result<std::string>{ return s; });
+    CHECK(!r);
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body["status"]                 == "blocked.input");
+    CHECK(body["metadata"]["retry_count"] == 5);
+}
+
+TEST_CASE("add_metadata: many keys roundtrip correctly") {
+    auto rt_ = fresh_runtime("md_many"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_md_m");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    for (int i = 0; i < 50; i++) {
+        REQUIRE(inf.value().add_metadata("k" + std::to_string(i), i));
+    }
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    for (int i = 0; i < 50; i++) {
+        CHECK(body["metadata"]["k" + std::to_string(i)] == i);
+    }
+}

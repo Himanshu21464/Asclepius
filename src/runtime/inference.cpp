@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <future>
@@ -376,6 +377,35 @@ Result<void> Inference::commit_idempotent(std::size_t lookback) {
 
     // Not seen — fall through to a normal commit.
     return commit();
+}
+
+Result<void> Inference::add_metadata(std::string_view key, nlohmann::json value) {
+    if (key.empty()) {
+        return Error::invalid("metadata key is empty");
+    }
+    // Reserved top-level keys — refuse to let metadata shadow runtime
+    // bookkeeping. The reserved set matches the keys this file writes to
+    // ledger_body directly. Any future addition of top-level fields must
+    // be added here.
+    static const std::array<std::string_view, 12> kReserved = {
+        "status", "input_hash", "output_hash", "latency_ns",
+        "block_code", "block_msg", "error_msg", "timeout_ms",
+        "cancel_phase", "inference_id", "model", "metadata",
+    };
+    for (auto r : kReserved) {
+        if (key == r) {
+            return Error::invalid("metadata key is reserved");
+        }
+    }
+    if (impl_->committed) {
+        return Error::invalid("metadata after commit");
+    }
+    if (!impl_->ledger_body.contains("metadata") ||
+        !impl_->ledger_body["metadata"].is_object()) {
+        impl_->ledger_body["metadata"] = nlohmann::json::object();
+    }
+    impl_->ledger_body["metadata"][std::string{key}] = std::move(value);
+    return Result<void>::ok();
 }
 
 Result<void> Inference::capture_override(std::string rationale, nlohmann::json corrected) {
