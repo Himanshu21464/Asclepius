@@ -45,16 +45,31 @@ double quantile(std::vector<double> v, double q) {
 
 int main(int argc, char** argv) {
     std::size_t N = 20000;
+    std::string db_uri;  // empty → SQLite default
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--n" && i + 1 < argc) N = std::stoul(argv[++i]);
+        else if (a == "--db" && i + 1 < argc) db_uri = argv[++i];
     }
 
-    std::filesystem::path db = std::filesystem::temp_directory_path() / "asclepius_bench.db";
-    std::filesystem::remove(db);
-    std::filesystem::remove(std::filesystem::path{db}.replace_extension(".key"));
+    bool is_pg = db_uri.compare(0, 11, "postgres://") == 0
+              || db_uri.compare(0, 13, "postgresql://") == 0;
+    if (db_uri.empty()) {
+        // Default: fresh SQLite in temp dir
+        std::filesystem::path db = std::filesystem::temp_directory_path() / "asclepius_bench.db";
+        std::filesystem::remove(db);
+        std::filesystem::remove(std::filesystem::path{db}.replace_extension(".key"));
+        db_uri = db.string();
+    } else if (!is_pg) {
+        // Caller-supplied SQLite path: clean it for repeatable results
+        std::filesystem::remove(db_uri);
+        std::filesystem::path k{db_uri}; k.replace_extension(".key");
+        std::filesystem::remove(k);
+    }
+    // PG path: caller is responsible for truncating asclepius_ledger
+    // before invocation if they want clean numbers.
 
-    auto rt = Runtime::open_uri(db);
+    auto rt = Runtime::open_uri(db_uri);
     if (!rt) { fmt::print(stderr, "open: {}\n", rt.error().what()); return 1; }
     auto& runtime = rt.value();
 
@@ -171,7 +186,7 @@ int main(int argc, char** argv) {
     out["ledger_append"] = {
         {"us_per_op", ledger_us_per},
         {"ops_per_sec", 1e6 / ledger_us_per},
-        {"backend",   "SQLite WAL"},
+        {"backend",   is_pg ? "PostgreSQL" : "SQLite WAL"},
     };
     out["chain_verify"] = {
         {"us_per_entry", verify_per_entry_us},
