@@ -13,6 +13,184 @@ GPT-class scribe, a radiology CNN, an internal LLM agent, or rule-based CDS —
 any clinical AI inference becomes auditable, rate-limited, schema-checked,
 consent-aware, and replayable through one runtime.
 
+## What is Asclepius? (in plain words)
+
+Hospitals are starting to use AI for real clinical work — ambient scribes that
+write SOAP notes from a recorded visit, models that suggest a likely diagnosis,
+triage tools that flag the sickest patients first. When one of those tools
+gets something wrong, nobody can answer the basic forensic questions: what
+exactly did the AI say, what was it shown, who approved its use that day, did
+the patient consent, was the model behaving the way it was last month? The
+record is missing, or it lives in a vendor's logs that nobody outside the
+vendor can verify.
+
+Asclepius is a small open-source piece of software that sits in front of any
+clinical AI tool and writes down everything it does — in a way that cannot
+be quietly edited later. It is not the AI. It is the layer underneath the
+AI that makes the AI legible, auditable, and accountable.
+
+### The problem
+
+Three things are colliding right now:
+
+1. **Clinical AI is being deployed.** Ambient documentation, decision
+   support, imaging triage, agentic chart review. Some of it works. Some
+   of it hallucinates a medication, misses a finding, or leaks PHI.
+
+2. **Regulators want evidence.** The FDA's Predetermined Change Control
+   Plan guidance, the EU AI Act's high-risk system requirements, HIPAA's
+   accounting-of-disclosures rule, state-level AI transparency laws — all
+   of them increasingly demand a record of what the AI was shown, what it
+   said, who approved it, and whether it was working correctly.
+
+3. **There is no neutral way to produce that record.** Model vendors say
+   "trust our logs." EHR vendors weren't built for this. Hospitals don't
+   have the cryptography or audit-engineering staff to build it themselves.
+   So the evidence either doesn't exist, or it exists only inside the very
+   system the regulator is trying to audit.
+
+That is the gap Asclepius is built to fill.
+
+### What Asclepius actually does
+
+Asclepius wraps a clinical AI tool — any tool, open-source or commercial,
+on-prem or API-based — and creates a tamper-evident record of every
+interaction. Concretely, for each inference it captures:
+
+- the input the AI was shown (with PHI scrubbed, or hashed if required),
+- the output it produced,
+- which model and version was used,
+- who the actor was (clinician, agent, automated job),
+- the patient and encounter context (pseudonymized),
+- which policies ran and whether any blocked or modified the call,
+- whether a human reviewed or overrode the output,
+- the consent token in force at that moment,
+- timing, latency, and drift signals.
+
+Each record is hashed, chained to the record before it (a Merkle chain),
+and signed with a cryptographic key the hospital controls. Months later,
+anyone holding the chain — a regulator, an internal auditor, a plaintiff's
+expert — can verify mathematically that the record has not been altered,
+without having to trust the hospital or the AI vendor.
+
+That is the whole product, conceptually: **a verifiable black-box recorder
+for clinical AI**.
+
+### Who it's for
+
+- **Hospitals and health systems** deploying clinical AI who need to be
+  able to answer regulator and patient questions about what their AI did.
+- **Clinical AI vendors** who want a credible, neutral substrate to
+  demonstrate that their tool meets safety and audit requirements without
+  asking customers to "just trust the vendor's dashboard."
+- **Regulators and auditors** who need a portable, verifiable evidence
+  format instead of vendor-specific log dumps.
+- **Hospital security and compliance teams** who own the HIPAA accounting
+  and incident-response burden when something goes wrong.
+- **Researchers** studying real-world AI behavior, drift, and override
+  patterns who currently have no neutral data source.
+
+### Why it exists as a separate project
+
+Three groups could have built this. None of them will.
+
+- **Model providers** won't ship it. An honest audit substrate would
+  expose hallucinations, drift, and override rates — that is bad for
+  sales. Their incentive is to keep the logs proprietary.
+- **EHR vendors** could ship it, but their integration cycles are measured
+  in years and their architecture is record-centric, not inference-centric.
+- **Hospitals** can't build it themselves. The plumbing — Ed25519 signing,
+  Merkle chains, drift statistics, policy DSLs, evidence packaging — is
+  more cryptography and audit engineering than a hospital IT team can
+  reasonably take on.
+
+So it has to live where shared infrastructure usually lives: at the
+substrate layer, open source, vendor-neutral, with no SaaS hooks and no
+phone-home. That is the "Linux kernel for clinical AI" framing — not
+because Asclepius is an operating system, but because it occupies the
+same architectural slot: the boring, neutral, auditable layer that every
+vendor sits on top of.
+
+### What you specifically get
+
+- A **signed Merkle audit chain** of every AI inference, verifiable
+  offline by anyone holding the public key.
+- A **consent registry** that auto-replays across process restarts so
+  consent state is never silently lost.
+- A **composable policy chain** — PHI scrubbing, schema validation,
+  length and rate limits, action filters — that runs before the model
+  sees the input and again on the output.
+- **Drift detection** (PSI, KS, EMD) with crossover alerts when an input
+  or output distribution starts moving relative to the reference window.
+- **Clinician override capture**, so the next month's evaluation harness
+  can replay every case a human disagreed with the AI on.
+- **Evidence-bundle export**: one command emits a sealed `evidence.tar`
+  that a regulator can verify end-to-end with a separate command.
+
+### What it explicitly is not
+
+- Not an AI scribe, diagnostic model, or any kind of clinical AI tool.
+- Not an MLOps platform — no training, no serving, no model registry.
+- Not an EHR plugin, not an Epic/Cerner module.
+- Not a SaaS product — there is no Asclepius cloud, no managed tenant.
+- Not a model evaluation benchmark, though the harness can replay history
+  through new models.
+
+If you wanted *one* of those, this is the wrong project. Asclepius is the
+layer underneath them.
+
+### A 30-second use case
+
+Picture an ambient-scribe AI running on a hospital's GPU node. An
+`asclepius` sidecar process runs alongside it. Every time the scribe
+generates a SOAP note from a recorded patient visit:
+
+1. The input audio transcript and prompt pass through the policy chain —
+   PHI scrubbed, length-limited, schema-validated.
+2. The model is called.
+3. The output note passes through the output-side policies (no banned
+   medication classes, schema valid, length sane).
+4. The hashes of input and output, the model version, the consent token,
+   the actor, the latency, and the policy verdicts are signed and
+   appended to the Merkle chain.
+5. The chain is fsynced and the inference returns.
+
+Three months later, a regulator opens an inquiry: "show me every
+documentation suggestion this AI made for patient `p-9f1a` in March, and
+prove the record hasn't been edited."
+
+The operator runs:
+
+```sh
+asclepius ledger range-by-patient ./asclepius.db --patient p-9f1a \
+    --since 2026-03-01 --until 2026-04-01
+asclepius evidence bundle ./asclepius.db --window 2026-03 --out march.tar
+asclepius evidence verify ./march.tar
+```
+
+and hands over `march.tar`. The regulator runs `asclepius evidence verify`
+on their own machine, against the hospital's published public key, and
+either the chain checks out byte-for-byte or it doesn't. There is no "you
+have to trust our dashboard" step in the middle.
+
+That is the whole point.
+
+### Honest limits
+
+Asclepius does not make a bad model good. It cannot stop a model from
+hallucinating; it can only make the hallucination *visible and provable*
+after the fact, and let the policy chain refuse to commit obviously broken
+outputs. It does not protect against an attacker who controls the
+signing key — that is what `KeyStore` and HSM integration are for, and
+HSM support is currently a stub. It is single-node by design; multi-site
+federation is an explicit non-goal of v1. The HTTP/gRPC sidecar and the
+managed evidence service are still placeholders.
+
+Treat it as an early-prototype substrate that already has a working core
+(runtime, ledger, policy chain, telemetry, consent, evaluation, CLI,
+Python bindings, 52 test cases / 687 assertions) and known gaps in the
+edges around it.
+
 ## Status
 
 Early prototype. The runtime, ledger, policy chain, telemetry, consent registry,

@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Explained — Asclepius in plain words</title>
+<meta name="description" content="What Asclepius is, what it does, and why it exists — in plain English, for hospital admins, non-AI clinicians, journalists, and the curious. The on-ramp before the spec.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/explained.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Explained, in plain words">
+<meta property="og:description"  content="What it is, what it does, why it exists. The on-ramp before the spec.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta property="og:url"          content="https://asclepius.health/explained.html">
+<meta property="og:site_name"    content="Asclepius">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .ex { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .ex__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2.4rem; margin-bottom: 3rem; max-width: 64ch; }
+  .ex__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .ex__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.6rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .ex__hero h1 i { color: var(--primary); font-style: italic; }
+  .ex__hero p {
+    color: var(--ink-mute); font-family: var(--font-prose);
+    font-size: 1.1rem; line-height: 1.65; margin: 0 0 1rem;
+  }
+  .ex__hero p em { color: var(--primary); font-style: italic; }
+
+  .ex-sec { padding: 2.2rem 0 1.6rem; border-bottom: 1px solid var(--rule-soft); }
+  .ex-sec:last-of-type { border-bottom: 0; }
+  .ex-sec h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em;
+    margin: .4rem 0 1.2rem; line-height: 1.2;
+    max-width: 52ch;
+  }
+  .ex-sec h2 i { color: var(--primary); font-style: italic; }
+  .ex-sec p {
+    font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7;
+    color: var(--ink); margin: 0 0 1rem; max-width: 64ch;
+  }
+  .ex-sec p em { color: var(--primary); font-style: italic; }
+  .ex-sec p code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .08em .35em; color: var(--ink-warm);
+  }
+  .ex-sec ul, .ex-sec ol {
+    font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7;
+    color: var(--ink); max-width: 64ch;
+    margin: 0 0 1rem; padding-left: 1.4rem;
+  }
+  .ex-sec li { margin: .35rem 0; }
+  .ex-sec li em { color: var(--primary); font-style: italic; }
+
+  .ex-callout {
+    margin: 1.4rem 0 1rem;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-prose);
+    font-size: .98rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    max-width: 64ch;
+  }
+  .ex-callout b {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: .35rem;
+  }
+  .ex-callout em { color: var(--ink); font-style: italic; }
+
+  .ex-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin: 1.4rem 0 .8rem;
+  }
+  .ex-card {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 1.1rem 1.2rem;
+    border-radius: 6px;
+  }
+  .ex-card h3 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.1rem; line-height: 1.25;
+    color: var(--ink-warm); margin: 0 0 .4rem;
+  }
+  .ex-card h3 i { color: var(--primary); font-style: italic; }
+  .ex-card p {
+    font-family: var(--font-prose); font-size: .92rem;
+    line-height: 1.6; color: var(--ink-mute);
+    margin: 0; max-width: none;
+  }
+  .ex-card .ex-card__tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: .66rem; letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .5rem;
+  }
+
+  .ex-not {
+    list-style: none; padding: 0; margin: 1rem 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .6rem;
+    max-width: 80ch;
+  }
+  .ex-not li {
+    font-family: var(--font-mono); font-size: .82rem;
+    color: var(--ink-mute);
+    padding: .7rem .9rem;
+    border: 1px dashed var(--rule);
+    border-radius: 4px;
+    background: transparent;
+  }
+  .ex-not li::before {
+    content: "not ";
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  .ex-walk {
+    counter-reset: step;
+    list-style: none; padding: 0; margin: 1.4rem 0;
+    max-width: 70ch;
+  }
+  .ex-walk li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+    gap: 1rem;
+    padding: .7rem 0;
+    border-bottom: 1px dotted var(--rule-soft);
+  }
+  .ex-walk li:last-child { border-bottom: 0; }
+  .ex-walk li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 1.4rem; color: var(--primary);
+    line-height: 1.2;
+  }
+  .ex-walk li p {
+    font-family: var(--font-prose); font-size: .98rem;
+    line-height: 1.6; color: var(--ink); margin: 0;
+  }
+  .ex-walk li p em { color: var(--primary); font-style: italic; }
+
+  .ex-cmd {
+    margin: 1rem 0;
+    padding: .9rem 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    max-width: 70ch;
+  }
+  .ex-cmd .prompt { color: var(--accent); user-select: none; }
+  .ex-cmd .out { display: block; color: var(--ink-mute); margin-top: .35rem; }
+
+  .ex-next {
+    list-style: none; padding: 0; margin: 1.2rem 0 .6rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .8rem;
+  }
+  .ex-next a {
+    display: block;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, transform .15s;
+  }
+  .ex-next a:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .ex-next b {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.15rem; color: var(--ink-warm);
+    display: block; margin-bottom: .3rem;
+  }
+  .ex-next b i { color: var(--primary); font-style: italic; }
+  .ex-next em {
+    font-family: var(--font-mono); font-size: .75rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint); font-style: normal;
+  }
+
+  .ex-coda {
+    margin-top: 3.4rem; padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+    max-width: 64ch;
+    font-family: var(--font-prose); color: var(--ink-mute);
+    font-size: 1rem; line-height: 1.7;
+  }
+  .ex-coda em { color: var(--primary); font-style: italic; }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",      "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Explained", "item": "https://asclepius.health/explained.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-explained">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="explained.html" class="is-active" aria-current="page">explained</a>
+      <a href="docs.html">docs</a>
+      <a href="principles.html">principles</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="ex">
+  <div class="container">
+
+    <header class="ex__hero">
+      <span class="kbd">plain&nbsp;words&nbsp;·&nbsp;the&nbsp;on-ramp</span>
+      <h1>Asclepius, <i>explained</i>.</h1>
+      <p>
+        The rest of this site assumes you already speak the vocabulary of trust substrates,
+        Merkle ledgers, and policy chains. <em>This page does not.</em>
+      </p>
+      <p>
+        It is for hospital administrators, doctors who don't build AI, journalists, compliance
+        officers, and curious developers who want the shape of the thing before the spec.
+        Read it once and the rest of the site stops being cryptic.
+      </p>
+    </header>
+
+    <!-- §01 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="what">
+      <div class="section-head">
+        <span class="section-num">§01</span>
+        <span class="section-name">in three sentences</span>
+      </div>
+
+      <h2>What this <i>is</i>.</h2>
+      <p>
+        Asclepius is an open-source piece of software that sits between any AI tool used in a
+        hospital and the rest of the hospital. Every time the AI sees something or says
+        something, Asclepius writes down a tamper-evident record of what happened. Months or
+        years later, a regulator can look at that record and verify it without trusting the
+        hospital, the AI vendor, or us.
+      </p>
+      <p>
+        That's the whole product. Everything else on this site is detail.
+      </p>
+    </section>
+
+    <!-- §02 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="problem">
+      <div class="section-head">
+        <span class="section-num">§02</span>
+        <span class="section-name">the problem</span>
+      </div>
+
+      <h2><i>The problem.</i></h2>
+      <p>
+        Hospitals are already running clinical AI. Ambient scribes that listen to visits and
+        write the SOAP note. Diagnostic systems that suggest a finding on a chest X-ray.
+        Triage models that score who in the waiting room is sickest. Billing models that
+        decide whether a stay was medically necessary. This is not a forecast — it is current
+        production traffic, in millions of encounters per week.
+      </p>
+      <p>
+        When something goes wrong with one of these tools — a missed diagnosis, a denied
+        claim, a recorded conversation that should not have been recorded, a recommendation
+        that quietly drifted off the population it was trained on — the hospital usually
+        cannot prove what happened. There is no canonical record of <em>what the AI saw</em>,
+        <em>what it said</em>, <em>who approved it</em>, <em>which safety filters ran</em>,
+        or <em>whether the model was still behaving the way it did at deployment</em>.
+      </p>
+      <p>
+        Regulators have noticed. The FDA, ONC, and state attorneys general are starting to
+        demand that proof. AI vendors, asked to provide it, mostly say <em>trust us</em>.
+        That gap — between what's being asked and what anyone can actually produce — is what
+        Asclepius exists to close.
+      </p>
+
+      <p class="ex-callout">
+        <b>concrete</b>
+        <em>Q1 2026 alone: a $556M Medicare-Advantage AI settlement, 100,000+ ambient-scribe
+        encounters recorded without consent at a single health system, and a denial model
+        whose decisions were reportedly reversed on appeal about 90% of the time. None of the
+        three had an audit trail anyone could verify.</em>
+      </p>
+    </section>
+
+    <!-- §03 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="does">
+      <div class="section-head">
+        <span class="section-num">§03</span>
+        <span class="section-name">what asclepius does</span>
+      </div>
+
+      <h2>What Asclepius <i>does</i>.</h2>
+      <p>
+        Picture the AI tool as a black box. Today, the hospital sends inputs into the box and
+        gets outputs back, and that's most of what's recorded. Asclepius is a thin wrapper
+        that you install <em>around</em> that box. Every interaction passes through the
+        wrapper on the way in and on the way out.
+      </p>
+      <p>
+        For every interaction the wrapper writes one line into a ledger. The line records:
+      </p>
+      <ul>
+        <li><em>The input</em> — fingerprinted (hashed), never the raw protected health information itself.</li>
+        <li><em>The output</em> — what the AI said, also fingerprinted.</li>
+        <li><em>The actor</em> — which clinician, on which device, in which tenant.</li>
+        <li><em>The privacy filters that ran</em> — and whether any of them blocked the call.</li>
+        <li><em>The clinician's response</em> — accepted, edited, or overridden.</li>
+        <li><em>The model's behavior over time</em> — whether its outputs are starting to drift away from the distribution it was tested on.</li>
+        <li><em>Consent</em> — did this patient agree to be processed by this kind of AI for this purpose.</li>
+      </ul>
+      <p>
+        Each line is cryptographically signed and chained to the previous line, the way a
+        blockchain chains its blocks — but with no coins, no consensus, no network. It's
+        just math on a file. Change one byte anywhere in the history and the chain breaks
+        visibly.
+      </p>
+      <p>
+        Hand that file to a regulator and they can verify it on a laptop, offline, with a
+        public key. They don't need to trust the hospital. They don't need to trust the AI
+        vendor. They don't need to trust us. <em>The bytes carry the proof.</em>
+      </p>
+    </section>
+
+    <!-- §04 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="who">
+      <div class="section-head">
+        <span class="section-num">§04</span>
+        <span class="section-name">who it is for</span>
+      </div>
+
+      <h2>Who it's <i>for</i>.</h2>
+      <p>
+        Five audiences, in roughly the order they tend to find us:
+      </p>
+      <ul>
+        <li><em>Hospitals deploying clinical AI</em> — health systems that have one or more AI tools in production and a CISO, compliance officer, or chief medical informatics officer who has been asked, "can you prove this is safe?"</li>
+        <li><em>AI vendors who have to prove safety</em> — scribe companies, radiology AI firms, decision-support startups that need an audit story they did not have to invent themselves.</li>
+        <li><em>Regulators</em> — FDA reviewers, state AGs, accreditation bodies. The receiving end of an evidence bundle. They run our verifier, not our runtime.</li>
+        <li><em>Security and compliance teams</em> — the people who would rather not write yet another bespoke audit pipeline in Python.</li>
+        <li><em>Researchers</em> — academics studying real-world AI behavior, drift, and override patterns, who currently have no standard substrate to study.</li>
+      </ul>
+      <p>
+        Patients are the ultimate beneficiaries, but they are not the ones installing the
+        software. We design defaults for the patient; we ship the tool to the operator.
+      </p>
+    </section>
+
+    <!-- §05 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="why-here">
+      <div class="section-head">
+        <span class="section-num">§05</span>
+        <span class="section-name">why this layer</span>
+      </div>
+
+      <h2>Why it has to exist <i>at this layer</i>.</h2>
+      <p>
+        A reasonable question: why isn't this already built? Three groups could plausibly
+        ship it, and none of them will.
+      </p>
+      <p>
+        <em>Model providers won't ship this.</em> Their incentive is to be trusted by
+        reputation, not by proof. A vendor offering cryptographic provenance against itself
+        is offering a stick to be hit with. The strongest of them might publish model cards
+        and uptime dashboards; none of them will publish a tamper-evident chain that lets a
+        regulator audit them line-by-line.
+      </p>
+      <p>
+        <em>EHR vendors won't ship this.</em> For Epic, Cerner, athena, this is a compliance
+        problem two layers down — interesting in slide decks, never on the roadmap. The same
+        institutional gravity that keeps EHR APIs slow keeps AI auditing out of the EHR.
+      </p>
+      <p>
+        <em>Hospitals can't build this.</em> The cryptography is specialized. The drift
+        statistics are specialized. The consent model is specialized. The bundle format is
+        specialized. Doing it once in one health system is a six-figure infrastructure
+        project; doing it in a thousand health systems is a tragedy.
+      </p>
+      <p>
+        It belongs at the <em>substrate</em> layer — beneath the AI tool, beneath the EHR,
+        beneath any one vendor's interest. The same layer Linux occupies for an operating
+        system, or Postgres for a database. Not glamorous. Not optional. <em>The Linux
+        kernel for clinical AI.</em>
+      </p>
+      <p>
+        Apache 2.0. Vendor-neutral. No SaaS hooks, no telemetry, no call-home. If we did
+        this right, in five years it disappears into the stack and no one talks about it
+        anymore — the way no one talks about TLS.
+      </p>
+    </section>
+
+    <!-- §06 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="get">
+      <div class="section-head">
+        <span class="section-num">§06</span>
+        <span class="section-name">what you actually get</span>
+      </div>
+
+      <h2>What you actually <i>get</i>.</h2>
+      <p>
+        Concretely, six things. Each is a feature you would otherwise build by hand.
+      </p>
+
+      <div class="ex-grid">
+        <article class="ex-card">
+          <span class="ex-card__tag">audit</span>
+          <h3>Signed Merkle <i>audit chain</i></h3>
+          <p>An append-only log of every inference, override, and consent event. Each row is hashed and linked to the row before it; the whole chain is signed. Tampering is mathematically detectable.</p>
+        </article>
+
+        <article class="ex-card">
+          <span class="ex-card__tag">consent</span>
+          <h3>Consent registry with <i>restart replay</i></h3>
+          <p>Patient-by-patient, purpose-by-purpose record of who agreed to what. The runtime refuses to call the AI when consent is missing — and the refusal itself is logged.</p>
+        </article>
+
+        <article class="ex-card">
+          <span class="ex-card__tag">privacy</span>
+          <h3>PHI-scrubbing <i>policy chain</i></h3>
+          <p>Composable filters that run before the AI ever sees the input. Strip identifiers, validate shape, cap length, deny clinical actions outside a list. Hospitals add their own.</p>
+        </article>
+
+        <article class="ex-card">
+          <span class="ex-card__tag">drift</span>
+          <h3>Drift detection <i>(PSI / KS / EMD)</i></h3>
+          <p>Statistical monitors that watch the live distribution of inputs and outputs against the deployment baseline. Crossover thresholds raise an alert before quality degrades visibly.</p>
+        </article>
+
+        <article class="ex-card">
+          <span class="ex-card__tag">human</span>
+          <h3>Clinician <i>override capture</i></h3>
+          <p>Every time a clinician edits or rejects an AI output, the override is recorded with reason. This is the ground truth signal regulators and product teams both want.</p>
+        </article>
+
+        <article class="ex-card">
+          <span class="ex-card__tag">export</span>
+          <h3>Evidence-bundle <i>export</i></h3>
+          <p>One command produces a single signed archive — the chain excerpt, the keys, the manifest, the verifier — that a regulator can open and verify offline, without contacting your servers.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- §07 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="not">
+      <div class="section-head">
+        <span class="section-num">§07</span>
+        <span class="section-name">what it is not</span>
+      </div>
+
+      <h2>What it is <i>not</i>.</h2>
+      <p>
+        Equally important. People keep arriving expecting one of these and we'd rather you
+        save the trip:
+      </p>
+
+      <ul class="ex-not">
+        <li>an AI scribe</li>
+        <li>a diagnostic model</li>
+        <li>an MLOps platform</li>
+        <li>an EHR plugin</li>
+        <li>a SaaS product</li>
+        <li>a model itself</li>
+        <li>a replacement for clinical judgment</li>
+        <li>a governance committee</li>
+        <li>a privacy lawyer</li>
+        <li>a data warehouse</li>
+      </ul>
+
+      <p>
+        Asclepius does not generate notes, suggest diagnoses, train models, host weights, or
+        decide policy. It records, signs, and verifies what other things did. It is the
+        layer that makes the rest of the stack <em>auditable</em>. If you need any of the
+        items above, you need them <em>on top of</em> Asclepius, not instead of it.
+      </p>
+    </section>
+
+    <!-- §08 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="usecase">
+      <div class="section-head">
+        <span class="section-num">§08</span>
+        <span class="section-name">a 30-second use case</span>
+      </div>
+
+      <h2>A 30-second <i>use case</i>.</h2>
+      <p>
+        The shortest concrete example we can give. Imagine a regional health system running
+        an ambient-scribe AI on a GPU node in their datacenter. The scribe listens during
+        primary-care visits, drafts a SOAP note, the clinician edits it, and the final
+        version goes into the EHR. Hundreds of encounters per day per site.
+      </p>
+
+      <ol class="ex-walk">
+        <li><p>The IT team installs Asclepius as a sidecar on the GPU node. The scribe's existing call to the model now goes through the wrapper. <em>No application code changes</em>; one config flag.</p></li>
+        <li><p>For each encounter, Asclepius records: a hash of the audio transcript, a hash of the draft note, which PHI-scrub policies ran, whether the clinician edited or accepted, and how long inference took.</p></li>
+        <li><p>The scribe vendor pushes a new model version. Asclepius starts comparing the live input distribution to the baseline; three weeks in, it flags a crossover — accents from a new clinic the scribe wasn't trained on. The CMIO sees the alert before anyone files a complaint.</p></li>
+        <li><p>Three months later, a regulator opens an inquiry: <em>show every diagnosis suggestion this AI made for patient X during March</em>. The compliance team runs one command:</p></li>
+      </ol>
+
+      <pre class="ex-cmd"><span class="prompt">$</span> asclepius ledger range-by-patient pat:9f1a-...-c20e --month 2026-03 --bundle out.tar
+<span class="out">  ↳ wrote out.tar (verified · 217 entries · seq 0x01A4F→0x01B22 · ed25519 a1f2…74e6)</span></pre>
+
+      <p>
+        The regulator receives <code>out.tar</code>. They run the included verifier on a
+        laptop, offline. The verifier walks the chain, checks every signature, and reports
+        either <em>chain intact</em> or <em>broken at seq N</em>. There is no way for the
+        hospital to have edited the record after the fact without the verifier saying so.
+      </p>
+      <p>
+        That is the entire customer experience. The day-to-day cost was a small percentage
+        of GPU time. The day-it-mattered value was an audit story that would otherwise have
+        cost six figures and three months of consultants to assemble.
+      </p>
+    </section>
+
+    <!-- §09 ──────────────────────────────────────────────────────────────── -->
+    <section class="ex-sec" id="next">
+      <div class="section-head">
+        <span class="section-num">§09</span>
+        <span class="section-name">where to go next</span>
+      </div>
+
+      <h2>Where to go <i>next</i>.</h2>
+      <p>
+        Three doors. Pick the one that matches what you came here to find.
+      </p>
+
+      <ul class="ex-next">
+        <li>
+          <a href="docs.html">
+            <b>The <i>architecture</i></b>
+            <em>for builders · /docs</em>
+          </a>
+        </li>
+        <li>
+          <a href="demo.html">
+            <b>The <i>playground</i></b>
+            <em>build a chain in-browser · /demo</em>
+          </a>
+        </li>
+        <li>
+          <a href="api.html">
+            <b>The <i>C++ surface</i></b>
+            <em>the runtime API · /api</em>
+          </a>
+        </li>
+      </ul>
+
+      <p>
+        Or, if you came in through the front door and want to see the dense version: the
+        <a href="index.html#manifesto">manifesto</a>, the <a href="index.html#substrate">five
+        primitives</a>, and the <a href="index.html#anatomy">anatomy of a wrapped
+        inference</a> on the landing page assume you've now read this one.
+      </p>
+    </section>
+
+    <p class="ex-coda">
+      <em>Plain words are load-bearing.</em> If a stranger cannot read this page once and
+      explain Asclepius back to a colleague in two sentences, the page is not doing its job
+      and we'd like to know. The maintainer's email is on
+      <a href="contributing.html">/contributing</a>.
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — explained.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>start here</b>
+        <a href="explained.html">explained</a>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="learn.html">learn (3 surfaces)</a>
+        <a href="quickstart.html">quickstart</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="api.html">API reference</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="governance.html">governance</a>
+        <a href="principles.html">principles</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/Himanshu21464/Asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/floating.js" defer></script>
+</body>
+</html>

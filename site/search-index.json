@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-26T12:54:21Z",
-  "count": 47,
+  "generated_at": "2026-04-26T13:00:06Z",
+  "count": 48,
   "pages": [
     {
       "url": "accessibility.html",
@@ -311,6 +311,28 @@
         "How long we keep things.",
         "The counterfactual.",
         "The substrate is not free."
+      ]
+    },
+    {
+      "url": "explained.html",
+      "title": "Explained — Asclepius in plain words",
+      "description": "What Asclepius is, what it does, and why it exists — in plain English, for hospital admins, non-AI clinicians, journalists, and the curious. The on-ramp before the spec.",
+      "headings": [
+        "What this is.",
+        "The problem.",
+        "What Asclepius does.",
+        "Who it's for.",
+        "Why it has to exist at this layer.",
+        "What you actually get.",
+        "Signed Merkle audit chain",
+        "Consent registry with restart replay",
+        "PHI-scrubbing policy chain",
+        "Drift detection (PSI / KS / EMD)",
+        "Clinician override capture",
+        "Evidence-bundle export",
+        "What it is not.",
+        "A 30-second use case.",
+        "Where to go next."
       ]
     },
     {
