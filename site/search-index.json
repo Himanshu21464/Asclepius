@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-26T06:53:14Z",
-  "count": 45,
+  "generated_at": "2026-04-26T06:58:52Z",
+  "count": 46,
   "pages": [
     {
       "url": "accessibility.html",
@@ -548,6 +548,30 @@
         "California AB 3030 — generative AI in clinical comms.",
         "Joint Commission — medical record integrity.",
         "What the substrate is not."
+      ]
+    },
+    {
+      "url": "release-process.html",
+      "title": "Release process — Asclepius",
+      "description": "How an Asclepius release actually happens. Version cut, signing, SBOM, advisory issuance, deprecation windows, downstream notification. Public, reproducible, auditable.",
+      "headings": [
+        "Cut a release branch.",
+        "tag candidate",
+        "freeze the changelog",
+        "SBOM",
+        "migration manifest",
+        "Build, reproducibly.",
+        "Sign with two mechanisms.",
+        "Attest the supply chain.",
+        "source",
+        "build env",
+        "tests",
+        "deps",
+        "Publish to every channel.",
+        "Advise the downstream.",
+        "advisory severity",
+        "deprecation policy",
+        "The pipeline is the contract."
       ]
     },
     {

@@ -52,8 +52,14 @@ class Page(HTMLParser):
             self.ids[d['id']] = self.ids.get(d['id'], 0) + 1
         if tag == 'a' and 'href' in d:
             self.hrefs.append(d['href'])
-        if tag in ('script', 'img', 'link') and 'src' in d:
+        if tag in ('script', 'img', 'iframe', 'source', 'audio', 'video') and 'src' in d:
             self.srcs.append(d['src'])
+        # <img srcset="..."> — the candidates list (rare on this site, but covered)
+        if tag == 'img' and 'srcset' in d:
+            for cand in d['srcset'].split(','):
+                url = cand.strip().split(' ', 1)[0]
+                if url:
+                    self.srcs.append(url)
         if tag == 'link' and d.get('rel'):
             rel = d['rel'].lower()
             if 'canonical' in rel:

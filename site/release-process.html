@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Release process — Asclepius</title>
+<meta name="description" content="How an Asclepius release actually happens. Version cut, signing, SBOM, advisory issuance, deprecation windows, downstream notification. Public, reproducible, auditable.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/release-process.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Release process">
+<meta property="og:description"  content="How a release actually happens. Cut · sign · SBOM · advisory.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.rp-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.rp-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.rp-hero h1 i { color: var(--primary); font-style: italic; }
+.rp-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.rp-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.rp-toc { margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
+.rp-toc__pill {
+    display: block; padding: .9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--ink-warm);
+    transition: border-color .15s, transform .12s;
+}
+.rp-toc__pill:hover { border-color: var(--primary); transform: translateY(-1px); }
+.rp-toc__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.rp-toc__t { display: block; font-family: var(--font-prose); font-size: 1rem; margin-top: .25rem; line-height: 1.35; }
+.rp-toc__sub { display: block; font-family: var(--font-mono); font-size: .68rem; color: var(--ink-mute); margin-top: .35rem; }
+
+.rp-sec { margin: 4rem 0; padding-top: 2rem; border-top: 1px solid var(--rule); }
+.rp-sec__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.rp-sec h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .35rem 0 .8rem; }
+.rp-sec h2 i { color: var(--primary); font-style: italic; }
+.rp-sec__lede { font-family: var(--font-prose); font-size: 1rem; line-height: 1.6; color: var(--ink); max-width: 64ch; margin: 0 0 1.4rem; }
+.rp-sec__lede em { color: var(--ink-warm); font-style: italic; }
+.rp-sec__lede code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.rp-stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0 1.2rem; }
+.rp-stage {
+    padding: .9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+}
+.rp-stage h3 {
+    margin: 0 0 .5rem;
+    font-family: var(--font-mono); font-weight: 500;
+    font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--primary);
+    display: flex; align-items: center; gap: .5rem;
+}
+.rp-stage h3::before {
+    content: attr(data-step);
+    display: inline-block;
+    width: 1.4em; height: 1.4em; border-radius: 50%;
+    background: var(--primary); color: var(--bg);
+    text-align: center; line-height: 1.4em;
+    font-size: .68rem; font-weight: 600;
+}
+.rp-stage ul, .rp-stage ol { margin: 0; padding-left: 1.1rem; font-family: var(--font-prose); font-size: .92rem; line-height: 1.55; color: var(--ink); }
+.rp-stage li { margin: .15em 0; }
+.rp-stage code { font-family: var(--font-mono); font-size: .88em; padding: .04em .3em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+.rp-stage a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+
+.rp-cmd {
+    margin: .4rem 0 1rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .8rem 1rem;
+    font-family: var(--font-mono);
+    font-size: .82rem; line-height: 1.55;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+}
+.rp-cmd .c { color: var(--ink-faint); font-style: italic; }
+.rp-cmd .k { color: var(--primary); }
+.rp-cmd .s { color: #34D399; }
+
+.rp-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: .82rem; margin-top: 1rem; }
+.rp-table th, .rp-table td { text-align: left; padding: .6rem .9rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.rp-table th { font-weight: 500; font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); }
+.rp-table td.rp-key { color: var(--primary); white-space: nowrap; }
+.rp-table td.rp-note { color: var(--ink); font-family: var(--font-prose); font-size: .92rem; line-height: 1.5; }
+.rp-table tr:hover td { background: rgba(181,123,255,.04); }
+
+.rp-sev {
+    display: inline-block;
+    padding: .12rem .55rem;
+    font-family: var(--font-mono); font-size: .62rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    border-radius: 3px;
+}
+.rp-sev.is-crit { background: rgba(239,68,68,.12);  color: #F87171; }
+.rp-sev.is-high { background: rgba(244,184,96,.12); color: #F4B860; }
+.rp-sev.is-med  { background: rgba(125,211,252,.12); color: #7DD3FC; }
+.rp-sev.is-low  { background: rgba(52,211,153,.12);  color: #34D399; }
+
+.rp-callout {
+    margin: 1.2rem 0 0;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.rp-callout b { color: var(--primary); }
+.rp-callout em { color: var(--ink-warm); font-style: italic; }
+.rp-callout code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.rp-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.rp-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.rp-coda h2 i { color: var(--primary); font-style: italic; }
+.rp-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.rp-coda .rp-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.rp-coda .rp-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.rp-coda .rp-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",            "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Release process", "item": "https://asclepius.health/release-process.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-release-process">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="changelog.html">changelog</a>
+      <a href="release-process.html" class="is-active" aria-current="page">release process</a>
+      <a href="migrations.html">migrations</a>
+      <a href="security.html">security</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="rp-hero">
+  <div class="container">
+    <span class="kbd">§01 · cut · sign · SBOM · advise</span>
+    <h1>How a release <i>actually</i> happens.</h1>
+    <p>
+      Substrate-grade software ships under a substrate-grade process. Every
+      Asclepius release follows the same six-stage pipeline — version cut,
+      build, sign, attest, publish, advise — and every step is reproducible
+      from the git tag. <em>If a step doesn't pass, the release doesn't
+      ship.</em> No hot-fix lane skips signing.
+    </p>
+
+    <nav class="rp-toc" aria-label="release process index">
+      <a class="rp-toc__pill" href="#cut">     <span class="rp-toc__num">§ 01</span><span class="rp-toc__t">cut</span>          <span class="rp-toc__sub">tag · changelog · sbom</span></a>
+      <a class="rp-toc__pill" href="#build">   <span class="rp-toc__num">§ 02</span><span class="rp-toc__t">build</span>        <span class="rp-toc__sub">reproducible · two reviewers</span></a>
+      <a class="rp-toc__pill" href="#sign">    <span class="rp-toc__num">§ 03</span><span class="rp-toc__t">sign</span>         <span class="rp-toc__sub">PGP + Sigstore</span></a>
+      <a class="rp-toc__pill" href="#attest">  <span class="rp-toc__num">§ 04</span><span class="rp-toc__t">attest</span>       <span class="rp-toc__sub">SLSA · in-toto</span></a>
+      <a class="rp-toc__pill" href="#publish"> <span class="rp-toc__num">§ 05</span><span class="rp-toc__t">publish</span>      <span class="rp-toc__sub">github · pypi · ostree</span></a>
+      <a class="rp-toc__pill" href="#advise">  <span class="rp-toc__num">§ 06</span><span class="rp-toc__t">advise</span>       <span class="rp-toc__sub">advisories · deprecation</span></a>
+    </nav>
+  </div>
+</section>
+
+<!-- ─────────── §01 cut ─────────── -->
+<section class="container rp-sec" id="cut">
+  <span class="rp-sec__num">§ 01 · cut</span>
+  <h2>Cut a <i>release branch.</i></h2>
+  <p class="rp-sec__lede">
+    A release starts with a release-engineer cutting <code>release/x.y</code>
+    from <code>main</code> at a specific commit. The same engineer is then
+    barred from approving the release — single-engineer release is forbidden
+    by policy.
+  </p>
+
+  <div class="rp-stages">
+    <div class="rp-stage">
+      <h3 data-step="1">tag candidate</h3>
+      <ul>
+        <li>annotated tag <code>v{major}.{minor}.{patch}-rc.{n}</code></li>
+        <li>tag is signed with the release-engineer's PGP key</li>
+        <li>release branch protected — no force-push, no direct merge</li>
+      </ul>
+    </div>
+    <div class="rp-stage">
+      <h3 data-step="2">freeze the changelog</h3>
+      <ul>
+        <li>Keep-a-Changelog format · added / changed / removed / fixed / security</li>
+        <li>each line links to a commit, an issue, or a PR</li>
+        <li>RSS / JSON / Atom feeds regenerate from <code>changelog.html</code></li>
+      </ul>
+    </div>
+    <div class="rp-stage">
+      <h3 data-step="3">SBOM</h3>
+      <ul>
+        <li>generate CycloneDX-1.6 SBOM via <code>sbom-tool</code></li>
+        <li>covers libsodium, sqlite, abseil, protobuf, doctest, pybind11</li>
+        <li>checked into <code>artifacts/sbom-{ver}.json</code></li>
+      </ul>
+    </div>
+    <div class="rp-stage">
+      <h3 data-step="4">migration manifest</h3>
+      <ul>
+        <li>cross-reference any ADR or migration record (<a href="migrations.html">migrations</a>)</li>
+        <li>verify migration tool runs on a v{prev} fixture corpus</li>
+        <li>attach migration result hashes to the release</li>
+      </ul>
+    </div>
+  </div>
+
+<pre class="rp-cmd"><span class="c"># cut a release candidate</span>
+git switch -c <span class="s">release/0.2</span>
+git tag --sign <span class="s">v0.2.0-rc.1</span> -m <span class="s">"v0.2 RC1: pluggable backend"</span>
+asclepius release sbom --out <span class="s">artifacts/sbom-0.2.0.json</span>
+asclepius release manifest --since <span class="s">v0.1.0</span></pre>
+</section>
+
+<!-- ─────────── §02 build ─────────── -->
+<section class="container rp-sec" id="build">
+  <span class="rp-sec__num">§ 02 · build</span>
+  <h2>Build, <i>reproducibly.</i></h2>
+  <p class="rp-sec__lede">
+    Two independent build runners fetch the same tag, build with the same
+    toolchain pin, and emit byte-identical binaries. <em>Any divergence
+    halts the release.</em> The toolchain itself is pinned by hash in
+    <code>cmake/toolchain.cmake</code>.
+  </p>
+
+  <table class="rp-table" aria-label="build matrix">
+    <thead><tr><th>platform</th><th>compiler</th><th>libsodium</th><th>output</th></tr></thead>
+    <tbody>
+      <tr><td class="rp-key">Linux x86-64</td>     <td>GCC 13.3 · libstdc++</td><td>1.0.20 (pinned)</td><td>asclepius-linux-x86_64.tar.zst</td></tr>
+      <tr><td class="rp-key">Linux aarch64</td>    <td>GCC 13.3 · libstdc++</td><td>1.0.20 (pinned)</td><td>asclepius-linux-aarch64.tar.zst</td></tr>
+      <tr><td class="rp-key">macOS arm64</td>      <td>Apple clang 16</td>      <td>1.0.20 (pinned)</td><td>asclepius-macos-arm64.tar.zst</td></tr>
+      <tr><td class="rp-key">Python wheels</td>    <td>cp 3.10–3.13 · manylinux_2_28</td><td>vendored</td><td>asclepius-{ver}-{cp}-{abi}-{plat}.whl</td></tr>
+      <tr><td class="rp-key">OCI image</td>        <td>distroless · multi-arch</td>     <td>vendored</td><td>ghcr.io/asclepius-ai/asclepius:{ver}</td></tr>
+    </tbody>
+  </table>
+
+  <p class="rp-callout">
+    <b>What "reproducible" means here.</b> Two runners on different machines
+    in different regions, same commit, same toolchain, must produce
+    bit-identical output. We use <code>SOURCE_DATE_EPOCH</code>, fixed
+    library order, and a sorted file system listing. <em>Byte equality
+    or it doesn't ship.</em>
+  </p>
+</section>
+
+<!-- ─────────── §03 sign ─────────── -->
+<section class="container rp-sec" id="sign">
+  <span class="rp-sec__num">§ 03 · sign</span>
+  <h2>Sign with <i>two</i> mechanisms.</h2>
+  <p class="rp-sec__lede">
+    Every released artefact is signed twice: a long-lived PGP key for human
+    verification, and a Sigstore (cosign) keyless signature for ecosystem
+    interop. Recipients can verify either; we recommend both.
+  </p>
+
+  <table class="rp-table" aria-label="signing matrix">
+    <thead><tr><th>mechanism</th><th>key</th><th>verifier</th></tr></thead>
+    <tbody>
+      <tr><td class="rp-key">PGP detached</td><td>fingerprint <code>A1F2 9C4E B8D1 74E6 · 2A55 0CCB 7F12 BB37 5E4A C9D0</code></td><td><code>gpg --verify</code></td></tr>
+      <tr><td class="rp-key">Sigstore</td>    <td>OIDC-bound · GitHub Actions identity</td>                                       <td><code>cosign verify-blob</code></td></tr>
+      <tr><td class="rp-key">SLSA provenance</td><td>auto-generated by reproducible-build runner</td>                              <td><code>slsa-verifier</code></td></tr>
+    </tbody>
+  </table>
+
+<pre class="rp-cmd"><span class="c"># verify a release tarball end-to-end</span>
+gpg --verify asclepius-0.2.0-linux-x86_64.tar.zst.asc \
+             asclepius-0.2.0-linux-x86_64.tar.zst
+
+cosign verify-blob \
+       --certificate-identity-regexp <span class="s">"https://github\\.com/asclepius-ai/.+"</span> \
+       --certificate-oidc-issuer <span class="s">"https://token.actions.githubusercontent.com"</span> \
+       --signature asclepius-0.2.0-linux-x86_64.tar.zst.sig \
+                   asclepius-0.2.0-linux-x86_64.tar.zst
+
+slsa-verifier verify-artifact \
+       --provenance-path provenance.intoto.jsonl \
+       --source-uri <span class="s">github.com/asclepius-ai/asclepius</span> \
+       --source-tag <span class="s">v0.2.0</span> \
+                   asclepius-0.2.0-linux-x86_64.tar.zst</pre>
+</section>
+
+<!-- ─────────── §04 attest ─────────── -->
+<section class="container rp-sec" id="attest">
+  <span class="rp-sec__num">§ 04 · attest</span>
+  <h2>Attest the <i>supply chain.</i></h2>
+  <p class="rp-sec__lede">
+    Releases include in-toto attestations covering the full build pipeline —
+    source revision, build environment, dependencies, tests run, signing
+    keys touched. Targeting SLSA Level 3 at v1.0; currently SLSA Level 2.
+  </p>
+
+  <div class="rp-stages">
+    <div class="rp-stage">
+      <h3 data-step="1">source</h3>
+      <ul>
+        <li>commit SHA · branch protection log</li>
+        <li>two-reviewer requirement enforced</li>
+        <li>signed-tag commit identity</li>
+      </ul>
+    </div>
+    <div class="rp-stage">
+      <h3 data-step="2">build env</h3>
+      <ul>
+        <li>distroless build container · pinned by digest</li>
+        <li>compiler binaries pinned by SHA-256</li>
+        <li>recorded in attestation predicate</li>
+      </ul>
+    </div>
+    <div class="rp-stage">
+      <h3 data-step="3">tests</h3>
+      <ul>
+        <li>52 doctest C++ cases · 110 JS site tests · all green</li>
+        <li>conformance suite L1/L2/L3 attestation hash</li>
+        <li>bench numbers regenerated to <code>assets/bench.json</code></li>
+      </ul>
+    </div>
+    <div class="rp-stage">
+      <h3 data-step="4">deps</h3>
+      <ul>
+        <li>SBOM hash bound into provenance</li>
+        <li>vulnerability scan output (osv-scanner) attached</li>
+        <li>any High/Critical = release blocker</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────── §05 publish ─────────── -->
+<section class="container rp-sec" id="publish">
+  <span class="rp-sec__num">§ 05 · publish</span>
+  <h2>Publish to <i>every</i> channel.</h2>
+  <p class="rp-sec__lede">
+    Once signed and attested, the release publishes simultaneously to every
+    consumer channel. Single-source-of-truth for the artefacts is the GitHub
+    release; mirrors point at it.
+  </p>
+
+  <table class="rp-table" aria-label="publication channels">
+    <thead><tr><th>channel</th><th>artefact</th><th>retention</th></tr></thead>
+    <tbody>
+      <tr><td class="rp-key">GitHub release</td>   <td>tarballs · whls · sbom · sigs · provenance</td><td>indefinite</td></tr>
+      <tr><td class="rp-key">PyPI</td>             <td><code>pip install asclepius</code></td>      <td>indefinite (yanked, never deleted)</td></tr>
+      <tr><td class="rp-key">GHCR</td>             <td><code>ghcr.io/asclepius-ai/asclepius</code></td><td>indefinite</td></tr>
+      <tr><td class="rp-key">apt / rpm repo</td>   <td>signed package indices</td>                  <td>indefinite</td></tr>
+      <tr><td class="rp-key">Homebrew tap</td>     <td><code>brew install asclepius-ai/tap/asclepius</code></td><td>indefinite</td></tr>
+      <tr><td class="rp-key">RSS / Atom / JSON</td><td>changelog feeds (<a href="feed.xml">feed.xml</a>)</td><td>indefinite</td></tr>
+      <tr><td class="rp-key">site itself</td>      <td><code>asset-manifest.json</code> regenerated · attest pill turns green</td><td>indefinite</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────────── §06 advise ─────────── -->
+<section class="container rp-sec" id="advise">
+  <span class="rp-sec__num">§ 06 · advise</span>
+  <h2>Advise the <i>downstream.</i></h2>
+  <p class="rp-sec__lede">
+    Releases that fix a security issue ship with an advisory. Releases that
+    introduce a deprecation ship with a migration window. Releases that
+    change the audit-entry schema ship with a major-version bump and a
+    dual-support window. <em>Operators are never surprised.</em>
+  </p>
+
+  <h3 class="rp-sec__num" style="margin-top:1.2rem">advisory severity</h3>
+  <table class="rp-table" aria-label="severity ladder">
+    <thead><tr><th>severity</th><th>fix in</th><th>disclosure</th></tr></thead>
+    <tbody>
+      <tr><td><span class="rp-sev is-crit">critical</span></td><td>14 days from triage</td><td>operator advisory + CVE within 7 days of patch</td></tr>
+      <tr><td><span class="rp-sev is-high">high</span></td>    <td>30 days</td>            <td>advisory bundled with release</td></tr>
+      <tr><td><span class="rp-sev is-med">medium</span></td>   <td>60 days</td>            <td>advisory in next quarterly roll-up</td></tr>
+      <tr><td><span class="rp-sev is-low">low</span></td>      <td>next release</td>       <td>changelog entry suffices</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="rp-sec__num" style="margin-top:1.2rem">deprecation policy</h3>
+  <table class="rp-table" aria-label="deprecation policy">
+    <thead><tr><th>kind</th><th>window</th><th>signalling</th></tr></thead>
+    <tbody>
+      <tr><td class="rp-key">public C++ API</td><td>1 minor version of co-existence</td><td><code>[[deprecated]]</code> attribute · changelog · migration guide</td></tr>
+      <tr><td class="rp-key">CLI flag</td>      <td>1 minor version</td>                <td>warning printed · removal one version later</td></tr>
+      <tr><td class="rp-key">audit-entry schema field</td><td>major version bump</td>   <td>schema versioned · old verifier still works</td></tr>
+      <tr><td class="rp-key">signing scheme</td><td>multi-year dual-sign window</td>     <td>see <a href="decisions.html#adr-010">ADR-010</a></td></tr>
+    </tbody>
+  </table>
+
+  <p class="rp-callout">
+    <b>Why we're strict about this.</b> A substrate that surprises its
+    consumers is not a substrate — it's a competing project that happens to
+    ship in your binary. The release process exists so operators can rely on
+    Asclepius for years <em>without re-reading docs every quarter.</em>
+  </p>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="rp-coda">
+    <h2>The pipeline is the <i>contract.</i></h2>
+    <p>
+      Anyone can clone the repo, check out a tag, and rebuild the release
+      from scratch — using the same toolchain, the same flags, the same
+      hash of the same libsodium. <em>Reproducibility is not a marketing
+      property.</em> It is the substrate's promise that the bytes you run
+      are the bytes the maintainers signed, and nothing else.
+    </p>
+    <div class="rp-coda__links">
+      <a href="changelog.html">changelog →</a>
+      <a href="migrations.html">migrations</a>
+      <a href="security.html">security policy</a>
+      <a href="governance.html">governance</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>release</b>
+        <a href="changelog.html">changelog</a>
+        <a href="release-process.html">release process</a>
+        <a href="migrations.html">migrations</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>safety</b>
+        <a href="threat-model.html">threat model</a>
+        <a href="threat-tabletop.html">tabletop</a>
+        <a href="playbooks.html">playbooks</a>
+        <a href="security.html">security</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="api.html">API reference</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

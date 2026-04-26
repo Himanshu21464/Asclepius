@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-04-26T06:53:14Z",
+  "generated_at": "2026-04-26T06:58:52Z",
   "algorithm": "SHA-256",
-  "count": 85,
+  "count": 86,
   "files": {
     ".well-known/dnt-policy.txt": {
       "sha256": "c978038f4a984eaa78f8a3aaf17624d68bf568d40abfff1d62a9451b6282165c",
@@ -172,8 +172,8 @@
       "bytes": 1622
     },
     "index.html": {
-      "sha256": "e5d0e08b2386c767450f43423ff14abfd92829d291ad3cc2f58a83b669357c80",
-      "bytes": 54891
+      "sha256": "e38c7da4c15ab12058c6f1770dc415d6c224d02e8a7b5a233e9b5395bc2fb1b0",
+      "bytes": 55009
     },
     "integrations.html": {
       "sha256": "cb77c2cbf6a165e0d03cf99674cead9728ea8e5fd449a7e6a0bee19878a2c0b1",
@@ -212,8 +212,8 @@
       "bytes": 11832
     },
     "js/palette.js": {
-      "sha256": "c43eb543c94e68caac9ececaf0fa7a91533f450bd8629a2870b7e6c15c8e336d",
-      "bytes": 31249
+      "sha256": "702d0dfdaed76c06b01449d30ef0bf06626c26eea4bb5990fae2913a131ba372",
+      "bytes": 32905
     },
     "js/source.js": {
       "sha256": "7d5d31b2f2faa9972b33a08c3407011e0eb159aabbb97c2526b2783377cac622",
@@ -267,6 +267,10 @@
       "sha256": "82c949fef3b84d2c9f70945483d1d647c1b82909f2c547cedd7e2362d1b85b18",
       "bytes": 30930
     },
+    "release-process.html": {
+      "sha256": "260c7f8dbaf5bdaa41097fb0b3b84f20c5a3058cf6fc843ce94e2982c08e3a57",
+      "bytes": 27253
+    },
     "research.html": {
       "sha256": "9d879a5b69006c228c4fd22d7d01d42d01f1030f5353704f5d96c961635d616f",
       "bytes": 28403
@@ -312,7 +316,7 @@
       "bytes": 21320
     },
     "status.json": {
-      "sha256": "4b2217e7f61a712a683c7564b9c55a2f4575d9d908f01f20fbc94cf5327cdb8d",
+      "sha256": "a391ad21254ebdad90cc0925c5bbb5a4279eb5071aefba8bdf399acf9b32c1f6",
       "bytes": 1045
     },
     "styles.css": {
