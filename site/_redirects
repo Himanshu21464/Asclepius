@@ -1,32 +1,71 @@
 # Asclepius — Netlify / Cloudflare Pages redirect rules.
 # `code 200!` = rewrite (no URL change), `code 301` = permanent redirect.
+#
+# Maintained by hand. Run `python3 -c "import glob,os; print(sorted(os.path.basename(f).replace('.html','') for f in glob.glob('*.html')))"`
+# to confirm every public page has a friendly alias here.
 
-# Friendly aliases that should not 404
-/security        /security.html        301
-/contributing    /contributing.html    301
-/changelog       /changelog.html       301
-/roadmap         /roadmap.html         301
-/docs            /docs.html            301
-/playground      /demo.html            301
-/api             /api.html             301
-/cheatsheet      /cheatsheet.html      301
-/governance      /governance.html      301
-/cookies         /cookies.html         301
-/licenses        /licenses.html        301
-/accessibility   /accessibility.html   301
-/press           /press.html           301
-/sitemap         /sitemap.html         301
-/labs            /labs.html            301
-/glossary        /glossary.html        301
-/conformance     /conformance.html     301
-/status          /status.html          301
-/crypto          /crypto.html          301
+# ── friendly aliases (every public page) ─────────────────────────────────
+/accessibility    /accessibility.html    301
+/api              /api.html              301
+/architecture     /architecture.html     301
+/badges           /badges.html           301
+/benchmarks       /benchmarks.html       301
+/bench            /benchmarks.html       301
+/changelog        /changelog.html        301
+/cheatsheet       /cheatsheet.html       301
+/colophon         /colophon.html         301
+/compare          /compare.html          301
+/conformance      /conformance.html      301
+/contributing     /contributing.html     301
+/cookies          /cookies.html          301
+/crypto           /crypto.html           301
+/decisions        /decisions.html        301
+/demo             /demo.html             301
+/deploy           /deploy.html           301
+/docs             /docs.html             301
+/economics        /economics.html        301
+/explorer         /explorer.html         301
+/glossary         /glossary.html         301
+/governance       /governance.html       301
+/integrations     /integrations.html     301
+/labs             /labs.html             301
+/learn            /learn.html            301
+/licenses         /licenses.html         301
+/migrations       /migrations.html       301
+/observability    /observability.html    301
+/playbooks        /playbooks.html        301
+/playground       /demo.html             301
+/press            /press.html            301
+/principles       /principles.html       301
+/regulator        /regulator.html        301
+/release-process  /release-process.html  301
+/research         /research.html         301
+/roadmap          /roadmap.html          301
+/sandbox          /sandbox.html          301
+/security         /security.html         301
+/sitegraph        /sitegraph.html        301
+/sitemap          /sitemap.html          301
+/spec             /spec.html             301
+/status           /status.html           301
+/threat-model     /threat-model.html     301
+/threat-tabletop  /threat-tabletop.html  301
+/use-cases        /use-cases.html        301
+/validate         /validate.html         301
+/verify-bundle    /verify-bundle.html    301
 
-# Convention: /security.txt → the well-known location
-/security.txt    /.well-known/security.txt    301
+# ── well-known shorthand ─────────────────────────────────────────────────
+/security.txt     /.well-known/security.txt     301
+/dnt-policy.txt   /.well-known/dnt-policy.txt   301
 
-# Old path that briefly existed in early v0 — keep alive forever
-/runtime         /docs.html#component-map     301
+# ── infra shorthand ──────────────────────────────────────────────────────
+/manifest         /manifest.json         301
+/feed             /feed.xml              301
+/atom             /atom.xml              301
+/pgp              /assets/pgp.asc        301
+/key              /assets/pgp.asc        301
 
-# 404 fallback
-/*               /404.html             404
+# ── historical paths kept alive ──────────────────────────────────────────
+/runtime          /docs.html#component-map      301
+
+# ── 404 fallback ─────────────────────────────────────────────────────────
+/*                /404.html              404
