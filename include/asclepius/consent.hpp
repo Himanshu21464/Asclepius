@@ -148,6 +148,41 @@ public:
     std::size_t active_count() const;
     std::size_t total_count() const;
 
+    // Number of distinct PatientIds across all stored tokens (active +
+    // revoked + expired). O(n) over the registry, bounded by the number
+    // of tokens the runtime has seen. Used by /healthz dashboards that
+    // want a "how many patients have we ever seen?" line.
+    std::size_t patient_count() const;
+
+    // Distinct PatientIds across all stored tokens (active + revoked +
+    // expired), sorted by their underlying string body. Order is
+    // deterministic so callers can diff snapshots over time. Used by
+    // operator probes that want to enumerate the patient population the
+    // runtime has on file.
+    std::vector<PatientId> patients() const;
+
+    // Aggregate snapshot for /healthz: total tokens, active (non-revoked,
+    // non-expired) count, expired-but-not-revoked count, revoked count,
+    // and distinct patient count. Computed in a single pass under one
+    // lock for a self-consistent view — calling the individual counters
+    // separately can drift if mutations interleave.
+    struct Summary {
+        std::size_t total;
+        std::size_t active;
+        std::size_t expired;
+        std::size_t revoked;
+        std::size_t patients;
+    };
+    Summary summary() const;
+
+    // Active (non-revoked, non-expired) tokens whose expires_at - now()
+    // is <= horizon — i.e. "what's about to lapse?" Used by ops
+    // dashboards that want to nudge clinicians to re-consent before a
+    // grant quietly drops. horizon <= 0 returns empty (a non-positive
+    // horizon has no "soon" window). Order is unspecified.
+    std::vector<ConsentToken>
+    tokens_expiring_within(std::chrono::seconds horizon) const;
+
     // Emergency revoke all active tokens for a patient. Returns the
     // number of tokens that were revoked (already-revoked and expired
     // tokens are not counted, but unchanged). Fires the observer once

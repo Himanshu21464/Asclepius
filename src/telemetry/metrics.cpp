@@ -52,6 +52,12 @@ void MetricRegistry::inc(std::string_view name, std::uint64_t delta) {
     counters_[std::string{name}] += delta;
 }
 
+void MetricRegistry::add(std::string_view name, std::uint64_t delta) {
+    // Alias for inc(); prefer the explicit verb at call sites that are
+    // recording a domain quantity rather than ticking an event.
+    inc(name, delta);
+}
+
 void MetricRegistry::observe(std::string_view name, double value) {
     std::lock_guard<std::mutex> lk(mu_);
     auto& h = histograms_[std::string{name}];
@@ -173,6 +179,15 @@ std::vector<std::string> MetricRegistry::list_counters() const {
     std::vector<std::string> out;
     out.reserve(counters_.size());
     for (const auto& [name, _] : counters_) out.push_back(name);
+    return out;
+}
+
+std::vector<std::string> MetricRegistry::all_counter_names() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<std::string> out;
+    out.reserve(counters_.size());
+    for (const auto& [name, _] : counters_) out.push_back(name);
+    std::sort(out.begin(), out.end());
     return out;
 }
 

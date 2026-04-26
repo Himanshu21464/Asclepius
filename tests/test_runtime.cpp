@@ -1946,3 +1946,242 @@ TEST_CASE("install_default_policies: PHI scrubbing is active end-to-end") {
     CHECK(out.value().find("[REDACTED:phone]") != std::string::npos);
     REQUIRE(inf.value().commit());
 }
+
+// ============== Inference::input_hash / output_hash =====================
+
+TEST_CASE("Inference::input_hash empty before run, populated after successful run") {
+    auto rt_ = fresh_runtime("ihash_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ihash_basic");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(inf.value().input_hash().empty());
+    CHECK(inf.value().output_hash().empty());
+    auto out = inf.value().run("hello world",
+        [](std::string s) -> Result<std::string> { return s; });
+    REQUIRE(out);
+    auto ih = inf.value().input_hash();
+    auto oh = inf.value().output_hash();
+    CHECK(!ih.empty());
+    CHECK(!oh.empty());
+    // BLAKE2b-256 hex is 64 chars.
+    CHECK(ih.size() == 64);
+    CHECK(oh.size() == 64);
+    // Identical input / output content → identical hashes (echo callback).
+    CHECK(ih == oh);
+}
+
+TEST_CASE("Inference::input_hash empty when input policy blocks before model") {
+    auto rt_ = fresh_runtime("ihash_blocked"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_length_limit(/*input_max=*/4, /*output_max=*/0));
+    auto pid = PatientId::pseudonymous("p_ihash_blk");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto out = inf.value().run("this is way too long for the limit",
+        [](std::string s) -> Result<std::string> { return s; });
+    REQUIRE(!out);
+    // Blocked at input → neither hash is populated.
+    CHECK(inf.value().input_hash().empty());
+    CHECK(inf.value().output_hash().empty());
+    CHECK(inf.value().status() == "blocked.input");
+}
+
+TEST_CASE("Inference::output_hash empty when output policy blocks the model output") {
+    auto rt_ = fresh_runtime("ohash_blocked"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_length_limit(/*input_max=*/0, /*output_max=*/4));
+    auto pid = PatientId::pseudonymous("p_ohash_blk");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto out = inf.value().run("hi",
+        [](std::string) -> Result<std::string> { return std::string{"output is too long"}; });
+    REQUIRE(!out);
+    // Input was hashed, but output policy blocked → output_hash empty.
+    CHECK(inf.value().input_hash().empty());
+    CHECK(inf.value().output_hash().empty());
+    CHECK(inf.value().status() == "blocked.output");
+}
+
+TEST_CASE("Inference::input_hash / output_hash survive commit and match ledger body") {
+    auto rt_ = fresh_runtime("hash_commit"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hash_commit");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("payload-X",
+        [](std::string s) -> Result<std::string> { return s + "-out"; }));
+    auto ih = inf.value().input_hash();
+    auto oh = inf.value().output_hash();
+    REQUIRE(inf.value().commit());
+    // Accessors remain valid post-commit.
+    CHECK(inf.value().input_hash() == ih);
+    CHECK(inf.value().output_hash() == oh);
+    // And match what's actually in the ledger entry.
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    REQUIRE(!tail.value().empty());
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body.value("input_hash", "")  == ih);
+    CHECK(body.value("output_hash", "") == oh);
+}
+
+// ============== Runtime::audit_spot_check ===============================
+
+TEST_CASE("audit_spot_check: ok on a healthy short chain") {
+    auto rt_ = fresh_runtime("spot_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_spot_basic");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    for (int i = 0; i < 3; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("x",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    auto r = rt.audit_spot_check(2);
+    REQUIRE(r);
+}
+
+TEST_CASE("audit_spot_check: lookback == 0 is rejected with invalid_argument") {
+    auto rt_ = fresh_runtime("spot_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto r = rt.audit_spot_check(0);
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("audit_spot_check: lookback exceeding length is clamped, not an error") {
+    auto rt_ = fresh_runtime("spot_clamp"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_spot_clamp");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // Chain has consent.granted (=1 entry) + 2 inferences = 3 entries total.
+    for (int i = 0; i < 2; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("y",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    REQUIRE(rt.ledger().length() >= 1);
+    // Ask for way more than exist; should clamp and still succeed.
+    auto r = rt.audit_spot_check(10'000);
+    REQUIRE(r);
+}
+
+TEST_CASE("audit_spot_check: empty chain is a clean no-op") {
+    auto rt_ = fresh_runtime("spot_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.ledger().length() == 0);
+    auto r = rt.audit_spot_check(50);
+    REQUIRE(r);
+}
+
+// ============== Runtime::system_summary =================================
+
+TEST_CASE("system_summary: fresh runtime has zero-ish counts and a real version string") {
+    auto rt_ = fresh_runtime("sum_fresh"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto s = rt.system_summary();
+    CHECK(s.ledger_length == 0);
+    CHECK(s.policy_count == 0);
+    CHECK(s.active_consent == 0);
+    CHECK(s.drift_features == 0);
+    CHECK(!s.version.empty());
+    // head_hash on an empty chain is still a hex string — just verify
+    // it matches the canonical accessor.
+    CHECK(s.head_hash_hex == rt.head_hash());
+}
+
+TEST_CASE("system_summary: tracks growth across consent grants and inferences") {
+    auto rt_ = fresh_runtime("sum_growth"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.install_default_policies());
+    auto pid = PatientId::pseudonymous("p_sum_growth");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto s0 = rt.system_summary();
+    CHECK(s0.policy_count == 2);                  // phi + length-limit
+    CHECK(s0.active_consent == 1);
+    CHECK(s0.ledger_length >= 1);                 // consent.granted
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("z",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto s1 = rt.system_summary();
+    CHECK(s1.ledger_length > s0.ledger_length);
+    CHECK(s1.head_hash_hex != s0.head_hash_hex);
+    CHECK(s1.total_counters >= s0.total_counters);
+}
+
+TEST_CASE("system_summary: agrees with health() and version() field-by-field") {
+    auto rt_ = fresh_runtime("sum_agree"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_phi_scrubber());
+    auto pid = PatientId::pseudonymous("p_sum_agree");
+    (void)rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h);
+
+    auto h = rt.health();
+    auto s = rt.system_summary();
+    CHECK(s.ledger_length  == h.ledger_length);
+    CHECK(s.head_hash_hex  == h.ledger_head_hex);
+    CHECK(s.policy_count   == h.policy_count);
+    CHECK(s.active_consent == h.active_consent_tokens);
+    CHECK(s.drift_features == h.drift_features);
+    CHECK(s.version        == rt.version());
+    CHECK(s.total_counters == rt.metrics().counter_count());
+}
+
+// ============== Runtime::dispatched_inferences ==========================
+
+TEST_CASE("dispatched_inferences: zero on a fresh runtime") {
+    auto rt_ = fresh_runtime("disp_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto r = rt.dispatched_inferences();
+    REQUIRE(r);
+    CHECK(r.value() == 0);
+}
+
+TEST_CASE("dispatched_inferences: increments once per run regardless of outcome") {
+    auto rt_ = fresh_runtime("disp_count"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_disp_count");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("a",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        auto r = inf.value().run("b",
+            [](std::string) -> Result<std::string> {
+                return Error::internal("kaboom");
+            });
+        CHECK(!r);
+    }
+    auto r = rt.dispatched_inferences();
+    REQUIRE(r);
+    CHECK(r.value() == 2);
+}
+
+TEST_CASE("dispatched_inferences: matches metrics().count(\"inference.attempts\") exactly") {
+    auto rt_ = fresh_runtime("disp_matches"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_disp_matches");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    for (int i = 0; i < 3; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("v",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    auto r = rt.dispatched_inferences();
+    REQUIRE(r);
+    CHECK(r.value() ==
+          static_cast<std::size_t>(rt.metrics().count("inference.attempts")));
+    CHECK(r.value() == 3);
+}

@@ -309,7 +309,11 @@ inf.attach_ground_truth(truth_json);
 <span class="c">// idempotent commit, status introspection</span>
 inf.commit_idempotent();
 <span class="k">if</span> (inf.is_committed()) log(inf.seq().value());
-log(inf.id(), inf.elapsed_ms());</code></pre>
+log(inf.id(), inf.elapsed_ms());
+
+<span class="c">// content-addressed reproducibility witness</span>
+log(inf.input_hash().value().hex(),
+    inf.output_hash().value().hex());</code></pre>
     </article>
 
     <article class="ch-card">
@@ -319,6 +323,10 @@ log(inf.id(), inf.elapsed_ms());</code></pre>
         <dt><code>tail_by_actor</code></dt><dd>last n by clinician/service</dd>
         <dt><code>tail_by_event_type</code></dt><dd>last n consent.revoked, etc.</dd>
         <dt><code>count_by_event_type</code></dt><dd>cheap counter</dd>
+        <dt><code>has_event_type</code></dt><dd>cheap predicate</dd>
+        <dt><code>find_first_by_event_type</code></dt><dd>earliest of type</dd>
+        <dt><code>most_active_actors</code></dt><dd>top-n by entry count</dd>
+        <dt><code>byte_size_per_tenant</code></dt><dd>billing in one pass</dd>
         <dt><code>range_by_patient</code></dt><dd>right-of-access</dd>
         <dt><code>range_by_model</code></dt><dd>recall analysis</dd>
         <dt><code>tail_in_window</code></dt><dd>time-windowed</dd>
@@ -341,8 +349,15 @@ rt.version();              <span class="c">// "0.3.0"</span>
 <span class="c">// what's loaded, who's running, how big</span>
 rt.list_loaded_features();
 rt.active_inference_count();
+rt.dispatched_inferences();
 rt.ledger_size_bytes();
 rt.reset_metrics();        <span class="c">// dev / recalibration</span>
+
+<span class="c">// composite snapshot · the call a status page wants</span>
+auto s = rt.system_summary();    <span class="c">// → SystemSummary::to_json()</span>
+
+<span class="c">// fast partial-integrity probe (startup gate, periodic)</span>
+rt.audit_spot_check(<span class="n">1000</span>);
 
 <span class="c">// key fingerprint for status pages</span>
 rt.ledger().key_id();
@@ -361,6 +376,9 @@ rt.ledger().public_key();</code></pre>
         <dt><code>{active,expired,total}_count</code></dt><dd>dashboard</dd>
         <dt><code>longest_active</code> / <code>oldest_active</code></dt><dd>canaries</dd>
         <dt><code>soonest_to_expire</code></dt><dd>renewal alerts</dd>
+        <dt><code>tokens_expiring_within(h)</code></dt><dd>horizon-windowed renewal queue</dd>
+        <dt><code>patient_count</code> / <code>patients</code></dt><dd>cohort reporting</dd>
+        <dt><code>summary()</code></dt><dd>one-shot dashboard roll-up</dd>
         <dt><code>set_observer</code></dt><dd>mirror to ledger</dd>
       </dl>
       <p>Runtime now <em>replays consent state from the ledger</em> at startup. The audit chain is the source of truth.</p>

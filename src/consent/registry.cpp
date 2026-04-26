@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <unordered_set>
 
 namespace asclepius {
 
@@ -264,6 +265,75 @@ std::size_t ConsentRegistry::active_count() const {
 std::size_t ConsentRegistry::total_count() const {
     std::lock_guard<std::mutex> lk(mu_);
     return by_id_.size();
+}
+
+std::size_t ConsentRegistry::patient_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::unordered_set<std::string> seen;
+    seen.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        seen.insert(std::string{t.patient.str()});
+    }
+    return seen.size();
+}
+
+std::vector<PatientId> ConsentRegistry::patients() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::unordered_set<std::string> seen;
+    seen.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        seen.insert(std::string{t.patient.str()});
+    }
+    std::vector<PatientId> out;
+    out.reserve(seen.size());
+    for (auto& s : seen) {
+        out.emplace_back(std::move(s));
+    }
+    std::sort(out.begin(), out.end(),
+              [](const PatientId& a, const PatientId& b) {
+                  return a.str() < b.str();
+              });
+    return out;
+}
+
+ConsentRegistry::Summary ConsentRegistry::summary() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    Summary s{0, 0, 0, 0, 0};
+    std::unordered_set<std::string> seen;
+    seen.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        s.total++;
+        if (t.revoked) {
+            s.revoked++;
+        } else if (t.expires_at <= now) {
+            s.expired++;
+        } else {
+            s.active++;
+        }
+        seen.insert(std::string{t.patient.str()});
+    }
+    s.patients = seen.size();
+    return s;
+}
+
+std::vector<ConsentToken>
+ConsentRegistry::tokens_expiring_within(std::chrono::seconds horizon) const {
+    std::vector<ConsentToken> out;
+    if (horizon.count() <= 0) {
+        return out;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now      = Time::now();
+    const auto deadline = now + std::chrono::nanoseconds{horizon};
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.expires_at <= deadline) {
+            out.push_back(t);
+        }
+    }
+    return out;
 }
 
 std::size_t ConsentRegistry::expire_all_for_patient(const PatientId& patient) {

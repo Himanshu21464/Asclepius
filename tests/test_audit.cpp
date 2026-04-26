@@ -2467,3 +2467,196 @@ TEST_CASE("byte_size_for_tenant: large multi-chunk scan still correct") {
     CHECK(ba.value() == sa.value().total_body_bytes);
     CHECK(bb.value() == sb.value().total_body_bytes);
 }
+
+// ============== Ledger::find_first_by_event_type =========================
+
+TEST_CASE("find_first_by_event_type returns oldest matching entry") {
+    auto p = tmp_db("ffbet_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("beta",  "x", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", 2}}, ""));
+    REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", 3}}, ""));
+    REQUIRE(l.append("beta",  "x", nlohmann::json{{"i", 4}}, ""));
+    auto r = l.find_first_by_event_type("alpha"); REQUIRE(r);
+    CHECK(r.value().header.seq == 2);
+    auto body = nlohmann::json::parse(r.value().body_json);
+    CHECK(body["i"] == 2);
+}
+
+TEST_CASE("find_first_by_event_type empty type rejected, missing returns not_found") {
+    auto p = tmp_db("ffbet_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), ""));
+    auto r1 = l.find_first_by_event_type("");
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.find_first_by_event_type("ghost");
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_first_by_event_type on empty ledger returns not_found") {
+    auto p = tmp_db("ffbet_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().find_first_by_event_type("anything");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_first_by_event_type matches range_by_event_type[0]") {
+    auto p = tmp_db("ffbet_consistent");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 12; i++) {
+        REQUIRE(l.append(i % 3 == 0 ? "alpha" : "beta",
+                         "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto rng = l.range_by_event_type("alpha"); REQUIRE(rng);
+    REQUIRE(!rng.value().empty());
+    auto first = l.find_first_by_event_type("alpha"); REQUIRE(first);
+    CHECK(first.value().header.seq == rng.value().front().header.seq);
+}
+
+// ============== Ledger::byte_size_per_tenant =============================
+
+TEST_CASE("byte_size_per_tenant sums per tenant across the chain") {
+    auto p = tmp_db("bspt_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto e1 = l.append("e", "x", nlohmann::json{{"k", "a"}}, "alpha"); REQUIRE(e1);
+    auto e2 = l.append("e", "x", nlohmann::json{{"k", "bb"}}, "alpha"); REQUIRE(e2);
+    auto e3 = l.append("e", "x", nlohmann::json{{"k", "ccc"}}, "beta");  REQUIRE(e3);
+    auto r = l.byte_size_per_tenant(); REQUIRE(r);
+    const auto& m = r.value();
+    REQUIRE(m.count("alpha") == 1);
+    REQUIRE(m.count("beta")  == 1);
+    CHECK(m.at("alpha") == e1.value().body_json.size() + e2.value().body_json.size());
+    CHECK(m.at("beta")  == e3.value().body_json.size());
+}
+
+TEST_CASE("byte_size_per_tenant: empty tenant gets its own bucket") {
+    auto p = tmp_db("bspt_empty_bucket");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto e1 = l.append("e", "x", nlohmann::json{{"k", "a"}}, "");      REQUIRE(e1);
+    auto e2 = l.append("e", "x", nlohmann::json{{"k", "bb"}}, "alpha"); REQUIRE(e2);
+    auto r = l.byte_size_per_tenant(); REQUIRE(r);
+    REQUIRE(r.value().count("") == 1);
+    REQUIRE(r.value().count("alpha") == 1);
+    CHECK(r.value().at("")      == e1.value().body_json.size());
+    CHECK(r.value().at("alpha") == e2.value().body_json.size());
+}
+
+TEST_CASE("byte_size_per_tenant on empty ledger returns empty map") {
+    auto p = tmp_db("bspt_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().byte_size_per_tenant(); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("byte_size_per_tenant agrees with byte_size_for_tenant per key") {
+    auto p = tmp_db("bspt_consistent");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 50; i++) {
+        REQUIRE(l.append("e", "x",
+            nlohmann::json{{"i", i}},
+            (i % 3 == 0) ? "alpha" : ((i % 3 == 1) ? "beta" : "")));
+    }
+    auto agg = l.byte_size_per_tenant(); REQUIRE(agg);
+    for (const auto& [tenant, total] : agg.value()) {
+        auto solo = l.byte_size_for_tenant(tenant); REQUIRE(solo);
+        CHECK(solo.value() == total);
+    }
+}
+
+// ============== Ledger::most_active_actors ===============================
+
+TEST_CASE("most_active_actors returns top n by count desc") {
+    auto p = tmp_db("maa_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // alice: 5, bob: 3, carol: 1
+    for (int i = 0; i < 5; i++) REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    for (int i = 0; i < 3; i++) REQUIRE(l.append("e", "bob",   nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "carol", nlohmann::json::object(), ""));
+    auto r = l.most_active_actors(2); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    CHECK(r.value()[0].first  == "alice");
+    CHECK(r.value()[0].second == 5u);
+    CHECK(r.value()[1].first  == "bob");
+    CHECK(r.value()[1].second == 3u);
+}
+
+TEST_CASE("most_active_actors: n=0 returns empty, n>distinct returns all") {
+    auto p = tmp_db("maa_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json::object(), ""));
+    auto r0 = l.most_active_actors(0); REQUIRE(r0);
+    CHECK(r0.value().empty());
+    auto r99 = l.most_active_actors(99); REQUIRE(r99);
+    CHECK(r99.value().size() == 2);
+}
+
+TEST_CASE("most_active_actors on empty ledger returns empty vector") {
+    auto p = tmp_db("maa_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().most_active_actors(5); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("most_active_actors ties break alphabetically") {
+    auto p = tmp_db("maa_ties");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // bob and alice both at 2 — alice should come first alphabetically.
+    REQUIRE(l.append("e", "bob",   nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    auto r = l.most_active_actors(2); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    CHECK(r.value()[0].first == "alice");
+    CHECK(r.value()[1].first == "bob");
+}
+
+// ============== Ledger::has_event_type ===================================
+
+TEST_CASE("has_event_type true when event present") {
+    auto p = tmp_db("het_present");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("beta",  "x", nlohmann::json::object(), ""));
+    CHECK(l.has_event_type("alpha"));
+    CHECK(l.has_event_type("beta"));
+    CHECK_FALSE(l.has_event_type("ghost"));
+}
+
+TEST_CASE("has_event_type: empty string and empty ledger return false") {
+    auto p = tmp_db("het_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    CHECK_FALSE(l.has_event_type(""));
+    CHECK_FALSE(l.has_event_type("anything"));
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), ""));
+    CHECK_FALSE(l.has_event_type(""));
+}
+
+TEST_CASE("has_event_type agrees with count_by_event_type presence") {
+    auto p = tmp_db("het_consistent");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 30; i++) {
+        REQUIRE(l.append(i % 4 == 0 ? "alpha" : "beta",
+                         "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto counts = l.count_by_event_type(); REQUIRE(counts);
+    CHECK(l.has_event_type("alpha") == (counts.value().count("alpha") > 0));
+    CHECK(l.has_event_type("beta")  == (counts.value().count("beta")  > 0));
+    CHECK(l.has_event_type("gamma") == (counts.value().count("gamma") > 0));
+}

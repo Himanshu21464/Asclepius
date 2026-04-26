@@ -288,6 +288,23 @@ public:
     Result<std::vector<LedgerEntry>>
         tail_by_event_type(std::string_view event_type, std::size_t n) const;
 
+    // First-match lookup of an event_type — the oldest entry whose
+    // header.event_type matches. Stops the for_each scan on the first
+    // hit so cost is O(k) where k is the seq of the first match. Empty
+    // event_type returns invalid_argument; no-match returns not_found.
+    // Used by replay paths that need the genesis entry of a stream
+    // (e.g. "find the first consent.granted for this tenant") and by
+    // dashboards that show "first seen" timestamps per event class.
+    Result<LedgerEntry>
+        find_first_by_event_type(std::string_view event_type) const;
+
+    // Cheap O(n)-worst-case existence check: does the chain hold any
+    // entry with header.event_type == event_type. Stops the scan on
+    // the first hit. Empty event_type returns false (no allocation,
+    // no scan). Used by feature gates ("has this ledger ever seen a
+    // drift.crossed?") that don't need the entries themselves.
+    bool has_event_type(std::string_view event_type) const;
+
     // Return every entry whose header.actor matches the supplied
     // string, ordered by seq ascending. Complement to tail_by_actor
     // (which is most-recent-first and capped at n). O(n) scan via
@@ -347,6 +364,23 @@ public:
     // dashboards and SLO probes that just need a number, not the entries
     // themselves.
     Result<std::uint64_t> count_in_window(Time from, Time to) const;
+
+    // Sum of body_json sizes (bytes) grouped by header.tenant. O(n) scan
+    // via for_each; result map memory is O(distinct tenants). The empty
+    // tenant ("") is its own bucket if any entries carry it. Complements
+    // byte_size_for_tenant — that asks one tenant; this returns all in a
+    // single pass for capacity dashboards and per-tenant billing rollups.
+    Result<std::unordered_map<std::string, std::uint64_t>>
+        byte_size_per_tenant() const;
+
+    // Top `n` actors by entry count, most-active first. Ties break
+    // alphabetically so output is deterministic across runs. n=0 returns
+    // the empty vector (cheap no-op). O(n) scan via for_each into a
+    // dedup map, then a partial sort over distinct actors. Used by audit
+    // dashboards ("who's been busiest in this ledger?") and by anomaly
+    // probes that flag unexpected actor concentration.
+    Result<std::vector<std::pair<std::string, std::uint64_t>>>
+        most_active_actors(std::size_t top_n) const;
 
     // Verify a sub-range of the chain [start, end). Same correctness
     // guarantees as verify(): prev_hash continuity, payload-hash match,

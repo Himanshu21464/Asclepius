@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T12:22:37Z",
+  "generated_at": "2026-04-26T12:31:56Z",
   "algorithm": "SHA-256",
   "count": 89,
   "files": {
@@ -20,8 +20,8 @@
       "bytes": 18978
     },
     "api.html": {
-      "sha256": "dc169e0f9fc763351cbc6b56a15a73e48b09dd8e2671aa3a2c5a9b1a9954a19b",
-      "bytes": 56647
+      "sha256": "89c567e5e789a3f33cf8e8eeb9b6392333f86a7cfb52bab85f2875dbb7a09a3f",
+      "bytes": 62883
     },
     "architecture.html": {
       "sha256": "9fcd0defe93b4a1c7669a5c3b3aff6cfcf88db76b4c74fd2ea90aecb50d41b78",
@@ -100,12 +100,12 @@
       "bytes": 22262
     },
     "changelog.html": {
-      "sha256": "e9d67a2a17dc69b1d8c3bf05b25c1d93b89a687fbc5376a52bc50e3b7e1464c2",
-      "bytes": 28227
+      "sha256": "988df9cbfb38601a3e9ef5b15b71766832c2c747e1ef5fe5c750a3fd4851733b",
+      "bytes": 30919
     },
     "cheatsheet.html": {
-      "sha256": "07c2e8fb3fa92ff3ae2ae52a92bb698016e49f5ec9220d5d447f0d40f52c22d7",
-      "bytes": 26222
+      "sha256": "2648c93d30987004cf14bf22712b26b5de52f46e670e85ddd3ca4203f53127ec",
+      "bytes": 27259
     },
     "colophon.html": {
       "sha256": "0ebb4261654ffa9010c9029a2216f9b87c32b43a2f10e7f7196c62447354b77c",
@@ -260,8 +260,8 @@
       "bytes": 870
     },
     "playbooks.html": {
-      "sha256": "9ea00739b0d8862789b1efeef912d2c8f3191294d611f4efe1c8d63df787d07d",
-      "bytes": 33394
+      "sha256": "c967d217c34a9e55d83b073b5b5cc8cf1cac1a803f28eacf6bdeae0fd31d226f",
+      "bytes": 33490
     },
     "press.html": {
       "sha256": "c5106732cc857fe01278c254c2089100f19e7195fa4c8799ae683c14fdd5c127",
@@ -324,11 +324,11 @@
       "bytes": 15466
     },
     "status.html": {
-      "sha256": "e63b2b4adecc86ade0764376730b3fc39b4058252fdeb24f5de5a5d3d4a143bf",
-      "bytes": 21472
+      "sha256": "739b6517425470664ffc94da9bc24a709167cd8b9efbefdf8847b989e83f5432",
+      "bytes": 21575
     },
     "status.json": {
-      "sha256": "216b45b169884eef68a94891d31a4239ca6bf9abe17ecde949ab3800a5fc2e78",
+      "sha256": "8c8e6d06af86a2133a06198d22308d988828f34ba5c6f75705a78a3ccd762696",
       "bytes": 1045
     },
     "styles.css": {

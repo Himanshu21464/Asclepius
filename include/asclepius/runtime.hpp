@@ -228,6 +228,20 @@ public:
     // what would be written if commit() were called now.
     std::string status() const;
 
+    // Post-policy hash of the input fed to the model, in hex. Empty if
+    // no successful run has populated it yet (handle hasn't run, or the
+    // input policy chain blocked before hashing). Reads from the pending
+    // ledger body so the value is observable pre-commit and survives
+    // commit unchanged. Never errors — sidecars use this on the hot path
+    // and prefer an empty string over a Result wrapper.
+    std::string input_hash() const;
+
+    // Post-policy hash of the model output, in hex. Same semantics as
+    // input_hash(): empty until the run reaches the post-output-policy
+    // stage. timeout / cancelled / blocked.output runs leave it empty
+    // by design — no canonical output was produced.
+    std::string output_hash() const;
+
     // Wallclock milliseconds elapsed since started_at(). Convenience
     // sugar for sidecar dashboards that don't want to convert
     // chrono::nanoseconds manually each time.
@@ -358,6 +372,45 @@ public:
     // previous build's traffic. Returns ok if every counter could
     // be reset; the first failure short-circuits and is returned.
     Result<void> reset_metrics();
+
+    // Verify the last `lookback` entries of the chain. Sugar over
+    // ledger().verify_range(length-lookback+1, length+1) with bounds
+    // clamping when lookback exceeds the chain length. lookback == 0 is
+    // rejected with invalid_argument — the caller almost certainly
+    // wanted at least one entry, and a zero-width range is a no-op
+    // worth catching. Returns ok() on the empty chain (nothing to check).
+    // Used as a fast post-restart sanity probe before serving traffic:
+    // a full verify() may scan millions of entries; spot-checking the
+    // tail catches the common corruption modes (last-write torn, WAL
+    // never replayed) in O(lookback).
+    Result<void> audit_spot_check(std::size_t lookback) const;
+
+    // ---- System summary -------------------------------------------------
+    //
+    // Single-call aggregate returned by value for status endpoints. Pulls
+    // from health() plus version() plus metrics().counter_count() so a
+    // /status responder doesn't need to grab three separate accessors and
+    // assemble its own struct. Strictly observability sugar — never
+    // errors, never blocks on I/O beyond what health() already does.
+
+    struct SystemSummary {
+        std::uint64_t ledger_length = 0;
+        std::string   head_hash_hex;
+        std::size_t   policy_count = 0;
+        std::size_t   active_consent = 0;
+        std::size_t   drift_features = 0;
+        std::size_t   total_counters = 0;
+        std::string   version;
+    };
+
+    SystemSummary system_summary() const;
+
+    // Sugar over metrics().count("inference.attempts"). Wraps in a
+    // Result so future expansions can report registry errors without
+    // breaking callers; today it is infallible. Saves callers who only
+    // want the dispatched-inference counter from grabbing the
+    // MetricRegistry& reference.
+    Result<std::size_t> dispatched_inferences() const;
 
     // Run a battery of internal invariants. Used at boot and by /healthz
     // deep-check endpoints to catch corruption early. Currently checks:

@@ -1093,6 +1093,273 @@ TEST_CASE("extend_all_for_patient fires the observer once per token extended") {
     CHECK(seen.size() == 4);
 }
 
+// ============== patient_count ===========================================
+
+TEST_CASE("patient_count is zero on empty registry") {
+    ConsentRegistry r;
+    CHECK(r.patient_count() == 0);
+}
+
+TEST_CASE("patient_count counts distinct patients across multiple tokens") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("alice");
+    auto pb = PatientId::pseudonymous("bob");
+    auto pc = PatientId::pseudonymous("carol");
+    REQUIRE(r.grant(pa, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(pa, {Purpose::operations}, 1h));     // same patient
+    REQUIRE(r.grant(pb, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(pc, {Purpose::ambient_documentation}, 1h));
+    CHECK(r.patient_count() == 3);
+    CHECK(r.total_count() == 4);
+}
+
+TEST_CASE("patient_count includes revoked and expired patients") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("pc_alice");
+    auto pb = PatientId::pseudonymous("pc_bob");
+    auto t = r.grant(pa, {Purpose::triage}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));  // revoked but still on file
+
+    // Expired token for a different patient.
+    ConsentToken ex;
+    ex.token_id   = "ct_pc_exp";
+    ex.patient    = pb;
+    ex.purposes   = {Purpose::operations};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    CHECK(r.patient_count() == 2);
+}
+
+TEST_CASE("patient_count drops to zero after clear()") {
+    ConsentRegistry r;
+    REQUIRE(r.grant(PatientId::pseudonymous("a"), {Purpose::triage}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("b"), {Purpose::triage}, 1h));
+    CHECK(r.patient_count() == 2);
+    r.clear();
+    CHECK(r.patient_count() == 0);
+}
+
+// ============== patients ================================================
+
+TEST_CASE("patients returns sorted distinct PatientIds") {
+    ConsentRegistry r;
+    // Insert in non-sorted order; expect lexicographic by underlying string.
+    REQUIRE(r.grant(PatientId::pseudonymous("charlie"), {Purpose::triage}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("alice"),   {Purpose::triage}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("bob"),     {Purpose::triage}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("alice"),   {Purpose::operations}, 1h));  // dup
+    auto out = r.patients();
+    REQUIRE(out.size() == 3);
+    CHECK(out[0].str() == std::string_view{"pat:alice"});
+    CHECK(out[1].str() == std::string_view{"pat:bob"});
+    CHECK(out[2].str() == std::string_view{"pat:charlie"});
+}
+
+TEST_CASE("patients on empty registry returns empty vector") {
+    ConsentRegistry r;
+    auto out = r.patients();
+    CHECK(out.empty());
+}
+
+TEST_CASE("patients includes patients from revoked and expired tokens") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("revoked_one");
+    auto pb = PatientId::pseudonymous("expired_one");
+    auto pc = PatientId::pseudonymous("active_one");
+
+    auto t = r.grant(pa, {Purpose::triage}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));
+
+    ConsentToken ex;
+    ex.token_id   = "ct_pat_exp";
+    ex.patient    = pb;
+    ex.purposes   = {Purpose::operations};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    REQUIRE(r.grant(pc, {Purpose::ambient_documentation}, 1h));
+
+    auto out = r.patients();
+    REQUIRE(out.size() == 3);
+    // Sorted by underlying string: "pat:active_one", "pat:expired_one",
+    // "pat:revoked_one".
+    CHECK(out[0].str() == std::string_view{"pat:active_one"});
+    CHECK(out[1].str() == std::string_view{"pat:expired_one"});
+    CHECK(out[2].str() == std::string_view{"pat:revoked_one"});
+}
+
+TEST_CASE("patients agrees with patient_count on size") {
+    ConsentRegistry r;
+    REQUIRE(r.grant(PatientId::pseudonymous("p1"), {Purpose::triage}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("p2"), {Purpose::triage}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("p1"), {Purpose::operations}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("p3"), {Purpose::operations}, 1h));
+    CHECK(r.patients().size() == r.patient_count());
+    CHECK(r.patient_count() == 3);
+}
+
+// ============== summary =================================================
+
+TEST_CASE("summary on empty registry is all zeros") {
+    ConsentRegistry r;
+    auto s = r.summary();
+    CHECK(s.total == 0);
+    CHECK(s.active == 0);
+    CHECK(s.expired == 0);
+    CHECK(s.revoked == 0);
+    CHECK(s.patients == 0);
+}
+
+TEST_CASE("summary partitions tokens into active, expired, revoked") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("sum_a");
+    auto pb = PatientId::pseudonymous("sum_b");
+
+    // Two active grants for pa.
+    REQUIRE(r.grant(pa, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(pa, {Purpose::operations}, 1h));
+
+    // One active grant for pb, then revoked.
+    auto rv = r.grant(pb, {Purpose::ambient_documentation}, 1h).value();
+    REQUIRE(r.revoke(rv.token_id));
+
+    // One expired token for pb.
+    ConsentToken ex;
+    ex.token_id   = "ct_sum_exp";
+    ex.patient    = pb;
+    ex.purposes   = {Purpose::medication_review};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    auto s = r.summary();
+    CHECK(s.total == 4);
+    CHECK(s.active == 2);
+    CHECK(s.expired == 1);
+    CHECK(s.revoked == 1);
+    CHECK(s.patients == 2);
+    // The four buckets active/expired/revoked must sum to total.
+    CHECK(s.active + s.expired + s.revoked == s.total);
+}
+
+TEST_CASE("summary agrees with individual counters") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("sum_agree");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    auto t = r.grant(p, {Purpose::operations}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));
+
+    ConsentToken ex;
+    ex.token_id   = "ct_sum_agree_exp";
+    ex.patient    = p;
+    ex.purposes   = {Purpose::research};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    auto s = r.summary();
+    CHECK(s.total == r.total_count());
+    CHECK(s.active == r.active_count());
+    CHECK(s.expired == r.expired_count());
+    CHECK(s.patients == r.patient_count());
+}
+
+TEST_CASE("summary reflects mutations: clear then re-grant") {
+    ConsentRegistry r;
+    REQUIRE(r.grant(PatientId::pseudonymous("a"), {Purpose::triage}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("b"), {Purpose::triage}, 1h));
+    {
+        auto s = r.summary();
+        CHECK(s.total == 2);
+        CHECK(s.active == 2);
+        CHECK(s.patients == 2);
+    }
+    r.clear();
+    {
+        auto s = r.summary();
+        CHECK(s.total == 0);
+        CHECK(s.active == 0);
+        CHECK(s.expired == 0);
+        CHECK(s.revoked == 0);
+        CHECK(s.patients == 0);
+    }
+    REQUIRE(r.grant(PatientId::pseudonymous("c"), {Purpose::operations}, 1h));
+    auto s = r.summary();
+    CHECK(s.total == 1);
+    CHECK(s.active == 1);
+    CHECK(s.patients == 1);
+}
+
+// ============== tokens_expiring_within ==================================
+
+TEST_CASE("tokens_expiring_within returns tokens lapsing inside the horizon") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("tew_p");
+    // Short grant: well within a 10-minute horizon.
+    auto soon = r.grant(p, {Purpose::triage}, std::chrono::seconds{60}).value();
+    // Long grant: well outside a 10-minute horizon.
+    REQUIRE(r.grant(p, {Purpose::operations}, 24h));
+
+    auto out = r.tokens_expiring_within(std::chrono::minutes{10});
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].token_id == soon.token_id);
+}
+
+TEST_CASE("tokens_expiring_within with horizon <= 0 returns empty") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("tew_zero");
+    REQUIRE(r.grant(p, {Purpose::triage}, std::chrono::seconds{30}));
+    CHECK(r.tokens_expiring_within(std::chrono::seconds{0}).empty());
+    CHECK(r.tokens_expiring_within(std::chrono::seconds{-5}).empty());
+}
+
+TEST_CASE("tokens_expiring_within excludes revoked and already-expired tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("tew_skip");
+
+    // Active short grant inside the horizon — should be returned.
+    auto live = r.grant(p, {Purpose::triage}, std::chrono::seconds{60}).value();
+
+    // Revoked grant — must not appear, even with a short remaining ttl.
+    auto rv = r.grant(p, {Purpose::operations}, std::chrono::seconds{30}).value();
+    REQUIRE(r.revoke(rv.token_id));
+
+    // Already-expired token — must not appear (expires_at <= now).
+    ConsentToken ex;
+    ex.token_id   = "ct_tew_exp";
+    ex.patient    = p;
+    ex.purposes   = {Purpose::medication_review};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    auto out = r.tokens_expiring_within(std::chrono::minutes{10});
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].token_id == live.token_id);
+}
+
+TEST_CASE("tokens_expiring_within: a wider horizon picks up more tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("tew_wide");
+    // 1m, 30m, 5h grants.
+    auto a = r.grant(p, {Purpose::triage},                std::chrono::minutes{1}).value();
+    auto b = r.grant(p, {Purpose::operations},            std::chrono::minutes{30}).value();
+    auto c = r.grant(p, {Purpose::ambient_documentation}, std::chrono::hours{5}).value();
+
+    CHECK(r.tokens_expiring_within(std::chrono::minutes{5}).size() == 1);
+    CHECK(r.tokens_expiring_within(std::chrono::hours{1}).size()   == 2);
+    CHECK(r.tokens_expiring_within(std::chrono::hours{24}).size()  == 3);
+
+    // Sanity: extending the soonest one beyond the horizon drops it.
+    REQUIRE(r.extend(a.token_id, std::chrono::hours{10}));
+    auto out = r.tokens_expiring_within(std::chrono::minutes{5});
+    CHECK(out.empty());
+    (void)b; (void)c;
+}
+
 TEST_CASE("cleanup_expired fires the observer once per token swept") {
     ConsentRegistry r;
     int revokes = 0;

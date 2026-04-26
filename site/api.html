@@ -186,7 +186,7 @@
   <div class="container">
     <span class="kbd">api · auto-generated · 2026-04-26</span>
     <h1>Every public symbol, <i>from the source.</i></h1>
-    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 220+ public symbols after rounds 57–74. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
+    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 240+ public symbols after rounds 57–75. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
   </div>
 </section>
 
@@ -194,16 +194,16 @@
 <section class="api-toc">
   <ul>
     <li><a href="#hdr-asclepius-hpp"><code>asclepius.hpp</code> <em>0 symbols</em></a></li>
-    <li><a href="#hdr-audit-hpp"><code>audit.hpp</code> <em>49 symbols</em></a></li>
-    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>27 symbols</em></a></li>
+    <li><a href="#hdr-audit-hpp"><code>audit.hpp</code> <em>54 symbols</em></a></li>
+    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>32 symbols</em></a></li>
     <li><a href="#hdr-core-hpp"><code>core.hpp</code> <em>19 symbols</em></a></li>
     <li><a href="#hdr-evaluation-hpp"><code>evaluation.hpp</code> <em>6 symbols</em></a></li>
     <li><a href="#hdr-hashing-hpp"><code>hashing.hpp</code> <em>11 symbols</em></a></li>
     <li><a href="#hdr-identity-hpp"><code>identity.hpp</code> <em>14 symbols</em></a></li>
     <li><a href="#hdr-fhir-hpp"><code>interop/fhir.hpp</code> <em>5 symbols</em></a></li>
     <li><a href="#hdr-policy-hpp"><code>policy.hpp</code> <em>17 symbols</em></a></li>
-    <li><a href="#hdr-runtime-hpp"><code>runtime.hpp</code> <em>34 symbols</em></a></li>
-    <li><a href="#hdr-telemetry-hpp"><code>telemetry.hpp</code> <em>43 symbols</em></a></li>
+    <li><a href="#hdr-runtime-hpp"><code>runtime.hpp</code> <em>39 symbols</em></a></li>
+    <li><a href="#hdr-telemetry-hpp"><code>telemetry.hpp</code> <em>48 symbols</em></a></li>
     <li><a href="#hdr-version-hpp"><code>version.hpp</code> <em>2 symbols</em></a></li>
   </ul>
 </section>
@@ -297,6 +297,14 @@
       <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range_by_event_type(std::string_view type, std::uint64_t start, std::uint64_t end)</pre></dd>
       <dt><code>count_by_event_type</code></dt>
       <dd><pre>std::uint64_t count_by_event_type(std::string_view type)</pre><p>Count without materializing rows. Backs the <code>ledger event-counts</code> CLI.</p></dd>
+      <dt><code>find_first_by_event_type</code></dt>
+      <dd><pre>Result&lt;LedgerEntry&gt; find_first_by_event_type(std::string_view type)</pre><p>The earliest entry of a given type. Useful when reconstructing the moment a tenant onboarded, the first <code>policy.config_change</code>, or when a key first appeared.</p></dd>
+      <dt><code>has_event_type</code></dt>
+      <dd><pre>bool has_event_type(std::string_view type)</pre><p>Cheap predicate over <code>count_by_event_type</code>. Returns true iff at least one entry of <code>type</code> has been appended.</p></dd>
+      <dt><code>byte_size_per_tenant</code></dt>
+      <dd><pre>std::vector&lt;std::pair&lt;TenantId, std::uint64_t&gt;&gt; byte_size_per_tenant()</pre><p>Per-tenant byte accounting in one pass. Pairs with <code>tenants()</code> and <code>byte_size_for_tenant()</code> for billing dashboards.</p></dd>
+      <dt><code>most_active_actors</code></dt>
+      <dd><pre>std::vector&lt;std::pair&lt;ActorId, std::uint64_t&gt;&gt; most_active_actors(std::size_t top_n)</pre><p>Top-n actors by entry count, descending. Backs the &quot;who's writing the most&quot; row on operator dashboards.</p></dd>
       <dt><code>range_by_patient</code></dt>
       <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range_by_patient(const PatientId&amp; patient, std::uint64_t start, std::uint64_t end)</pre><p>Every entry naming this patient. The patient-rights workflow (right of access, right to know) lands here.</p></dd>
       <dt><code>range_by_model</code></dt>
@@ -395,6 +403,22 @@
       <dd><pre>std::optional&lt;ConsentToken&gt; soonest_to_expire()</pre><p>The active token with the earliest expiry — drives renewal-reminder workflows.</p></dd>
       <dt><code>set_observer</code></dt>
       <dd><pre>void set_observer(std::function&lt;void(const ConsentToken&amp;, std::string_view event)&gt; cb)</pre><p>Register a sink for grant / revoke / expire events. Runtime uses this to mirror state to the ledger.</p></dd>
+      <dt><code>patient_count</code></dt>
+      <dd><pre>std::size_t patient_count()</pre><p>Number of distinct patients with at least one token (active or otherwise).</p></dd>
+      <dt><code>patients</code></dt>
+      <dd><pre>std::vector&lt;PatientId&gt; patients()</pre><p>Every patient ever to have appeared in the registry. Backs cohort-level reporting.</p></dd>
+      <dt><code>tokens_expiring_within</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; tokens_expiring_within(std::chrono::seconds horizon)</pre><p>Active tokens whose expiry falls inside the next <code>horizon</code>. Drives renewal-reminder workflows ahead of <code>soonest_to_expire</code>.</p></dd>
+      <dt><code>summary</code></dt>
+      <dd><pre>Summary summary()</pre><p>One-shot snapshot: active / expired / total token counts, distinct patient count, soonest expiry, longest active. Cheap; safe on a status-page hot path.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Summary</code></h3>
+    <p>Plain aggregate returned by <code>ConsentRegistry::summary()</code>. Composed of plain fields; serialize via <code>to_json()</code>.</p>
+    <dl class="api-list">
+      <dt><code>to_json</code></dt>
+      <dd><pre>std::string to_json()</pre><p>Canonical JSON for status pages and dashboards.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>
@@ -677,6 +701,10 @@
       <dd><pre>InferenceStatus status()</pre><p>One of <code>pending</code>, <code>ran</code>, <code>blocked</code>, <code>committed</code>, <code>aborted</code>. Useful in test harnesses and metrics.</p></dd>
       <dt><code>elapsed_ms</code></dt>
       <dd><pre>double elapsed_ms()</pre><p>Wall-clock time from <code>begin_inference</code> to now. Reads zero before <code>run</code>.</p></dd>
+      <dt><code>input_hash</code></dt>
+      <dd><pre>std::optional&lt;Hash&gt; input_hash()</pre><p>BLAKE2b-256 of the post-policy input the model actually saw. <code>nullopt</code> before <code>run</code>. Pairs with <code>output_hash()</code> for content-addressed inference identity.</p></dd>
+      <dt><code>output_hash</code></dt>
+      <dd><pre>std::optional&lt;Hash&gt; output_hash()</pre><p>BLAKE2b-256 of the post-policy output. <code>nullopt</code> before a successful <code>run</code>. The pair (input_hash, output_hash) is the canonical reproducibility witness.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -729,6 +757,20 @@
       <dd><pre>std::size_t active_inference_count()</pre><p>How many <code>Inference</code> handles are currently in-flight (begun but neither committed nor dropped).</p></dd>
       <dt><code>reset_metrics</code></dt>
       <dd><pre>void reset_metrics()</pre><p>Zero the in-memory metric registry. Does <em>not</em> touch the ledger. Use after a baseline-recalibration run.</p></dd>
+      <dt><code>audit_spot_check</code></dt>
+      <dd><pre>Result&lt;void&gt; audit_spot_check(std::size_t lookback)</pre><p>Verify the last <code>lookback</code> ledger entries — a fast partial integrity probe suitable for startup gates and periodic background jobs. Composes <code>verify_range</code> with the current head; cheaper than full <code>verify()</code> on a long chain.</p></dd>
+      <dt><code>dispatched_inferences</code></dt>
+      <dd><pre>std::uint64_t dispatched_inferences()</pre><p>Lifetime count of inferences begun on this Runtime instance — successes, blocks, and aborts together. Pairs with <code>active_inference_count()</code> for queue-depth dashboards.</p></dd>
+      <dt><code>system_summary</code></dt>
+      <dd><pre>SystemSummary system_summary()</pre><p>Composite snapshot across every component: ledger stats, drift summary, consent summary, metric counts, dispatched inferences, version. The single call a status page actually needs.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>SystemSummary</code></h3>
+    <p>Composite snapshot returned by <code>Runtime::system_summary()</code> — ledger, drift, consent, metrics, runtime version rolled into one. Composed of plain fields; serialize via <code>to_json()</code>.</p>
+    <dl class="api-list">
+      <dt><code>to_json</code></dt>
+      <dd><pre>std::string to_json()</pre><p>Canonical JSON for status pages and dashboards.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -763,6 +805,10 @@
       <dd><pre>static double emd(const Histogram&amp; reference, const Histogram&amp; current)</pre><p>Earth Mover&#x27;s Distance (1D).</p></dd>
       <dt><code>quantile</code></dt>
       <dd><pre>double quantile(double q)</pre><p>Linearly-interpolated quantile within the binned distribution. <code>q ∈ [0, 1]</code>; clamped.</p></dd>
+      <dt><code>percentile</code></dt>
+      <dd><pre>double percentile(double p)</pre><p>Convenience over <code>quantile</code> for the operator vocabulary: <code>percentile(99.0)</code> returns p99. <code>p ∈ [0, 100]</code>; clamped.</p></dd>
+      <dt><code>cdf</code></dt>
+      <dd><pre>std::vector&lt;double&gt; cdf()</pre><p>The empirical cumulative distribution over the bins. Pairs with <code>normalized()</code> for plotting and with <code>ks()</code> for diagnostics.</p></dd>
       <dt><code>mean</code></dt>
       <dd><pre>double mean()</pre></dd>
       <dt><code>stddev</code></dt>
@@ -802,6 +848,16 @@
       <dd><pre>std::size_t feature_count()</pre></dd>
       <dt><code>reset</code></dt>
       <dd><pre>Result&lt;void&gt; reset(std::string_view feature)</pre><p>Reset just the current window for one feature; baseline is preserved.</p></dd>
+      <dt><code>summary</code></dt>
+      <dd><pre>Summary summary()</pre><p>One-shot roll-up across every registered feature: feature count, total observations in current window, count by severity band (none / minor / moderate / severe), and the worst-offender feature. Cheap; safe on a status-page hot path.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Summary</code></h3>
+    <p>Plain aggregate returned by <code>DriftMonitor::summary()</code>. Composed of plain fields; serialize via <code>to_json()</code>.</p>
+    <dl class="api-list">
+      <dt><code>to_json</code></dt>
+      <dd><pre>std::string to_json()</pre><p>Canonical JSON for status pages and dashboards.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -810,6 +866,8 @@
     <dl class="api-list">
       <dt><code>inc</code></dt>
       <dd><pre>void inc(std::string_view name, std::uint64_t delta = 1)</pre></dd>
+      <dt><code>add</code></dt>
+      <dd><pre>void add(std::string_view name, std::uint64_t delta)</pre><p>Explicit-delta sibling of <code>inc</code> — same effect, clearer at the call site when the delta is computed rather than implicit.</p></dd>
       <dt><code>observe</code></dt>
       <dd><pre>void observe(std::string_view name, double value)</pre></dd>
       <dt><code>count</code></dt>
@@ -818,6 +876,8 @@
       <dd><pre>std::size_t counter_count()</pre><p>Number of distinct counters registered.</p></dd>
       <dt><code>list_counters</code></dt>
       <dd><pre>std::vector&lt;std::string&gt; list_counters()</pre></dd>
+      <dt><code>all_counter_names</code></dt>
+      <dd><pre>std::vector&lt;std::string&gt; all_counter_names()</pre><p>Stable-ordered list of every registered counter name. Useful when emitting Prometheus exposition or wiring a generic dashboard.</p></dd>
       <dt><code>counter_snapshot</code></dt>
       <dd><pre>std::vector&lt;std::pair&lt;std::string, std::uint64_t&gt;&gt; counter_snapshot()</pre><p>All counter (name, value) pairs at a point in time.</p></dd>
       <dt><code>histogram_count</code></dt>

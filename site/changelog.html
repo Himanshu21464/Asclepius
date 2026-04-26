@@ -286,7 +286,27 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.3.1</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.3.2</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Operator surface deepens</em>. Round 75 adds the calls a status page actually wants — composite system summaries, drift &amp; consent roll-ups, content-addressed inference identity, partial-integrity probes. No on-disk format changes; nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Runtime::system_summary()</code> + <code>SystemSummary::to_json()</code> — one composite snapshot across ledger, drift, consent, metrics, version. The single call a status page actually wants.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::audit_spot_check(lookback)</code> — fast partial-integrity probe over the last <code>n</code> entries. Suitable as a startup gate and a periodic background job.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::dispatched_inferences()</code> — lifetime count of begun inferences (success, block, abort), pairs with <code>active_inference_count()</code> for queue depth.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::input_hash()</code> + <code>output_hash()</code> — BLAKE2b-256 of the post-policy payloads the model saw and produced. The canonical reproducibility witness.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::find_first_by_event_type</code>, <code>has_event_type</code>, <code>byte_size_per_tenant</code>, <code>most_active_actors(top_n)</code>.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::summary()</code> + <code>Summary::to_json()</code> — feature count, observations, severity-band tallies, worst-offender feature in one cheap call.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::percentile(p)</code> (operator-vocabulary sibling of <code>quantile</code>) and <code>Histogram::cdf()</code> for plotting and KS diagnostics.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::all_counter_names()</code>, <code>add(name, delta)</code> — Prometheus-shaped enumeration and an explicit-delta sibling of <code>inc</code>.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::patient_count()</code>, <code>patients()</code>, <code>tokens_expiring_within(horizon)</code>, <code>summary()</code> + <code>Summary::to_json()</code>.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.3.1</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Surface area lands</em>. Eighty-odd new public methods across rounds 57–74 — query the ledger like a database, introspect the runtime like a process, drive consent through its full life-cycle. No on-disk format changes; nothing breaks.

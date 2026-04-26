@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T12:22:33Z",
+  "generated_at": "2026-04-26T12:31:43Z",
   "count": 47,
   "pages": [
     {
@@ -31,6 +31,7 @@
         "enums",
         "ConsentToken",
         "ConsentRegistry",
+        "Summary",
         "free functions",
         "core.hpp",
         "Error",
@@ -60,6 +61,7 @@
         "Inference",
         "CancelToken",
         "Runtime",
+        "SystemSummary",
         "Health",
         "telemetry.hpp",
         "Histogram",

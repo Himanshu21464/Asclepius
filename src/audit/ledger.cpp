@@ -981,6 +981,74 @@ Ledger::range_by_event_type(std::string_view event_type) const {
     return out;
 }
 
+Result<LedgerEntry>
+Ledger::find_first_by_event_type(std::string_view event_type) const {
+    if (event_type.empty()) {
+        return Error::invalid("find_first_by_event_type requires non-empty event_type");
+    }
+    std::optional<LedgerEntry> hit;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.event_type == event_type) {
+            hit = e;
+            return false;  // stop scanning on first match
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    if (!hit) {
+        return Error::not_found(fmt::format(
+            "no ledger entry matches event_type '{}'", event_type));
+    }
+    return std::move(*hit);
+}
+
+bool Ledger::has_event_type(std::string_view event_type) const {
+    if (event_type.empty()) return false;
+    bool found = false;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.event_type == event_type) {
+            found = true;
+            return false;  // stop scanning on first match
+        }
+        return true;
+    });
+    (void)r;  // backend errors are observable via verify(); this is a best-effort probe
+    return found;
+}
+
+Result<std::unordered_map<std::string, std::uint64_t>>
+Ledger::byte_size_per_tenant() const {
+    std::unordered_map<std::string, std::uint64_t> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        out[e.header.tenant] += e.body_json.size();
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+Result<std::vector<std::pair<std::string, std::uint64_t>>>
+Ledger::most_active_actors(std::size_t top_n) const {
+    if (top_n == 0) return std::vector<std::pair<std::string, std::uint64_t>>{};
+    std::unordered_map<std::string, std::uint64_t> counts;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        counts[e.header.actor] += 1;
+        return true;
+    });
+    if (!r) return r.error();
+    std::vector<std::pair<std::string, std::uint64_t>> all;
+    all.reserve(counts.size());
+    for (auto& [a, c] : counts) all.emplace_back(a, c);
+    // Sort by count desc, ties alphabetic asc for deterministic output.
+    std::sort(all.begin(), all.end(),
+              [](const auto& l, const auto& r) {
+                  if (l.second != r.second) return l.second > r.second;
+                  return l.first < r.first;
+              });
+    if (all.size() > top_n) all.resize(top_n);
+    return all;
+}
+
 Result<std::vector<LedgerEntry>>
 Ledger::range_by_actor(std::string_view actor) const {
     if (actor.empty()) {

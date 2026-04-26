@@ -63,6 +63,17 @@ public:
     // returns 0.0.
     double quantile(double q) const;
 
+    // Wrapper over quantile(p / 100.0). p is interpreted as a percentile
+    // in [0, 100] and is clamped into that range. p=50 returns the median.
+    // Empty histograms return 0.0 (matching quantile()).
+    double percentile(double p) const;
+
+    // Cumulative distribution function: for each bin i, the fraction of
+    // total observations that fall at or below that bin's upper edge.
+    // Length == bin_count(). The last entry is 1.0 for any non-empty
+    // histogram. Empty histograms (total()==0) return all-zeros.
+    std::vector<double> cdf() const;
+
     // Population Stability Index: sum_i (p_i - q_i) * ln(p_i / q_i).
     // Conventionally interpreted as <0.10 stable, 0.10–0.25 minor drift,
     // >0.25 significant drift.
@@ -168,6 +179,17 @@ public:
     // total. Returns not_found if the feature was never registered.
     Result<std::uint64_t> baseline_count(std::string_view feature) const;
 
+    // Aggregate health snapshot for the monitor. total_observations is
+    // the sum of current-window observation counts across all features.
+    // max_severity is the worst current PSI severity across features
+    // (DriftSeverity::none if no features are registered).
+    struct Summary {
+        std::size_t   feature_count;
+        std::uint64_t total_observations;
+        DriftSeverity max_severity;
+    };
+    Summary summary() const;
+
     // Reset just the current-window histogram for one feature, leaving
     // the reference (baseline) intact. Per-feature variant of rotate(),
     // which clears all features. Returns not_found if the feature was
@@ -190,6 +212,11 @@ private:
 class MetricRegistry {
 public:
     void  inc(std::string_view name, std::uint64_t delta = 1);
+
+    // Alias for inc(name, delta). Some operators prefer the explicit
+    // verb when the call site is incrementing a domain counter rather
+    // than recording a tick.
+    void  add(std::string_view name, std::uint64_t delta);
 
     // Record a measurement into a histogram. Buckets are exponential with
     // bases at the supplied list (le upper bounds). If a histogram of this
@@ -224,6 +251,11 @@ public:
     // dashboards and operator tooling that wants to enumerate what's
     // being measured without parsing the prometheus exposition.
     std::vector<std::string> list_counters() const;
+
+    // Names of all registered counters, sorted alphabetically. Unlike
+    // list_counters() (unspecified order), this is suitable for stable
+    // JSON dumps and diff-friendly snapshots.
+    std::vector<std::string> all_counter_names() const;
 
     // Reset a single counter to zero. Used when a sidecar wants to
     // emit per-deploy metric resets (e.g. on restart). Returns not_found

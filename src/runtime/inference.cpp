@@ -375,6 +375,20 @@ std::string Inference::status() const {
     return it->get<std::string>();
 }
 
+std::string Inference::input_hash() const {
+    if (!impl_) return std::string{};
+    auto it = impl_->ledger_body.find("input_hash");
+    if (it == impl_->ledger_body.end() || !it->is_string()) return std::string{};
+    return it->get<std::string>();
+}
+
+std::string Inference::output_hash() const {
+    if (!impl_) return std::string{};
+    auto it = impl_->ledger_body.find("output_hash");
+    if (it == impl_->ledger_body.end() || !it->is_string()) return std::string{};
+    return it->get<std::string>();
+}
+
 std::int64_t Inference::elapsed_ms() const noexcept {
     if (!impl_) return 0;
     auto ns = (Time::now() - impl_->ctx.started_at()).count();

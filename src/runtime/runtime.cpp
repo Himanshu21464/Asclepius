@@ -320,6 +320,41 @@ Runtime::Health Runtime::health() const {
     return h;
 }
 
+Result<void> Runtime::audit_spot_check(std::size_t lookback) const {
+    if (lookback == 0) {
+        return Error::invalid("audit_spot_check: lookback must be > 0");
+    }
+    const auto len = impl_->ledger.length();
+    if (len == 0) {
+        // Nothing to check — empty chain is trivially valid.
+        return Result<void>::ok();
+    }
+    // Clamp lookback so we never request more entries than exist.
+    const std::uint64_t lb = std::min<std::uint64_t>(
+        static_cast<std::uint64_t>(lookback), len);
+    const std::uint64_t start = len - lb + 1;
+    const std::uint64_t end   = len + 1;
+    return impl_->ledger.verify_range(start, end);
+}
+
+Runtime::SystemSummary Runtime::system_summary() const {
+    SystemSummary s;
+    auto h = health();
+    s.ledger_length   = h.ledger_length;
+    s.head_hash_hex   = h.ledger_head_hex;
+    s.policy_count    = h.policy_count;
+    s.active_consent  = h.active_consent_tokens;
+    s.drift_features  = h.drift_features;
+    s.total_counters  = impl_->metrics.counter_count();
+    s.version         = version();
+    return s;
+}
+
+Result<std::size_t> Runtime::dispatched_inferences() const {
+    return static_cast<std::size_t>(
+        impl_->metrics.count("inference.attempts"));
+}
+
 Result<void> Runtime::self_test() const {
     if (auto v = impl_->ledger.verify(); !v) {
         return Error::integrity(std::string{"ledger.verify failed: "} +

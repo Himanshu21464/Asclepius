@@ -891,6 +891,229 @@ TEST_CASE("MetricRegistry::reset_histograms leaves the registry usable for new h
     CHECK(out.find("asclepius_h_new_count 1") != std::string::npos);
 }
 
+// ============== Histogram::percentile ===================================
+
+TEST_CASE("Histogram::percentile mirrors quantile with p/100 conversion") {
+    Histogram h{0.0, 1.0, 10};
+    for (int i = 0; i < 100; ++i) h.observe(static_cast<double>(i) / 100.0);
+    // p=50 == median; p=0 -> lo; p=100 -> hi.
+    CHECK(h.percentile(50.0) == doctest::Approx(h.quantile(0.5)));
+    CHECK(h.percentile(0.0)  == doctest::Approx(0.0));
+    CHECK(h.percentile(100.0) == doctest::Approx(1.0));
+    CHECK(h.percentile(50.0) == doctest::Approx(0.5).epsilon(0.05));
+}
+
+TEST_CASE("Histogram::percentile clamps out-of-range and handles empty") {
+    // Empty histogram returns 0.0 for any p.
+    Histogram empty{0.0, 1.0, 10};
+    CHECK(empty.percentile(50.0) == doctest::Approx(0.0));
+    CHECK(empty.percentile(99.9) == doctest::Approx(0.0));
+
+    Histogram h{0.0, 1.0, 10};
+    for (int i = 0; i < 50; ++i) h.observe(0.45);
+    // Values outside [0, 100] clamp.
+    CHECK(h.percentile(-10.0)  == doctest::Approx(h.quantile(0.0)));
+    CHECK(h.percentile(150.0)  == doctest::Approx(h.quantile(1.0)));
+    // p=100 maps to hi.
+    CHECK(h.percentile(100.0)  == doctest::Approx(1.0));
+}
+
+TEST_CASE("Histogram::percentile p95 lands in upper tail (integration)") {
+    Histogram h{0.0, 10.0, 10};
+    // Latency-shaped: 90 fast, 10 slow.
+    for (int i = 0; i < 90; ++i) h.observe(0.5);  // bin 0
+    for (int i = 0; i < 10; ++i) h.observe(9.5);  // bin 9
+    auto p50 = h.percentile(50.0);
+    auto p95 = h.percentile(95.0);
+    auto p99 = h.percentile(99.0);
+    // p50 must lie below p95 below p99.
+    CHECK(p50 <= p95);
+    CHECK(p95 <= p99);
+    // The slow tail kicks in at the 90th percentile, so p95 must be in
+    // the upper bin.
+    CHECK(p95 >= 9.0);
+    CHECK(p99 <= 10.0);
+}
+
+// ============== Histogram::cdf ==========================================
+
+TEST_CASE("Histogram::cdf returns all-zeros for empty histograms") {
+    Histogram h{0.0, 1.0, 10};
+    auto c = h.cdf();
+    REQUIRE(c.size() == h.bin_count());
+    for (double v : c) CHECK(v == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::cdf is monotonic and ends at 1.0 when populated") {
+    Histogram h{0.0, 10.0, 10};
+    for (int b = 0; b < 10; ++b) {
+        for (int i = 0; i < 10; ++i) h.observe(static_cast<double>(b) + 0.5);
+    }
+    auto c = h.cdf();
+    REQUIRE(c.size() == 10);
+    // Even fill -> 0.1, 0.2, ... 1.0.
+    for (std::size_t i = 0; i < c.size(); ++i) {
+        CHECK(c[i] == doctest::Approx(static_cast<double>(i + 1) / 10.0).epsilon(1e-9));
+    }
+    // Strictly non-decreasing and ends at 1.0.
+    for (std::size_t i = 1; i < c.size(); ++i) {
+        CHECK(c[i] >= c[i - 1]);
+    }
+    CHECK(c.back() == doctest::Approx(1.0).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::cdf integrates with skewed distributions") {
+    Histogram h{0.0, 1.0, 10};
+    // 90% in bin 0, 10% in bin 9 (the heavy-low / light-high case).
+    for (int i = 0; i < 90; ++i) h.observe(0.05);
+    for (int i = 0; i < 10; ++i) h.observe(0.95);
+
+    auto c = h.cdf();
+    REQUIRE(c.size() == 10);
+    // Bin 0 already accounts for 0.9.
+    CHECK(c[0] == doctest::Approx(0.9).epsilon(1e-9));
+    // Empty interior bins keep cdf flat.
+    for (std::size_t i = 1; i < 9; ++i) {
+        CHECK(c[i] == doctest::Approx(0.9).epsilon(1e-9));
+    }
+    // Last bin closes the distribution.
+    CHECK(c[9] == doctest::Approx(1.0).epsilon(1e-9));
+}
+
+// ============== DriftMonitor::summary ===================================
+
+TEST_CASE("DriftMonitor::summary on empty monitor returns zeros and severity::none") {
+    DriftMonitor dm;
+    auto s = dm.summary();
+    CHECK(s.feature_count == 0);
+    CHECK(s.total_observations == 0);
+    CHECK(s.max_severity == DriftSeverity::none);
+}
+
+TEST_CASE("DriftMonitor::summary aggregates observation counts across features") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", {0.1}, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("b", {0.1}, 0.0, 1.0, 10));
+    for (int i = 0; i < 10; ++i) REQUIRE(dm.observe("a", 0.5));
+    for (int i = 0; i < 7;  ++i) REQUIRE(dm.observe("b", 0.5));
+
+    auto s = dm.summary();
+    CHECK(s.feature_count == 2);
+    CHECK(s.total_observations == 17);
+    // Without strong drift these distributions still register some PSI;
+    // we only assert that the severity field is well-formed (not nan-cast).
+    CHECK(static_cast<int>(s.max_severity) >= static_cast<int>(DriftSeverity::none));
+    CHECK(static_cast<int>(s.max_severity) <= static_cast<int>(DriftSeverity::severe));
+}
+
+TEST_CASE("DriftMonitor::summary picks worst severity across features") {
+    DriftMonitor dm;
+    // Two features: one stable, one wildly drifted.
+    std::vector<double> baseline_stable(200, 0.5);
+    std::vector<double> baseline_drift (200, 0.5);
+    REQUIRE(dm.register_feature("stable", baseline_stable, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("drift",  baseline_drift,  0.0, 1.0, 10));
+
+    // Stable: continue feeding around 0.5.
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("stable", 0.5));
+    // Drift: feed 0.95, very different from baseline at 0.5.
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("drift", 0.95));
+
+    auto s = dm.summary();
+    CHECK(s.feature_count == 2);
+    CHECK(s.total_observations == 400);
+    // max_severity must be at least moder for the drifted feature.
+    CHECK(static_cast<int>(s.max_severity) >= static_cast<int>(DriftSeverity::moder));
+}
+
+// ============== MetricRegistry::all_counter_names =======================
+
+TEST_CASE("MetricRegistry::all_counter_names returns sorted list") {
+    MetricRegistry m;
+    m.inc("zeta");
+    m.inc("alpha");
+    m.inc("mu");
+    m.inc("beta");
+    auto names = m.all_counter_names();
+    REQUIRE(names.size() == 4);
+    CHECK(names[0] == "alpha");
+    CHECK(names[1] == "beta");
+    CHECK(names[2] == "mu");
+    CHECK(names[3] == "zeta");
+}
+
+TEST_CASE("MetricRegistry::all_counter_names on empty registry returns empty vector") {
+    MetricRegistry m;
+    CHECK(m.all_counter_names().empty());
+
+    // Histograms must not show up here — only counters.
+    m.observe("latency", 0.1);
+    CHECK(m.all_counter_names().empty());
+}
+
+TEST_CASE("MetricRegistry::all_counter_names is stable across re-increments") {
+    MetricRegistry m;
+    m.inc("c", 1);
+    m.inc("a", 1);
+    m.inc("b", 1);
+    auto first = m.all_counter_names();
+
+    // Re-incrementing existing counters must not change the name set or
+    // its order.
+    m.inc("a", 9);
+    m.inc("b", 9);
+    m.inc("c", 9);
+    auto second = m.all_counter_names();
+    REQUIRE(second.size() == first.size());
+    for (std::size_t i = 0; i < first.size(); ++i) {
+        CHECK(first[i] == second[i]);
+    }
+    // And the same set as list_counters() (just sorted).
+    auto unsorted = m.list_counters();
+    std::set<std::string> a(unsorted.begin(), unsorted.end());
+    std::set<std::string> b(second.begin(), second.end());
+    CHECK(a == b);
+}
+
+// ============== MetricRegistry::add =====================================
+
+TEST_CASE("MetricRegistry::add behaves identically to inc()") {
+    MetricRegistry m;
+    m.add("widgets", 5);
+    m.add("widgets", 3);
+    CHECK(m.count("widgets") == 8);
+
+    // Mixing add() and inc() on the same counter accumulates.
+    m.inc("widgets", 2);
+    m.add("widgets", 1);
+    CHECK(m.count("widgets") == 11);
+}
+
+TEST_CASE("MetricRegistry::add registers a new counter with delta") {
+    MetricRegistry m;
+    REQUIRE(m.counter_count() == 0);
+    m.add("new_counter", 42);
+    CHECK(m.counter_count() == 1);
+    CHECK(m.count("new_counter") == 42);
+    // And it shows up in the sorted list.
+    auto names = m.all_counter_names();
+    REQUIRE(names.size() == 1);
+    CHECK(names[0] == "new_counter");
+}
+
+TEST_CASE("MetricRegistry::add integrates with prometheus exposition") {
+    MetricRegistry m;
+    m.add("inferences_total", 100);
+    m.add("inferences_total", 50);
+    m.inc("policy_violations_total", 2);
+
+    auto out = m.snapshot_prometheus();
+    CHECK(out.find("asclepius_inferences_total 150")        != std::string::npos);
+    CHECK(out.find("asclepius_policy_violations_total 2")   != std::string::npos);
+    // Type line emitted normally.
+    CHECK(out.find("# TYPE asclepius_inferences_total counter") != std::string::npos);
+}
+
 TEST_CASE("DriftMonitor::observation_count resets after reset() and rotate()") {
     DriftMonitor dm;
     REQUIRE(dm.register_feature("a", {0.1}, 0.0, 1.0, 10));

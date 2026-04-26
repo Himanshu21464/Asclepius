@@ -88,6 +88,27 @@ double Histogram::quantile(double q) const {
     return hi_;
 }
 
+double Histogram::percentile(double p) const {
+    // p in [0, 100]; quantile() expects [0, 1] and clamps internally,
+    // but we clamp here too so the conversion is well-defined for any
+    // input (e.g. negative or > 100).
+    const double pc = std::clamp(p, 0.0, 100.0);
+    return quantile(pc / 100.0);
+}
+
+std::vector<double> Histogram::cdf() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<double> out(counts_.size(), 0.0);
+    if (total_ == 0) return out;
+    const double t = static_cast<double>(total_);
+    std::uint64_t cum = 0;
+    for (std::size_t i = 0; i < counts_.size(); ++i) {
+        cum += counts_[i];
+        out[i] = static_cast<double>(cum) / t;
+    }
+    return out;
+}
+
 double Histogram::mean() const {
     std::lock_guard<std::mutex> lk(mu_);
     if (total_ == 0) return 0.0;
@@ -374,6 +395,23 @@ Result<std::uint64_t> DriftMonitor::observation_count(std::string_view feature) 
         return Error::not_found(fmt::format("unregistered feature: {}", feature));
     }
     return it->second->current->total();
+}
+
+DriftMonitor::Summary DriftMonitor::summary() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    Summary s;
+    s.feature_count       = features_.size();
+    s.total_observations  = 0;
+    s.max_severity        = DriftSeverity::none;
+    for (const auto& [_, fs] : features_) {
+        s.total_observations += fs->current->total();
+        const double psi = Histogram::psi(*fs->reference, *fs->current);
+        const auto   sev = classify(psi);
+        if (static_cast<int>(sev) > static_cast<int>(s.max_severity)) {
+            s.max_severity = sev;
+        }
+    }
+    return s;
 }
 
 Result<std::uint64_t> DriftMonitor::baseline_count(std::string_view feature) const {
