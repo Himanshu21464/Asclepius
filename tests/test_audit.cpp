@@ -164,6 +164,85 @@ TEST_CASE("range_by_time covers entries within a window") {
     CHECK(future.value().empty());
 }
 
+TEST_CASE("Ledger subscription fires on append") {
+    auto p   = tmp_db("subs");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto& l  = led.value();
+
+    std::vector<std::uint64_t> seen;
+    {
+        auto sub = l.subscribe([&](const LedgerEntry& e) {
+            seen.push_back(e.header.seq);
+        });
+        nlohmann::json b;
+        REQUIRE(l.append("t.a", "sys", b));
+        REQUIRE(l.append("t.b", "sys", b));
+        REQUIRE(l.append("t.c", "sys", b));
+    }  // sub destructor unsubscribes
+
+    REQUIRE(seen.size() == 3);
+    CHECK(seen[0] == 1);
+    CHECK(seen[1] == 2);
+    CHECK(seen[2] == 3);
+
+    // After unsubscribe, no further callbacks.
+    nlohmann::json b;
+    REQUIRE(l.append("t.d", "sys", b));
+    CHECK(seen.size() == 3);  // unchanged
+}
+
+TEST_CASE("Multiple subscribers fire in registration order") {
+    auto p   = tmp_db("subs_multi");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto& l  = led.value();
+
+    std::vector<int> order;
+    auto s1 = l.subscribe([&](const LedgerEntry&) { order.push_back(1); });
+    auto s2 = l.subscribe([&](const LedgerEntry&) { order.push_back(2); });
+    auto s3 = l.subscribe([&](const LedgerEntry&) { order.push_back(3); });
+
+    nlohmann::json b;
+    REQUIRE(l.append("t.x", "sys", b));
+    CHECK(order == std::vector<int>{1, 2, 3});
+}
+
+TEST_CASE("Subscriber exception does not break the chain") {
+    auto p   = tmp_db("subs_throw");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto& l  = led.value();
+
+    bool called_after_thrower = false;
+    auto s1 = l.subscribe([&](const LedgerEntry&) { throw std::runtime_error("boom"); });
+    auto s2 = l.subscribe([&](const LedgerEntry&) { called_after_thrower = true; });
+
+    nlohmann::json b;
+    auto r = l.append("t.x", "sys", b);
+    REQUIRE(r);                           // append succeeded despite throwing sub
+    CHECK(called_after_thrower);          // later subs still run
+    CHECK(l.length() == 1);
+    REQUIRE(l.verify());                  // chain still intact
+}
+
+TEST_CASE("Subscription handle moves correctly") {
+    auto p   = tmp_db("subs_move");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto& l  = led.value();
+
+    int hits = 0;
+    Ledger::Subscription holder;
+    {
+        auto local = l.subscribe([&](const LedgerEntry&) { ++hits; });
+        holder = std::move(local);  // move out — local should not unsubscribe
+    }
+    nlohmann::json b;
+    REQUIRE(l.append("t.x", "sys", b));
+    CHECK(hits == 1);  // holder still subscribed
+}
+
 TEST_CASE("Tenant-scoped reads isolate per-tenant data") {
     auto p   = tmp_db("tenant_iso");
     auto led = Ledger::open(p);

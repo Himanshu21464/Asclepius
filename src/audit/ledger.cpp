@@ -20,6 +20,7 @@
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <fstream>
@@ -119,6 +120,12 @@ struct Ledger::Impl {
     std::mutex                                      mu;
     std::atomic<std::uint64_t>                      length{0};
     Hash                                            head{};
+
+    // Subscriptions. Held under sub_mu (separate from append mu so a
+    // misbehaving subscriber can't deadlock the append path).
+    std::mutex                                      sub_mu;
+    std::uint64_t                                   next_sub_id = 1;
+    std::vector<std::pair<std::uint64_t, Ledger::Subscriber>> subs;
 
     Impl(std::unique_ptr<detail::LedgerStorage> s, KeyStore k)
         : storage(std::move(s)), signer(std::move(k)) {}
@@ -240,6 +247,19 @@ Result<LedgerEntry> Ledger::append(std::string event_type,
 
     impl_->head = entry_h;
     impl_->length.fetch_add(1);
+
+    // Snapshot the subscriber list under sub_mu, then call without
+    // holding append mu so subscribers can do anything except call
+    // back into append on this thread.
+    std::vector<Subscriber> snap;
+    {
+        std::lock_guard<std::mutex> lk2(impl_->sub_mu);
+        snap.reserve(impl_->subs.size());
+        for (const auto& [_, cb] : impl_->subs) snap.push_back(cb);
+    }
+    for (const auto& cb : snap) {
+        try { cb(e); } catch (...) { /* subscriber failures must not break the chain */ }
+    }
     return e;
 }
 
@@ -324,6 +344,43 @@ std::string   Ledger::key_id()     const { return impl_->key_id; }
 
 std::array<std::uint8_t, KeyStore::sig_bytes> Ledger::sign_attestation(Bytes message) const {
     return impl_->signer.sign(message);
+}
+
+// ---- Subscription -------------------------------------------------------
+
+Ledger::Subscription::Subscription(Subscription&& other) noexcept
+    : ledger_(other.ledger_), id_(other.id_) {
+    other.ledger_ = nullptr;
+    other.id_     = 0;
+}
+
+Ledger::Subscription& Ledger::Subscription::operator=(Subscription&& other) noexcept {
+    if (this != &other) {
+        if (ledger_ && id_) ledger_->unsubscribe(id_);
+        ledger_       = other.ledger_;
+        id_           = other.id_;
+        other.ledger_ = nullptr;
+        other.id_     = 0;
+    }
+    return *this;
+}
+
+Ledger::Subscription::~Subscription() {
+    if (ledger_ && id_) ledger_->unsubscribe(id_);
+}
+
+Ledger::Subscription Ledger::subscribe(Subscriber cb) {
+    std::lock_guard<std::mutex> lk(impl_->sub_mu);
+    auto id = impl_->next_sub_id++;
+    impl_->subs.emplace_back(id, std::move(cb));
+    return Subscription{this, id};
+}
+
+void Ledger::unsubscribe(std::uint64_t id) {
+    std::lock_guard<std::mutex> lk(impl_->sub_mu);
+    auto it = std::remove_if(impl_->subs.begin(), impl_->subs.end(),
+                             [id](const auto& p) { return p.first == id; });
+    impl_->subs.erase(it, impl_->subs.end());
 }
 
 }  // namespace asclepius

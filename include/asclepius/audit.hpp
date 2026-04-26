@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -155,6 +156,38 @@ public:
     // prev_hash, and the canonical entry encoding, none of which this method
     // generates.
     std::array<std::uint8_t, KeyStore::sig_bytes> sign_attestation(Bytes message) const;
+
+    // ---- Subscription ---------------------------------------------------
+    //
+    // Register a callback that fires after each successful append, on the
+    // appender's thread. Returned handle owns the registration; destroying
+    // it unsubscribes. Multiple subscribers are supported and called in
+    // registration order.
+    //
+    // Callbacks must not call back into Ledger::append from the same
+    // thread (would re-enter the append mutex and deadlock). They MAY
+    // hand the entry to a queue / thread-pool / external system.
+
+    using Subscriber = std::function<void(const LedgerEntry&)>;
+
+    class Subscription {
+    public:
+        Subscription() = default;
+        Subscription(const Subscription&) = delete;
+        Subscription& operator=(const Subscription&) = delete;
+        Subscription(Subscription&&) noexcept;
+        Subscription& operator=(Subscription&&) noexcept;
+        ~Subscription();
+
+    private:
+        friend class Ledger;
+        Subscription(Ledger* ledger, std::uint64_t id) : ledger_(ledger), id_(id) {}
+        Ledger*       ledger_ = nullptr;
+        std::uint64_t id_     = 0;
+    };
+
+    Subscription subscribe(Subscriber cb);
+    void         unsubscribe(std::uint64_t id);
 
 private:
     Ledger() = default;
