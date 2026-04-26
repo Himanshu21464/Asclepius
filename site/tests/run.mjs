@@ -812,6 +812,42 @@ ok('manifest icons include 192x192 and 512x512 PNG', () => {
     return sizes.has('192x192') && sizes.has('512x512');
 });
 
+// ─── JS module consistency — every page loads the standard set ─────────
+// The site has a "standard" JS module set every page should load: themes,
+// main, help, palette, floating, attest-site, extras, source. Pages that
+// miss one render fine but lose a feature (e.g. missing source.js means
+// no "edit on GitHub →" footer link). The audit caught nine such pages
+// during round 29.
+
+console.log('JS module consistency:');
+const STANDARD_JS = new Set([
+    'js/themes.js', 'js/main.js', 'js/help.js', 'js/palette.js',
+    'js/floating.js', 'js/attest-site.js', 'js/extras.js', 'js/source.js',
+]);
+const JS_EXEMPT_PAGES = new Set([
+    '404.html',  // shell only — no chrome JS needed
+]);
+const jsGaps = [];
+for (const f of htmlPages) {
+    if (JS_EXEMPT_PAGES.has(f)) continue;
+    // rawByPage is script-stripped; read the unmodified file for <script src> tags.
+    const raw = readFileSync(path.join(SITE_ROOT, f), 'utf-8');
+    const loaded = new Set(
+        [...raw.matchAll(/<script[^>]*src="(js\/[^"]+)"/g)].map((m) => m[1]),
+    );
+    for (const expected of STANDARD_JS) {
+        if (!loaded.has(expected)) {
+            jsGaps.push(`${f}: missing ${expected}`);
+        }
+    }
+}
+ok(`every page loads the standard JS module set`, () => {
+    if (jsGaps.length) {
+        console.error('   gaps:\n' + jsGaps.slice(0, 10).map((l) => '     ' + l).join('\n'));
+    }
+    return jsGaps.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
