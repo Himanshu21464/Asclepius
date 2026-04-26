@@ -150,6 +150,24 @@ MetricRegistry::counter_snapshot() const {
     return counters_;
 }
 
+Result<std::uint64_t> MetricRegistry::histogram_count(std::string_view name) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = histograms_.find(std::string{name});
+    if (it == histograms_.end()) {
+        return Error::not_found("unknown histogram");
+    }
+    return it->second.count;
+}
+
+Result<double> MetricRegistry::histogram_sum(std::string_view name) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = histograms_.find(std::string{name});
+    if (it == histograms_.end()) {
+        return Error::not_found("unknown histogram");
+    }
+    return it->second.sum;
+}
+
 std::vector<std::string> MetricRegistry::list_counters() const {
     std::lock_guard<std::mutex> lk(mu_);
     std::vector<std::string> out;

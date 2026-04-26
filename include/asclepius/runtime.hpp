@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <nlohmann/json_fwd.hpp>
 
@@ -181,6 +182,14 @@ public:
     // record an aborted-inference event.
     bool is_committed() const noexcept;
 
+    // True iff run() / run_with_timeout() / run_cancellable() has been
+    // called on this handle (regardless of outcome). Distinct from
+    // is_committed(): a handle can have run==true and committed==false
+    // (e.g. caller forgot to commit, or chose to abort). Useful for
+    // sidecars that want to log "run-but-not-committed" anomalies
+    // without inspecting status() string contents.
+    bool has_run() const noexcept;
+
     // Current ledger-body status string ("ok", "blocked.input",
     // "blocked.output", "model_error", "timeout", "cancelled",
     // "aborted") or an empty string if no run has been attempted yet.
@@ -263,6 +272,30 @@ public:
     };
 
     Health health() const;
+
+    // Size in bytes of the ledger backing storage. For SQLite-backed
+    // runtimes this is the on-disk size of the .db file at the time
+    // of the call (subject to WAL checkpoint timing). For Postgres
+    // backends this returns ErrorCode::unimplemented — the database
+    // is remote and its byte-footprint is not directly observable
+    // through this API. Used by capacity-planning probes and quota
+    // dashboards.
+    Result<std::int64_t> ledger_size_bytes() const;
+
+    // Snapshot of the names of all currently-registered drift
+    // features. Convenience wrapper around drift().list_features()
+    // for callers that want a stable accessor without grabbing the
+    // DriftMonitor& reference (e.g. /healthz extras, sidecar
+    // dashboards). The returned vector is a copy; mutating it has
+    // no effect on the runtime.
+    std::vector<std::string> list_loaded_features() const;
+
+    // Reset every counter currently registered in the metric
+    // registry to zero. Histograms are NOT reset. Useful for
+    // per-deploy resets so a fresh deployment doesn't inherit the
+    // previous build's traffic. Returns ok if every counter could
+    // be reset; the first failure short-circuits and is returned.
+    Result<void> reset_metrics();
 
     // Run a battery of internal invariants. Used at boot and by /healthz
     // deep-check endpoints to catch corruption early. Currently checks:

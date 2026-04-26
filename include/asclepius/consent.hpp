@@ -111,6 +111,24 @@ public:
     // the ledger). Returns conflict if a token with the same id exists.
     Result<void> ingest(ConsentToken token);
 
+    // Cheap existence check: does a token with this id exist (regardless
+    // of revoked / expired state)? Useful for idempotent ledger replay
+    // and for callers that want to avoid a copy-out via get(). noexcept.
+    bool token_exists(std::string_view token_id) const noexcept;
+
+    // Count of tokens that are not revoked but whose expires_at has passed.
+    // O(n) over the registry. Distinct from active_count() which excludes
+    // both revoked and expired; this counts the "expired but not yet
+    // swept" pool that cleanup_expired() would drain.
+    std::size_t expired_count() const;
+
+    // Sweep: for each token that is not revoked but whose expires_at has
+    // passed, mark it revoked. Returns the number swept. Fires the
+    // observer once per token swept (Event::revoked) so the runtime's
+    // ledger mirror records each cleanup. Same observer-after-lock-release
+    // pattern as expire_all_for_patient.
+    std::size_t cleanup_expired();
+
 private:
     mutable std::mutex                                mu_;
     std::unordered_map<std::string, ConsentToken>    by_id_;

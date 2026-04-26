@@ -57,6 +57,37 @@ std::vector<double> Histogram::normalized() const {
     return out;
 }
 
+double Histogram::quantile(double q) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0) return 0.0;
+    const double qc = std::clamp(q, 0.0, 1.0);
+    if (qc <= 0.0) return lo_;
+    if (qc >= 1.0) return hi_;
+
+    const auto   n        = counts_.size();
+    const double bin_w    = (hi_ - lo_) / static_cast<double>(n);
+    const double target   = qc * static_cast<double>(total_);
+
+    std::uint64_t cum = 0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const std::uint64_t prev = cum;
+        cum += counts_[i];
+        if (static_cast<double>(cum) >= target) {
+            // Linearly interpolate within bin i: fraction of the bin's mass
+            // we need to traverse beyond `prev` to reach `target`.
+            const double bin_mass = static_cast<double>(counts_[i]);
+            double frac = 0.0;
+            if (bin_mass > 0.0) {
+                frac = (target - static_cast<double>(prev)) / bin_mass;
+                frac = std::clamp(frac, 0.0, 1.0);
+            }
+            return lo_ + bin_w * (static_cast<double>(i) + frac);
+        }
+    }
+    // Floating-point edge: target rounds just past the last cum.
+    return hi_;
+}
+
 double Histogram::psi(const Histogram& reference, const Histogram& current) {
     auto p = reference.normalized();
     auto q = current.normalized();
@@ -238,6 +269,15 @@ std::vector<std::string> DriftMonitor::list_features() const {
 std::size_t DriftMonitor::feature_count() const {
     std::lock_guard<std::mutex> lk(mu_);
     return features_.size();
+}
+
+Result<std::uint64_t> DriftMonitor::observation_count(std::string_view feature) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = features_.find(std::string{feature});
+    if (it == features_.end()) {
+        return Error::not_found(fmt::format("unregistered feature: {}", feature));
+    }
+    return it->second->current->total();
 }
 
 }  // namespace asclepius

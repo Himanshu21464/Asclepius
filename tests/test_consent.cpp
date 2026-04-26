@@ -428,3 +428,190 @@ TEST_CASE("expire_all_for_patient fires the observer once per token") {
     CHECK(n == 2);
     CHECK(revokes == 2);
 }
+
+// ============== token_exists ============================================
+
+TEST_CASE("token_exists returns true for a granted token id") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_te");
+    auto t = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t);
+    CHECK(r.token_exists(t.value().token_id));
+}
+
+TEST_CASE("token_exists returns false on an empty registry / unknown id") {
+    ConsentRegistry r;
+    CHECK(!r.token_exists("ct_does_not_exist"));
+    CHECK(!r.token_exists(""));
+}
+
+TEST_CASE("token_exists stays true after revoke (id still on file)") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_te2");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));
+    CHECK(r.token_exists(t.token_id));
+}
+
+TEST_CASE("token_exists sees ingested tokens (replay path)") {
+    ConsentRegistry r;
+    ConsentToken t;
+    t.token_id   = "ct_replayed";
+    t.patient    = PatientId::pseudonymous("p");
+    t.purposes   = {Purpose::operations};
+    t.issued_at  = Time::now();
+    t.expires_at = t.issued_at + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(t));
+    CHECK(r.token_exists("ct_replayed"));
+    CHECK(!r.token_exists("ct_other"));
+}
+
+// ============== expired_count ===========================================
+
+TEST_CASE("expired_count is zero on empty registry") {
+    ConsentRegistry r;
+    CHECK(r.expired_count() == 0);
+}
+
+TEST_CASE("expired_count counts non-revoked tokens whose expiry passed") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_exp");
+    // Two expired tokens via ingest with a past expires_at.
+    ConsentToken e1;
+    e1.token_id   = "ct_exp_1";
+    e1.patient    = pid;
+    e1.purposes   = {Purpose::triage};
+    e1.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    e1.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(e1));
+
+    ConsentToken e2 = e1;
+    e2.token_id = "ct_exp_2";
+    REQUIRE(r.ingest(e2));
+
+    // One live grant; should NOT be counted.
+    REQUIRE(r.grant(pid, {Purpose::operations}, 1h));
+
+    CHECK(r.expired_count() == 2);
+}
+
+TEST_CASE("expired_count excludes revoked tokens (even if expiry passed)") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_exp_rev");
+    ConsentToken e;
+    e.token_id   = "ct_exp_rev";
+    e.patient    = pid;
+    e.purposes   = {Purpose::triage};
+    e.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    e.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    e.revoked    = true;  // already revoked → not "expired" per definition
+    REQUIRE(r.ingest(e));
+    CHECK(r.expired_count() == 0);
+}
+
+// ============== cleanup_expired =========================================
+
+TEST_CASE("cleanup_expired sweeps non-revoked expired tokens to revoked") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_clean");
+    ConsentToken e1;
+    e1.token_id   = "ct_clean_1";
+    e1.patient    = pid;
+    e1.purposes   = {Purpose::triage};
+    e1.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    e1.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(e1));
+
+    ConsentToken e2 = e1;
+    e2.token_id = "ct_clean_2";
+    REQUIRE(r.ingest(e2));
+
+    // One live grant; should be untouched.
+    auto live = r.grant(pid, {Purpose::operations}, 1h);
+    REQUIRE(live);
+
+    auto n = r.cleanup_expired();
+    CHECK(n == 2);
+    CHECK(r.expired_count() == 0);
+
+    // Swept tokens are now revoked but still on file.
+    auto g1 = r.get("ct_clean_1");
+    REQUIRE(g1);
+    CHECK(g1.value().revoked == true);
+    auto g2 = r.get("ct_clean_2");
+    REQUIRE(g2);
+    CHECK(g2.value().revoked == true);
+
+    // Live token unaffected.
+    auto gl = r.get(live.value().token_id);
+    REQUIRE(gl);
+    CHECK(gl.value().revoked == false);
+}
+
+TEST_CASE("cleanup_expired is a no-op on empty / all-active / all-revoked registry") {
+    // Empty.
+    {
+        ConsentRegistry r;
+        CHECK(r.cleanup_expired() == 0);
+    }
+    // All-active.
+    {
+        ConsentRegistry r;
+        REQUIRE(r.grant(PatientId::pseudonymous("a"), {Purpose::triage}, 1h));
+        REQUIRE(r.grant(PatientId::pseudonymous("b"), {Purpose::operations}, 1h));
+        CHECK(r.cleanup_expired() == 0);
+    }
+    // All-revoked (and one of them expired, but already revoked → skip).
+    {
+        ConsentRegistry r;
+        auto t = r.grant(PatientId::pseudonymous("c"), {Purpose::triage}, 1h).value();
+        REQUIRE(r.revoke(t.token_id));
+
+        ConsentToken e;
+        e.token_id   = "ct_revoked_expired";
+        e.patient    = PatientId::pseudonymous("d");
+        e.purposes   = {Purpose::triage};
+        e.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+        e.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+        e.revoked    = true;
+        REQUIRE(r.ingest(e));
+
+        CHECK(r.cleanup_expired() == 0);
+    }
+}
+
+TEST_CASE("cleanup_expired fires the observer once per token swept") {
+    ConsentRegistry r;
+    int revokes = 0;
+    std::vector<std::string> seen_ids;
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken& t) {
+        if (e == ConsentRegistry::Event::revoked) {
+            revokes++;
+            seen_ids.push_back(t.token_id);
+        }
+    });
+
+    auto pid = PatientId::pseudonymous("p_clean_obs");
+    ConsentToken e1;
+    e1.token_id   = "ct_obs_1";
+    e1.patient    = pid;
+    e1.purposes   = {Purpose::triage};
+    e1.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    e1.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(e1));
+
+    ConsentToken e2 = e1;
+    e2.token_id = "ct_obs_2";
+    REQUIRE(r.ingest(e2));
+
+    auto n = r.cleanup_expired();
+    CHECK(n == 2);
+    CHECK(revokes == 2);
+    CHECK(seen_ids.size() == 2);
+    // Observer sees the post-state: revoked=true.
+    for (const auto& id : seen_ids) {
+        auto g = r.get(id);
+        REQUIRE(g);
+        CHECK(g.value().revoked == true);
+    }
+}

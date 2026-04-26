@@ -33,6 +33,14 @@ public:
     double             lo() const noexcept;
     double             hi() const noexcept;
 
+    // Returns the value at quantile q in [0, 1] from the empirical
+    // distribution. q is clamped to [0, 1]. q=0 returns lo, q=1 returns hi,
+    // q=0.5 the median. Within the matching bin we linearly interpolate
+    // between the bin's lower and upper edges using the partial cumulative
+    // mass attributable to that bin. An empty histogram (total()==0)
+    // returns 0.0.
+    double quantile(double q) const;
+
     // Population Stability Index: sum_i (p_i - q_i) * ln(p_i / q_i).
     // Conventionally interpreted as <0.10 stable, 0.10–0.25 minor drift,
     // >0.25 significant drift.
@@ -124,6 +132,11 @@ public:
     // Number of registered features. O(1).
     std::size_t feature_count() const;
 
+    // Returns the current-window observation count for a feature. Returns
+    // not_found if the feature was never registered. Useful for sidecars
+    // that want to gate report() on a minimum sample size.
+    Result<std::uint64_t> observation_count(std::string_view feature) const;
+
     // Reset just the current-window histogram for one feature, leaving
     // the reference (baseline) intact. Per-feature variant of rotate(),
     // which clears all features. Returns not_found if the feature was
@@ -155,6 +168,15 @@ public:
     void  observe(std::string_view name, double value);
 
     std::uint64_t count(std::string_view name) const;
+
+    // Read the count of a registered histogram by name. Returns not_found
+    // if no histogram of that name has been observe()'d. Distinct from
+    // count(), which returns 0 for unknown names and also matches counters.
+    Result<std::uint64_t> histogram_count(std::string_view name) const;
+
+    // Read the running sum of a registered histogram by name. Returns
+    // not_found if no histogram of that name has been observe()'d.
+    Result<double> histogram_sum(std::string_view name) const;
 
     // JSON-shaped snapshot.
     std::string snapshot_json() const;

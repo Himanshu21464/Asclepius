@@ -7,8 +7,12 @@
 
 #include <atomic>
 #include <chrono>
+#include <filesystem>
+#include <limits>
 #include <random>
+#include <system_error>
 #include <unordered_set>
+#include <vector>
 
 namespace asclepius {
 
@@ -49,6 +53,13 @@ struct Runtime::Impl {
     ConsentRegistry     consent;
     EvaluationHarness   evaluation;
     MetricRegistry      metrics;
+
+    // Path to the backing SQLite file, when this Runtime was opened
+    // with a filesystem path. Empty for Postgres-backed runtimes (or
+    // any URI that doesn't resolve to a local file). Captured at
+    // open() so ledger_size_bytes() can stat() without re-parsing
+    // the URI on every call.
+    std::filesystem::path backing_path;
 
     Impl(Ledger l) : ledger(std::move(l)), evaluation(ledger, drift) {}
 
@@ -179,21 +190,42 @@ Runtime::Runtime(Runtime&&) noexcept = default;
 Runtime& Runtime::operator=(Runtime&&) noexcept = default;
 Runtime::~Runtime() = default;
 
+namespace {
+
+// Translate an open URI into a backing SQLite path, or empty if the
+// URI is non-local (e.g. postgres://). This is best-effort: callers
+// of ledger_size_bytes() check for empty and report unimplemented.
+std::filesystem::path uri_to_backing_path(const std::string& uri) {
+    constexpr std::string_view kSqlite = "sqlite://";
+    constexpr std::string_view kFile   = "file://";
+    if (uri.rfind(kSqlite, 0) == 0) return std::filesystem::path{uri.substr(kSqlite.size())};
+    if (uri.rfind(kFile,   0) == 0) return std::filesystem::path{uri.substr(kFile.size())};
+    if (uri.rfind("postgres://", 0) == 0) return std::filesystem::path{};
+    if (uri.rfind("postgresql://", 0) == 0) return std::filesystem::path{};
+    // Anything else: treat as a bare filesystem path.
+    return std::filesystem::path{uri};
+}
+
+}  // namespace
+
 Result<Runtime> Runtime::open(std::filesystem::path db_path) {
     auto led = Ledger::open(db_path);
     if (!led) return led.error();
     Runtime rt;
     rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    rt.impl_->backing_path = std::move(db_path);
     rt.impl_->install_drift_to_ledger_bridge();
     if (auto r = rt.impl_->install_consent_lifecycle(); !r) return r.error();
     return rt;
 }
 
 Result<Runtime> Runtime::open(std::filesystem::path db_path, KeyStore key) {
+    auto path_copy = db_path;
     auto led = Ledger::open(std::move(db_path), std::move(key));
     if (!led) return led.error();
     Runtime rt;
     rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    rt.impl_->backing_path = std::move(path_copy);
     rt.impl_->install_drift_to_ledger_bridge();
     if (auto r = rt.impl_->install_consent_lifecycle(); !r) return r.error();
     return rt;
@@ -204,6 +236,7 @@ Result<Runtime> Runtime::open_uri(const std::string& uri) {
     if (!led) return led.error();
     Runtime rt;
     rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    rt.impl_->backing_path = uri_to_backing_path(uri);
     rt.impl_->install_drift_to_ledger_bridge();
     if (auto r = rt.impl_->install_consent_lifecycle(); !r) return r.error();
     return rt;
@@ -214,6 +247,7 @@ Result<Runtime> Runtime::open_uri(const std::string& uri, KeyStore key) {
     if (!led) return led.error();
     Runtime rt;
     rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    rt.impl_->backing_path = uri_to_backing_path(uri);
     rt.impl_->install_drift_to_ledger_bridge();
     if (auto r = rt.impl_->install_consent_lifecycle(); !r) return r.error();
     return rt;
@@ -268,6 +302,40 @@ Result<void> Runtime::self_test() const {
         // sane numbers. If psi is NaN classify() reports severe; that's
         // acceptable, not corrupt. Skip.
         (void)name;
+    }
+    return Result<void>::ok();
+}
+
+Result<std::int64_t> Runtime::ledger_size_bytes() const {
+    if (impl_->backing_path.empty()) {
+        return Error{ErrorCode::unimplemented,
+            "ledger_size_bytes: backing storage is not a local file "
+            "(e.g. postgres URI) — size is not observable through this API"};
+    }
+    std::error_code ec;
+    auto sz = std::filesystem::file_size(impl_->backing_path, ec);
+    if (ec) {
+        return Error::backend(std::string{"file_size failed: "} + ec.message());
+    }
+    // file_size returns uintmax_t; cap to int64 max defensively. A
+    // ledger nearing 2^63 bytes is well past any sane ops scenario,
+    // but the cap avoids silent UB on the reinterpretation.
+    if (sz > static_cast<std::uintmax_t>(std::numeric_limits<std::int64_t>::max())) {
+        return Error::backend("file_size exceeds int64 range");
+    }
+    return static_cast<std::int64_t>(sz);
+}
+
+std::vector<std::string> Runtime::list_loaded_features() const {
+    return impl_->drift.list_features();
+}
+
+Result<void> Runtime::reset_metrics() {
+    auto snap = impl_->metrics.counter_snapshot();
+    for (const auto& [name, _val] : snap) {
+        if (auto r = impl_->metrics.reset(name); !r) {
+            return r.error();
+        }
     }
     return Result<void>::ok();
 }

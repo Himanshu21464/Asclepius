@@ -324,3 +324,164 @@ TEST_CASE("MetricRegistry::counter_snapshot returns full map") {
     CHECK(snap.at("b") == 5);
     CHECK(snap.size() == 2);
 }
+
+// ============== Histogram::quantile =====================================
+
+TEST_CASE("Histogram::quantile returns median for symmetric uniform fill") {
+    Histogram h{0.0, 1.0, 10};
+    // 100 evenly-spaced observations across [0, 1).
+    for (int i = 0; i < 100; ++i) h.observe(static_cast<double>(i) / 100.0);
+    // Median of a uniform distribution on [0, 1] is ~0.5.
+    CHECK(h.quantile(0.5) == doctest::Approx(0.5).epsilon(0.05));
+    // Tails return the configured edges.
+    CHECK(h.quantile(0.0) == doctest::Approx(0.0));
+    CHECK(h.quantile(1.0) == doctest::Approx(1.0));
+}
+
+TEST_CASE("Histogram::quantile clamps out-of-range q and handles empty") {
+    Histogram empty{0.0, 1.0, 10};
+    // total()==0 short-circuits to 0.0.
+    CHECK(empty.quantile(0.5) == doctest::Approx(0.0));
+    CHECK(empty.quantile(0.99) == doctest::Approx(0.0));
+
+    Histogram h{0.0, 1.0, 10};
+    for (int i = 0; i < 50; ++i) h.observe(0.45);
+    // q < 0 clamps to 0 → lo; q > 1 clamps to 1 → hi.
+    CHECK(h.quantile(-0.5) == doctest::Approx(0.0));
+    CHECK(h.quantile(1.5)  == doctest::Approx(1.0));
+}
+
+TEST_CASE("Histogram::quantile interpolates inside the matching bin") {
+    Histogram h{0.0, 10.0, 10};
+    // 100 observations all in bin 4 ([4.0, 5.0)).
+    for (int i = 0; i < 100; ++i) h.observe(4.5);
+    // Every quantile in (0, 1) should land inside [4.0, 5.0].
+    for (double q : {0.1, 0.25, 0.5, 0.75, 0.9}) {
+        auto v = h.quantile(q);
+        CHECK(v >= 4.0);
+        CHECK(v <= 5.0);
+    }
+    // Multi-bin integration: 10/10/10/... per bin → q=0.3 should sit
+    // around bin index 3.
+    Histogram g{0.0, 10.0, 10};
+    for (int b = 0; b < 10; ++b) {
+        for (int i = 0; i < 10; ++i) g.observe(static_cast<double>(b) + 0.5);
+    }
+    auto v3 = g.quantile(0.3);
+    CHECK(v3 >= 2.5);
+    CHECK(v3 <= 3.5);
+}
+
+// ============== MetricRegistry::histogram_count / histogram_sum =========
+
+TEST_CASE("MetricRegistry::histogram_count returns count for known histogram") {
+    MetricRegistry m;
+    m.observe("latency", 0.1);
+    m.observe("latency", 0.2);
+    m.observe("latency", 0.3);
+    auto c = m.histogram_count("latency");
+    REQUIRE(c);
+    CHECK(c.value() == 3);
+}
+
+TEST_CASE("MetricRegistry::histogram_count and histogram_sum: not_found on unknown") {
+    MetricRegistry m;
+    auto c = m.histogram_count("ghost");
+    CHECK(!c);
+    CHECK(c.error().code() == ErrorCode::not_found);
+
+    auto s = m.histogram_sum("ghost");
+    CHECK(!s);
+    CHECK(s.error().code() == ErrorCode::not_found);
+
+    // Counters are not histograms — incrementing a counter must not make
+    // histogram_count() find it.
+    m.inc("counter_only", 5);
+    auto c2 = m.histogram_count("counter_only");
+    CHECK(!c2);
+    CHECK(c2.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("MetricRegistry::histogram_sum tracks running sum across calls") {
+    MetricRegistry m;
+    m.observe("svc.latency", 0.10);
+    m.observe("svc.latency", 0.25);
+    m.observe("svc.latency", 0.65);
+
+    auto s = m.histogram_sum("svc.latency");
+    REQUIRE(s);
+    CHECK(s.value() == doctest::Approx(1.0).epsilon(1e-9));
+
+    auto c = m.histogram_count("svc.latency");
+    REQUIRE(c);
+    CHECK(c.value() == 3);
+
+    // Adding another observation updates both.
+    m.observe("svc.latency", 0.5);
+    auto s2 = m.histogram_sum("svc.latency");
+    auto c2 = m.histogram_count("svc.latency");
+    REQUIRE(s2);
+    REQUIRE(c2);
+    CHECK(s2.value() == doctest::Approx(1.5).epsilon(1e-9));
+    CHECK(c2.value() == 4);
+}
+
+// ============== DriftMonitor::observation_count =========================
+
+TEST_CASE("DriftMonitor::observation_count returns current-window count") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("score", {0.1, 0.2, 0.3}, 0.0, 1.0, 10));
+    auto c0 = dm.observation_count("score");
+    REQUIRE(c0);
+    CHECK(c0.value() == 0);
+
+    for (int i = 0; i < 17; ++i) REQUIRE(dm.observe("score", 0.4));
+    auto c1 = dm.observation_count("score");
+    REQUIRE(c1);
+    CHECK(c1.value() == 17);
+}
+
+TEST_CASE("DriftMonitor::observation_count: not_found on unknown feature") {
+    DriftMonitor dm;
+    auto c = dm.observation_count("ghost");
+    CHECK(!c);
+    CHECK(c.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("DriftMonitor::observation_count resets after reset() and rotate()") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", {0.1}, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("b", {0.1}, 0.0, 1.0, 10));
+    for (int i = 0; i < 25; ++i) {
+        REQUIRE(dm.observe("a", 0.5));
+        REQUIRE(dm.observe("b", 0.5));
+    }
+    {
+        auto ca = dm.observation_count("a");
+        auto cb = dm.observation_count("b");
+        REQUIRE(ca); REQUIRE(cb);
+        CHECK(ca.value() == 25);
+        CHECK(cb.value() == 25);
+    }
+
+    // Per-feature reset clears only "a".
+    REQUIRE(dm.reset("a"));
+    {
+        auto ca = dm.observation_count("a");
+        auto cb = dm.observation_count("b");
+        REQUIRE(ca); REQUIRE(cb);
+        CHECK(ca.value() == 0);
+        CHECK(cb.value() == 25);
+    }
+
+    // rotate() clears all current windows.
+    for (int i = 0; i < 5; ++i) REQUIRE(dm.observe("a", 0.5));
+    dm.rotate();
+    {
+        auto ca = dm.observation_count("a");
+        auto cb = dm.observation_count("b");
+        REQUIRE(ca); REQUIRE(cb);
+        CHECK(ca.value() == 0);
+        CHECK(cb.value() == 0);
+    }
+}

@@ -182,6 +182,40 @@ std::size_t ConsentRegistry::expire_all_for_patient(const PatientId& patient) {
     return revoked_now.size();
 }
 
+bool ConsentRegistry::token_exists(std::string_view token_id) const noexcept {
+    std::lock_guard<std::mutex> lk(mu_);
+    return by_id_.find(std::string{token_id}) != by_id_.end();
+}
+
+std::size_t ConsentRegistry::expired_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::size_t n = 0;
+    for (const auto& [_, t] : by_id_) {
+        if (!t.revoked && t.expires_at <= now) n++;
+    }
+    return n;
+}
+
+std::size_t ConsentRegistry::cleanup_expired() {
+    std::vector<ConsentToken> revoked_now;
+    Observer obs_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        const auto now = Time::now();
+        for (auto& [_, t] : by_id_) {
+            if (t.revoked || t.expires_at > now) continue;
+            t.revoked = true;
+            revoked_now.push_back(t);
+        }
+        obs_copy = observer_;
+    }
+    if (obs_copy) {
+        for (const auto& t : revoked_now) obs_copy(Event::revoked, t);
+    }
+    return revoked_now.size();
+}
+
 Result<ConsentToken> ConsentRegistry::extend(std::string_view     token_id,
                                              std::chrono::seconds additional_ttl) {
     if (additional_ttl.count() <= 0) {

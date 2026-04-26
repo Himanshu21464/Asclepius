@@ -360,6 +360,10 @@ bool Inference::is_committed() const noexcept {
     return impl_ && impl_->committed;
 }
 
+bool Inference::has_run() const noexcept {
+    return impl_ && impl_->completed;
+}
+
 std::string Inference::status() const {
     if (!impl_) return std::string{};
     auto it = impl_->ledger_body.find("status");

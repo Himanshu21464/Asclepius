@@ -311,6 +311,33 @@ public:
     // seq > length() or seq == 0.
     Result<HistoricalHead> head_at_seq(std::uint64_t seq) const;
 
+    // Last `n` entries whose header.ts falls in [from, to), most-recent
+    // first. Half-open interval. n=0 returns the empty vector;
+    // from > to returns invalid_argument. O(n) scan via for_each with
+    // a bounded ring buffer; memory is O(min(n, matches)).
+    Result<std::vector<LedgerEntry>>
+        tail_in_window(Time from, Time to, std::size_t n) const;
+
+    // Cheap O(1) existence check for a sequence number. True iff the
+    // chain currently holds an entry at `seq`. noexcept; never reads
+    // the backend.
+    bool has_entry(std::uint64_t seq) const noexcept;
+
+    // Compact attestation of the current chain head. Bundles the
+    // length, head_hash, signing key id, and the key fingerprint
+    // (a hashed alias of the public key, see KeyStore::fingerprint).
+    // Cheaper than checkpoint() — no signature, no Ed25519 work — and
+    // useful for status endpoints, dashboards, and bundle headers.
+    struct Attestation {
+        std::uint64_t length{};
+        Hash          head{};
+        std::string   key_id;
+        std::string   fingerprint;
+
+        std::string to_json() const;
+    };
+    Attestation attest() const;
+
     // Inference-committed entries whose body's "patient" field matches
     // the supplied PatientId. O(n) scan; cheap substring prefilter
     // before JSON parse. Used by patient-scoped audit views ("show me

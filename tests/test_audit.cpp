@@ -1868,3 +1868,167 @@ TEST_CASE("range_by_patient empty patient rejected") {
     CHECK(!r);
     CHECK(r.error().code() == ErrorCode::invalid_argument);
 }
+
+// ============== Ledger::tail_in_window ==================================
+
+TEST_CASE("tail_in_window returns last n entries in [from, to) most-recent first") {
+    auto p = tmp_db("tiw_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    auto from = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    for (int i = 5; i < 12; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    auto to = Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}};
+    auto r = l.tail_in_window(from, to, 3); REQUIRE(r);
+    CHECK(r.value().size() == 3);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    CHECK(b0["i"] == 11);  // most-recent first
+    auto b2 = nlohmann::json::parse(r.value()[2].body_json);
+    CHECK(b2["i"] == 9);
+}
+
+TEST_CASE("tail_in_window edge cases: from > to and n=0") {
+    auto p = tmp_db("tiw_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto t1 = Time::now();
+    auto t0 = t1 - std::chrono::nanoseconds{std::chrono::seconds{1}};
+    auto r1 = l.tail_in_window(t1, t0, 5);
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.tail_in_window(t0, t1, 0); REQUIRE(r2);
+    CHECK(r2.value().empty());
+}
+
+TEST_CASE("tail_in_window respects half-open interval and chain integrity") {
+    auto p = tmp_db("tiw_chain");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 8; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    // Window covering everything from epoch up through the future.
+    auto everything = l.tail_in_window(
+        Time{0},
+        Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}},
+        100);
+    REQUIRE(everything);
+    CHECK(everything.value().size() == 8);
+    // Half-open: an exclusive upper bound equal to an entry's ts must
+    // exclude that entry. Use the third entry's ts as `to`; the result
+    // should not include it.
+    auto e3 = l.at(3); REQUIRE(e3);
+    auto win = l.tail_in_window(Time{0}, e3.value().header.ts, 100);
+    REQUIRE(win);
+    for (const auto& e : win.value()) {
+        CHECK(e.header.seq < 3);
+    }
+    // Chain still verifies after the window queries.
+    REQUIRE(l.verify());
+}
+
+// ============== Ledger::has_entry =======================================
+
+TEST_CASE("has_entry returns true for valid seqs and false otherwise") {
+    auto p = tmp_db("he_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    CHECK(l.has_entry(1));
+    CHECK(l.has_entry(4));
+    CHECK_FALSE(l.has_entry(5));
+    CHECK_FALSE(l.has_entry(999));
+}
+
+TEST_CASE("has_entry: seq=0 is always false, including on empty chain") {
+    auto p = tmp_db("he_zero");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    CHECK_FALSE(l.has_entry(0));
+    CHECK_FALSE(l.has_entry(1));   // empty chain
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    CHECK_FALSE(l.has_entry(0));   // still false post-append
+    CHECK(l.has_entry(1));
+}
+
+TEST_CASE("has_entry tracks length() across appends and reopen") {
+    auto p = tmp_db("he_chain");
+    {
+        auto l_ = Ledger::open(p); REQUIRE(l_);
+        auto& l = l_.value();
+        for (int i = 0; i < 3; i++)
+            REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        CHECK(l.has_entry(3));
+        CHECK_FALSE(l.has_entry(4));
+    }
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    CHECK(l.has_entry(3));
+    CHECK_FALSE(l.has_entry(4));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    CHECK(l.has_entry(4));
+}
+
+// ============== Ledger::attest ==========================================
+
+TEST_CASE("attest returns length, head, key_id, fingerprint") {
+    auto p = tmp_db("att_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 3; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    auto a = l.attest();
+    CHECK(a.length == 3);
+    CHECK(a.head.hex() == l.head().hex());
+    CHECK(a.key_id == l.key_id());
+    CHECK(a.fingerprint.size() == 16);
+    CHECK(a.fingerprint != a.key_id);
+}
+
+TEST_CASE("attest on empty chain returns zero head") {
+    auto p = tmp_db("att_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto a = l.attest();
+    CHECK(a.length == 0);
+    CHECK(a.head.hex() == Hash::zero().hex());
+    CHECK_FALSE(a.key_id.empty());
+    CHECK_FALSE(a.fingerprint.empty());
+    auto j = nlohmann::json::parse(a.to_json());
+    CHECK(j["length"] == 0);
+    CHECK(j["head"] == Hash::zero().hex());
+    CHECK(j["key_id"] == a.key_id);
+    CHECK(j["fingerprint"] == a.fingerprint);
+}
+
+TEST_CASE("attest mirrors checkpoint length/head and persists across reopen") {
+    auto p = tmp_db("att_chain");
+    std::string fp_before;
+    {
+        auto l_ = Ledger::open(p); REQUIRE(l_);
+        auto& l = l_.value();
+        for (int i = 0; i < 4; i++)
+            REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        auto a  = l.attest();
+        auto cp = l.checkpoint();
+        CHECK(a.length == cp.seq);
+        CHECK(a.head.hex() == cp.head_hash.hex());
+        CHECK(a.key_id == cp.key_id);
+        fp_before = a.fingerprint;
+    }
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto a2 = l_.value().attest();
+    CHECK(a2.length == 4);
+    CHECK(a2.fingerprint == fp_before);
+}

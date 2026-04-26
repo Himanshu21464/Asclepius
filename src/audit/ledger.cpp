@@ -849,6 +849,56 @@ Result<Ledger::HistoricalHead> Ledger::head_at_seq(std::uint64_t seq) const {
 }
 
 Result<std::vector<LedgerEntry>>
+Ledger::tail_in_window(Time from, Time to, std::size_t n) const {
+    if (from > to) {
+        return Error::invalid("tail_in_window: from > to");
+    }
+    if (n == 0) return std::vector<LedgerEntry>{};
+
+    // Ring buffer of the last `n` matches, oldest-first; reversed on
+    // return so callers see most-recent-first. Mirrors tail_by_actor.
+    std::vector<LedgerEntry> ring;
+    ring.reserve(n);
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Half-open [from, to): include from, exclude to.
+        if (e.header.ts < from) return true;
+        if (!(e.header.ts < to)) return true;
+        if (ring.size() < n) {
+            ring.push_back(e);
+        } else {
+            std::move(ring.begin() + 1, ring.end(), ring.begin());
+            ring.back() = e;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    std::reverse(ring.begin(), ring.end());
+    return ring;
+}
+
+bool Ledger::has_entry(std::uint64_t seq) const noexcept {
+    return seq > 0 && seq <= impl_->length.load();
+}
+
+std::string Ledger::Attestation::to_json() const {
+    json j;
+    j["length"]      = length;
+    j["head"]        = head.hex();
+    j["key_id"]      = key_id;
+    j["fingerprint"] = fingerprint;
+    return j.dump();
+}
+
+Ledger::Attestation Ledger::attest() const {
+    Attestation a;
+    a.length      = impl_->length.load();
+    a.head        = impl_->head;
+    a.key_id      = impl_->key_id;
+    a.fingerprint = impl_->signer.fingerprint();
+    return a;
+}
+
+Result<std::vector<LedgerEntry>>
 Ledger::range_by_event_type(std::string_view event_type) const {
     if (event_type.empty()) {
         return Error::invalid("range_by_event_type requires non-empty event_type");
