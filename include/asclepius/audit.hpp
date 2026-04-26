@@ -95,11 +95,16 @@ public:
     Ledger& operator=(Ledger&&) noexcept;
     ~Ledger();
 
-    // Open or create a SQLite-backed ledger at the given path. If a key is
-    // not provided one is generated and stored alongside (file-permissions
-    // 0600).
+    // Open or create a ledger. Two URL schemes:
+    //   - filesystem path or "file://…" → SQLite-backed (the default)
+    //   - "postgres://…" or "postgresql://…" → PostgreSQL-backed
+    // If a key is not provided one is generated and stored alongside the
+    // SQLite file (0600). For Postgres backends the key file lives next to
+    // the cwd as <key_id>.key — see open_postgres notes in deploy.html.
     static Result<Ledger> open(std::filesystem::path path);
     static Result<Ledger> open(std::filesystem::path path, KeyStore key);
+    static Result<Ledger> open_uri(const std::string& uri);
+    static Result<Ledger> open_uri(const std::string& uri, KeyStore key);
 
     // Append a new event. body must be a canonicalizable JSON value.
     Result<LedgerEntry> append(std::string event_type,

@@ -73,6 +73,22 @@ Result<Runtime> Runtime::open(std::filesystem::path db_path, KeyStore key) {
     return rt;
 }
 
+Result<Runtime> Runtime::open_uri(const std::string& uri) {
+    auto led = Ledger::open_uri(uri);
+    if (!led) return led.error();
+    Runtime rt;
+    rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    return rt;
+}
+
+Result<Runtime> Runtime::open_uri(const std::string& uri, KeyStore key) {
+    auto led = Ledger::open_uri(uri, std::move(key));
+    if (!led) return led.error();
+    Runtime rt;
+    rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    return rt;
+}
+
 PolicyChain&       Runtime::policies()        { return impl_->policies; }
 Ledger&            Runtime::ledger()          { return impl_->ledger; }
 DriftMonitor&      Runtime::drift()           { return impl_->drift; }

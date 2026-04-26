@@ -30,3 +30,7 @@ __pycache__/
 asclepius.db
 asclepius.db-*
 *.evidence.tar
+
+# signing keys generated at runtime — never commit
+*.key
+asclepius.key.LEAKED.*

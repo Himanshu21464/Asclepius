@@ -130,11 +130,15 @@ public:
     Runtime(const Runtime&)            = delete;
     Runtime& operator=(const Runtime&) = delete;
 
-    // Open or create a runtime backed by a SQLite file. The runtime
-    // generates a fresh signing key on first open and persists it next to
-    // the database with 0600 permissions.
+    // Open or create a runtime backed by a SQLite file (default) or a
+    // PostgreSQL database via "postgres://" URI. The runtime generates
+    // a fresh signing key on first open and persists it next to the
+    // SQLite file with 0600 permissions; for Postgres backends a
+    // KeyStore must be supplied explicitly.
     static Result<Runtime> open(std::filesystem::path db_path);
     static Result<Runtime> open(std::filesystem::path db_path, KeyStore key);
+    static Result<Runtime> open_uri(const std::string& uri);
+    static Result<Runtime> open_uri(const std::string& uri, KeyStore key);
 
     // Begin an inference. Performs consent and scope checks before
     // returning the handle. The returned Inference must be commit()ed to

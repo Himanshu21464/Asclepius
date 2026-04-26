@@ -54,6 +54,7 @@ target_link_libraries(asclepius
         spdlog::spdlog
         sodium
         SQLite::SQLite3
+        PostgreSQL::PostgreSQL
 )
 
 target_sources(asclepius
@@ -69,6 +70,8 @@ target_sources(asclepius
         src/audit/ledger.cpp
         src/audit/keystore.cpp
         src/audit/sqlite_backend.cpp
+        src/audit/postgres_backend.cpp
+        src/audit/storage_factory.cpp
         src/telemetry/drift.cpp
         src/telemetry/metrics.cpp
         src/consent/registry.cpp

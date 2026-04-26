@@ -93,3 +93,18 @@ if(NOT TARGET sodium)
         INTERFACE_INCLUDE_DIRECTORIES "${SODIUM_INCLUDE_DIR}"
     )
 endif()
+
+# libpq (PostgreSQL client library) ------------------------------------
+# Required at runtime for the optional postgres:// ledger backend; the
+# SQLite backend is always available. We use libpq's C API rather than
+# a higher-level wrapper to keep the dependency surface small and stable.
+
+find_package(PostgreSQL REQUIRED)
+if(NOT TARGET PostgreSQL::PostgreSQL)
+    message(FATAL_ERROR
+        "libpq not found. Install with:\n"
+        "  Debian/Ubuntu : sudo apt install libpq-dev\n"
+        "  macOS         : brew install libpq\n"
+        "  Fedora/RHEL   : sudo dnf install libpq-devel\n"
+    )
+endif()
