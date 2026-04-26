@@ -16,6 +16,8 @@
   "icons": [
     { "src": "assets/favicon.svg",          "type": "image/svg+xml", "sizes": "any",     "purpose": "any" },
     { "src": "assets/favicon-mono.svg",     "type": "image/svg+xml", "sizes": "any",     "purpose": "monochrome" },
+    { "src": "assets/icon-192.png",         "type": "image/png",     "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "assets/icon-512.png",         "type": "image/png",     "sizes": "512x512", "purpose": "any maskable" },
     { "src": "assets/apple-touch-icon.png", "type": "image/png",     "sizes": "180x180", "purpose": "any maskable" }
   ],
   "shortcuts": [

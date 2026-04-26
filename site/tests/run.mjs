@@ -780,6 +780,38 @@ ok(`title ≤ 70, description 50–170, og:description ≤ 200 (${htmlPages.leng
     return seoIssues.length === 0;
 });
 
+// ─── feed sync — RSS + Atom + JSON Feed agree on item count ────────────
+// All three describe the same release log. Drift between them means one
+// is stale; readers subscribed to the stale one will miss releases.
+
+console.log('feed sync (RSS · Atom · JSON):');
+const RSS  = readFileSync(path.join(SITE_ROOT, 'feed.xml'),  'utf-8');
+const ATOM = readFileSync(path.join(SITE_ROOT, 'atom.xml'),  'utf-8');
+const JF   = JSON.parse(readFileSync(path.join(SITE_ROOT, 'feed.json'), 'utf-8'));
+const rssCount  = (RSS.match(/<item>/g)  || []).length;
+const atomCount = (ATOM.match(/<entry>/g) || []).length;
+const jfCount   = (JF.items || []).length;
+ok(`item count agrees (rss=${rssCount} · atom=${atomCount} · json=${jfCount})`,
+   () => rssCount === atomCount && atomCount === jfCount);
+
+// ─── PWA manifest — required icons + fields ────────────────────────────
+// PWA installability requires 192x192 + 512x512 PNG icons. Browsers that
+// can't find both refuse the install prompt.
+
+console.log('PWA manifest:');
+const MANIFEST = JSON.parse(readFileSync(path.join(SITE_ROOT, 'manifest.json'), 'utf-8'));
+ok('manifest has name + short_name + description',
+   () => MANIFEST.name && MANIFEST.short_name && MANIFEST.description);
+ok('manifest has start_url + display + theme_color + background_color',
+   () => MANIFEST.start_url && MANIFEST.display && MANIFEST.theme_color && MANIFEST.background_color);
+ok('manifest icons include 192x192 and 512x512 PNG', () => {
+    const sizes = new Set();
+    for (const i of (MANIFEST.icons || [])) {
+        for (const s of (i.sizes || '').split(/\s+/)) sizes.add(s);
+    }
+    return sizes.has('192x192') && sizes.has('512x512');
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');

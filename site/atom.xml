@@ -5,7 +5,7 @@
   <link rel="self"      href="https://asclepius.health/atom.xml" type="application/atom+xml"/>
   <link rel="alternate" href="https://asclepius.health/changelog.html" type="text/html"/>
   <id>https://asclepius.health/atom.xml</id>
-  <updated>2026-04-26T00:00:00Z</updated>
+  <updated>2026-04-25T00:00:00Z</updated>
   <author>
     <name>Asclepius contributors</name>
     <uri>https://asclepius.health/</uri>
@@ -16,61 +16,64 @@
   <generator uri="https://asclepius.health/">asclepius-site</generator>
 
   <entry>
-    <id>asclepius:release:v0.3.0</id>
-    <title>v0.3.0 — consent on the chain, evidence harness GA</title>
-    <link rel="alternate" href="https://asclepius.health/changelog.html#v030"/>
+    <id>asclepius:release:v0.1.0</id>
+    <title>v0.1.0 — The substrate, open-sourced.</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v0-1-0"/>
     <published>2026-04-25T00:00:00Z</published>
     <updated>2026-04-25T00:00:00Z</updated>
     <category term="release"/>
-    <category term="minor"/>
-    <summary>Consent flows through the ledger; evidence harness ships ground-truth ingest; CLI + Python bindings + public website land.</summary>
-    <content type="html"><![CDATA[
-      <ul>
-        <li>Consent grants/revocations now append <code>consent.granted</code> + <code>consent.revoked</code> ledger entries.</li>
-        <li><code>EvaluationHarness::attach_ground_truth()</code> + signed evidence-bundle export.</li>
-        <li>Drift monitor: PSI, KS, EMD on per-feature histograms with <code>DriftSeverity::classify</code>.</li>
-        <li><code>asclepius</code> CLI: <code>ledger verify</code>, <code>ledger inspect</code>, <code>evidence bundle</code>, <code>evidence verify</code>.</li>
-        <li>Python bindings (pybind11). Wheels for cp310-cp312.</li>
-        <li>Public website + in-browser playground.</li>
-      </ul>
-    ]]></content>
+    <category term="public"/>
+    <summary>First public release. C++20 runtime with signed Merkle ledger, policy chain, drift, consent, evidence bundles. CLI, Python, examples. Apache 2.0.</summary>
   </entry>
 
   <entry>
-    <id>asclepius:release:v0.2.0</id>
-    <title>v0.2.0 — policy chain solidified</title>
-    <link rel="alternate" href="https://asclepius.health/changelog.html#v020"/>
-    <published>2026-03-12T00:00:00Z</published>
-    <updated>2026-03-12T00:00:00Z</updated>
-    <category term="release"/>
-    <category term="minor"/>
-    <summary>Composable PolicyChain with allow/modify/block verdicts; built-in policies; USTAR evidence bundles.</summary>
-    <content type="html"><![CDATA[
-      <ul>
-        <li>Composable <code>PolicyChain</code> with <code>allow</code> / <code>modify</code> / <code>block</code> verdicts.</li>
-        <li>Built-in policies: <code>phi_scrubber</code>, <code>schema_validator</code>, <code>length_limit</code>, <code>clinical_action_filter</code>.</li>
-        <li>Evidence bundles: USTAR tar with manifest, ledger excerpt, metrics, drift, overrides, ground-truth.</li>
-        <li>Renamed <code>InferenceEvent</code> → <code>InferenceCommittedBody</code>.</li>
-      </ul>
-    ]]></content>
+    <id>asclepius:release:v0.0.9</id>
+    <title>v0.0.9 — Conformance: L1 audit suite green.</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v0-0-9"/>
+    <published>2026-04-12T00:00:00Z</published>
+    <updated>2026-04-12T00:00:00Z</updated>
+    <category term="internal"/>
+    <summary>Pinned the on-disk ledger format (spec.md v1) and ran the L1 conformance suite end-to-end against three reference workloads. Sign-input layout fixed.</summary>
   </entry>
 
   <entry>
-    <id>asclepius:release:v0.1.0</id>
-    <title>v0.1.0 — first public preview</title>
-    <link rel="alternate" href="https://asclepius.health/changelog.html#v010"/>
+    <id>asclepius:release:v0.0.7</id>
+    <title>v0.0.7 — Evidence bundles ship.</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v0-0-7"/>
+    <published>2026-03-19T00:00:00Z</published>
+    <updated>2026-03-19T00:00:00Z</updated>
+    <category term="internal"/>
+    <summary>USTAR tar emit + offline-verify. Bundle's manifest signed by the same key as the ledger.</summary>
+  </entry>
+
+  <entry>
+    <id>asclepius:release:v0.0.5</id>
+    <title>v0.0.5 — Drift on the ground floor.</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v0-0-5"/>
+    <published>2026-02-28T00:00:00Z</published>
+    <updated>2026-02-28T00:00:00Z</updated>
+    <category term="internal"/>
+    <summary>DriftMonitor with PSI / KS / EMD on per-feature reference vs. current histograms. Severity bands match industry conventional thresholds.</summary>
+  </entry>
+
+  <entry>
+    <id>asclepius:release:v0.0.3</id>
+    <title>v0.0.3 — Policy chain composed.</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v0-0-3"/>
     <published>2026-02-04T00:00:00Z</published>
     <updated>2026-02-04T00:00:00Z</updated>
-    <category term="release"/>
-    <category term="preview"/>
-    <summary>The minimum viable trust substrate: append, sign, chain, verify.</summary>
-    <content type="html"><![CDATA[
-      <ul>
-        <li>SQLite-backed Merkle ledger with BLAKE2b-256 + Ed25519.</li>
-        <li><code>Runtime::open</code>, <code>begin_inference</code>, <code>commit</code>, <code>Ledger::verify</code>.</li>
-        <li>Strong identifier types (<code>ActorId</code>, <code>PatientId</code>, <code>EncounterId</code>, <code>ModelId</code>).</li>
-      </ul>
-    ]]></content>
+    <category term="internal"/>
+    <summary>First version of the PolicyChain with allow/modify/block verdicts. PHI scrubber + JSON-Schema-subset validator.</summary>
+  </entry>
+
+  <entry>
+    <id>asclepius:release:v0.0.1</id>
+    <title>v0.0.1 — Genesis. The Merkle ledger compiles.</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v0-0-1"/>
+    <published>2026-01-08T00:00:00Z</published>
+    <updated>2026-01-08T00:00:00Z</updated>
+    <category term="internal"/>
+    <summary>First commit. Append-only signed log over SQLite. verify() walks the chain. No policies, no consent, no drift — just the substrate's spine.</summary>
   </entry>
 
 </feed>
