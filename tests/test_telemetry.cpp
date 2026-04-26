@@ -1845,8 +1845,16 @@ TEST_CASE("MetricRegistry::has integration — agrees with has_counter || has_hi
     CHECK_FALSE(m.has("missing"));
     CHECK(m.has("missing") == (m.has_counter("missing") || m.has_histogram("missing")));
 
-    // noexcept contract: the call site below must compile under noexcept.
-    static_assert(noexcept(std::declval<const MetricRegistry&>().has("x")),
+    // noexcept contract — verified at compile time. We pass a string_view
+    // literal (""sv) rather than a const char*; the latter goes through
+    // basic_string_view(const char*) which is NOT noexcept in the C++
+    // standard (it calls char_traits::length, which the standard does
+    // not mark noexcept). libstdc++ adds a vendor-extension noexcept
+    // there but libc++ (Apple) follows the spec strictly, so a
+    // const-char* call would compile-fail this static_assert on macOS.
+    // The ""sv literal is unconditionally noexcept on both stdlibs.
+    using namespace std::literals::string_view_literals;
+    static_assert(noexcept(std::declval<const MetricRegistry&>().has("x"sv)),
                   "MetricRegistry::has must be noexcept");
 }
 
