@@ -448,6 +448,229 @@ TEST_CASE("DriftMonitor::observation_count: not_found on unknown feature") {
     CHECK(c.error().code() == ErrorCode::not_found);
 }
 
+// ============== Histogram::mean / stddev ================================
+
+TEST_CASE("Histogram::mean computes weighted bin-midpoint average") {
+    Histogram h{0.0, 10.0, 10};
+    // 100 observations all in bin 4 ([4.0, 5.0)) → midpoint 4.5.
+    for (int i = 0; i < 100; ++i) h.observe(4.5);
+    CHECK(h.mean() == doctest::Approx(4.5).epsilon(1e-9));
+
+    // Symmetric uniform fill across [0, 10) → mean ~5.
+    Histogram g{0.0, 10.0, 10};
+    for (int b = 0; b < 10; ++b) {
+        for (int i = 0; i < 10; ++i) g.observe(static_cast<double>(b) + 0.5);
+    }
+    CHECK(g.mean() == doctest::Approx(5.0).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::mean returns 0.0 on empty histogram") {
+    Histogram empty{0.0, 1.0, 10};
+    CHECK(empty.mean() == doctest::Approx(0.0));
+
+    // Same for a non-zero range that doesn't include zero — empty must
+    // still be 0.0 (the documented sentinel), not lo.
+    Histogram off{5.0, 15.0, 10};
+    CHECK(off.mean() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::mean reflects skewed distributions") {
+    Histogram h{0.0, 1.0, 10};
+    // Heavy weight at low end, small tail at high end.
+    for (int i = 0; i < 90; ++i) h.observe(0.05);   // bin 0, midpoint 0.05
+    for (int i = 0; i < 10; ++i) h.observe(0.95);   // bin 9, midpoint 0.95
+    // Expected mean = 0.9 * 0.05 + 0.1 * 0.95 = 0.045 + 0.095 = 0.14.
+    CHECK(h.mean() == doctest::Approx(0.14).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::stddev returns 0.0 on empty or single-sample") {
+    Histogram empty{0.0, 1.0, 10};
+    CHECK(empty.stddev() == doctest::Approx(0.0));
+
+    Histogram one{0.0, 1.0, 10};
+    one.observe(0.42);
+    CHECK(one.total() == 1);
+    CHECK(one.stddev() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::stddev is ~0 for a tightly-clustered distribution") {
+    Histogram h{0.0, 10.0, 10};
+    // All observations land in the same bin → stddev should be 0
+    // (every sample's contribution is identical to the mean).
+    for (int i = 0; i < 50; ++i) h.observe(4.5);
+    CHECK(h.stddev() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::stddev grows with spread") {
+    Histogram tight{0.0, 10.0, 10};
+    for (int i = 0; i < 50; ++i) tight.observe(4.5);
+    for (int i = 0; i < 50; ++i) tight.observe(5.5);
+
+    Histogram wide{0.0, 10.0, 10};
+    for (int i = 0; i < 50; ++i) wide.observe(0.5);
+    for (int i = 0; i < 50; ++i) wide.observe(9.5);
+
+    CHECK(wide.stddev() > tight.stddev());
+    // Wide is two atoms at midpoints 0.5 and 9.5, mean 5.0 → variance
+    // = ((4.5)^2 + (4.5)^2) / 2 = 20.25, stddev = 4.5.
+    CHECK(wide.stddev() == doctest::Approx(4.5).epsilon(1e-9));
+}
+
+// ============== DriftMonitor::baseline_count ============================
+
+TEST_CASE("DriftMonitor::baseline_count returns reference window total") {
+    DriftMonitor dm;
+    std::vector<double> baseline = {0.1, 0.2, 0.3, 0.4, 0.5};
+    REQUIRE(dm.register_feature("score", baseline, 0.0, 1.0, 10));
+    auto c = dm.baseline_count("score");
+    REQUIRE(c);
+    CHECK(c.value() == 5);
+}
+
+TEST_CASE("DriftMonitor::baseline_count: not_found on unknown feature") {
+    DriftMonitor dm;
+    auto c = dm.baseline_count("ghost");
+    CHECK(!c);
+    CHECK(c.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("DriftMonitor::baseline_count is unaffected by observe/reset/rotate") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("f", baseline, 0.0, 1.0, 10));
+
+    auto initial = dm.baseline_count("f");
+    REQUIRE(initial);
+    CHECK(initial.value() == 200);
+
+    // Observations on the current window must not change baseline_count.
+    for (int i = 0; i < 50; ++i) REQUIRE(dm.observe("f", 0.7));
+    auto after_obs = dm.baseline_count("f");
+    REQUIRE(after_obs);
+    CHECK(after_obs.value() == 200);
+
+    // Per-feature reset clears current; baseline still untouched.
+    REQUIRE(dm.reset("f"));
+    auto after_reset = dm.baseline_count("f");
+    REQUIRE(after_reset);
+    CHECK(after_reset.value() == 200);
+
+    // rotate() clears current window for all features; baseline unchanged.
+    dm.rotate();
+    auto after_rotate = dm.baseline_count("f");
+    REQUIRE(after_rotate);
+    CHECK(after_rotate.value() == 200);
+
+    // And observation_count() correctly reports the current window as 0
+    // — confirms baseline/current are independent counts.
+    auto cur = dm.observation_count("f");
+    REQUIRE(cur);
+    CHECK(cur.value() == 0);
+}
+
+// ============== MetricRegistry::clear ===================================
+
+TEST_CASE("MetricRegistry::clear drops all counters and histograms") {
+    MetricRegistry m;
+    m.inc("a", 5);
+    m.inc("b", 7);
+    m.observe("lat", 0.1);
+    m.observe("lat", 0.2);
+
+    REQUIRE(m.counter_count() == 2);
+    REQUIRE(m.histogram_count_total() == 1);
+
+    m.clear();
+
+    CHECK(m.counter_count() == 0);
+    CHECK(m.histogram_count_total() == 0);
+    CHECK(m.count("a") == 0);
+    CHECK(m.count("b") == 0);
+    auto hc = m.histogram_count("lat");
+    CHECK(!hc);
+    CHECK(hc.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("MetricRegistry::clear on empty registry is a no-op") {
+    MetricRegistry m;
+    m.clear();  // must not crash
+    CHECK(m.counter_count() == 0);
+    CHECK(m.histogram_count_total() == 0);
+    // Subsequent operations still work normally after a clear-on-empty.
+    m.inc("x");
+    CHECK(m.count("x") == 1);
+}
+
+TEST_CASE("MetricRegistry::clear leaves the registry usable for new metrics") {
+    MetricRegistry m;
+    m.inc("old_counter", 9);
+    m.observe("old_hist", 1.0);
+    m.clear();
+
+    // Re-register fresh metrics. They should not see any residual state.
+    m.inc("new_counter", 3);
+    m.observe("new_hist", 0.5);
+    CHECK(m.count("old_counter") == 0);
+    CHECK(m.count("new_counter") == 3);
+    auto oh = m.histogram_count("old_hist");
+    CHECK(!oh);
+    auto nh = m.histogram_count("new_hist");
+    REQUIRE(nh);
+    CHECK(nh.value() == 1);
+
+    auto out = m.snapshot_prometheus();
+    CHECK(out.find("asclepius_old_counter") == std::string::npos);
+    CHECK(out.find("asclepius_new_counter 3") != std::string::npos);
+}
+
+// ============== MetricRegistry::counter_count / histogram_count_total ===
+
+TEST_CASE("MetricRegistry::counter_count tracks distinct counter names") {
+    MetricRegistry m;
+    CHECK(m.counter_count() == 0);
+    m.inc("alpha");
+    CHECK(m.counter_count() == 1);
+    m.inc("beta", 4);
+    CHECK(m.counter_count() == 2);
+    // Re-incrementing an existing counter does NOT grow the registry.
+    m.inc("alpha", 10);
+    CHECK(m.counter_count() == 2);
+}
+
+TEST_CASE("MetricRegistry::histogram_count_total tracks distinct histogram names") {
+    MetricRegistry m;
+    CHECK(m.histogram_count_total() == 0);
+    m.observe("svc.latency", 0.1);
+    CHECK(m.histogram_count_total() == 1);
+    m.observe("svc.latency", 0.2);  // same histogram
+    CHECK(m.histogram_count_total() == 1);
+    m.observe("queue.depth", 7.0);  // different histogram
+    CHECK(m.histogram_count_total() == 2);
+}
+
+TEST_CASE("MetricRegistry counter_count and histogram_count_total are independent") {
+    MetricRegistry m;
+    m.inc("c1");
+    m.inc("c2");
+    m.inc("c3");
+    m.observe("h1", 1.0);
+    m.observe("h2", 2.0);
+
+    CHECK(m.counter_count() == 3);
+    CHECK(m.histogram_count_total() == 2);
+
+    // After reset() of one counter, counter_count must remain unchanged
+    // (reset zeroes the value, doesn't drop the entry).
+    REQUIRE(m.reset("c1"));
+    CHECK(m.counter_count() == 3);
+    CHECK(m.histogram_count_total() == 2);
+
+    // After clear(), both go to zero.
+    m.clear();
+    CHECK(m.counter_count() == 0);
+    CHECK(m.histogram_count_total() == 0);
+}
+
 TEST_CASE("DriftMonitor::observation_count resets after reset() and rotate()") {
     DriftMonitor dm;
     REQUIRE(dm.register_feature("a", {0.1}, 0.0, 1.0, 10));

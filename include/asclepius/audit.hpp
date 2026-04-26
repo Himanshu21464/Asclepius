@@ -288,6 +288,33 @@ public:
     Result<std::vector<LedgerEntry>>
         tail_by_event_type(std::string_view event_type, std::size_t n) const;
 
+    // Distinct tenant strings appearing in the chain, sorted alphabetically.
+    // The empty tenant ("") is included if any entries carry it. O(n) scan
+    // via for_each. Used by tenant-pickers in dashboards and by routines
+    // that need to fan out per-tenant work without an a-priori tenant list.
+    Result<std::vector<std::string>> tenants() const;
+
+    // Distinct actor strings appearing in the chain, sorted alphabetically.
+    // O(n) scan via for_each. Counterpart to tenants(); used by audit
+    // dashboards to populate actor-filter dropdowns and by forensic tools
+    // that need to enumerate "who has done anything in this ledger".
+    Result<std::vector<std::string>> actors() const;
+
+    // Inference-committed entries whose body's "model" field equals
+    // `model_id`. O(n) scan; cheap substring prefilter before JSON parse,
+    // mirroring range_by_patient. Used by model-scoped audit views ("show
+    // me every inference run by model X"). Empty model_id returns
+    // invalid_argument.
+    Result<std::vector<LedgerEntry>>
+        range_by_model(std::string_view model_id) const;
+
+    // Cheap count of entries whose ts ∈ [from, to). O(n) scan via for_each
+    // but only a counter is kept — no entry copies, O(1) memory. Half-open
+    // interval matches range_by_time and tail_in_window. Used by rate
+    // dashboards and SLO probes that just need a number, not the entries
+    // themselves.
+    Result<std::uint64_t> count_in_window(Time from, Time to) const;
+
     // Verify a sub-range of the chain [start, end). Same correctness
     // guarantees as verify(): prev_hash continuity, payload-hash match,
     // ed25519 signature match. Cheaper than verify() when only a subset

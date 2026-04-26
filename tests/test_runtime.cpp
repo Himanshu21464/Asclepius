@@ -1559,3 +1559,117 @@ TEST_CASE("Runtime::reset_metrics: counters resume incrementing after reset") {
     REQUIRE(it != snap.end());
     CHECK(it->second == 1);
 }
+
+// ============== Inference::tenant() / Inference::id() ====================
+
+TEST_CASE("Inference::tenant returns the spec tenant verbatim") {
+    auto rt_ = fresh_runtime("inf_tenant"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_inf_tenant");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    TenantId t{"hospital-east"};
+    auto inf = rt.begin_inference({
+        .model = ModelId{"m","v1"}, .actor = ActorId::clinician("smith"),
+        .patient = pid, .encounter = EncounterId::make(),
+        .purpose = Purpose::ambient_documentation,
+        .tenant  = t,
+        .consent_token_id = tok.token_id,
+    });
+    REQUIRE(inf);
+    CHECK(inf.value().tenant().str() == t.str());
+    CHECK(inf.value().tenant().str() == inf.value().ctx().tenant().str());
+}
+
+TEST_CASE("Inference::tenant defaults to empty TenantId when unspecified") {
+    auto rt_ = fresh_runtime("inf_tenant_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_inf_tenant_empty");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(inf.value().tenant().str() == TenantId{}.str());
+}
+
+TEST_CASE("Inference::id matches ctx().id() and is non-empty") {
+    auto rt_ = fresh_runtime("inf_id"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_inf_id");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto sv = inf.value().id();
+    CHECK(!sv.empty());
+    CHECK(sv == inf.value().ctx().id());
+}
+
+TEST_CASE("Inference::id is unique per begin_inference") {
+    auto rt_ = fresh_runtime("inf_id_unique"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_inf_id_unique");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto a = begin(rt, pid, tok.token_id); REQUIRE(a);
+    auto b = begin(rt, pid, tok.token_id); REQUIRE(b);
+    CHECK(std::string{a.value().id()} != std::string{b.value().id()});
+}
+
+// ============== Runtime::version =========================================
+
+TEST_CASE("Runtime::version returns a non-empty string") {
+    auto rt_ = fresh_runtime("ver_basic"); REQUIRE(rt_);
+    auto v = rt_.value().version();
+    CHECK(!v.empty());
+}
+
+TEST_CASE("Runtime::version is stable across calls") {
+    auto rt_ = fresh_runtime("ver_stable"); REQUIRE(rt_);
+    auto v1 = rt_.value().version();
+    auto v2 = rt_.value().version();
+    CHECK(v1 == v2);
+}
+
+TEST_CASE("Runtime::version matches across distinct runtimes (compile-time constant)") {
+    auto rt_a = fresh_runtime("ver_a"); REQUIRE(rt_a);
+    auto rt_b = fresh_runtime("ver_b"); REQUIRE(rt_b);
+    CHECK(rt_a.value().version() == rt_b.value().version());
+}
+
+// ============== Runtime::active_inference_count ==========================
+
+TEST_CASE("Runtime::active_inference_count is 0 on a fresh runtime") {
+    auto rt_ = fresh_runtime("aic_fresh"); REQUIRE(rt_);
+    CHECK(rt_.value().active_inference_count() == 0);
+}
+
+TEST_CASE("Runtime::active_inference_count returns 0 after each inference reaches ok") {
+    auto rt_ = fresh_runtime("aic_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_aic_ok");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    for (int i = 0; i < 3; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("hi",
+            [](std::string s)->Result<std::string>{ return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    CHECK(rt.active_inference_count() == 0);
+}
+
+TEST_CASE("Runtime::active_inference_count underflow-clamps to 0 after reset_metrics") {
+    auto rt_ = fresh_runtime("aic_clamp"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_aic_clamp");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    // attempts=1, ok=1 — terminal == started — count is 0.
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("hi",
+            [](std::string s)->Result<std::string>{ return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    CHECK(rt.active_inference_count() == 0);
+    // After reset both go to zero; the difference still clamps to 0.
+    REQUIRE(rt.reset_metrics());
+    CHECK(rt.active_inference_count() == 0);
+}

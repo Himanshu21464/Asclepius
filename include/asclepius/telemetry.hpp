@@ -33,6 +33,14 @@ public:
     double             lo() const noexcept;
     double             hi() const noexcept;
 
+    // Empirical mean computed from bin midpoints weighted by counts.
+    // Returns 0.0 if total()==0.
+    double mean() const;
+
+    // Empirical population stddev (divides by N, not N-1). Returns 0.0
+    // if total()==0 or 1.
+    double stddev() const;
+
     // Returns the value at quantile q in [0, 1] from the empirical
     // distribution. q is clamped to [0, 1]. q=0 returns lo, q=1 returns hi,
     // q=0.5 the median. Within the matching bin we linearly interpolate
@@ -137,6 +145,11 @@ public:
     // that want to gate report() on a minimum sample size.
     Result<std::uint64_t> observation_count(std::string_view feature) const;
 
+    // Returns the reference (baseline) window's total observation count.
+    // Pairs with observation_count(), which returns the current window
+    // total. Returns not_found if the feature was never registered.
+    Result<std::uint64_t> baseline_count(std::string_view feature) const;
+
     // Reset just the current-window histogram for one feature, leaving
     // the reference (baseline) intact. Per-feature variant of rotate(),
     // which clears all features. Returns not_found if the feature was
@@ -198,6 +211,20 @@ public:
     // emit per-deploy metric resets (e.g. on restart). Returns not_found
     // if no such counter exists. Histograms are not affected.
     Result<void> reset(std::string_view name);
+
+    // Drop all counters and histograms. Used by tests and by live deploy
+    // resets that want to start from a clean slate. Mutex-protected.
+    void clear();
+
+    // Number of registered counters in the registry (not the sum of their
+    // values, just the count of distinct names). Useful for health
+    // probes that want to assert "telemetry is wired up."
+    std::size_t counter_count() const;
+
+    // Number of registered histograms. Named `_total` to avoid clashing
+    // with the existing histogram_count(name) reader, which returns the
+    // observation count for a single histogram.
+    std::size_t histogram_count_total() const;
 
     // Snapshot of all counters as a map of {name: value}. O(n) copy;
     // suitable for diff'ing across two points in time without parsing

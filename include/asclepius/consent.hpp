@@ -79,6 +79,29 @@ public:
     // currently have on file?" Order is unspecified.
     std::vector<ConsentToken> tokens_for_patient(const PatientId& patient) const;
 
+    // Variant of tokens_for_patient that returns only non-revoked,
+    // non-expired tokens. Used by operational checks that want the
+    // currently-effective grants for a patient rather than the full
+    // history. Order is unspecified.
+    std::vector<ConsentToken> active_tokens_for_patient(const PatientId& patient) const;
+
+    // List all tokens (active + revoked + expired) whose purposes list
+    // contains `purpose`. Used for audits — e.g. "which tokens granted
+    // research access?" — where revoked/expired tokens are still
+    // historically interesting. Order is unspecified.
+    std::vector<ConsentToken> tokens_for_purpose(Purpose purpose) const;
+
+    // Return the active (non-revoked, non-expired) token with the
+    // latest expires_at. Returns Error::not_found when no active
+    // token exists. Tiebreak among equal expiries is unspecified.
+    // Useful for operator probes: "when does our oldest grant lapse?"
+    Result<ConsentToken> longest_active() const;
+
+    // Drop all tokens. Does NOT fire the observer — the registry is in
+    // a reset state, not a series of individual revocations. Used by
+    // tests and admin-driven reset paths.
+    void clear();
+
     // Push the expiry of an existing token forward by `additional_ttl`.
     // Rejects revoked tokens (denied) and unknown tokens (not_found). The
     // observer fires as a "granted" event — the new expiry is the

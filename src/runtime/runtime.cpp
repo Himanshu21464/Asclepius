@@ -262,6 +262,30 @@ MetricRegistry&    Runtime::metrics()         { return impl_->metrics; }
 const PolicyChain& Runtime::policies() const  { return impl_->policies; }
 const Ledger&      Runtime::ledger()   const  { return impl_->ledger; }
 
+std::string Runtime::version() const {
+#ifdef ASCLEPIUS_VERSION_STRING
+    return std::string{ASCLEPIUS_VERSION_STRING};
+#else
+    return std::string{"0.0.0-dev"};
+#endif
+}
+
+std::size_t Runtime::active_inference_count() const {
+    auto& m = impl_->metrics;
+    const std::uint64_t started   = m.count("inference.attempts");
+    const std::uint64_t ok        = m.count("inference.ok");
+    const std::uint64_t timed_out = m.count("inference.timeout");
+    const std::uint64_t cancelled = m.count("inference.cancelled");
+    const std::uint64_t model_err = m.count("inference.model_error");
+    const std::uint64_t blk_in    = m.count("inference.blocked.input");
+    const std::uint64_t blk_out   = m.count("inference.blocked.output");
+    const std::uint64_t deduped   = m.count("inference.idempotent_dedupe");
+    const std::uint64_t terminal  =
+        ok + timed_out + cancelled + model_err + blk_in + blk_out + deduped;
+    if (terminal >= started) return 0;
+    return static_cast<std::size_t>(started - terminal);
+}
+
 Runtime::Health Runtime::health() const {
     Health h;
     h.ledger_length         = impl_->ledger.length();

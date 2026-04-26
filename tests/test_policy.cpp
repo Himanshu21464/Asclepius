@@ -127,3 +127,72 @@ TEST_CASE("PolicyChain::clear is idempotent") {
     c.clear();
     CHECK(c.size() == 0);
 }
+
+// ---- has() --------------------------------------------------------------
+
+TEST_CASE("PolicyChain::has is false on an empty chain") {
+    PolicyChain c;
+    CHECK_FALSE(c.has("phi_scrubber"));
+    CHECK_FALSE(c.has(""));
+    CHECK_FALSE(c.has("anything"));
+}
+
+TEST_CASE("PolicyChain::has finds a registered policy by name") {
+    PolicyChain c;
+    auto phi = make_phi_scrubber();
+    auto len = make_length_limit(0, 1024);
+    c.push(phi);
+    c.push(len);
+    REQUIRE(c.size() == 2);
+    CHECK(c.has(phi->name()));
+    CHECK(c.has(len->name()));
+    CHECK_FALSE(c.has("not_a_real_policy"));
+}
+
+TEST_CASE("PolicyChain::has reflects clear() and remove()") {
+    PolicyChain c;
+    auto phi = make_phi_scrubber();
+    c.push(phi);
+    REQUIRE(c.has(phi->name()));
+    c.clear();
+    CHECK_FALSE(c.has(phi->name()));
+    c.push(make_phi_scrubber());
+    CHECK(c.has(phi->name()));
+}
+
+// ---- remove() -----------------------------------------------------------
+
+TEST_CASE("PolicyChain::remove on empty chain returns false") {
+    PolicyChain c;
+    CHECK_FALSE(c.remove("phi_scrubber"));
+    CHECK(c.size() == 0);
+}
+
+TEST_CASE("PolicyChain::remove drops the named policy and returns true") {
+    PolicyChain c;
+    auto phi = make_phi_scrubber();
+    auto len = make_length_limit(0, 1024);
+    c.push(phi);
+    c.push(len);
+    REQUIRE(c.size() == 2);
+    CHECK(c.remove(phi->name()));
+    CHECK(c.size() == 1);
+    CHECK_FALSE(c.has(phi->name()));
+    CHECK(c.has(len->name()));
+    // Removing again returns false; idempotent at the call site.
+    CHECK_FALSE(c.remove(phi->name()));
+}
+
+TEST_CASE("PolicyChain::remove drops only the FIRST match for a duplicate name") {
+    PolicyChain c;
+    auto a = make_length_limit(0, 100);
+    auto b = make_length_limit(0, 200);
+    REQUIRE(a->name() == b->name());
+    c.push(a);
+    c.push(b);
+    REQUIRE(c.size() == 2);
+    CHECK(c.remove(a->name()));
+    CHECK(c.size() == 1);
+    // The name should still be present — one duplicate remains.
+    CHECK(c.has(a->name()));
+}

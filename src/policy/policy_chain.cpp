@@ -31,6 +31,23 @@ void PolicyChain::clear() {
     policies_.clear();
 }
 
+bool PolicyChain::has(std::string_view name) const noexcept {
+    for (const auto& p : policies_) {
+        if (p && p->name() == name) return true;
+    }
+    return false;
+}
+
+bool PolicyChain::remove(std::string_view name) {
+    for (auto it = policies_.begin(); it != policies_.end(); ++it) {
+        if (*it && (*it)->name() == name) {
+            policies_.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 std::vector<std::string> PolicyChain::names() const {
     std::vector<std::string> out;
     out.reserve(policies_.size());

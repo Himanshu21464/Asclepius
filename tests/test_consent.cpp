@@ -580,6 +580,210 @@ TEST_CASE("cleanup_expired is a no-op on empty / all-active / all-revoked regist
     }
 }
 
+// ============== clear ===================================================
+
+TEST_CASE("clear drops all tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_clear");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(p, {Purpose::operations}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("other"), {Purpose::research}, 1h));
+    CHECK(r.total_count() == 3);
+    r.clear();
+    CHECK(r.total_count() == 0);
+    CHECK(r.active_count() == 0);
+    CHECK(r.snapshot().empty());
+}
+
+TEST_CASE("clear on an empty registry is a no-op") {
+    ConsentRegistry r;
+    r.clear();
+    CHECK(r.total_count() == 0);
+    r.clear();
+    CHECK(r.total_count() == 0);
+}
+
+TEST_CASE("clear does NOT fire the observer") {
+    ConsentRegistry r;
+    int events = 0;
+    REQUIRE(r.grant(PatientId::pseudonymous("a"), {Purpose::triage}, 1h));
+    REQUIRE(r.grant(PatientId::pseudonymous("b"), {Purpose::triage}, 1h));
+    r.set_observer([&](ConsentRegistry::Event, const ConsentToken&) { events++; });
+    r.clear();
+    CHECK(events == 0);
+    // Subsequent grants still work and fire the observer normally.
+    REQUIRE(r.grant(PatientId::pseudonymous("c"), {Purpose::triage}, 1h));
+    CHECK(events == 1);
+}
+
+// ============== active_tokens_for_patient ===============================
+
+TEST_CASE("active_tokens_for_patient returns only that patient's active tokens") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("pa");
+    auto pb = PatientId::pseudonymous("pb");
+    REQUIRE(r.grant(pa, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(pa, {Purpose::ambient_documentation}, 1h));
+    REQUIRE(r.grant(pb, {Purpose::triage}, 1h));
+    auto a = r.active_tokens_for_patient(pa);
+    CHECK(a.size() == 2);
+    auto b = r.active_tokens_for_patient(pb);
+    CHECK(b.size() == 1);
+    auto c = r.active_tokens_for_patient(PatientId::pseudonymous("ghost"));
+    CHECK(c.empty());
+}
+
+TEST_CASE("active_tokens_for_patient excludes revoked and expired tokens") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_active");
+    auto t1 = r.grant(pid, {Purpose::triage}, 1h).value();
+    REQUIRE(r.grant(pid, {Purpose::operations}, 1h));  // stays active
+    REQUIRE(r.revoke(t1.token_id));                    // now revoked
+
+    // Expired token (past expires_at) via ingest.
+    ConsentToken expired;
+    expired.token_id   = "ct_active_exp";
+    expired.patient    = pid;
+    expired.purposes   = {Purpose::medication_review};
+    expired.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    expired.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(expired));
+
+    auto out = r.active_tokens_for_patient(pid);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].revoked == false);
+    CHECK(out[0].purposes.size() == 1);
+    CHECK(out[0].purposes[0] == Purpose::operations);
+    // tokens_for_patient returns all three (including revoked + expired).
+    CHECK(r.tokens_for_patient(pid).size() == 3);
+}
+
+TEST_CASE("active_tokens_for_patient on empty registry returns empty") {
+    ConsentRegistry r;
+    auto out = r.active_tokens_for_patient(PatientId::pseudonymous("nobody"));
+    CHECK(out.empty());
+}
+
+TEST_CASE("active_tokens_for_patient is empty after expire_all_for_patient") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_act_int");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(p, {Purpose::operations}, 1h));
+    CHECK(r.active_tokens_for_patient(p).size() == 2);
+    auto n = r.expire_all_for_patient(p);
+    CHECK(n == 2);
+    CHECK(r.active_tokens_for_patient(p).empty());
+    // But full history is still there.
+    CHECK(r.tokens_for_patient(p).size() == 2);
+}
+
+// ============== tokens_for_purpose ======================================
+
+TEST_CASE("tokens_for_purpose returns tokens whose purposes contain it") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("a");
+    auto pb = PatientId::pseudonymous("b");
+    REQUIRE(r.grant(pa, {Purpose::research, Purpose::triage}, 1h));
+    REQUIRE(r.grant(pb, {Purpose::research}, 1h));
+    REQUIRE(r.grant(pb, {Purpose::operations}, 1h));   // not research
+    auto research = r.tokens_for_purpose(Purpose::research);
+    CHECK(research.size() == 2);
+    auto triage = r.tokens_for_purpose(Purpose::triage);
+    CHECK(triage.size() == 1);
+    auto ops = r.tokens_for_purpose(Purpose::operations);
+    CHECK(ops.size() == 1);
+    auto none = r.tokens_for_purpose(Purpose::quality_improvement);
+    CHECK(none.empty());
+}
+
+TEST_CASE("tokens_for_purpose includes revoked and expired tokens (audit semantics)") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_audit");
+    auto t1 = r.grant(pid, {Purpose::research}, 1h).value();
+    REQUIRE(r.revoke(t1.token_id));                    // revoked but still research
+
+    // Expired research token via ingest.
+    ConsentToken expired;
+    expired.token_id   = "ct_audit_exp";
+    expired.patient    = pid;
+    expired.purposes   = {Purpose::research};
+    expired.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    expired.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(expired));
+
+    // One active research token.
+    REQUIRE(r.grant(pid, {Purpose::research}, 1h));
+
+    auto all = r.tokens_for_purpose(Purpose::research);
+    CHECK(all.size() == 3);
+}
+
+TEST_CASE("tokens_for_purpose on empty registry returns empty") {
+    ConsentRegistry r;
+    CHECK(r.tokens_for_purpose(Purpose::research).empty());
+    CHECK(r.tokens_for_purpose(Purpose::triage).empty());
+}
+
+// ============== longest_active ==========================================
+
+TEST_CASE("longest_active returns the token with the latest expires_at") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_long");
+    REQUIRE(r.grant(pid, {Purpose::triage}, 1h));
+    auto mid = r.grant(pid, {Purpose::operations}, 4h).value();
+    REQUIRE(r.grant(pid, {Purpose::ambient_documentation}, 2h));
+    auto best = r.longest_active();
+    REQUIRE(best);
+    CHECK(best.value().token_id == mid.token_id);
+}
+
+TEST_CASE("longest_active returns not_found on empty registry") {
+    ConsentRegistry r;
+    auto out = r.longest_active();
+    CHECK(!out);
+    CHECK(out.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("longest_active skips revoked and expired tokens") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_long2");
+    // Active short grant.
+    auto live = r.grant(pid, {Purpose::triage}, 1h).value();
+
+    // Revoked token with a far-future expires_at — must be ignored.
+    auto revoked_long = r.grant(pid, {Purpose::operations}, 24h).value();
+    REQUIRE(r.revoke(revoked_long.token_id));
+
+    // Expired token with a pretend-large issued/expired window — must be ignored.
+    ConsentToken exp;
+    exp.token_id   = "ct_long_exp";
+    exp.patient    = pid;
+    exp.purposes   = {Purpose::medication_review};
+    exp.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{48}};
+    exp.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(exp));
+
+    auto best = r.longest_active();
+    REQUIRE(best);
+    CHECK(best.value().token_id == live.token_id);
+}
+
+TEST_CASE("longest_active reflects extend(): after pushing, the extended token wins") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_long_ext");
+    auto a = r.grant(pid, {Purpose::triage}, 1h).value();
+    auto b = r.grant(pid, {Purpose::operations}, 2h).value();
+    {
+        auto best = r.longest_active();
+        REQUIRE(best);
+        CHECK(best.value().token_id == b.token_id);
+    }
+    REQUIRE(r.extend(a.token_id, 5h));  // a now lasts ~6h, beats b
+    auto best = r.longest_active();
+    REQUIRE(best);
+    CHECK(best.value().token_id == a.token_id);
+}
+
 TEST_CASE("cleanup_expired fires the observer once per token swept") {
     ConsentRegistry r;
     int revokes = 0;

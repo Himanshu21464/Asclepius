@@ -149,6 +149,54 @@ ConsentRegistry::tokens_for_patient(const PatientId& patient) const {
     return out;
 }
 
+std::vector<ConsentToken>
+ConsentRegistry::active_tokens_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::vector<ConsentToken> out;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.patient != patient) continue;
+        out.push_back(t);
+    }
+    return out;
+}
+
+std::vector<ConsentToken>
+ConsentRegistry::tokens_for_purpose(Purpose purpose) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<ConsentToken> out;
+    for (const auto& [_, t] : by_id_) {
+        if (std::find(t.purposes.begin(), t.purposes.end(), purpose) != t.purposes.end()) {
+            out.push_back(t);
+        }
+    }
+    return out;
+}
+
+Result<ConsentToken> ConsentRegistry::longest_active() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    const ConsentToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        if (best == nullptr || t.expires_at > best->expires_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no active consent tokens");
+    }
+    return *best;
+}
+
+void ConsentRegistry::clear() {
+    std::lock_guard<std::mutex> lk(mu_);
+    by_id_.clear();
+}
+
 std::size_t ConsentRegistry::active_count() const {
     std::lock_guard<std::mutex> lk(mu_);
     const auto now = Time::now();

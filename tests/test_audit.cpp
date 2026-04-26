@@ -2032,3 +2032,194 @@ TEST_CASE("attest mirrors checkpoint length/head and persists across reopen") {
     CHECK(a2.length == 4);
     CHECK(a2.fingerprint == fp_before);
 }
+
+// ============== Ledger::tenants =========================================
+
+TEST_CASE("tenants returns distinct tenant strings sorted alphabetically") {
+    auto p = tmp_db("tenants_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "tenant:zulu"));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "tenant:alpha"));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "tenant:mike"));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "tenant:alpha"));  // dup
+    auto r = l.tenants(); REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    CHECK(r.value()[0] == "tenant:alpha");
+    CHECK(r.value()[1] == "tenant:mike");
+    CHECK(r.value()[2] == "tenant:zulu");
+}
+
+TEST_CASE("tenants includes the empty tenant when present") {
+    auto p = tmp_db("tenants_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "tenant:b"));
+    auto r = l.tenants(); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    CHECK(r.value()[0] == "");        // empty sorts first
+    CHECK(r.value()[1] == "tenant:b");
+}
+
+TEST_CASE("tenants on empty ledger returns empty vector") {
+    auto p = tmp_db("tenants_blank");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().tenants(); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+// ============== Ledger::actors ==========================================
+
+TEST_CASE("actors returns distinct actor strings sorted alphabetically") {
+    auto p = tmp_db("actors_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "system:drift_monitor", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "clinician:42",         nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "system:drift_monitor", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "system:consent",       nlohmann::json::object(), ""));
+    auto r = l.actors(); REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    CHECK(r.value()[0] == "clinician:42");
+    CHECK(r.value()[1] == "system:consent");
+    CHECK(r.value()[2] == "system:drift_monitor");
+}
+
+TEST_CASE("actors on empty ledger returns empty vector") {
+    auto p = tmp_db("actors_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().actors(); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("actors survives reopen and stays consistent with chain verify") {
+    auto p = tmp_db("actors_chain");
+    {
+        auto l_ = Ledger::open(p); REQUIRE(l_);
+        auto& l = l_.value();
+        REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+        REQUIRE(l.append("e", "bob",   nlohmann::json::object(), ""));
+        REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    }
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r = l.actors(); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    CHECK(r.value()[0] == "alice");
+    CHECK(r.value()[1] == "bob");
+    REQUIRE(l.verify());
+}
+
+// ============== Ledger::range_by_model ==================================
+
+TEST_CASE("range_by_model finds inferences for one model only") {
+    auto p = tmp_db("rbm_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i1"}, {"model", "model:scribe-v1"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i2"}, {"model", "model:triage-v2"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i3"}, {"model", "model:scribe-v1"}}, ""));
+    auto r = l.range_by_model("model:scribe-v1"); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    CHECK(b0["inference_id"] == "i1");
+    CHECK(b1["inference_id"] == "i3");
+}
+
+TEST_CASE("range_by_model empty model_id rejected") {
+    auto p = tmp_db("rbm_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().range_by_model("");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("range_by_model skips non-inference events that mention the model") {
+    auto p = tmp_db("rbm_nonmatch");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // A drift event that mentions the model_id in its body should not match;
+    // only inference.committed events carry the canonical "model" field.
+    REQUIRE(l.append("drift.crossed", "system:drift_monitor",
+        nlohmann::json{{"note", "model:scribe-v1 saw a PSI cross"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i1"}, {"model", "model:scribe-v1"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i2"}, {"model", "model:other"}}, ""));
+    auto r = l.range_by_model("model:scribe-v1"); REQUIRE(r);
+    REQUIRE(r.value().size() == 1);
+    auto b = nlohmann::json::parse(r.value()[0].body_json);
+    CHECK(b["inference_id"] == "i1");
+}
+
+// ============== Ledger::count_in_window =================================
+
+TEST_CASE("count_in_window counts entries in [from, to)") {
+    auto p = tmp_db("ciw_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    auto from = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    for (int i = 4; i < 10; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    auto to = Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}};
+    auto r = l.count_in_window(from, to); REQUIRE(r);
+    CHECK(r.value() == 6u);
+}
+
+TEST_CASE("count_in_window respects half-open interval and edge cases") {
+    auto p = tmp_db("ciw_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    // Window everything: [epoch, far future) covers all 5.
+    auto everything = l.count_in_window(
+        Time{0},
+        Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}});
+    REQUIRE(everything);
+    CHECK(everything.value() == 5u);
+
+    // Half-open: an exclusive upper bound at entry 3's ts must exclude it.
+    auto e3 = l.at(3); REQUIRE(e3);
+    auto r = l.count_in_window(Time{0}, e3.value().header.ts);
+    REQUIRE(r);
+    CHECK(r.value() == 2u);  // entries 1 and 2 only
+
+    // from == to → empty window.
+    auto t = Time::now();
+    auto r0 = l.count_in_window(t, t); REQUIRE(r0);
+    CHECK(r0.value() == 0u);
+}
+
+TEST_CASE("count_in_window on empty ledger returns 0") {
+    auto p = tmp_db("ciw_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r = l.count_in_window(
+        Time{0},
+        Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}});
+    REQUIRE(r);
+    CHECK(r.value() == 0u);
+    // And after a single append the count goes to 1.
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r2 = l.count_in_window(
+        Time{0},
+        Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}});
+    REQUIRE(r2);
+    CHECK(r2.value() == 1u);
+}

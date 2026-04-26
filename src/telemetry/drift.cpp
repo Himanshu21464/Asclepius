@@ -88,6 +88,41 @@ double Histogram::quantile(double q) const {
     return hi_;
 }
 
+double Histogram::mean() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0) return 0.0;
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    double sum = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        sum += mid * static_cast<double>(counts_[i]);
+    }
+    return sum / static_cast<double>(total_);
+}
+
+double Histogram::stddev() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0 || total_ == 1) return 0.0;
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    // Compute mean inline to avoid double-locking mu_.
+    double sum = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        sum += mid * static_cast<double>(counts_[i]);
+    }
+    const double m = sum / static_cast<double>(total_);
+    double var = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        const double d   = mid - m;
+        var += d * d * static_cast<double>(counts_[i]);
+    }
+    var /= static_cast<double>(total_);
+    return std::sqrt(var);
+}
+
 double Histogram::psi(const Histogram& reference, const Histogram& current) {
     auto p = reference.normalized();
     auto q = current.normalized();
@@ -278,6 +313,15 @@ Result<std::uint64_t> DriftMonitor::observation_count(std::string_view feature) 
         return Error::not_found(fmt::format("unregistered feature: {}", feature));
     }
     return it->second->current->total();
+}
+
+Result<std::uint64_t> DriftMonitor::baseline_count(std::string_view feature) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = features_.find(std::string{feature});
+    if (it == features_.end()) {
+        return Error::not_found(fmt::format("unregistered feature: {}", feature));
+    }
+    return it->second->reference->total();
 }
 
 }  // namespace asclepius

@@ -177,6 +177,15 @@ public:
     // response header, queue metadata, or webhook payload).
     Result<std::uint64_t> seq() const noexcept;
 
+    // Sugar over ctx().tenant(). Saves sidecars one indirection when
+    // emitting per-tenant metrics or routing decisions in the hot path.
+    const TenantId& tenant() const noexcept;
+
+    // Sugar over ctx().id(). Same motivation as tenant() — used heavily
+    // by sidecars that thread the inference id into log lines and trace
+    // attributes.
+    std::string_view id() const noexcept;
+
     // True iff commit() has been called successfully. Cheap accessor
     // for sidecars that need to know whether the destructor will
     // record an aborted-inference event.
@@ -272,6 +281,20 @@ public:
     };
 
     Health health() const;
+
+    // Asclepius runtime version string. Returns ASCLEPIUS_VERSION_STRING
+    // when defined via target_compile_definitions, otherwise a stable
+    // "0.0.0-dev" fallback. Used by sidecars and CLI clients reporting
+    // runtime build info into logs and /healthz extras.
+    std::string version() const;
+
+    // Rough estimate of inferences started but not yet at a terminal
+    // state, derived from counter deltas (begin/attempts vs the union of
+    // ok / timeout / cancelled / model_error / blocked.input /
+    // blocked.output / idempotent_dedupe). Underflow-clamped to 0; not
+    // a strong real-time gauge — counters can be reset_metrics()'d out
+    // from under it. Best-effort observability sugar for dashboards.
+    std::size_t active_inference_count() const;
 
     // Size in bytes of the ledger backing storage. For SQLite-backed
     // runtimes this is the on-disk size of the .db file at the time

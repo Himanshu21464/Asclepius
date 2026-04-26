@@ -176,4 +176,20 @@ std::vector<std::string> MetricRegistry::list_counters() const {
     return out;
 }
 
+void MetricRegistry::clear() {
+    std::lock_guard<std::mutex> lk(mu_);
+    counters_.clear();
+    histograms_.clear();
+}
+
+std::size_t MetricRegistry::counter_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    return counters_.size();
+}
+
+std::size_t MetricRegistry::histogram_count_total() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    return histograms_.size();
+}
+
 }  // namespace asclepius

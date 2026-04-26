@@ -73,6 +73,15 @@ public:
     // for ordering reload outside the inference hot path.
     void clear();
 
+    // True iff a policy whose IPolicy::name() equals `name` is currently
+    // registered. O(n) scan — chains are small so a scan is fine; no lock.
+    bool has(std::string_view name) const noexcept;
+
+    // Remove the first registered policy whose name() equals `name`.
+    // Returns true iff a policy was removed. Not thread-safe with
+    // concurrent evaluate_*() — same caveat as clear().
+    bool remove(std::string_view name);
+
     // Evaluate against input. Returns the (possibly modified) payload, or the
     // first blocker's Error.
     Result<std::string> evaluate_input(const InferenceContext& ctx, std::string payload) const;

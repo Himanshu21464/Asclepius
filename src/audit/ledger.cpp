@@ -809,6 +809,75 @@ Result<void> Ledger::verify_range(std::uint64_t start, std::uint64_t end) const 
     return Result<void>::ok();
 }
 
+Result<std::vector<std::string>> Ledger::tenants() const {
+    // Collect into a small set (most ledgers have a handful of tenants);
+    // the unordered_set keeps the scan O(n) and the final sort O(k log k)
+    // where k = distinct tenants << n.
+    std::unordered_map<std::string, std::uint8_t> seen;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        seen.emplace(e.header.tenant, 1);
+        return true;
+    });
+    if (!r) return r.error();
+    std::vector<std::string> out;
+    out.reserve(seen.size());
+    for (const auto& [t, _] : seen) out.push_back(t);
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+Result<std::vector<std::string>> Ledger::actors() const {
+    std::unordered_map<std::string, std::uint8_t> seen;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        seen.emplace(e.header.actor, 1);
+        return true;
+    });
+    if (!r) return r.error();
+    std::vector<std::string> out;
+    out.reserve(seen.size());
+    for (const auto& [a, _] : seen) out.push_back(a);
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+Result<std::vector<LedgerEntry>>
+Ledger::range_by_model(std::string_view model_id) const {
+    if (model_id.empty()) {
+        return Error::invalid("range_by_model requires non-empty model_id");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Only inference-committed events carry the "model" body field.
+        // Cheap prefilter on the raw body string before parsing.
+        if (e.header.event_type != "inference.committed") return true;
+        if (e.body_json.find(model_id) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("model");
+            if (it != j.end() && it->is_string() &&
+                it->get<std::string>() == model_id) {
+                out.push_back(e);
+            }
+        } catch (...) {}
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+Result<std::uint64_t> Ledger::count_in_window(Time from, Time to) const {
+    std::uint64_t n = 0;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Half-open [from, to): include from, exclude to.
+        if (e.header.ts < from) return true;
+        if (!(e.header.ts < to)) return true;
+        ++n;
+        return true;
+    });
+    if (!r) return r.error();
+    return n;
+}
+
 Result<std::vector<LedgerEntry>>
 Ledger::range_by_patient(const std::string& patient) const {
     if (patient.empty()) {

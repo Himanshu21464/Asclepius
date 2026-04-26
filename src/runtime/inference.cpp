@@ -69,6 +69,10 @@ Inference::~Inference() {
 
 const InferenceContext& Inference::ctx() const noexcept { return impl_->ctx; }
 
+const TenantId& Inference::tenant() const noexcept { return impl_->ctx.tenant(); }
+
+std::string_view Inference::id() const noexcept { return impl_->ctx.id(); }
+
 Result<std::string> Inference::run(std::string input, const ModelCallback& model_call) {
     if (impl_->completed) {
         return Error::invalid("inference already run");
