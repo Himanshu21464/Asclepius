@@ -2543,3 +2543,266 @@ TEST_CASE("longest_lived_active_for_patient: skips revoked and expired tokens fo
     REQUIRE(best);
     CHECK(best.value().token_id == live.value().token_id);
 }
+
+// ---- tokens_count_by_purpose -------------------------------------------
+
+TEST_CASE("tokens_count_by_purpose: counts each purpose once per active token") {
+    ConsentRegistry r;
+    auto p1 = PatientId::pseudonymous("tcbp_a");
+    auto p2 = PatientId::pseudonymous("tcbp_b");
+    REQUIRE(r.grant(p1, {Purpose::triage, Purpose::medication_review}, 1h));
+    REQUIRE(r.grant(p2, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(p2, {Purpose::research}, 1h));
+
+    auto m = r.tokens_count_by_purpose();
+    CHECK(m[Purpose::triage]            == 2u);
+    CHECK(m[Purpose::medication_review] == 1u);
+    CHECK(m[Purpose::research]          == 1u);
+    // Purposes with no active tokens do not appear in the map.
+    CHECK(m.find(Purpose::operations) == m.end());
+}
+
+TEST_CASE("tokens_count_by_purpose: skips revoked and expired tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("tcbp_filter");
+    auto live = r.grant(p, {Purpose::triage}, 1h);
+    auto rev  = r.grant(p, {Purpose::triage, Purpose::research}, 1h);
+    REQUIRE(live);
+    REQUIRE(rev);
+    REQUIRE(r.revoke(rev.value().token_id));
+
+    // An expired token granting a third purpose.
+    ConsentToken expired;
+    expired.token_id   = "ct_tcbp_expired";
+    expired.patient    = p;
+    expired.purposes   = {Purpose::operations};
+    expired.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    expired.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(expired));
+
+    auto m = r.tokens_count_by_purpose();
+    CHECK(m[Purpose::triage] == 1u);
+    CHECK(m.find(Purpose::research)   == m.end());
+    CHECK(m.find(Purpose::operations) == m.end());
+}
+
+TEST_CASE("tokens_count_by_purpose: empty registry returns empty map") {
+    ConsentRegistry r;
+    auto m = r.tokens_count_by_purpose();
+    CHECK(m.empty());
+}
+
+TEST_CASE("tokens_count_by_purpose: token with duplicated purpose still counts once") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("tcbp_dup");
+    // ingest a malformed token with a duplicated purpose.
+    ConsentToken t;
+    t.token_id   = "ct_tcbp_dup";
+    t.patient    = p;
+    t.purposes   = {Purpose::triage, Purpose::triage};
+    t.issued_at  = Time::now();
+    t.expires_at = Time::now() + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(t));
+
+    auto m = r.tokens_count_by_purpose();
+    CHECK(m[Purpose::triage] == 1u);
+}
+
+// ---- patient_with_most_tokens ------------------------------------------
+
+TEST_CASE("patient_with_most_tokens: returns the heaviest patient") {
+    ConsentRegistry r;
+    auto heavy = PatientId::pseudonymous("pwmt_heavy");
+    auto light = PatientId::pseudonymous("pwmt_light");
+    REQUIRE(r.grant(heavy, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(heavy, {Purpose::research}, 1h));
+    REQUIRE(r.grant(heavy, {Purpose::operations}, 1h));
+    REQUIRE(r.grant(light, {Purpose::triage}, 1h));
+
+    auto top = r.patient_with_most_tokens();
+    REQUIRE(top);
+    CHECK(top.value() == heavy);
+}
+
+TEST_CASE("patient_with_most_tokens: counts active + revoked + expired alike") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("pwmt_a");
+    auto b = PatientId::pseudonymous("pwmt_b");
+
+    // a has 1 active token.
+    REQUIRE(r.grant(a, {Purpose::triage}, 1h));
+    // b has 1 active + 1 revoked + 1 expired = 3.
+    auto b_active = r.grant(b, {Purpose::triage}, 1h);
+    auto b_revoke = r.grant(b, {Purpose::triage}, 1h);
+    REQUIRE(b_active);
+    REQUIRE(b_revoke);
+    REQUIRE(r.revoke(b_revoke.value().token_id));
+
+    ConsentToken expired;
+    expired.token_id   = "ct_pwmt_b_expired";
+    expired.patient    = b;
+    expired.purposes   = {Purpose::triage};
+    expired.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    expired.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(expired));
+
+    auto top = r.patient_with_most_tokens();
+    REQUIRE(top);
+    CHECK(top.value() == b);
+}
+
+TEST_CASE("patient_with_most_tokens: empty registry returns not_found") {
+    ConsentRegistry r;
+    auto top = r.patient_with_most_tokens();
+    REQUIRE(!top);
+    CHECK(top.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("patient_with_most_tokens: single patient is trivially the winner") {
+    ConsentRegistry r;
+    auto only = PatientId::pseudonymous("pwmt_solo");
+    REQUIRE(r.grant(only, {Purpose::triage}, 1h));
+    auto top = r.patient_with_most_tokens();
+    REQUIRE(top);
+    CHECK(top.value() == only);
+}
+
+// ---- serialize_to_json --------------------------------------------------
+
+TEST_CASE("serialize_to_json: empty registry yields empty array") {
+    ConsentRegistry r;
+    auto s = r.serialize_to_json();
+    auto j = nlohmann::json::parse(s);
+    REQUIRE(j.is_array());
+    CHECK(j.empty());
+}
+
+TEST_CASE("serialize_to_json: emits all expected fields per token") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ser_one");
+    auto t = r.grant(p, {Purpose::triage, Purpose::research}, 2h);
+    REQUIRE(t);
+
+    auto s = r.serialize_to_json();
+    auto j = nlohmann::json::parse(s);
+    REQUIRE(j.is_array());
+    REQUIRE(j.size() == 1u);
+
+    auto& o = j[0];
+    CHECK(o["token_id"].get<std::string>() == t.value().token_id);
+    CHECK(o["patient"].get<std::string>()  == std::string{p.str()});
+    REQUIRE(o["purposes"].is_array());
+    CHECK(o["purposes"].size() == 2u);
+    CHECK(o["revoked"].get<bool>() == false);
+    CHECK(o["issued_at"].is_string());
+    CHECK(o["expires_at"].is_string());
+}
+
+TEST_CASE("serialize_to_json: includes revoked tokens with revoked=true") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ser_rev");
+    auto t = r.grant(p, {Purpose::operations}, 1h);
+    REQUIRE(t);
+    REQUIRE(r.revoke(t.value().token_id));
+
+    auto j = nlohmann::json::parse(r.serialize_to_json());
+    REQUIRE(j.is_array());
+    REQUIRE(j.size() == 1u);
+    CHECK(j[0]["revoked"].get<bool>() == true);
+    CHECK(j[0]["token_id"].get<std::string>() == t.value().token_id);
+}
+
+TEST_CASE("serialize_to_json: round-trips multiple tokens through deserialize_from_json") {
+    ConsentRegistry r;
+    auto p1 = PatientId::pseudonymous("ser_rt_1");
+    auto p2 = PatientId::pseudonymous("ser_rt_2");
+    REQUIRE(r.grant(p1, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(p2, {Purpose::research, Purpose::medication_review}, 3h));
+
+    auto blob = r.serialize_to_json();
+
+    ConsentRegistry r2;
+    auto n = r2.deserialize_from_json(blob);
+    REQUIRE(n);
+    CHECK(n.value() == 2u);
+    CHECK(r2.total_count() == 2u);
+}
+
+// ---- deserialize_from_json ---------------------------------------------
+
+TEST_CASE("deserialize_from_json: appends without clearing existing state") {
+    ConsentRegistry r;
+    auto p_existing = PatientId::pseudonymous("deser_existing");
+    REQUIRE(r.grant(p_existing, {Purpose::triage}, 1h));
+    REQUIRE(r.total_count() == 1u);
+
+    ConsentRegistry src;
+    auto p_new = PatientId::pseudonymous("deser_new");
+    REQUIRE(src.grant(p_new, {Purpose::operations}, 1h));
+    auto blob = src.serialize_to_json();
+
+    auto n = r.deserialize_from_json(blob);
+    REQUIRE(n);
+    CHECK(n.value() == 1u);
+    CHECK(r.total_count() == 2u);
+}
+
+TEST_CASE("deserialize_from_json: skips tokens already present without erroring") {
+    ConsentRegistry src;
+    auto p = PatientId::pseudonymous("deser_dup");
+    REQUIRE(src.grant(p, {Purpose::triage}, 1h));
+    REQUIRE(src.grant(p, {Purpose::research}, 1h));
+    auto blob = src.serialize_to_json();
+
+    ConsentRegistry dst;
+    // First ingest: both land.
+    auto n1 = dst.deserialize_from_json(blob);
+    REQUIRE(n1);
+    CHECK(n1.value() == 2u);
+    CHECK(dst.total_count() == 2u);
+
+    // Second ingest of the same blob: all collide, nothing new ingested,
+    // total unchanged, no error.
+    auto n2 = dst.deserialize_from_json(blob);
+    REQUIRE(n2);
+    CHECK(n2.value() == 0u);
+    CHECK(dst.total_count() == 2u);
+}
+
+TEST_CASE("deserialize_from_json: rejects malformed JSON") {
+    ConsentRegistry r;
+    auto bad = r.deserialize_from_json("{not valid json");
+    REQUIRE(!bad);
+    CHECK(bad.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("deserialize_from_json: does NOT fire the observer") {
+    ConsentRegistry src;
+    auto p = PatientId::pseudonymous("deser_obs");
+    REQUIRE(src.grant(p, {Purpose::triage}, 1h));
+    auto blob = src.serialize_to_json();
+
+    ConsentRegistry dst;
+    std::atomic<int> calls{0};
+    dst.set_observer([&](ConsentRegistry::Event, const ConsentToken&) {
+        calls.fetch_add(1);
+    });
+
+    auto n = dst.deserialize_from_json(blob);
+    REQUIRE(n);
+    CHECK(n.value() == 1u);
+    CHECK(calls.load() == 0);
+}
+
+TEST_CASE("deserialize_from_json: accepts the {tokens: [...]} envelope from dump_state_json") {
+    ConsentRegistry src;
+    auto p = PatientId::pseudonymous("deser_env");
+    REQUIRE(src.grant(p, {Purpose::quality_improvement}, 1h));
+    auto blob = src.dump_state_json();
+
+    ConsentRegistry dst;
+    auto n = dst.deserialize_from_json(blob);
+    REQUIRE(n);
+    CHECK(n.value() == 1u);
+    CHECK(dst.total_count() == 1u);
+}

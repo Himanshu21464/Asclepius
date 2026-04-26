@@ -725,6 +725,146 @@ Result<ConsentToken> ConsentRegistry::most_recently_granted() const {
     return *best;
 }
 
+std::unordered_map<Purpose, std::size_t>
+ConsentRegistry::tokens_count_by_purpose() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::unordered_map<Purpose, std::size_t> out;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        // A token granting multiple purposes counts once per purpose; a
+        // token listing the same purpose twice (malformed but possible
+        // via ingest()) still counts once for that purpose.
+        std::unordered_set<std::uint8_t> seen_in_token;
+        for (auto p : t.purposes) {
+            auto code = static_cast<std::uint8_t>(p);
+            if (seen_in_token.insert(code).second) {
+                out[p]++;
+            }
+        }
+    }
+    return out;
+}
+
+Result<PatientId> ConsentRegistry::patient_with_most_tokens() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (by_id_.empty()) {
+        return Error::not_found("registry is empty");
+    }
+    std::unordered_map<std::string, std::size_t> counts;
+    counts.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        counts[std::string{t.patient.str()}]++;
+    }
+    const std::string* best_key = nullptr;
+    std::size_t        best_n   = 0;
+    for (const auto& [k, n] : counts) {
+        if (best_key == nullptr || n > best_n) {
+            best_key = &k;
+            best_n   = n;
+        }
+    }
+    return PatientId{*best_key};
+}
+
+std::string ConsentRegistry::serialize_to_json() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto& [_, t] : by_id_) {
+        nlohmann::json purposes = nlohmann::json::array();
+        for (auto p : t.purposes) {
+            purposes.push_back(to_string(p));
+        }
+        arr.push_back({
+            {"token_id",   t.token_id},
+            {"patient",    std::string{t.patient.str()}},
+            {"purposes",   std::move(purposes)},
+            {"issued_at",  t.issued_at.iso8601()},
+            {"expires_at", t.expires_at.iso8601()},
+            {"revoked",    t.revoked},
+        });
+    }
+    return arr.dump();
+}
+
+Result<std::size_t>
+ConsentRegistry::deserialize_from_json(std::string_view s) {
+    nlohmann::json j;
+    try {
+        j = nlohmann::json::parse(s);
+    } catch (const std::exception&) {
+        return Error::invalid("deserialize_from_json: malformed JSON");
+    }
+
+    // Accept either the bare-array form emitted by serialize_to_json
+    // or the {"tokens": [...]} envelope emitted by dump_state_json.
+    const nlohmann::json* arr = nullptr;
+    if (j.is_array()) {
+        arr = &j;
+    } else if (j.is_object() && j.contains("tokens") && j["tokens"].is_array()) {
+        arr = &j["tokens"];
+    } else {
+        return Error::invalid(
+            "deserialize_from_json: expected array or {tokens: [...]}");
+    }
+
+    std::vector<ConsentToken> staged;
+    staged.reserve(arr->size());
+    for (const auto& item : *arr) {
+        if (!item.is_object()) {
+            return Error::invalid(
+                "deserialize_from_json: token entry is not an object");
+        }
+        if (!item.contains("token_id") || !item["token_id"].is_string() ||
+            !item.contains("patient")  || !item["patient"].is_string()  ||
+            !item.contains("purposes") || !item["purposes"].is_array()  ||
+            !item.contains("issued_at")  || !item["issued_at"].is_string()  ||
+            !item.contains("expires_at") || !item["expires_at"].is_string() ||
+            !item.contains("revoked")    || !item["revoked"].is_boolean()) {
+            return Error::invalid(
+                "deserialize_from_json: token missing required field");
+        }
+        ConsentToken t;
+        t.token_id = item["token_id"].get<std::string>();
+        t.patient  = PatientId{item["patient"].get<std::string>()};
+        for (const auto& pj : item["purposes"]) {
+            if (!pj.is_string()) {
+                return Error::invalid(
+                    "deserialize_from_json: purpose is not a string");
+            }
+            auto pr = purpose_from_string(pj.get<std::string>());
+            if (!pr) {
+                return Error::invalid(
+                    "deserialize_from_json: unknown purpose string");
+            }
+            t.purposes.push_back(pr.value());
+        }
+        try {
+            t.issued_at  = Time::from_iso8601(item["issued_at"].get<std::string>());
+            t.expires_at = Time::from_iso8601(item["expires_at"].get<std::string>());
+        } catch (const std::exception&) {
+            return Error::invalid(
+                "deserialize_from_json: malformed iso8601 timestamp");
+        }
+        t.revoked = item["revoked"].get<bool>();
+        staged.push_back(std::move(t));
+    }
+
+    std::size_t ingested = 0;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        for (auto& t : staged) {
+            auto [it, inserted] = by_id_.emplace(t.token_id, std::move(t));
+            if (inserted) {
+                ingested++;
+            }
+            // Collisions are silently skipped, matching the docstring.
+        }
+    }
+    return ingested;
+}
+
 std::size_t ConsentRegistry::extend_all_for_patient(const PatientId&     patient,
                                                     std::chrono::seconds additional_ttl) {
     if (additional_ttl.count() <= 0) {

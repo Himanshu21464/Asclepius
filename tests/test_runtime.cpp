@@ -3199,3 +3199,224 @@ TEST_CASE("warm_caches: callable before any inference, doesn't gate begin_infere
     });
     CHECK(inf);
 }
+
+// ============== Inference::age_ms =========================================
+
+TEST_CASE("age_ms: matches elapsed_ms on a fresh handle") {
+    auto rt_ = fresh_runtime("age_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_age1");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    // Two reads of the same alias should be within ~few ms of each other
+    // and the alias should never disagree with elapsed_ms() by more than
+    // the wallclock between the two calls.
+    auto a = inf.value().age_ms();
+    auto b = inf.value().elapsed_ms();
+    CHECK(b >= a);
+    CHECK((b - a) < 50);
+}
+
+TEST_CASE("age_ms: monotonically non-decreasing as wallclock advances") {
+    auto rt_ = fresh_runtime("age_mono"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_age2");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    auto a0 = inf.value().age_ms();
+    std::this_thread::sleep_for(20ms);
+    auto a1 = inf.value().age_ms();
+    CHECK(a1 >= a0);
+    CHECK(a1 >= 15);  // slept 20ms; allow scheduler slack
+}
+
+TEST_CASE("age_ms: returns 0 for a moved-from handle") {
+    auto rt_ = fresh_runtime("age_moved"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_age3");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    Inference moved = std::move(inf.value());
+    // The moved-from handle's impl_ is null; both elapsed_ms() and
+    // age_ms() short-circuit to 0 in that state.
+    CHECK(inf.value().age_ms() == 0);
+    // The destination handle is still live and reports a non-negative age.
+    CHECK(moved.age_ms() >= 0);
+}
+
+// ============== Runtime::env_summary ======================================
+
+TEST_CASE("env_summary: returns parseable JSON with required keys") {
+    auto rt_ = fresh_runtime("env_keys"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto s = rt.env_summary();
+    auto j = nlohmann::json::parse(s);
+    CHECK(j.contains("asclepius"));
+    CHECK(j.contains("libsodium"));
+    CHECK(j.contains("sqlite"));
+    CHECK(j.contains("cpp_standard"));
+    CHECK(j.contains("compiler"));
+}
+
+TEST_CASE("env_summary: reports a sane compiler and non-empty version strings") {
+    auto rt_ = fresh_runtime("env_sane"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto j = nlohmann::json::parse(rt.env_summary());
+    auto comp = j["compiler"].get<std::string>();
+    CHECK((comp == "clang" || comp == "g++" || comp == "unknown"));
+    CHECK(!j["asclepius"].get<std::string>().empty());
+    CHECK(!j["libsodium"].get<std::string>().empty());
+    CHECK(!j["sqlite"].get<std::string>().empty());
+}
+
+TEST_CASE("env_summary: cpp_standard is at least C++20") {
+    auto rt_ = fresh_runtime("env_cpp20"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto j = nlohmann::json::parse(rt.env_summary());
+    // Project is C++20 per CLAUDE.md; expect at least 202002L.
+    CHECK(j["cpp_standard"].get<long>() >= 202002L);
+}
+
+TEST_CASE("env_summary: stable across calls (pure accessor, no mutation)") {
+    auto rt_ = fresh_runtime("env_stable"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto a = rt.env_summary();
+    auto b = rt.env_summary();
+    CHECK(a == b);
+}
+
+// ============== Runtime::counter_total ====================================
+
+TEST_CASE("counter_total: zero on a fresh runtime") {
+    auto rt_ = fresh_runtime("ct_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.counter_total() == 0);
+}
+
+TEST_CASE("counter_total: increases as inference activity is recorded") {
+    auto rt_ = fresh_runtime("ct_grow"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ct");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto before = rt.counter_total();
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    auto out = inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; });
+    REQUIRE(out);
+    REQUIRE(inf.value().commit());
+
+    // begin + attempts + ok all increment counters; total must rise.
+    CHECK(rt.counter_total() > before);
+}
+
+TEST_CASE("counter_total: matches metrics().counter_total() exactly") {
+    auto rt_ = fresh_runtime("ct_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ctm");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    REQUIRE(inf.value().run("x",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    CHECK(rt.counter_total()
+          == static_cast<std::size_t>(rt.metrics().counter_total()));
+}
+
+// ============== Runtime::is_chain_well_formed =============================
+
+TEST_CASE("is_chain_well_formed: true on a fresh empty runtime") {
+    auto rt_ = fresh_runtime("wf_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.is_chain_well_formed());
+}
+
+TEST_CASE("is_chain_well_formed: still true after committed inference") {
+    auto rt_ = fresh_runtime("wf_commit"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_wf");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    CHECK(rt.is_chain_well_formed());
+}
+
+TEST_CASE("is_chain_well_formed: agrees with ledger().verify()") {
+    auto rt_ = fresh_runtime("wf_agree"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Drive a few entries into the chain.
+    auto pid = PatientId::pseudonymous("p_wfa");
+    REQUIRE(rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h));
+    auto inf = rt.begin_inference({
+        .model            = ModelId{"m","v1"},
+        .actor            = ActorId::clinician("smith"),
+        .patient          = pid,
+        .encounter        = EncounterId::make(),
+        .purpose          = Purpose::ambient_documentation,
+    });
+    REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    const bool sugar = rt.is_chain_well_formed();
+    const bool full  = rt.ledger().verify().has_value();
+    CHECK(sugar == full);
+    CHECK(full == true);
+}
+
+// ============== Runtime::recent_drift_events ==============================
+
+TEST_CASE("recent_drift_events: empty on a fresh runtime") {
+    auto rt_ = fresh_runtime("rde_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto v = rt.recent_drift_events(10);
+    CHECK(v.empty());
+}
+
+TEST_CASE("recent_drift_events: n == 0 returns empty vector") {
+    auto rt_ = fresh_runtime("rde_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Even with crossings present, n=0 must return empty.
+    auto v = rt.recent_drift_events(0);
+    CHECK(v.empty());
+}
+
+TEST_CASE("recent_drift_events: surfaces drift.crossed entries appended by the bridge") {
+    auto rt_ = fresh_runtime("rde_fire"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+
+    // Register a feature with a baseline tightly clustered low; later
+    // observations cluster high. The exact PSI/KS values depend on the
+    // monitor's configuration, but the structural mismatch should fire
+    // the bridge's drift.crossed event eventually.
+    std::vector<double> baseline;
+    for (int i = 0; i < 200; ++i) baseline.push_back(0.05);
+    REQUIRE(rt.drift().register_feature("ratio", std::move(baseline),
+                                         /*lo=*/0.0, /*hi=*/1.0));
+
+    for (int i = 0; i < 500; ++i) {
+        (void)rt.drift().observe("ratio", 0.95);
+    }
+    // The bridge appends drift.crossed when classify >= moder. Look at
+    // the chain via the sugar and the ledger directly; both should
+    // agree on the count, and both should be > 0 if any crossing fired.
+    auto via_sugar  = rt.recent_drift_events(50);
+    auto via_ledger = rt.ledger().tail_by_event_type("drift.crossed", 50);
+    REQUIRE(via_ledger);
+    CHECK(via_sugar.size() == via_ledger.value().size());
+    // If at least one crossing was generated, every entry surfaced via
+    // the sugar must carry the right event_type.
+    for (const auto& e : via_sugar) {
+        CHECK(e.header.event_type == "drift.crossed");
+    }
+}

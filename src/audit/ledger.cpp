@@ -1532,6 +1532,82 @@ Ledger::Subscription Ledger::subscribe(Subscriber cb) {
     return Subscription{this, id};
 }
 
+Result<std::uint64_t> Ledger::cumulative_body_bytes() const {
+    std::uint64_t total = 0;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        total += e.body_json.size();
+        return true;
+    });
+    if (!r) return r.error();
+    return total;
+}
+
+Result<std::vector<LedgerEntry>>
+Ledger::tail_in_seq_range(std::uint64_t start, std::uint64_t end,
+                          std::size_t n) const {
+    if (n == 0) return std::vector<LedgerEntry>{};
+    if (start >= end) return std::vector<LedgerEntry>{};
+
+    auto rng = impl_->storage->select_range(start, end);
+    if (!rng) return rng.error();
+    auto& entries = rng.value();
+
+    // Keep only the last `n` matches via a bounded ring buffer to avoid
+    // an O(range) copy when n << range. Mirrors tail_in_window.
+    std::vector<LedgerEntry> ring;
+    ring.reserve(std::min(n, entries.size()));
+    for (auto& e : entries) {
+        if (ring.size() < n) {
+            ring.push_back(std::move(e));
+        } else {
+            std::move(ring.begin() + 1, ring.end(), ring.begin());
+            ring.back() = std::move(e);
+        }
+    }
+    std::reverse(ring.begin(), ring.end());
+    return ring;
+}
+
+Result<std::vector<Hash>>
+Ledger::merkle_proof_path(std::uint64_t seq) const {
+    const auto len = impl_->length.load();
+    if (seq == 0 || seq > len) {
+        return Error::invalid("merkle_proof_path: seq out of range");
+    }
+    // [seq, len+1) covers the entry at `seq` plus every successor up
+    // to the head, inclusive. Element 0 is the entry's own hash.
+    auto rng = impl_->storage->select_range(seq, len + 1);
+    if (!rng) return rng.error();
+
+    std::vector<Hash> path;
+    path.reserve(rng.value().size());
+    for (const auto& e : rng.value()) {
+        path.push_back(e.entry_hash());
+    }
+    return path;
+}
+
+Result<std::uint64_t>
+Ledger::longest_run_of_event_type(std::string_view event_type) const {
+    if (event_type.empty()) {
+        return Error::invalid(
+            "longest_run_of_event_type requires non-empty event_type");
+    }
+    std::uint64_t best    = 0;
+    std::uint64_t current = 0;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.event_type == event_type) {
+            ++current;
+            if (current > best) best = current;
+        } else {
+            current = 0;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    return best;
+}
+
 void Ledger::unsubscribe(std::uint64_t id) {
     std::lock_guard<std::mutex> lk(impl_->sub_mu);
     auto it = std::remove_if(impl_->subs.begin(), impl_->subs.end(),

@@ -561,6 +561,24 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 82 <small>cold backups · merkle proofs · env probes</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.cumulative_body_bytes()</code></dt><dd>logical content size — distinct from the on-disk file</dd>
+        <dt><code>ledger.tail_in_seq_range(s0, s1, n)</code></dt><dd>last n inside a seq window</dd>
+        <dt><code>ledger.merkle_proof_path(seq)</code></dt><dd>raw hash chain to head — external-verifier primitive</dd>
+        <dt><code>ledger.longest_run_of_event_type(t)</code></dt><dd>burst detection — "fifty blocked in a row"</dd>
+        <dt><code>hist.reset_to(other)</code></dt><dd>deep copy — freeze a window as the new baseline</dd>
+        <dt><code>drift.report_for_feature(f) · observe_uniform(f, v, n)</code></dt><dd>single-feature drill-down · silent bulk-flat backfill</dd>
+        <dt><code>metrics.counter_value(n) · histogram_quantile(n, q)</code></dt><dd>safe lookup that errors on typo · p99 from bucket counts</dd>
+        <dt><code>consent.tokens_count_by_purpose() · patient_with_most_tokens()</code></dt><dd>by-purpose roll-up · churn pointer</dd>
+        <dt><code>consent.serialize_to_json() · deserialize_from_json(s)</code></dt><dd><strong>cold backup / restore</strong> — round-trip independent of the ledger</dd>
+        <dt><code>inf.age_ms()</code></dt><dd>alias for <code>elapsed_ms()</code> — stale-handle vocabulary</dd>
+        <dt><code>rt.env_summary()</code></dt><dd>JSON: asclepius / libsodium / sqlite / compiler / C++ std</dd>
+        <dt><code>rt.counter_total() · is_chain_well_formed() · recent_drift_events(n)</code></dt><dd>total-work line · deploy-gate bool · drift tail</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Round 81 <small>replica checksums · bulk drift · purpose-scoped revoke</small></h2>
       <dl class="pair">
         <dt><code>ledger.seq_range_for_tenant(t)</code></dt><dd>oldest + newest seq for one tenant in one query</dd>

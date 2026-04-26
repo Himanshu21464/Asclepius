@@ -3751,3 +3751,269 @@ TEST_CASE("has_event_after_seq: tracks newly appended entries") {
     CHECK(l.has_event_after_seq(1) == true);   // a follower at 1 is now behind
     CHECK(l.has_event_after_seq(2) == false);  // a follower at 2 is caught up
 }
+
+// ---- cumulative_body_bytes ------------------------------------------------
+
+TEST_CASE("cumulative_body_bytes: empty chain returns 0") {
+    auto p  = tmp_db("cum_bytes_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    auto r = l.cumulative_body_bytes();
+    REQUIRE(r);
+    CHECK(r.value() == 0);
+}
+
+TEST_CASE("cumulative_body_bytes: matches sum of body_json sizes") {
+    auto p  = tmp_db("cum_bytes_sum");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    std::uint64_t expected = 0;
+    for (int i = 0; i < 7; ++i) {
+        nlohmann::json b;
+        b["i"]   = i;
+        b["pad"] = std::string(static_cast<std::size_t>(i) * 4, 'x');
+        auto e = l.append("e.t", "a", b);
+        REQUIRE(e);
+        expected += e.value().body_json.size();
+    }
+    auto r = l.cumulative_body_bytes();
+    REQUIRE(r);
+    CHECK(r.value() == expected);
+}
+
+TEST_CASE("cumulative_body_bytes: agrees with stats().total_body_bytes") {
+    auto p  = tmp_db("cum_bytes_vs_stats");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    for (int i = 0; i < 25; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("e.t", "a", b));
+    }
+    auto cum = l.cumulative_body_bytes(); REQUIRE(cum);
+    auto st  = l.stats();                 REQUIRE(st);
+    CHECK(cum.value() == st.value().total_body_bytes);
+    CHECK(cum.value() > 0);
+}
+
+TEST_CASE("cumulative_body_bytes: grows monotonically with appends") {
+    auto p  = tmp_db("cum_bytes_grow");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    auto r0 = l.cumulative_body_bytes(); REQUIRE(r0);
+    CHECK(r0.value() == 0);
+
+    nlohmann::json b1; b1["x"] = "first";
+    REQUIRE(l.append("e", "a", b1));
+    auto r1 = l.cumulative_body_bytes(); REQUIRE(r1);
+    CHECK(r1.value() > r0.value());
+
+    nlohmann::json b2; b2["x"] = "second-with-more-text";
+    REQUIRE(l.append("e", "a", b2));
+    auto r2 = l.cumulative_body_bytes(); REQUIRE(r2);
+    CHECK(r2.value() > r1.value());
+}
+
+// ---- tail_in_seq_range ----------------------------------------------------
+
+TEST_CASE("tail_in_seq_range: n=0 returns empty") {
+    auto p  = tmp_db("tisr_n0");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("e", "a", b));
+    }
+    auto r = l.tail_in_seq_range(1, 6, 0);
+    REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("tail_in_seq_range: start >= end returns empty") {
+    auto p  = tmp_db("tisr_bounds");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("e", "a", b));
+    }
+    auto r1 = l.tail_in_seq_range(3, 3, 10);
+    REQUIRE(r1);
+    CHECK(r1.value().empty());
+
+    auto r2 = l.tail_in_seq_range(5, 1, 10);
+    REQUIRE(r2);
+    CHECK(r2.value().empty());
+}
+
+TEST_CASE("tail_in_seq_range: returns last n in most-recent-first order") {
+    auto p  = tmp_db("tisr_order");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    for (int i = 1; i <= 10; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("e", "a", b));
+    }
+    // window [3, 9) covers seq 3..8; last 3 are seq 6, 7, 8.
+    auto r = l.tail_in_seq_range(3, 9, 3);
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    CHECK(r.value()[0].header.seq == 8);
+    CHECK(r.value()[1].header.seq == 7);
+    CHECK(r.value()[2].header.seq == 6);
+}
+
+TEST_CASE("tail_in_seq_range: n larger than window yields entire window reversed") {
+    auto p  = tmp_db("tisr_big_n");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    for (int i = 1; i <= 5; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("e", "a", b));
+    }
+    auto r = l.tail_in_seq_range(2, 5, 100);
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    CHECK(r.value()[0].header.seq == 4);
+    CHECK(r.value()[1].header.seq == 3);
+    CHECK(r.value()[2].header.seq == 2);
+}
+
+// ---- merkle_proof_path ----------------------------------------------------
+
+TEST_CASE("merkle_proof_path: seq==0 is invalid_argument") {
+    auto p  = tmp_db("mpp_zero");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}));
+    auto r = l.merkle_proof_path(0);
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("merkle_proof_path: seq beyond length is invalid_argument") {
+    auto p  = tmp_db("mpp_oob");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}));
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 2}}));
+    auto r = l.merkle_proof_path(99);
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("merkle_proof_path: head entry path is just its own hash") {
+    auto p  = tmp_db("mpp_head");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("e", "a", b));
+    }
+    const auto len = l.length();
+    auto path = l.merkle_proof_path(len);
+    REQUIRE(path);
+    REQUIRE(path.value().size() == 1);
+    auto last = l.at(len); REQUIRE(last);
+    CHECK(path.value()[0] == last.value().entry_hash());
+    CHECK(path.value()[0] == l.head());
+}
+
+TEST_CASE("merkle_proof_path: path covers [seq, length] inclusive, in seq order") {
+    auto p  = tmp_db("mpp_full");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 6; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("e", "a", b));
+    }
+    const std::uint64_t target = 2;
+    const auto len = l.length();
+
+    auto path = l.merkle_proof_path(target);
+    REQUIRE(path);
+    REQUIRE(path.value().size() == len - target + 1);
+
+    for (std::uint64_t i = 0; i < path.value().size(); ++i) {
+        auto e = l.at(target + i);
+        REQUIRE(e);
+        CHECK(path.value()[i] == e.value().entry_hash());
+    }
+    // Last element matches the current chain head.
+    CHECK(path.value().back() == l.head());
+}
+
+// ---- longest_run_of_event_type --------------------------------------------
+
+TEST_CASE("longest_run_of_event_type: empty event_type is invalid_argument") {
+    auto p  = tmp_db("lr_empty_arg");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}));
+    auto r = l.longest_run_of_event_type("");
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("longest_run_of_event_type: no matches returns 0") {
+    auto p  = tmp_db("lr_zero");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("other.event", "a", b));
+    }
+    auto r = l.longest_run_of_event_type("drift.crossed");
+    REQUIRE(r);
+    CHECK(r.value() == 0);
+}
+
+TEST_CASE("longest_run_of_event_type: detects a single contiguous burst") {
+    auto p  = tmp_db("lr_burst");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    // 2 misc, then 5 drift, then 1 misc.
+    REQUIRE(l.append("misc", "a", nlohmann::json{{"i", 0}}));
+    REQUIRE(l.append("misc", "a", nlohmann::json{{"i", 1}}));
+    for (int i = 0; i < 5; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(l.append("drift.crossed", "a", b));
+    }
+    REQUIRE(l.append("misc", "a", nlohmann::json{{"i", 99}}));
+
+    auto r = l.longest_run_of_event_type("drift.crossed");
+    REQUIRE(r);
+    CHECK(r.value() == 5);
+}
+
+TEST_CASE("longest_run_of_event_type: picks longest among multiple runs") {
+    auto p  = tmp_db("lr_multi");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    auto push_n = [&](const char* type, int n) {
+        for (int i = 0; i < n; ++i) {
+            nlohmann::json b; b["i"] = i;
+            REQUIRE(l.append(type, "a", b));
+        }
+    };
+    push_n("d", 3);
+    push_n("o", 2);
+    push_n("d", 7);   // longest run of "d"
+    push_n("o", 1);
+    push_n("d", 4);
+
+    auto r = l.longest_run_of_event_type("d");
+    REQUIRE(r);
+    CHECK(r.value() == 7);
+
+    auto r2 = l.longest_run_of_event_type("o");
+    REQUIRE(r2);
+    CHECK(r2.value() == 2);
+}

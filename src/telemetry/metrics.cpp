@@ -88,6 +88,62 @@ std::uint64_t MetricRegistry::count(std::string_view name) const {
     return 0;
 }
 
+Result<std::uint64_t> MetricRegistry::counter_value(std::string_view name) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = counters_.find(std::string{name});
+    if (it == counters_.end()) {
+        return Error::not_found("unknown counter");
+    }
+    return it->second;
+}
+
+double MetricRegistry::histogram_quantile(std::string_view name, double q) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = histograms_.find(std::string{name});
+    if (it == histograms_.end()) return 0.0;
+    const auto& h = it->second;
+    if (h.count == 0) return 0.0;
+
+    const double qc     = std::clamp(q, 0.0, 1.0);
+    const double target = qc * static_cast<double>(h.count);
+    const auto   n      = h.buckets.size();
+    if (n == 0) return 0.0;
+
+    // bucket_counts is cumulative (count of value <= buckets[i]). Walk
+    // until the cumulative count reaches target, then linearly interpolate
+    // within the bucket using its lower and upper edges. The lower edge
+    // of bucket i is buckets[i-1] (or 0.0 for i==0); the upper edge is
+    // buckets[i]. For the +Inf upper edge, fall back to the prior bucket's
+    // upper edge to keep the result finite.
+    std::uint64_t prev_cum = 0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const std::uint64_t cum = h.bucket_counts[i];
+        if (static_cast<double>(cum) >= target) {
+            const double lower = (i == 0 ? 0.0 : h.buckets[i - 1]);
+            double upper = h.buckets[i];
+            if (std::isinf(upper)) {
+                // No finite upper edge; clamp to the lower edge so we
+                // return a finite value for the long-tail bucket.
+                return lower;
+            }
+            const double bucket_mass = static_cast<double>(cum - prev_cum);
+            double frac = 0.0;
+            if (bucket_mass > 0.0) {
+                frac = (target - static_cast<double>(prev_cum)) / bucket_mass;
+                frac = std::clamp(frac, 0.0, 1.0);
+            }
+            return lower + (upper - lower) * frac;
+        }
+        prev_cum = cum;
+    }
+    // Floating-point edge: target rounded just past the final cumulative.
+    // Walk back to the last finite bucket edge.
+    for (std::size_t i = n; i-- > 0;) {
+        if (!std::isinf(h.buckets[i])) return h.buckets[i];
+    }
+    return 0.0;
+}
+
 std::string MetricRegistry::snapshot_json() const {
     std::lock_guard<std::mutex> lk(mu_);
     nlohmann::json j = nlohmann::json::object();

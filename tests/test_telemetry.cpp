@@ -2067,3 +2067,307 @@ TEST_CASE("DriftMonitor::has_alert_sink false after install of empty std::functi
     static_assert(noexcept(std::declval<const DriftMonitor&>().has_alert_sink()),
                   "DriftMonitor::has_alert_sink must be noexcept");
 }
+
+// ---- DriftMonitor::report_for_feature -----------------------------------
+
+TEST_CASE("DriftMonitor::report_for_feature returns not_found for unregistered feature") {
+    DriftMonitor dm;
+    auto r = dm.report_for_feature("missing");
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+
+    // Even after registering some other feature, an unknown name still
+    // returns not_found.
+    REQUIRE(dm.register_feature("present", std::vector<double>(50, 0.3)));
+    auto r2 = dm.report_for_feature("still_missing");
+    REQUIRE_FALSE(r2);
+    CHECK(r2.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("DriftMonitor::report_for_feature on identical reference/current → near-zero PSI") {
+    DriftMonitor dm;
+    std::vector<double> baseline;
+    baseline.reserve(500);
+    std::mt19937 rng{17};
+    std::uniform_real_distribution<double> d{0.1, 0.9};
+    for (int i = 0; i < 500; ++i) baseline.push_back(d(rng));
+    REQUIRE(dm.register_feature("score", baseline));
+
+    // Replay the same distribution into the current window.
+    std::mt19937 rng2{17};
+    std::uniform_real_distribution<double> d2{0.1, 0.9};
+    for (int i = 0; i < 500; ++i) {
+        REQUIRE(dm.observe("score", d2(rng2)));
+    }
+
+    auto r = dm.report_for_feature("score");
+    REQUIRE(r);
+    CHECK(r.value().feature == "score");
+    CHECK(r.value().psi < 0.05);
+    CHECK(r.value().severity == DriftSeverity::none);
+    CHECK(r.value().reference_n == 500);
+    CHECK(r.value().current_n   == 500);
+}
+
+TEST_CASE("DriftMonitor::report_for_feature on shifted current → severe") {
+    DriftMonitor dm;
+    std::vector<double> baseline(500, 0.2);
+    REQUIRE(dm.register_feature("latency", baseline));
+    for (int i = 0; i < 500; ++i) {
+        REQUIRE(dm.observe("latency", 0.85));
+    }
+
+    auto r = dm.report_for_feature("latency");
+    REQUIRE(r);
+    CHECK(r.value().feature == "latency");
+    CHECK(r.value().severity == DriftSeverity::severe);
+    CHECK(r.value().psi > 0.5);
+
+    // Single-feature report should be consistent with the full report().
+    auto full = dm.report();
+    REQUIRE(full.size() == 1);
+    CHECK(full[0].psi == doctest::Approx(r.value().psi));
+}
+
+TEST_CASE("DriftMonitor::report_for_feature picks one feature out of many") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", std::vector<double>(200, 0.2)));
+    REQUIRE(dm.register_feature("b", std::vector<double>(200, 0.5)));
+    REQUIRE(dm.register_feature("c", std::vector<double>(200, 0.8)));
+
+    // Drift only "b".
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("b", 0.05));
+
+    auto ra = dm.report_for_feature("a");
+    auto rb = dm.report_for_feature("b");
+    auto rc = dm.report_for_feature("c");
+    REQUIRE(ra); REQUIRE(rb); REQUIRE(rc);
+
+    // a and c never observed, so current_n == 0 → PSI computation uses
+    // only the eps-floor and yields a non-zero number; what we care about
+    // is that b's drift is the largest.
+    CHECK(rb.value().psi > ra.value().psi);
+    CHECK(rb.value().psi > rc.value().psi);
+    CHECK(rb.value().feature == "b");
+}
+
+// ---- MetricRegistry::counter_value --------------------------------------
+
+TEST_CASE("MetricRegistry::counter_value returns not_found for unknown counter") {
+    MetricRegistry m;
+    auto r = m.counter_value("nope");
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("MetricRegistry::counter_value returns the tracked value (incl. zero)") {
+    MetricRegistry m;
+    m.inc("hits", 7);
+    auto r = m.counter_value("hits");
+    REQUIRE(r);
+    CHECK(r.value() == 7);
+
+    // Reset the counter to zero. counter_value() must still succeed and
+    // return 0 — disambiguating "missing" from "zero", which count() can't.
+    REQUIRE(m.reset("hits"));
+    auto r0 = m.counter_value("hits");
+    REQUIRE(r0);
+    CHECK(r0.value() == 0);
+    CHECK(m.count("hits") == 0);  // count() yields the same scalar value.
+}
+
+TEST_CASE("MetricRegistry::counter_value rejects histograms (separate name space)") {
+    MetricRegistry m;
+    m.observe("latency_seconds", 0.012);
+    m.observe("latency_seconds", 0.045);
+
+    // count() falls through to histograms and returns the obs count (=2).
+    CHECK(m.count("latency_seconds") == 2);
+
+    // counter_value() does NOT fall through — histograms aren't counters.
+    auto r = m.counter_value("latency_seconds");
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+// ---- MetricRegistry::histogram_quantile ---------------------------------
+
+TEST_CASE("MetricRegistry::histogram_quantile returns 0.0 for unknown / empty histograms") {
+    MetricRegistry m;
+    // Unknown name.
+    CHECK(m.histogram_quantile("nope", 0.5) == 0.0);
+    CHECK(m.histogram_quantile("nope", 0.0) == 0.0);
+    CHECK(m.histogram_quantile("nope", 1.0) == 0.0);
+}
+
+TEST_CASE("MetricRegistry::histogram_quantile interpolates within a bucket") {
+    MetricRegistry m;
+    // All observations land in the (0.005, 0.01] bucket.
+    for (int i = 0; i < 100; ++i) m.observe("lat", 0.008);
+
+    // q=0.5 should pick a value within the (0.005, 0.01] bucket. The
+    // interpolation walks from lower=0.005 to upper=0.01 with the full
+    // bucket mass, so the median resolves to 0.005 + 0.5 * 0.005 = 0.0075.
+    const double med = m.histogram_quantile("lat", 0.5);
+    CHECK(med >= 0.005);
+    CHECK(med <= 0.01);
+    CHECK(med == doctest::Approx(0.0075).epsilon(1e-9));
+
+    // q clamping: negative → 0; > 1 → clamps to 1.
+    CHECK(m.histogram_quantile("lat", -1.0) >= 0.0);
+    CHECK(m.histogram_quantile("lat",  2.0) <= 0.01);
+}
+
+TEST_CASE("MetricRegistry::histogram_quantile is monotone non-decreasing in q") {
+    MetricRegistry m;
+    // Mix of buckets so a real CDF develops.
+    for (int i = 0; i < 50; ++i) m.observe("lat", 0.002);
+    for (int i = 0; i < 50; ++i) m.observe("lat", 0.020);
+    for (int i = 0; i < 50; ++i) m.observe("lat", 0.300);
+    for (int i = 0; i < 50; ++i) m.observe("lat", 1.500);
+
+    const double q10 = m.histogram_quantile("lat", 0.10);
+    const double q50 = m.histogram_quantile("lat", 0.50);
+    const double q90 = m.histogram_quantile("lat", 0.90);
+    CHECK(q10 <= q50);
+    CHECK(q50 <= q90);
+    // Sanity: q90 should sit above the 0.25 bucket because >75% of
+    // observations have value <= 0.3.
+    CHECK(q90 > 0.25);
+    CHECK(q90 <= 5.0);  // never exceeds the last finite bucket edge
+}
+
+// ---- Histogram::reset_to ------------------------------------------------
+
+TEST_CASE("Histogram::reset_to copies content from another histogram") {
+    Histogram src{0.0, 1.0, 10};
+    for (int i = 0; i < 50; ++i) src.observe(0.15);
+    for (int i = 0; i < 30; ++i) src.observe(0.65);
+    REQUIRE(src.total() == 80);
+
+    Histogram dst{0.0, 1.0, 10};
+    for (int i = 0; i < 5; ++i) dst.observe(0.95);
+    REQUIRE(dst.total() == 5);
+
+    dst.reset_to(src);
+    CHECK(dst.total()     == src.total());
+    CHECK(dst.lo()        == src.lo());
+    CHECK(dst.hi()        == src.hi());
+    CHECK(dst.bin_count() == src.bin_count());
+    // PSI of two content-equal histograms is ~0.
+    CHECK(Histogram::psi(src, dst) == doctest::Approx(0.0).epsilon(1e-12));
+    CHECK(dst.normalized() == src.normalized());
+}
+
+TEST_CASE("Histogram::reset_to overwrites prior bin / lo / hi configuration") {
+    Histogram src{-2.0, 8.0, 5};
+    for (int i = 0; i < 10; ++i) src.observe(3.0);
+
+    Histogram dst{0.0, 1.0, 20};   // intentionally different shape
+    for (int i = 0; i < 100; ++i) dst.observe(0.4);
+
+    dst.reset_to(src);
+    CHECK(dst.lo()        == doctest::Approx(-2.0));
+    CHECK(dst.hi()        == doctest::Approx( 8.0));
+    CHECK(dst.bin_count() == 5);
+    CHECK(dst.total()     == 10);
+
+    // After reset, observing into dst must respect the *new* lo/hi.
+    dst.observe(7.5);
+    CHECK(dst.total() == 11);
+}
+
+TEST_CASE("Histogram::reset_to is a no-op on self-assignment") {
+    Histogram h{0.0, 1.0, 10};
+    for (int i = 0; i < 7; ++i) h.observe(0.25);
+    REQUIRE(h.total() == 7);
+
+    h.reset_to(h);  // self-assign — must not deadlock or corrupt counts
+    CHECK(h.total() == 7);
+    CHECK(h.lo()    == 0.0);
+    CHECK(h.hi()    == 1.0);
+}
+
+TEST_CASE("Histogram::reset_to: source then mutated does NOT affect dst (deep copy)") {
+    Histogram src{0.0, 1.0, 4};
+    for (int i = 0; i < 12; ++i) src.observe(0.1);
+
+    Histogram dst{0.0, 1.0, 4};
+    dst.reset_to(src);
+    REQUIRE(dst.total() == 12);
+
+    // Mutating src after reset_to must NOT bleed into dst — copy is deep.
+    for (int i = 0; i < 100; ++i) src.observe(0.9);
+    CHECK(src.total() == 112);
+    CHECK(dst.total() == 12);
+}
+
+// ---- DriftMonitor::observe_uniform --------------------------------------
+
+TEST_CASE("DriftMonitor::observe_uniform folds n copies into the current window") {
+    DriftMonitor dm;
+    std::vector<double> baseline(500, 0.2);
+    REQUIRE(dm.register_feature("score", baseline));
+
+    dm.observe_uniform("score", 0.85, 250);
+
+    auto cnt = dm.observation_count("score");
+    REQUIRE(cnt);
+    CHECK(cnt.value() == 250);
+
+    // The drift report should reflect the bulk shift — same as if we
+    // had called observe() 250 times.
+    auto r = dm.report_for_feature("score");
+    REQUIRE(r);
+    CHECK(r.value().current_n == 250);
+    CHECK(r.value().psi > 0.5);
+}
+
+TEST_CASE("DriftMonitor::observe_uniform is silent (no error) on unregistered feature") {
+    DriftMonitor dm;
+    // No register_feature() — call should be a silent no-op (not throw,
+    // not add an entry).
+    dm.observe_uniform("missing", 0.5, 100);
+    CHECK_FALSE(dm.has_feature("missing"));
+    CHECK(dm.feature_count() == 0);
+
+    // Distinct from observe(), which DOES return not_found.
+    auto r = dm.observe("missing", 0.5);
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("DriftMonitor::observe_uniform with n=0 is a no-op") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("x", std::vector<double>(100, 0.3)));
+
+    dm.observe_uniform("x", 0.99, 0);
+    auto cnt = dm.observation_count("x");
+    REQUIRE(cnt);
+    CHECK(cnt.value() == 0);
+}
+
+TEST_CASE("DriftMonitor::observe_uniform fires alert sink at most once per call") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("y", std::vector<double>(500, 0.2)));
+
+    int fire_count = 0;
+    DriftSeverity last_sev = DriftSeverity::none;
+    dm.set_alert_sink(
+        [&](const DriftReport& r) {
+            ++fire_count;
+            last_sev = r.severity;
+        },
+        DriftSeverity::moder);
+
+    // Push 500 uniform observations far from baseline → PSI spikes,
+    // sink fires exactly once for this batch.
+    dm.observe_uniform("y", 0.95, 500);
+    CHECK(fire_count == 1);
+    CHECK(static_cast<int>(last_sev) >= static_cast<int>(DriftSeverity::moder));
+
+    // A second call at the same severity does NOT re-fire (per-crossing,
+    // not per-call semantics).
+    dm.observe_uniform("y", 0.95, 100);
+    CHECK(fire_count == 1);
+}

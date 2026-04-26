@@ -359,6 +359,14 @@
       <dd><pre>Hash checksum_range(std::uint64_t start, std::uint64_t end)</pre><p>Single BLAKE2b digest over the entry hashes in <code>[start, end]</code>. The replica-diff primitive: two replicas exchange one 32-byte hash to confirm a range agrees byte-for-byte before a full sync.</p></dd>
       <dt><code>has_event_after_seq</code></dt>
       <dd><pre>bool has_event_after_seq(std::uint64_t seq)</pre><p>O(1) predicate — true iff the chain has at least one entry beyond <code>seq</code>. The follower's "is there anything new?" poll without materializing a row or computing the head.</p></dd>
+      <dt><code>cumulative_body_bytes</code></dt>
+      <dd><pre>std::uint64_t cumulative_body_bytes()</pre><p>Sum of every entry body's logical content size — the bytes the chain actually carries, distinct from the on-disk SQLite file size <code>ledger_size_bytes()</code> reports. Pairs with <code>length()</code> for "how much real content is in this chain?" without paying for SQLite's WAL, indices, and free pages.</p></dd>
+      <dt><code>tail_in_seq_range</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; tail_in_seq_range(std::uint64_t start, std::uint64_t end, std::size_t n)</pre><p>The last <code>n</code> entries within <code>[start, end]</code>, newest first. Composes <code>tail()</code> with seq bounds in one call — the "show me the most recent five entries from the audit window before the incident" view.</p></dd>
+      <dt><code>merkle_proof_path</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;Hash&gt;&gt; merkle_proof_path(std::uint64_t seq)</pre><p>Chain of entry hashes from <code>seq</code> to the current head. The external-verifier primitive: a third party can re-fold the path against a published head without holding any other entry. Distinct from <code>inclusion_proof()</code>'s structured witness — this is the raw hash sequence.</p></dd>
+      <dt><code>longest_run_of_event_type</code></dt>
+      <dd><pre>std::size_t longest_run_of_event_type(std::string_view type)</pre><p>Length of the longest consecutive run of entries with this event-type, anywhere in the chain. Burst-detection primitive — flags "fifty <code>policy.blocked</code> in a row" patterns the per-type total count would smear away.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -487,6 +495,14 @@
       <dd><pre>Result&lt;std::size_t&gt; expire_purpose_for_patient(const PatientId&amp; patient, Purpose purpose)</pre><p>Emergency revoke scoped to one purpose: force-expire every active token that grants <code>purpose</code> to <code>patient</code>, leaving other purposes untouched. Returns count touched. Distinct from <code>expire_all_for_patient</code> (whole-patient withdrawal) — this is the surgical "stop ambient documentation but keep coding assistance" path.</p></dd>
       <dt><code>longest_lived_active_for_patient</code></dt>
       <dd><pre>std::optional&lt;ConsentToken&gt; longest_lived_active_for_patient(const PatientId&amp; patient)</pre><p>Active token with the latest expiry, scoped to one patient. Per-patient sibling of <code>longest_active</code> — the "this person is consented through August" cell without scanning every active token.</p></dd>
+      <dt><code>tokens_count_by_purpose</code></dt>
+      <dd><pre>std::map&lt;Purpose, std::size_t&gt; tokens_count_by_purpose()</pre><p>Active-token count, grouped by purpose. The "what is the registry currently authorising, by category?" roll-up — pairs with <code>active_count()</code> for the purpose-level breakdown a compliance dashboard reads in one call.</p></dd>
+      <dt><code>patient_with_most_tokens</code></dt>
+      <dd><pre>std::optional&lt;PatientId&gt; patient_with_most_tokens()</pre><p>The patient with the highest total token count (active, expired, revoked combined), or <code>nullopt</code> when the registry is empty. The "who has churned through the most consents?" pointer; useful for renewal-fatigue investigation.</p></dd>
+      <dt><code>serialize_to_json</code></dt>
+      <dd><pre>std::string serialize_to_json()</pre><p>Cold-backup serialization: the entire registry — every token, active and lapsed, with grants, expiries, and revocation timestamps — as a single JSON document. Pairs with <code>deserialize_from_json</code> for a round-trip backup-restore path independent of the ledger.</p></dd>
+      <dt><code>deserialize_from_json</code></dt>
+      <dd><pre>Result&lt;void&gt; deserialize_from_json(std::string_view s)</pre><p>Cold-restore companion to <code>serialize_to_json</code>: rebuild registry state from a JSON document produced by a prior backup. Replaces current state atomically; the observer is <em>not</em> fired (this is administrative restore, not patient-driven grant flow). The ledger remains the historical source of truth.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -796,6 +812,8 @@
       <dd><pre>std::optional&lt;std::size_t&gt; input_size()</pre><p>Byte length of the post-policy input the model actually saw, read from the committed ledger body. <code>nullopt</code> before commit. Pairs with <code>output_size</code> for "what shape was this inference?" without re-fetching the body.</p></dd>
       <dt><code>output_size</code></dt>
       <dd><pre>std::optional&lt;std::size_t&gt; output_size()</pre><p>Byte length of the post-policy output recorded in the ledger body. <code>nullopt</code> before commit. The cheap cell a per-inference dashboard wants alongside <code>elapsed_ms</code>.</p></dd>
+      <dt><code>age_ms</code></dt>
+      <dd><pre>double age_ms()</pre><p>Alias for <code>elapsed_ms()</code> — wall-clock time since <code>begin_inference</code>. The vocabulary a queue-depth or stale-handle scanner reads naturally ("how old is this inference?") without re-explaining what "elapsed" measures from.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -880,6 +898,14 @@
       <dd><pre>bool can_serve(const PatientId&amp; patient, Purpose purpose)</pre><p>Composite pre-flight predicate: <code>is_healthy()</code> and <code>has_consent_for(patient, purpose)</code> in one call. The single bool a queue admission gate or load-balancer health check actually wants — cheaper than two round-trips and clearer at the call site.</p></dd>
       <dt><code>warm_caches</code></dt>
       <dd><pre>void warm_caches()</pre><p>Touch every component's cold path — preload SQLite pages for the head, prime the consent index, fault in the keystore. The startup-warmup hook before traffic; turns a cold-run cliff into the steady-state latency profile.</p></dd>
+      <dt><code>env_summary</code></dt>
+      <dd><pre>std::string env_summary()</pre><p>JSON: <code>asclepius</code>, <code>libsodium</code>, and <code>sqlite</code> versions, plus the compiler the binary was built with and the C++ standard it targeted. The "what was on the box?" probe a regulator or a forensic operator wants pinned alongside an attestation; cheaper than reading three CMake variables out of a build log.</p></dd>
+      <dt><code>counter_total</code></dt>
+      <dd><pre>std::uint64_t counter_total()</pre><p>Sum of every counter on the runtime's metric registry — runtime-level shortcut over <code>metrics().counter_total()</code>. The single line a status page wants for "total work this runtime has done" without reaching through a sub-component.</p></dd>
+      <dt><code>is_chain_well_formed</code></dt>
+      <dd><pre>bool is_chain_well_formed()</pre><p>Composite predicate: chain is non-empty <em>and</em> the last <code>audit_spot_check</code> window verified clean. Cheaper than full <code>verify()</code>, stronger than <code>is_chain_empty()</code> — the bool a multi-replica leader-election or a deploy-gate actually wants.</p></dd>
+      <dt><code>recent_drift_events</code></dt>
+      <dd><pre>std::vector&lt;LedgerEntry&gt; recent_drift_events(std::size_t n)</pre><p>The last <code>n</code> <code>drift.crossed</code> ledger entries, newest first — runtime-level shortcut over <code>ledger().tail_by_event_type("drift.crossed", n)</code>. The "what triggered recently?" tail a drift on-call reads first.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -954,6 +980,8 @@
       <dd><pre>void clear()</pre><p>Drop every recorded count while keeping bin shape (<code>lo</code>, <code>hi</code>, bin count). The right reset between epochs — bins survive, observations do not. Distinct from a fresh <code>Histogram</code>: no re-registration on the registry.</p></dd>
       <dt><code>nonzero_bin_count</code></dt>
       <dd><pre>std::size_t nonzero_bin_count()</pre><p>How many bins have at least one observation. Pairs with the bin total for "this distribution is concentrating into a single bucket" detection — the cheap predicate ahead of a full PSI report.</p></dd>
+      <dt><code>reset_to</code></dt>
+      <dd><pre>void reset_to(const Histogram&amp; other)</pre><p>Deep copy: replace this histogram's bins, counts, and shape with <code>other</code>'s. The "freeze a current window as the new baseline" primitive — distinct from <code>clear()</code> (which preserves shape but drops counts) and from a fresh <code>Histogram</code> (which would re-register on the registry).</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -997,6 +1025,10 @@
       <dd><pre>Result&lt;void&gt; observe_batch(std::string_view feature, std::span&lt;const double&gt; values)</pre><p>Bulk-record many observations against one feature in a single call. Fires <em>at most one</em> alert across the batch — the right shape for backfills, replays, and end-of-window flushes that would otherwise page the on-call once per observation.</p></dd>
       <dt><code>has_alert_sink</code></dt>
       <dd><pre>bool has_alert_sink()</pre><p>Cheap predicate — true iff an alert sink has been wired. The startup-gate "did wiring actually take?" check; pairs with <code>any_severe()</code> to distinguish "no alerts because nothing is severe" from "no alerts because nobody is listening."</p></dd>
+      <dt><code>report_for_feature</code></dt>
+      <dd><pre>Result&lt;DriftReport&gt; report_for_feature(std::string_view feature)</pre><p>Single-feature drift report — PSI, KS, EMD, severity in one struct, without computing reports for every other registered feature. Pairs with <code>most_drifted_feature()</code> for the on-call drill-down: name the worst offender, then read the full report on it alone.</p></dd>
+      <dt><code>observe_uniform</code></dt>
+      <dd><pre>Result&lt;void&gt; observe_uniform(std::string_view feature, double value, std::size_t n)</pre><p>Bulk-record <code>n</code> identical observations against one feature, silently — no alert fires, no observer callback. The "this feature was constant for the whole window" backfill path; useful for replays where the recorded values are known to be flat and repeated alerting would page on-call falsely.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1051,6 +1083,10 @@
       <dd><pre>bool has(std::string_view name)</pre><p>Cheap kind-agnostic predicate — true iff a counter <em>or</em> histogram is registered under <code>name</code>. Use when you don't care which kind, only existence.</p></dd>
       <dt><code>counter_total</code></dt>
       <dd><pre>std::uint64_t counter_total()</pre><p>Sum of every counter currently registered, in one pass. The "how much has happened on this runtime, period?" line a status page wants without enumerating <code>counter_snapshot</code> and folding by hand.</p></dd>
+      <dt><code>counter_value</code></dt>
+      <dd><pre>Result&lt;std::uint64_t&gt; counter_value(std::string_view name)</pre><p>Safer sibling of <code>count(name)</code> — returns an <code>Error</code> when the counter is not registered, rather than the silent-zero <code>count()</code> hands back on a typo. The lookup an exporter or dashboard wants when "never registered" must be distinguishable from "registered and zero."</p></dd>
+      <dt><code>histogram_quantile</code></dt>
+      <dd><pre>Result&lt;double&gt; histogram_quantile(std::string_view name, double q)</pre><p>Quantile of the named histogram, computed against its bucket counts. <code>q ∈ [0, 1]</code>; clamped. The Prometheus <code>histogram_quantile</code> shape — read p99 latency from a registered histogram in one call without round-tripping through <code>histogram_snapshot</code>.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>

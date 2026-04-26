@@ -249,6 +249,13 @@ public:
     // range queries so memory stays bounded for large chains.
     Result<Stats> stats_for_tenant(const std::string& tenant) const;
 
+    // Sum of body_json sizes (bytes) across the entire chain. Streams via
+    // for_each; O(1) memory regardless of chain length. Distinct from the
+    // on-disk SQLite file size — this is the *logical* content size, useful
+    // for capacity planning that ignores SQLite page overhead, indexes, and
+    // WAL. Empty chain returns 0.
+    Result<std::uint64_t> cumulative_body_bytes() const;
+
     // Count entries grouped by event_type. Returns a map keyed by the
     // header.event_type string. O(n) scan over the chain via for_each;
     // O(1) memory aside from the result map. Useful for dashboards
@@ -299,6 +306,14 @@ public:
     // the full set; tail gives just the latest.
     Result<std::vector<LedgerEntry>>
         tail_by_event_type(std::string_view event_type, std::size_t n) const;
+
+    // Longest consecutive run of `event_type` entries in the chain (in
+    // seq-ascending order). Useful for detecting bursts ("we had 50
+    // drift.crossed events in a row"). Returns 0 if no entries match.
+    // Empty event_type returns invalid_argument. O(n) scan via for_each;
+    // O(1) memory.
+    Result<std::uint64_t>
+        longest_run_of_event_type(std::string_view event_type) const;
 
     // First-match lookup of an event_type — the oldest entry whose
     // header.event_type matches. Stops the for_each scan on the first
@@ -506,12 +521,32 @@ public:
     };
     Result<InclusionProof> inclusion_proof(std::uint64_t seq) const;
 
+    // Chain of entry_hashes from `seq` (inclusive) up to the chain head,
+    // in seq-ascending order. Element 0 is the entry's own hash;
+    // subsequent elements link forward to head. Useful for an external
+    // verifier to confirm a specific entry is part of the current chain
+    // without shipping the full bodies. Returns invalid_argument if
+    // seq == 0 or seq > length(). Hashes are pulled by entry_hash() on
+    // each entry in the range [seq, length()+1).
+    Result<std::vector<Hash>> merkle_proof_path(std::uint64_t seq) const;
+
     // Last `n` entries whose header.ts falls in [from, to), most-recent
     // first. Half-open interval. n=0 returns the empty vector;
     // from > to returns invalid_argument. O(n) scan via for_each with
     // a bounded ring buffer; memory is O(min(n, matches)).
     Result<std::vector<LedgerEntry>>
         tail_in_window(Time from, Time to, std::size_t n) const;
+
+    // Last `n` entries within the seq window [start, end), most-recent
+    // first. Half-open. n=0 returns the empty vector; start >= end
+    // returns the empty vector (cheap no-op, no error). Implementation:
+    // pulls the seq range via select_range, keeps the last `n` via a
+    // bounded ring buffer, then reverses. Memory is O(min(n, range)).
+    // Pairs with tail_in_window for callers who already know the seq
+    // bounds and want to skip the timestamp-based scan.
+    Result<std::vector<LedgerEntry>>
+        tail_in_seq_range(std::uint64_t start, std::uint64_t end,
+                          std::size_t n) const;
 
     // Cheap O(1) existence check for a sequence number. True iff the
     // chain currently holds an entry at `seq`. noexcept; never reads

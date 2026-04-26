@@ -3,7 +3,9 @@
 #include "asclepius/runtime.hpp"
 
 #include <nlohmann/json.hpp>
+#include <sodium.h>
 #include <spdlog/spdlog.h>
+#include <sqlite3.h>
 
 #include <atomic>
 #include <chrono>
@@ -305,6 +307,14 @@ bool Runtime::is_healthy() const noexcept {
     }
 }
 
+bool Runtime::is_chain_well_formed() const {
+    // verify() returns Result<void>; has_value() folds it into a bool.
+    // Distinct from is_healthy(), which is broader and avoids the full
+    // chain crypto walk. Use this when the caller specifically wants
+    // "is the chain mathematically intact?" without handling the Error.
+    return impl_->ledger.verify().has_value();
+}
+
 std::string Runtime::quick_status() const {
     if (impl_->ledger.length() == 0) {
         return std::string{"EMPTY"};
@@ -391,6 +401,13 @@ Runtime::recent_inferences(std::size_t n) const {
     return impl_->ledger.tail_by_event_type("inference.committed", n);
 }
 
+std::vector<LedgerEntry> Runtime::recent_drift_events(std::size_t n) const {
+    if (n == 0) return {};
+    auto r = impl_->ledger.tail_by_event_type("drift.crossed", n);
+    if (!r) return {};
+    return std::move(r).value();
+}
+
 void Runtime::warm_caches() {
     // Placeholder. Future implementations may pre-touch the SQLite page
     // cache (e.g. a single-row SELECT against the head), pre-resolve
@@ -445,6 +462,36 @@ Runtime::SystemSummary Runtime::system_summary() const {
 Result<std::size_t> Runtime::dispatched_inferences() const {
     return static_cast<std::size_t>(
         impl_->metrics.count("inference.attempts"));
+}
+
+std::size_t Runtime::counter_total() const {
+    return static_cast<std::size_t>(impl_->metrics.counter_total());
+}
+
+std::string Runtime::env_summary() const {
+    nlohmann::json j;
+#ifdef ASCLEPIUS_VERSION_STRING
+    j["asclepius"] = std::string{ASCLEPIUS_VERSION_STRING};
+#else
+    j["asclepius"] = std::string{"0.0.0-dev"};
+#endif
+    // libsodium runtime version — function returns a static string.
+    j["libsodium"] = std::string{sodium_version_string()};
+    // sqlite header version — macro from sqlite3.h.
+    j["sqlite"] = std::string{SQLITE_VERSION};
+    // C++ standard. __cplusplus values: 201703L=C++17, 202002L=C++20,
+    // 202302L=C++23. Surface the raw long for forward-compat.
+    j["cpp_standard"] = static_cast<long>(__cplusplus);
+    // Compiler. Order matters: clang defines __GNUC__ for compatibility,
+    // so check __clang__ first.
+#if defined(__clang__)
+    j["compiler"] = std::string{"clang"};
+#elif defined(__GNUC__)
+    j["compiler"] = std::string{"g++"};
+#else
+    j["compiler"] = std::string{"unknown"};
+#endif
+    return j.dump();
 }
 
 Result<void> Runtime::self_test() const {

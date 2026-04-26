@@ -1,9 +1,9 @@
 {
   "ok": true,
   "version": "0.1.0",
-  "current_release": "v0.4.4",
+  "current_release": "v0.4.5",
   "released_at": "2026-04-26",
-  "site_built_at": "2026-04-26T16:00:56Z",
+  "site_built_at": "2026-04-26T16:26:29Z",
   "pages": 50,
   "files_attested": 92,
   "ledger_head": "8e510bf4…21b04a",

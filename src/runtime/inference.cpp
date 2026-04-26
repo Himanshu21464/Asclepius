@@ -472,6 +472,14 @@ std::int64_t Inference::elapsed_ms() const noexcept {
     return ns / 1'000'000;
 }
 
+std::int64_t Inference::age_ms() const noexcept {
+    // Pure alias for elapsed_ms() — exists so call sites that read as
+    // "how old is this handle?" don't have to mentally translate
+    // "elapsed since started_at." Forwards directly so the two stay
+    // in lockstep if elapsed_ms() ever grows a different floor / clamp.
+    return elapsed_ms();
+}
+
 Result<void> Inference::commit_idempotent(std::size_t lookback) {
     if (!impl_->completed) {
         return Error::invalid("inference.commit_idempotent called before run");

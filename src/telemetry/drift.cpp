@@ -310,6 +310,20 @@ Result<void> Histogram::merge(const Histogram& other) {
     return Result<void>::ok();
 }
 
+void Histogram::reset_to(const Histogram& other) {
+    if (this == &other) {
+        // Self-assignment is a content-preserving no-op.
+        return;
+    }
+    std::lock(mu_, other.mu_);
+    std::lock_guard<std::mutex> lk_self (mu_,       std::adopt_lock);
+    std::lock_guard<std::mutex> lk_other(other.mu_, std::adopt_lock);
+    lo_     = other.lo_;
+    hi_     = other.hi_;
+    counts_ = other.counts_;
+    total_  = other.total_;
+}
+
 double Histogram::psi(const Histogram& reference, const Histogram& current) {
     auto p = reference.normalized();
     auto q = current.normalized();
@@ -502,6 +516,76 @@ Result<void> DriftMonitor::observe_batch(std::string_view        feature,
         try { sink_copy(report_to_emit); } catch (...) { /* swallow */ }
     }
     return Result<void>::ok();
+}
+
+Result<DriftReport> DriftMonitor::report_for_feature(std::string_view feature) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = features_.find(std::string{feature});
+    if (it == features_.end()) {
+        return Error::not_found(fmt::format("unregistered feature: {}", feature));
+    }
+    DriftReport r;
+    r.feature      = std::string{feature};
+    r.psi          = Histogram::psi(*it->second->reference, *it->second->current);
+    r.ks_statistic = Histogram::ks (*it->second->reference, *it->second->current);
+    r.emd          = Histogram::emd(*it->second->reference, *it->second->current);
+    r.severity     = classify(r.psi);
+    r.reference_n  = it->second->reference->total();
+    r.current_n    = it->second->current->total();
+    r.computed_at  = Time::now();
+    return r;
+}
+
+void DriftMonitor::observe_uniform(std::string_view feature, double value, std::size_t n) {
+    DriftReport report_to_emit;
+    bool        should_emit = false;
+    AlertSink   sink_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = features_.find(std::string{feature});
+        if (it == features_.end()) {
+            // Silent no-op when the feature is unregistered — distinct
+            // from observe() which returns not_found.
+            return;
+        }
+        if (n == 0) {
+            // Zero-count batch: nothing to fold in, no sink fire.
+            return;
+        }
+        for (std::size_t i = 0; i < n; ++i) {
+            it->second->current->observe(value);
+        }
+
+        // Single post-batch severity evaluation. Mirrors observe_batch().
+        if (alert_sink_) {
+            DriftReport r;
+            r.feature      = std::string{feature};
+            r.psi          = Histogram::psi(*it->second->reference, *it->second->current);
+            r.ks_statistic = Histogram::ks (*it->second->reference, *it->second->current);
+            r.emd          = Histogram::emd(*it->second->reference, *it->second->current);
+            r.severity     = classify(r.psi);
+            r.reference_n  = it->second->reference->total();
+            r.current_n    = it->second->current->total();
+            r.computed_at  = Time::now();
+
+            auto last_it = last_severity_.find(r.feature);
+            DriftSeverity prev = (last_it == last_severity_.end()
+                                  ? DriftSeverity::none
+                                  : last_it->second);
+            if (static_cast<int>(r.severity) > static_cast<int>(prev)
+             && static_cast<int>(r.severity) >= static_cast<int>(alert_threshold_)) {
+                last_severity_[r.feature] = r.severity;
+                report_to_emit = r;
+                should_emit    = true;
+                sink_copy      = alert_sink_;
+            } else {
+                last_severity_[r.feature] = r.severity;
+            }
+        }
+    }
+    if (should_emit) {
+        try { sink_copy(report_to_emit); } catch (...) { /* swallow */ }
+    }
 }
 
 std::vector<DriftReport> DriftMonitor::report() const {

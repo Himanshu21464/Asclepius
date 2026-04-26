@@ -309,6 +309,12 @@ public:
     // chrono::nanoseconds manually each time.
     std::int64_t elapsed_ms() const noexcept;
 
+    // Sugar / alias for elapsed_ms(). Naming sugar — "how old is this
+    // inference handle right now?" reads better than "elapsed since
+    // started_at" in some call sites (e.g. age-based GC or stale-handle
+    // probes). Returns wallclock milliseconds since started_at().
+    std::int64_t age_ms() const noexcept;
+
     const InferenceContext& ctx() const noexcept;
 
 private:
@@ -382,6 +388,15 @@ public:
     // saves callers the Health struct construction when they
     // don't care about its fields.
     bool is_healthy() const noexcept;
+
+    // Bool sugar over `ledger().verify().has_value()`. Returns true iff
+    // the chain's prev_hash continuity, payload hashes, and ed25519
+    // signatures all check out. Distinct from is_healthy() which is
+    // broader (consent + drift + ledger length, no full crypto walk).
+    // Useful for "is the chain mathematically intact?" probes that
+    // don't want to handle the Error path. May be expensive on long
+    // chains — same cost as ledger().verify().
+    bool is_chain_well_formed() const;
 
     // Single-line human-readable status string. Format:
     //   "OK · N entries · K active consent · F drift features · P policies"
@@ -465,6 +480,16 @@ public:
     // returns an empty vector. Errors propagate from the underlying
     // ledger call.
     Result<std::vector<LedgerEntry>> recent_inferences(std::size_t n) const;
+
+    // Last `n` ledger entries with event_type == "drift.crossed". Sugar
+    // over ledger().tail_by_event_type("drift.crossed", n) — the same
+    // shape as recent_inferences() but for drift breaches. Used by
+    // drift-monitoring dashboards and "what fired since the last
+    // checkpoint?" probes. n == 0 returns an empty vector. Errors
+    // from the underlying ledger call are swallowed and surfaced as
+    // an empty vector — drift dashboards prefer "nothing to show"
+    // over "exception in the panel."
+    std::vector<LedgerEntry> recent_drift_events(std::size_t n) const;
 
     // Sugar over the ledger's signing-key fingerprint (an 8-byte
     // BLAKE2b hash of the public key, hex-encoded — same shape as
@@ -576,6 +601,20 @@ public:
     // want the dispatched-inference counter from grabbing the
     // MetricRegistry& reference.
     Result<std::size_t> dispatched_inferences() const;
+
+    // Sugar over `metrics().counter_total()`. Sum of all counter values
+    // across the registry — a global "events seen" gauge for liveness
+    // dashboards. Saves callers from grabbing the MetricRegistry&
+    // reference when they only want the aggregate.
+    std::size_t counter_total() const;
+
+    // Small JSON string describing the runtime's build environment:
+    // asclepius version, libsodium runtime version, sqlite header
+    // version, C++ standard, compiler. Used by /healthz extras and
+    // bug reports — gives sidecar operators a one-call snapshot of
+    // "what was this binary built against?" without grabbing each
+    // accessor individually. Never errors.
+    std::string env_summary() const;
 
     // Run a battery of internal invariants. Used at boot and by /healthz
     // deep-check endpoints to catch corruption early. Currently checks:

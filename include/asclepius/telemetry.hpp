@@ -80,6 +80,13 @@ public:
     // Acquires both mutexes via std::lock to avoid deadlock.
     Result<void> merge(const Histogram& other);
 
+    // Replace this histogram's contents with a copy of `other`'s
+    // (lo/hi/bins/counts/total). Acquires both mutexes via std::lock to
+    // avoid deadlock. After this returns, *this == other content-wise.
+    // Self-assignment is a no-op. Distinct from merge() — this REPLACES
+    // rather than adds.
+    void reset_to(const Histogram& other);
+
     // Returns the value at quantile q in [0, 1] from the empirical
     // distribution. q is clamped to [0, 1]. q=0 returns lo, q=1 returns hi,
     // q=0.5 the median. Within the matching bin we linearly interpolate
@@ -180,6 +187,14 @@ public:
     // Record an observation against a registered feature.
     Result<void> observe(std::string_view feature, double value);
 
+    // Convenience: equivalent to calling observe() n times with the same
+    // value. Holds the lock once. No-op if the feature is unregistered
+    // (silent — distinct from observe() which returns not_found). Used
+    // for "we just got a batch of similar values, fold them in" patterns.
+    // The alert sink fires at most ONCE per call (after the batch lands),
+    // based on the post-batch severity.
+    void observe_uniform(std::string_view feature, double value, std::size_t n);
+
     // Bulk observation: equivalent to calling observe() once per value,
     // but holds the lock once for the whole batch. The alert sink fires
     // at most ONCE per call (after the batch lands), based on the
@@ -190,6 +205,12 @@ public:
 
     // Compute drift reports for all registered features at the current moment.
     std::vector<DriftReport> report() const;
+
+    // Single-feature variant of report(): compute psi/ks/emd for one
+    // registered feature. Returns Error::not_found if the feature was
+    // never registered. Useful for dashboards / sidecars that want to
+    // probe one feature's drift without the cost of a full report().
+    Result<DriftReport> report_for_feature(std::string_view feature) const;
 
     // Reset the current window — typically called daily or on alert.
     void rotate();
@@ -307,6 +328,18 @@ public:
     void  observe(std::string_view name, double value);
 
     std::uint64_t count(std::string_view name) const;
+
+    // Safer variant of count(name): returns Error::not_found if no
+    // counter with that name has been registered. count() returns 0
+    // silently for both 0-valued and missing counters; this disambiguates.
+    // Histograms are NOT counters and do not satisfy this lookup.
+    Result<std::uint64_t> counter_value(std::string_view name) const;
+
+    // Quantile of a registered histogram by name, computed from its
+    // bucket counts via linear interpolation across the bucket containing
+    // the quantile. Returns 0.0 if the histogram doesn't exist or has no
+    // observations. q is clamped to [0, 1].
+    double histogram_quantile(std::string_view name, double q) const;
 
     // Cheap predicate: true iff a counter with this name has been
     // registered (regardless of its current value). Locked, but does

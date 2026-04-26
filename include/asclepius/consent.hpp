@@ -357,6 +357,38 @@ public:
     // Order is unspecified.
     std::string dump_state_json() const;
 
+    // Map of {Purpose: count of active (non-revoked, non-expired) tokens
+    // granting that Purpose}. A token granting multiple purposes counts
+    // once per purpose it includes. Purposes with zero active tokens do
+    // not appear in the map. Useful for /healthz dashboards that want a
+    // per-purpose breakdown of currently-effective grants.
+    std::unordered_map<Purpose, std::size_t> tokens_count_by_purpose() const;
+
+    // PatientId with the largest token count (active + revoked + expired)
+    // across the entire registry. Tiebreak among equal counts is
+    // unspecified. Returns Error::not_found when the registry is empty.
+    // Useful for operator probes: "which patient is the heaviest user
+    // of this registry?"
+    Result<PatientId> patient_with_most_tokens() const;
+
+    // Cold-backup serialization of the entire registry: an array of
+    // token objects, each {"token_id", "patient", "purposes",
+    // "issued_at", "expires_at", "revoked"}. Times are ISO-8601 strings,
+    // purposes are stringified via to_string(Purpose). Distinct from
+    // dump_state_json (which wraps the array in a {"tokens": ...}
+    // object) — this form is the bare array, suitable for
+    // round-tripping through deserialize_from_json.
+    std::string serialize_to_json() const;
+
+    // Restore tokens from a JSON string produced by serialize_to_json
+    // (or compatible shape — also accepts the {"tokens": [...]} envelope
+    // emitted by dump_state_json). Returns the count of tokens ingested.
+    // Does NOT clear existing state — appends. Skips tokens already
+    // present (token_id collision) without erroring. Does NOT fire the
+    // observer (matches ingest()). Returns Error::invalid on malformed
+    // JSON or missing required fields.
+    Result<std::size_t> deserialize_from_json(std::string_view s);
+
 private:
     mutable std::mutex                                mu_;
     std::unordered_map<std::string, ConsentToken>    by_id_;
