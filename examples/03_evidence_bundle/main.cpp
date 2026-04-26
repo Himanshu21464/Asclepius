@@ -24,13 +24,17 @@ int main(int argc, char** argv) {
         fmt::print(stderr, "usage: example_evidence_bundle <db> <out.tar>\n");
         return 1;
     }
-    std::filesystem::path db   = argv[1];
+    std::string db = argv[1];
     std::filesystem::path out  = argv[2];
 
-    std::filesystem::remove(db);
-    std::filesystem::remove(std::filesystem::path{db}.replace_extension(".key"));
+    bool is_pg = db.compare(0, 11, "postgres://") == 0
+              || db.compare(0, 13, "postgresql://") == 0;
+    if (!is_pg) {
+        std::filesystem::remove(db);
+        std::filesystem::remove(std::filesystem::path{db}.replace_extension(".key"));
+    }
 
-    auto rt = Runtime::open(db).value();
+    auto rt = Runtime::open_uri(db).value();
     auto pid = PatientId::pseudonymous("p_evidence");
     auto tok = rt.consent().grant(pid, {Purpose::diagnostic_suggestion}, 1h).value();
 

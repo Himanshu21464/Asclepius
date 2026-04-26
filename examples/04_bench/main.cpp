@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
     std::filesystem::remove(db);
     std::filesystem::remove(std::filesystem::path{db}.replace_extension(".key"));
 
-    auto rt = Runtime::open(db);
+    auto rt = Runtime::open_uri(db);
     if (!rt) { fmt::print(stderr, "open: {}\n", rt.error().what()); return 1; }
     auto& runtime = rt.value();
 

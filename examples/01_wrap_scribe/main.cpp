@@ -43,11 +43,17 @@ Result<std::string> fake_scribe(std::string transcript) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    std::filesystem::path db = argc > 1 ? argv[1] : "/tmp/asclepius_demo.db";
-    std::filesystem::remove(db);
-    std::filesystem::remove(std::filesystem::path{db}.replace_extension(".key"));
+    // Accepts either a SQLite filesystem path (e.g. /tmp/demo.db) or a
+    // postgres:// URI. Defaults to SQLite for offline-friendly demos.
+    std::string db = argc > 1 ? argv[1] : "/tmp/asclepius_demo.db";
+    bool is_pg = db.compare(0, 11, "postgres://") == 0
+              || db.compare(0, 13, "postgresql://") == 0;
+    if (!is_pg) {
+        std::filesystem::remove(db);
+        std::filesystem::remove(std::filesystem::path{db}.replace_extension(".key"));
+    }
 
-    auto rt = Runtime::open(db);
+    auto rt = Runtime::open_uri(db);
     if (!rt) { fmt::print(stderr, "open: {}\n", rt.error().what()); return 1; }
     auto& runtime = rt.value();
 

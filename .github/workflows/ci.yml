@@ -32,14 +32,20 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev libsqlite3-dev ninja-build
+          sudo apt-get install -y libsodium-dev libsqlite3-dev libpq-dev postgresql ninja-build
           if [[ "${{ matrix.cxx }}" == clang++-18 ]]; then
             sudo apt-get install -y clang-18
           fi
 
       - name: Install system deps (macOS)
         if: runner.os == 'macOS'
-        run: brew install libsodium sqlite ninja
+        run: brew install libsodium sqlite libpq ninja
+
+      - name: Set libpq path for macOS find_package
+        if: runner.os == 'macOS'
+        run: |
+          echo "PostgreSQL_ROOT=$(brew --prefix libpq)" >> $GITHUB_ENV
+          echo "$(brew --prefix libpq)/bin" >> $GITHUB_PATH
 
       - name: Configure
         env:
@@ -63,6 +69,51 @@ jobs:
 
       - name: Smoke — bench (small N)
         run: ./build/examples/04_bench/example_bench --n 1000
+
+  postgres-e2e:
+    name: postgres backend e2e
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER:     asclepius
+          POSTGRES_PASSWORD: asclepius
+          POSTGRES_DB:       asclepius
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U asclepius -d asclepius"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev libsqlite3-dev libpq-dev ninja-build
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DASCLEPIUS_BUILD_TESTS=ON \
+            -DASCLEPIUS_BUILD_EXAMPLES=ON \
+            -DASCLEPIUS_BUILD_CLI=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Run SQLite test suite
+        run: ./build/tests/asclepius_tests
+
+      - name: Run Postgres test suite
+        env:
+          ASCLEPIUS_PG_URI: postgres://asclepius:asclepius@127.0.0.1:5432/asclepius
+        run: ./build/tests/asclepius_tests --test-case='[postgres]*'
 
   site-lint:
     name: site lint (HTML / JS / hashes)
