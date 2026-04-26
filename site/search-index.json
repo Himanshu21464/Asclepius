@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T07:49:29Z",
+  "generated_at": "2026-04-26T12:22:33Z",
   "count": 47,
   "pages": [
     {
@@ -25,6 +25,8 @@
         "LedgerEntryHeader",
         "LedgerEntry",
         "Ledger",
+        "Stats",
+        "Attestation",
         "consent.hpp",
         "enums",
         "ConsentToken",
@@ -56,7 +58,9 @@
         "runtime.hpp",
         "InferenceSpec",
         "Inference",
+        "CancelToken",
         "Runtime",
+        "Health",
         "telemetry.hpp",
         "Histogram",
         "DriftReport",
@@ -136,6 +140,10 @@
         "Wrap an inference Python",
         "Build &amp; test cmake",
         "CLI asclepius",
+        "Inference handle new in 0.4",
+        "Ledger queries indexed",
+        "Runtime introspection",
+        "Consent now ledger-replayed at boot",
         "Verify a bundle without our binary",
         "Built-in policies composable",
         "Ledger entry spec.md",

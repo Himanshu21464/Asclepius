@@ -288,6 +288,39 @@ public:
     Result<std::vector<LedgerEntry>>
         tail_by_event_type(std::string_view event_type, std::size_t n) const;
 
+    // Return every entry whose header.actor matches the supplied
+    // string, ordered by seq ascending. Complement to tail_by_actor
+    // (which is most-recent-first and capped at n). O(n) scan via
+    // for_each. Empty actor returns invalid_argument; unknown actor
+    // returns the empty vector. Used by audit dashboards that need
+    // the full activity history of one actor rather than just the
+    // recent slice.
+    Result<std::vector<LedgerEntry>>
+        range_by_actor(std::string_view actor) const;
+
+    // First `n` entries (oldest), seq-ascending. Complement to
+    // tail(n) which returns the most-recent slice. n=0 returns the
+    // empty vector (cheap no-op). Stops the for_each scan early once
+    // n entries have been collected, so cost is O(n) regardless of
+    // chain length.
+    Result<std::vector<LedgerEntry>>
+        oldest_n(std::size_t n) const;
+
+    // Composite filter: entries whose header.event_type matches
+    // event_type AND whose header.tenant matches tenant. Empty
+    // event_type returns invalid_argument. Empty tenant ("") is its
+    // own scope, matching only entries explicitly carrying it. O(n)
+    // scan via for_each.
+    Result<std::vector<LedgerEntry>>
+        filter(std::string_view event_type, const std::string& tenant) const;
+
+    // Sum of body_json sizes (bytes) for entries whose header.tenant
+    // matches the supplied string. The empty tenant ("") is its own
+    // scope. O(n) over the matching subset via paginated tenant-scoped
+    // range queries (chunked at 1024) so memory stays bounded for
+    // large chains. Useful for per-tenant capacity dashboards.
+    Result<std::uint64_t> byte_size_for_tenant(const std::string& tenant) const;
+
     // Distinct tenant strings appearing in the chain, sorted alphabetically.
     // The empty tenant ("") is included if any entries carry it. O(n) scan
     // via for_each. Used by tenant-pickers in dashboards and by routines

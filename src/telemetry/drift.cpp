@@ -123,6 +123,55 @@ double Histogram::stddev() const {
     return std::sqrt(var);
 }
 
+double Histogram::min() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0) return lo_;
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        if (counts_[i] > 0) {
+            return lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        }
+    }
+    return lo_;
+}
+
+double Histogram::max() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0) return hi_;
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    for (std::size_t i = n; i-- > 0;) {
+        if (counts_[i] > 0) {
+            return lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        }
+    }
+    return hi_;
+}
+
+Result<void> Histogram::merge(const Histogram& other) {
+    if (this == &other) {
+        // Self-merge: lock once and double our own counts.
+        std::lock_guard<std::mutex> lk(mu_);
+        for (auto& c : counts_) c += c;
+        total_ += total_;
+        return Result<void>::ok();
+    }
+    std::lock(mu_, other.mu_);
+    std::lock_guard<std::mutex> lk_self (mu_,       std::adopt_lock);
+    std::lock_guard<std::mutex> lk_other(other.mu_, std::adopt_lock);
+    if (counts_.size() != other.counts_.size()
+     || lo_ != other.lo_
+     || hi_ != other.hi_) {
+        return Error::invalid("Histogram::merge: bins/lo/hi mismatch");
+    }
+    for (std::size_t i = 0; i < counts_.size(); ++i) {
+        counts_[i] += other.counts_[i];
+    }
+    total_ += other.total_;
+    return Result<void>::ok();
+}
+
 double Histogram::psi(const Histogram& reference, const Histogram& current) {
     auto p = reference.normalized();
     auto q = current.normalized();
@@ -304,6 +353,18 @@ std::vector<std::string> DriftMonitor::list_features() const {
 std::size_t DriftMonitor::feature_count() const {
     std::lock_guard<std::mutex> lk(mu_);
     return features_.size();
+}
+
+bool DriftMonitor::has_feature(std::string_view name) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        return features_.find(std::string{name}) != features_.end();
+    } catch (...) {
+        // Locking or string construction can theoretically throw. The
+        // contract is noexcept; degrade to "not present" rather than
+        // propagate.
+        return false;
+    }
 }
 
 Result<std::uint64_t> DriftMonitor::observation_count(std::string_view feature) const {

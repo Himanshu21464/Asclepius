@@ -2223,3 +2223,247 @@ TEST_CASE("count_in_window on empty ledger returns 0") {
     REQUIRE(r2);
     CHECK(r2.value() == 1u);
 }
+
+// ============== Ledger::range_by_actor ===================================
+
+TEST_CASE("range_by_actor returns matches in seq-ascending order") {
+    auto p = tmp_db("rba_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json{{"i", 2}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 3}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 4}}, ""));
+    auto r = l.range_by_actor("alice"); REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    auto b2 = nlohmann::json::parse(r.value()[2].body_json);
+    CHECK(b0["i"] == 1);  // oldest first
+    CHECK(b1["i"] == 3);
+    CHECK(b2["i"] == 4);
+    // seq-ascending invariant.
+    CHECK(r.value()[0].header.seq < r.value()[1].header.seq);
+    CHECK(r.value()[1].header.seq < r.value()[2].header.seq);
+}
+
+TEST_CASE("range_by_actor: empty actor returns invalid_argument") {
+    auto p = tmp_db("rba_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().range_by_actor("");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("range_by_actor: unknown actor returns empty vector, not error") {
+    auto p = tmp_db("rba_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    auto r = l.range_by_actor("ghost"); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("range_by_actor: complement of tail_by_actor — same set, opposite order") {
+    auto p = tmp_db("rba_complement");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 6; i++) {
+        REQUIRE(l.append("e", (i % 2 == 0) ? "alice" : "bob",
+                         nlohmann::json{{"i", i}}, ""));
+    }
+    auto rr = l.range_by_actor("alice"); REQUIRE(rr);
+    auto tt = l.tail_by_actor("alice", 100); REQUIRE(tt);
+    REQUIRE(rr.value().size() == tt.value().size());
+    REQUIRE(rr.value().size() == 3);
+    // Oldest-first vs. most-recent-first: reversed seqs match.
+    for (std::size_t i = 0; i < rr.value().size(); ++i) {
+        CHECK(rr.value()[i].header.seq
+              == tt.value()[rr.value().size() - 1 - i].header.seq);
+    }
+}
+
+// ============== Ledger::oldest_n =========================================
+
+TEST_CASE("oldest_n returns first n entries seq-ascending") {
+    auto p = tmp_db("oldn_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 10; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    auto r = l.oldest_n(3); REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    CHECK(r.value()[0].header.seq == 1);
+    CHECK(r.value()[1].header.seq == 2);
+    CHECK(r.value()[2].header.seq == 3);
+}
+
+TEST_CASE("oldest_n: n=0 returns empty vector") {
+    auto p = tmp_db("oldn_zero");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r = l.oldest_n(0); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("oldest_n: n larger than chain returns whole chain") {
+    auto p = tmp_db("oldn_over");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    auto r = l.oldest_n(100); REQUIRE(r);
+    CHECK(r.value().size() == 4);
+    CHECK(r.value()[0].header.seq == 1);
+    CHECK(r.value()[3].header.seq == 4);
+}
+
+TEST_CASE("oldest_n: complement of tail — disjoint ends of chain") {
+    auto p = tmp_db("oldn_complement");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 20; i++)
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    auto o = l.oldest_n(5);  REQUIRE(o);
+    auto t = l.tail(5);       REQUIRE(t);
+    REQUIRE(o.value().size() == 5);
+    REQUIRE(t.value().size() == 5);
+    CHECK(o.value().front().header.seq == 1);
+    CHECK(o.value().back().header.seq  == 5);
+    // tail() is most-recent-first.
+    CHECK(t.value().front().header.seq == 20);
+    CHECK(t.value().back().header.seq  == 16);
+}
+
+TEST_CASE("oldest_n on empty ledger returns empty vector") {
+    auto p = tmp_db("oldn_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().oldest_n(5); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+// ============== Ledger::filter ===========================================
+
+TEST_CASE("filter: matches event_type AND tenant") {
+    auto p = tmp_db("filter_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", 1}}, "t1"));
+    REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", 2}}, "t2"));
+    REQUIRE(l.append("beta",  "x", nlohmann::json{{"i", 3}}, "t1"));
+    REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", 4}}, "t1"));
+    auto r = l.filter("alpha", "t1"); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    CHECK(b0["i"] == 1);
+    CHECK(b1["i"] == 4);
+    for (const auto& e : r.value()) {
+        CHECK(e.header.event_type == "alpha");
+        CHECK(e.header.tenant     == "t1");
+    }
+}
+
+TEST_CASE("filter: empty event_type returns invalid_argument") {
+    auto p = tmp_db("filter_empty_evt");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().filter("", "t1");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("filter: empty tenant is its own scope") {
+    auto p = tmp_db("filter_empty_tenant");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), "t1"));
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), ""));
+    auto r = l.filter("alpha", ""); REQUIRE(r);
+    CHECK(r.value().size() == 2);
+    auto rt = l.filter("alpha", "t1"); REQUIRE(rt);
+    CHECK(rt.value().size() == 1);
+}
+
+TEST_CASE("filter: no matches returns empty vector") {
+    auto p = tmp_db("filter_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), "t1"));
+    auto r = l.filter("beta", "t1"); REQUIRE(r);
+    CHECK(r.value().empty());
+    auto r2 = l.filter("alpha", "t2"); REQUIRE(r2);
+    CHECK(r2.value().empty());
+}
+
+// ============== Ledger::byte_size_for_tenant =============================
+
+TEST_CASE("byte_size_for_tenant sums body sizes for matching tenant") {
+    auto p = tmp_db("bsft_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"k", "aaa"}}, "alpha"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"k", "bb"}},  "beta"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"k", "cccc"}}, "alpha"));
+
+    // Cross-check against stats_for_tenant.total_body_bytes.
+    auto sa = l.stats_for_tenant("alpha"); REQUIRE(sa);
+    auto sb = l.stats_for_tenant("beta");  REQUIRE(sb);
+
+    auto ba = l.byte_size_for_tenant("alpha"); REQUIRE(ba);
+    auto bb = l.byte_size_for_tenant("beta");  REQUIRE(bb);
+    CHECK(ba.value() == sa.value().total_body_bytes);
+    CHECK(bb.value() == sb.value().total_body_bytes);
+    CHECK(ba.value() > 0);
+    CHECK(bb.value() > 0);
+}
+
+TEST_CASE("byte_size_for_tenant: empty tenant is its own scope") {
+    auto p = tmp_db("bsft_empty_scope");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"k", "z"}}, ""));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"k", "z"}}, "alpha"));
+    auto be = l.byte_size_for_tenant(""); REQUIRE(be);
+    auto ba = l.byte_size_for_tenant("alpha"); REQUIRE(ba);
+    CHECK(be.value() > 0);
+    CHECK(ba.value() > 0);
+    // Each scope counts only its own bodies.
+    auto se = l.stats_for_tenant(""); REQUIRE(se);
+    CHECK(be.value() == se.value().total_body_bytes);
+}
+
+TEST_CASE("byte_size_for_tenant on empty ledger returns 0") {
+    auto p = tmp_db("bsft_empty_chain");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().byte_size_for_tenant("alpha"); REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("byte_size_for_tenant: unknown tenant returns 0") {
+    auto p = tmp_db("bsft_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"k", "z"}}, "alpha"));
+    auto r = l.byte_size_for_tenant("gamma"); REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("byte_size_for_tenant: large multi-chunk scan still correct") {
+    auto p = tmp_db("bsft_chunk");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // > kChunk (1024) entries to exercise the pagination loop.
+    for (int i = 0; i < 1500; i++) {
+        REQUIRE(l.append("e", "x",
+            nlohmann::json{{"i", i}},
+            (i % 3 == 0) ? "alpha" : "beta"));
+    }
+    auto ba = l.byte_size_for_tenant("alpha"); REQUIRE(ba);
+    auto bb = l.byte_size_for_tenant("beta");  REQUIRE(bb);
+    auto sa = l.stats_for_tenant("alpha"); REQUIRE(sa);
+    auto sb = l.stats_for_tenant("beta");  REQUIRE(sb);
+    CHECK(ba.value() == sa.value().total_body_bytes);
+    CHECK(bb.value() == sb.value().total_body_bytes);
+}

@@ -41,6 +41,20 @@ public:
     // if total()==0 or 1.
     double stddev() const;
 
+    // Lowest bin midpoint that has any count. Returns lo() if the
+    // histogram is empty (total()==0). Bin midpoints are computed as
+    // lo + bin_w * (i + 0.5).
+    double min() const;
+
+    // Highest bin midpoint that has any count. Returns hi() if the
+    // histogram is empty (total()==0).
+    double max() const;
+
+    // Add another histogram's bin counts into this one. Returns
+    // invalid_argument if bin_count(), lo(), or hi() don't match.
+    // Acquires both mutexes via std::lock to avoid deadlock.
+    Result<void> merge(const Histogram& other);
+
     // Returns the value at quantile q in [0, 1] from the empirical
     // distribution. q is clamped to [0, 1]. q=0 returns lo, q=1 returns hi,
     // q=0.5 the median. Within the matching bin we linearly interpolate
@@ -140,6 +154,10 @@ public:
     // Number of registered features. O(1).
     std::size_t feature_count() const;
 
+    // Cheap predicate: true iff a feature with this name has been
+    // registered. Locked, but does not allocate or compute drift.
+    bool has_feature(std::string_view name) const noexcept;
+
     // Returns the current-window observation count for a feature. Returns
     // not_found if the feature was never registered. Useful for sidecars
     // that want to gate report() on a minimum sample size.
@@ -215,6 +233,12 @@ public:
     // Drop all counters and histograms. Used by tests and by live deploy
     // resets that want to start from a clean slate. Mutex-protected.
     void clear();
+
+    // Drop all histograms while leaving counters untouched. Used by
+    // tests and by live deploy resets that want to keep counter trends
+    // (e.g. inferences_total) but reset latency histograms after a
+    // model swap or config change. Mutex-protected.
+    void reset_histograms();
 
     // Number of registered counters in the registry (not the sum of their
     // values, just the count of distinct names). Useful for health

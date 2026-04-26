@@ -262,6 +262,21 @@ MetricRegistry&    Runtime::metrics()         { return impl_->metrics; }
 const PolicyChain& Runtime::policies() const  { return impl_->policies; }
 const Ledger&      Runtime::ledger()   const  { return impl_->ledger; }
 
+std::size_t Runtime::ledger_length() const noexcept {
+    return static_cast<std::size_t>(impl_->ledger.length());
+}
+
+std::string Runtime::head_hash() const {
+    return impl_->ledger.head().hex();
+}
+
+Result<void> Runtime::install_default_policies() {
+    impl_->policies.clear();
+    impl_->policies.push(make_phi_scrubber());
+    impl_->policies.push(make_length_limit(64 * 1024, 64 * 1024));
+    return Result<void>::ok();
+}
+
 std::string Runtime::version() const {
 #ifdef ASCLEPIUS_VERSION_STRING
     return std::string{ASCLEPIUS_VERSION_STRING};

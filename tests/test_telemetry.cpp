@@ -671,6 +671,226 @@ TEST_CASE("MetricRegistry counter_count and histogram_count_total are independen
     CHECK(m.histogram_count_total() == 0);
 }
 
+// ============== Histogram::min / max ====================================
+
+TEST_CASE("Histogram::min and max return lo/hi sentinels on empty") {
+    Histogram h{0.0, 1.0, 10};
+    CHECK(h.min() == doctest::Approx(0.0));
+    CHECK(h.max() == doctest::Approx(1.0));
+
+    // Off-zero range: empty min == lo, empty max == hi.
+    Histogram off{5.0, 15.0, 10};
+    CHECK(off.min() == doctest::Approx(5.0));
+    CHECK(off.max() == doctest::Approx(15.0));
+}
+
+TEST_CASE("Histogram::min and max return bin midpoints when populated") {
+    Histogram h{0.0, 10.0, 10};
+    // Single bin populated → min == max == that bin's midpoint.
+    for (int i = 0; i < 5; ++i) h.observe(4.5);
+    CHECK(h.min() == doctest::Approx(4.5).epsilon(1e-9));
+    CHECK(h.max() == doctest::Approx(4.5).epsilon(1e-9));
+
+    // Two bins populated at the extremes (bin 0 and bin 9) → min midpoint
+    // 0.5, max midpoint 9.5.
+    Histogram g{0.0, 10.0, 10};
+    g.observe(0.1);
+    g.observe(9.9);
+    CHECK(g.min() == doctest::Approx(0.5).epsilon(1e-9));
+    CHECK(g.max() == doctest::Approx(9.5).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::min and max ignore empty interior bins") {
+    Histogram h{0.0, 1.0, 10};
+    // Populate only bins 2 and 7 (midpoints 0.25 and 0.75).
+    for (int i = 0; i < 3; ++i) h.observe(0.25);
+    for (int i = 0; i < 4; ++i) h.observe(0.75);
+    CHECK(h.min() == doctest::Approx(0.25).epsilon(1e-9));
+    CHECK(h.max() == doctest::Approx(0.75).epsilon(1e-9));
+
+    // Sanity: min <= mean <= max for any non-empty histogram.
+    CHECK(h.min() <= h.mean());
+    CHECK(h.mean() <= h.max());
+}
+
+// ============== Histogram::merge ========================================
+
+TEST_CASE("Histogram::merge sums counts and totals across compatible histograms") {
+    Histogram a{0.0, 1.0, 10};
+    Histogram b{0.0, 1.0, 10};
+    for (int i = 0; i < 30; ++i) a.observe(0.15);  // bin 1
+    for (int i = 0; i < 20; ++i) b.observe(0.85);  // bin 8
+
+    REQUIRE(a.merge(b));
+    CHECK(a.total() == 50);
+    auto norm = a.normalized();
+    CHECK(norm[1] == doctest::Approx(30.0 / 50.0).epsilon(1e-9));
+    CHECK(norm[8] == doctest::Approx(20.0 / 50.0).epsilon(1e-9));
+
+    // The source is unchanged.
+    CHECK(b.total() == 20);
+}
+
+TEST_CASE("Histogram::merge rejects mismatched bins/lo/hi with invalid_argument") {
+    Histogram a{0.0, 1.0, 10};
+    a.observe(0.5);
+
+    // Different bin count.
+    Histogram bins_diff{0.0, 1.0, 8};
+    auto r1 = a.merge(bins_diff);
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+
+    // Different lo.
+    Histogram lo_diff{0.5, 1.0, 10};
+    auto r2 = a.merge(lo_diff);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+
+    // Different hi.
+    Histogram hi_diff{0.0, 2.0, 10};
+    auto r3 = a.merge(hi_diff);
+    CHECK(!r3);
+    CHECK(r3.error().code() == ErrorCode::invalid_argument);
+
+    // The destination is untouched after failed merges.
+    CHECK(a.total() == 1);
+}
+
+TEST_CASE("Histogram::merge integrates with stats and PSI") {
+    Histogram global{0.0, 10.0, 10};
+    Histogram shard1{0.0, 10.0, 10};
+    Histogram shard2{0.0, 10.0, 10};
+    for (int i = 0; i < 50; ++i) shard1.observe(2.5);
+    for (int i = 0; i < 50; ++i) shard2.observe(7.5);
+
+    REQUIRE(global.merge(shard1));
+    REQUIRE(global.merge(shard2));
+    CHECK(global.total() == 100);
+    // Mean of two equal-mass atoms at 2.5 and 7.5 → 5.0.
+    CHECK(global.mean() == doctest::Approx(5.0).epsilon(1e-9));
+    // min/max reflect both bins now contain mass.
+    CHECK(global.min() == doctest::Approx(2.5).epsilon(1e-9));
+    CHECK(global.max() == doctest::Approx(7.5).epsilon(1e-9));
+
+    // Merging into a histogram identical to the reference yields PSI ~ 0.
+    Histogram ref{0.0, 10.0, 10};
+    for (int i = 0; i < 50; ++i) ref.observe(2.5);
+    for (int i = 0; i < 50; ++i) ref.observe(7.5);
+    CHECK(Histogram::psi(ref, global) < 0.05);
+}
+
+// ============== DriftMonitor::has_feature ===============================
+
+TEST_CASE("DriftMonitor::has_feature returns false on empty monitor") {
+    DriftMonitor dm;
+    CHECK(dm.has_feature("anything") == false);
+    CHECK(dm.has_feature("") == false);
+}
+
+TEST_CASE("DriftMonitor::has_feature returns true for registered, false for ghosts") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("score", {0.1, 0.2}, 0.0, 1.0, 4));
+    REQUIRE(dm.register_feature("latency", {0.5}, 0.0, 1.0, 4));
+    CHECK(dm.has_feature("score"));
+    CHECK(dm.has_feature("latency"));
+    CHECK(!dm.has_feature("ghost"));
+    // string_view-y access (substring shouldn't false-positive).
+    CHECK(!dm.has_feature("scor"));
+}
+
+TEST_CASE("DriftMonitor::has_feature stays consistent across observe/reset/rotate") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("f", {0.1, 0.2}, 0.0, 1.0, 4));
+    CHECK(dm.has_feature("f"));
+
+    // observe() doesn't drop the feature.
+    REQUIRE(dm.observe("f", 0.5));
+    CHECK(dm.has_feature("f"));
+
+    // Per-feature reset() doesn't unregister.
+    REQUIRE(dm.reset("f"));
+    CHECK(dm.has_feature("f"));
+
+    // rotate() doesn't unregister either.
+    dm.rotate();
+    CHECK(dm.has_feature("f"));
+
+    // And feature_count() agrees.
+    CHECK(dm.feature_count() == 1);
+}
+
+// ============== MetricRegistry::reset_histograms ========================
+
+TEST_CASE("MetricRegistry::reset_histograms drops histograms but keeps counters") {
+    MetricRegistry m;
+    m.inc("inferences_total", 42);
+    m.inc("policy_violations_total", 3);
+    m.observe("inference_latency_seconds", 0.05);
+    m.observe("inference_latency_seconds", 0.10);
+
+    REQUIRE(m.counter_count() == 2);
+    REQUIRE(m.histogram_count_total() == 1);
+
+    m.reset_histograms();
+
+    // Counters are intact (values and entry count).
+    CHECK(m.counter_count() == 2);
+    CHECK(m.count("inferences_total") == 42);
+    CHECK(m.count("policy_violations_total") == 3);
+
+    // Histograms are gone.
+    CHECK(m.histogram_count_total() == 0);
+    auto hc = m.histogram_count("inference_latency_seconds");
+    CHECK(!hc);
+    CHECK(hc.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("MetricRegistry::reset_histograms on empty registry is a no-op") {
+    MetricRegistry m;
+    m.reset_histograms();
+    CHECK(m.counter_count() == 0);
+    CHECK(m.histogram_count_total() == 0);
+
+    // Counters added after a no-op reset still work.
+    m.inc("x", 5);
+    m.reset_histograms();  // still no histograms; counter must survive.
+    CHECK(m.count("x") == 5);
+    CHECK(m.histogram_count_total() == 0);
+}
+
+TEST_CASE("MetricRegistry::reset_histograms leaves the registry usable for new histograms") {
+    MetricRegistry m;
+    m.inc("c", 7);
+    m.observe("h_old", 0.1);
+    m.observe("h_old", 0.2);
+
+    m.reset_histograms();
+
+    // Fresh observe() into a new (or same-named) histogram starts from
+    // empty state.
+    m.observe("h_new", 0.3);
+    auto cn = m.histogram_count("h_new");
+    REQUIRE(cn);
+    CHECK(cn.value() == 1);
+
+    // Re-observing under the old name creates a new histogram with no
+    // residual count.
+    m.observe("h_old", 0.5);
+    auto co = m.histogram_count("h_old");
+    REQUIRE(co);
+    CHECK(co.value() == 1);
+
+    // Counter survived untouched throughout.
+    CHECK(m.count("c") == 7);
+
+    // Prometheus output reflects the reset state.
+    auto out = m.snapshot_prometheus();
+    CHECK(out.find("asclepius_c 7") != std::string::npos);
+    CHECK(out.find("asclepius_h_old_count 1") != std::string::npos);
+    CHECK(out.find("asclepius_h_new_count 1") != std::string::npos);
+}
+
 TEST_CASE("DriftMonitor::observation_count resets after reset() and rotate()") {
     DriftMonitor dm;
     REQUIRE(dm.register_feature("a", {0.1}, 0.0, 1.0, 10));

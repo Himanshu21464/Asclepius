@@ -443,6 +443,41 @@ Result<void> Inference::add_metadata(std::string_view key, nlohmann::json value)
     return Result<void>::ok();
 }
 
+Result<bool> Inference::has_metadata(std::string_view key) const {
+    if (key.empty()) {
+        return Error::invalid("metadata key is empty");
+    }
+    auto md = impl_->ledger_body.find("metadata");
+    if (md == impl_->ledger_body.end() || !md->is_object()) {
+        return false;
+    }
+    return md->contains(std::string{key});
+}
+
+Result<nlohmann::json> Inference::get_metadata(std::string_view key) const {
+    if (key.empty()) {
+        return Error::invalid("metadata key is empty");
+    }
+    auto md = impl_->ledger_body.find("metadata");
+    if (md == impl_->ledger_body.end() || !md->is_object()) {
+        return Error::not_found("metadata key not found");
+    }
+    auto it = md->find(std::string{key});
+    if (it == md->end()) {
+        return Error::not_found("metadata key not found");
+    }
+    return *it;
+}
+
+void Inference::clear_metadata(std::string_view key) noexcept {
+    if (!impl_) return;
+    if (key.empty()) return;
+    if (impl_->committed) return;
+    auto md = impl_->ledger_body.find("metadata");
+    if (md == impl_->ledger_body.end() || !md->is_object()) return;
+    md->erase(std::string{key});
+}
+
 Result<void> Inference::capture_override(std::string rationale, nlohmann::json corrected) {
     if (!impl_->committed) {
         // Allow override capture even before commit; we'll auto-commit on

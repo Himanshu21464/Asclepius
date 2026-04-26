@@ -192,6 +192,60 @@ Result<ConsentToken> ConsentRegistry::longest_active() const {
     return *best;
 }
 
+Result<ConsentToken> ConsentRegistry::oldest_active() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    const ConsentToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        if (best == nullptr || t.issued_at < best->issued_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no active consent tokens");
+    }
+    return *best;
+}
+
+Result<ConsentToken> ConsentRegistry::soonest_to_expire() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    const ConsentToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        if (best == nullptr || t.expires_at < best->expires_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no active consent tokens");
+    }
+    return *best;
+}
+
+bool ConsentRegistry::has_purpose_for_patient(const PatientId& patient,
+                                              Purpose          purpose) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        const auto now = Time::now();
+        for (const auto& [_, t] : by_id_) {
+            if (t.revoked)            continue;
+            if (t.expires_at <= now)  continue;
+            if (t.patient != patient) continue;
+            if (std::find(t.purposes.begin(), t.purposes.end(), purpose)
+                != t.purposes.end()) {
+                return true;
+            }
+        }
+        return false;
+    } catch (...) {
+        return false;
+    }
+}
+
 void ConsentRegistry::clear() {
     std::lock_guard<std::mutex> lk(mu_);
     by_id_.clear();
@@ -287,6 +341,32 @@ Result<ConsentToken> ConsentRegistry::extend(std::string_view     token_id,
     }
     if (obs_copy) obs_copy(Event::granted, snapshot);
     return snapshot;
+}
+
+std::size_t ConsentRegistry::extend_all_for_patient(const PatientId&     patient,
+                                                    std::chrono::seconds additional_ttl) {
+    if (additional_ttl.count() <= 0) {
+        return 0;
+    }
+    std::vector<ConsentToken> extended;
+    Observer obs_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        const auto now = Time::now();
+        for (auto& [_, t] : by_id_) {
+            if (t.revoked)            continue;
+            if (t.expires_at <= now)  continue;
+            if (t.patient != patient) continue;
+            t.expires_at = t.expires_at +
+                std::chrono::nanoseconds{additional_ttl};
+            extended.push_back(t);
+        }
+        obs_copy = observer_;
+    }
+    if (obs_copy) {
+        for (const auto& t : extended) obs_copy(Event::granted, t);
+    }
+    return extended.size();
 }
 
 }  // namespace asclepius

@@ -150,6 +150,28 @@ public:
     // returns invalid_argument with "metadata after commit".
     Result<void> add_metadata(std::string_view key, nlohmann::json value);
 
+    // True iff add_metadata() was previously called for `key` on this
+    // handle. Reads from the same pending body add_metadata writes to
+    // (impl_->ledger_body["metadata"]); after commit, returns whatever
+    // was set at commit time. Empty key is rejected with
+    // invalid_argument — silently treating it as "absent" would mask
+    // caller bugs.
+    Result<bool> has_metadata(std::string_view key) const;
+
+    // Return the value previously written via add_metadata(key). Returns
+    // Error::not_found if no such key has been set on this handle.
+    // Empty key is rejected with invalid_argument. Mirrors
+    // has_metadata() — works pre-commit, and post-commit returns
+    // whatever was set at commit time.
+    Result<nlohmann::json> get_metadata(std::string_view key) const;
+
+    // Remove a single metadata entry. No-op if the key is not present,
+    // is empty, or the inference has already been committed (the
+    // ledger entry is immutable; we don't reach back into the chain).
+    // Use before commit() when the caller wants to retract a value
+    // they staged earlier in the same handle's lifetime.
+    void clear_metadata(std::string_view key) noexcept;
+
     // Capture a clinician override of the model's output. Stored with the
     // inference id so prospective evaluation can join later.
     Result<void> capture_override(std::string rationale, nlohmann::json corrected);
@@ -281,6 +303,23 @@ public:
     };
 
     Health health() const;
+
+    // Sugar over ledger().length(). Saves callers the indirection
+    // of grabbing a Ledger& reference when they only want the count
+    // (e.g. /healthz extras, sidecar dashboards, smoke tests).
+    std::size_t ledger_length() const noexcept;
+
+    // Sugar over ledger().head().hex(). Same motivation as
+    // ledger_length() — used by sidecars that want to publish the
+    // current chain head without juggling Ledger& and Hash types.
+    std::string head_hash() const;
+
+    // Convenience: clear() the policy chain and push the standard
+    // production set — make_phi_scrubber() and a reasonable
+    // make_length_limit(64*1024, 64*1024). Used by sidecars that
+    // want a sensible default without manually composing policies.
+    // Returns ok unconditionally.
+    Result<void> install_default_policies();
 
     // Asclepius runtime version string. Returns ASCLEPIUS_VERSION_STRING
     // when defined via target_compile_definitions, otherwise a stable

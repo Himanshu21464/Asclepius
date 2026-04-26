@@ -182,6 +182,11 @@ void MetricRegistry::clear() {
     histograms_.clear();
 }
 
+void MetricRegistry::reset_histograms() {
+    std::lock_guard<std::mutex> lk(mu_);
+    histograms_.clear();
+}
+
 std::size_t MetricRegistry::counter_count() const {
     std::lock_guard<std::mutex> lk(mu_);
     return counters_.size();

@@ -97,6 +97,28 @@ public:
     // Useful for operator probes: "when does our oldest grant lapse?"
     Result<ConsentToken> longest_active() const;
 
+    // Return the active (non-revoked, non-expired) token with the
+    // smallest issued_at — i.e. the oldest grant still in force.
+    // Returns Error::not_found when no active token exists. Tiebreak
+    // among equal issued_at values is unspecified. Useful for operator
+    // probes: "what's the longest-standing live consent we hold?"
+    Result<ConsentToken> oldest_active() const;
+
+    // Return the active (non-revoked, non-expired) token with the
+    // smallest expires_at — i.e. the next active grant to lapse.
+    // Mirror of longest_active(). Returns Error::not_found when no
+    // active token exists. Tiebreak among equal expiries is
+    // unspecified. Useful for "when does our next grant lapse?"
+    Result<ConsentToken> soonest_to_expire() const;
+
+    // Cheap noexcept variant of permits(): returns whether `patient`
+    // has an active (non-revoked, non-expired) token granting
+    // `purpose`. Any internal failure is swallowed → false. Used in
+    // hot paths where the caller has already validated inputs and
+    // just wants a yes/no answer without a Result wrapper.
+    bool has_purpose_for_patient(const PatientId& patient,
+                                 Purpose          purpose) const noexcept;
+
     // Drop all tokens. Does NOT fire the observer — the registry is in
     // a reset state, not a series of individual revocations. Used by
     // tests and admin-driven reset paths.
@@ -109,6 +131,16 @@ public:
     // by comparing token_id against existing state.
     Result<ConsentToken> extend(std::string_view     token_id,
                                 std::chrono::seconds additional_ttl);
+
+    // Bulk extend: for every active (non-revoked, non-expired) token
+    // belonging to `patient`, push expires_at forward by
+    // `additional_ttl`. Returns the number of tokens extended. Fires
+    // the observer once per token extended (Event::granted), matching
+    // the single extend() semantics. additional_ttl <= 0 is a no-op
+    // and returns 0. Same observer-after-lock-release pattern as
+    // expire_all_for_patient.
+    std::size_t extend_all_for_patient(const PatientId&     patient,
+                                       std::chrono::seconds additional_ttl);
 
     // Counts of currently-active (non-revoked, non-expired) tokens and
     // total tokens (active + revoked + expired). O(n) over the registry,

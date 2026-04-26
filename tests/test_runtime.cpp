@@ -1673,3 +1673,276 @@ TEST_CASE("Runtime::active_inference_count underflow-clamps to 0 after reset_met
     REQUIRE(rt.reset_metrics());
     CHECK(rt.active_inference_count() == 0);
 }
+
+// ============== Inference::has_metadata =================================
+
+TEST_CASE("has_metadata: false on a fresh handle, true after add_metadata") {
+    auto rt_ = fresh_runtime("hm_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hm_basic");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto absent = inf.value().has_metadata("trace_id");
+    REQUIRE(absent);
+    CHECK(absent.value() == false);
+    REQUIRE(inf.value().add_metadata("trace_id", "t-1"));
+    auto present = inf.value().has_metadata("trace_id");
+    REQUIRE(present);
+    CHECK(present.value() == true);
+    CHECK(inf.value().has_metadata("nope").value() == false);
+}
+
+TEST_CASE("has_metadata: empty key is invalid_argument") {
+    auto rt_ = fresh_runtime("hm_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hm_empty");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto r = inf.value().has_metadata("");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("has_metadata: still true after commit (reflects committed body)") {
+    auto rt_ = fresh_runtime("hm_post"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hm_post");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("trace_id", "abc"));
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+    auto r = inf.value().has_metadata("trace_id");
+    REQUIRE(r);
+    CHECK(r.value() == true);
+    CHECK(inf.value().has_metadata("never_set").value() == false);
+}
+
+// ============== Inference::get_metadata =================================
+
+TEST_CASE("get_metadata: returns previously written value") {
+    auto rt_ = fresh_runtime("gm_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gm_basic");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("trace_id", "abc"));
+    REQUIRE(inf.value().add_metadata("retry_count", 7));
+    auto v1 = inf.value().get_metadata("trace_id");
+    REQUIRE(v1);
+    CHECK(v1.value() == "abc");
+    auto v2 = inf.value().get_metadata("retry_count");
+    REQUIRE(v2);
+    CHECK(v2.value() == 7);
+}
+
+TEST_CASE("get_metadata: not_found for missing key, invalid_argument for empty") {
+    auto rt_ = fresh_runtime("gm_missing"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gm_missing");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto miss = inf.value().get_metadata("nope");
+    CHECK(!miss);
+    CHECK(miss.error().code() == ErrorCode::not_found);
+
+    REQUIRE(inf.value().add_metadata("k", 1));
+    auto miss2 = inf.value().get_metadata("other");
+    CHECK(!miss2);
+    CHECK(miss2.error().code() == ErrorCode::not_found);
+
+    auto empty = inf.value().get_metadata("");
+    CHECK(!empty);
+    CHECK(empty.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("get_metadata: returns nested JSON values intact, post-commit too") {
+    auto rt_ = fresh_runtime("gm_nested"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gm_nested");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    nlohmann::json span = {{"trace_id","tt"}, {"baggage", {{"region","eu"}}}};
+    REQUIRE(inf.value().add_metadata("otel", span));
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+    auto v = inf.value().get_metadata("otel");
+    REQUIRE(v);
+    CHECK(v.value()["trace_id"] == "tt");
+    CHECK(v.value()["baggage"]["region"] == "eu");
+}
+
+// ============== Inference::clear_metadata ===============================
+
+TEST_CASE("clear_metadata: removes a previously-added key") {
+    auto rt_ = fresh_runtime("cm_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cm_basic");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("k", "v"));
+    CHECK(inf.value().has_metadata("k").value() == true);
+    inf.value().clear_metadata("k");
+    CHECK(inf.value().has_metadata("k").value() == false);
+    auto g = inf.value().get_metadata("k");
+    CHECK(!g);
+    CHECK(g.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("clear_metadata: no-op for missing keys, empty key, and pre-write") {
+    auto rt_ = fresh_runtime("cm_noop"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cm_noop");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // No metadata yet — must be a clean no-op.
+    inf.value().clear_metadata("missing");
+    inf.value().clear_metadata("");
+    REQUIRE(inf.value().add_metadata("keep", 1));
+    inf.value().clear_metadata("not_present");
+    inf.value().clear_metadata("");
+    CHECK(inf.value().has_metadata("keep").value() == true);
+}
+
+TEST_CASE("clear_metadata: integration with run/commit, and post-commit no-op") {
+    auto rt_ = fresh_runtime("cm_integ"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cm_integ");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("drop_me", "x"));
+    REQUIRE(inf.value().add_metadata("keep_me", "y"));
+    inf.value().clear_metadata("drop_me");
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1); REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    REQUIRE(body.contains("metadata"));
+    CHECK(!body["metadata"].contains("drop_me"));
+    CHECK(body["metadata"]["keep_me"] == "y");
+
+    // Post-commit clear is a no-op — committed metadata is immutable
+    // from this handle's perspective.
+    inf.value().clear_metadata("keep_me");
+    CHECK(inf.value().has_metadata("keep_me").value() == true);
+}
+
+// ============== Runtime::ledger_length ==================================
+
+TEST_CASE("ledger_length: 0 on a fresh runtime") {
+    auto rt_ = fresh_runtime("ll_fresh"); REQUIRE(rt_);
+    CHECK(rt_.value().ledger_length() == 0);
+}
+
+TEST_CASE("ledger_length: matches ledger().length() after appends") {
+    auto rt_ = fresh_runtime("ll_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ll_match");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    for (int i = 0; i < 3; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("hi",
+            [](std::string s)->Result<std::string>{ return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    CHECK(rt.ledger_length() == static_cast<std::size_t>(rt.ledger().length()));
+    CHECK(rt.ledger_length() >= 3);
+}
+
+TEST_CASE("ledger_length: monotonically increases across commits") {
+    auto rt_ = fresh_runtime("ll_mono"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ll_mono");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto before = rt.ledger_length();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+    auto after = rt.ledger_length();
+    CHECK(after > before);
+}
+
+// ============== Runtime::head_hash ======================================
+
+TEST_CASE("head_hash: non-empty hex string on a fresh runtime") {
+    auto rt_ = fresh_runtime("hh_fresh"); REQUIRE(rt_);
+    auto h = rt_.value().head_hash();
+    // Genesis head is a hex string (zeros / configured init), but never empty.
+    CHECK(!h.empty());
+}
+
+TEST_CASE("head_hash: matches ledger().head().hex() always") {
+    auto rt_ = fresh_runtime("hh_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.head_hash() == rt.ledger().head().hex());
+}
+
+TEST_CASE("head_hash: changes after a commit") {
+    auto rt_ = fresh_runtime("hh_change"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hh_change");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto before = rt.head_hash();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+    auto after = rt.head_hash();
+    CHECK(before != after);
+}
+
+// ============== Runtime::install_default_policies =======================
+
+TEST_CASE("install_default_policies: pushes the standard production set") {
+    auto rt_ = fresh_runtime("idp_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.install_default_policies());
+    // Spec: phi_scrubber + length_limit → exactly two policies.
+    CHECK(rt.policies().size() == 2);
+}
+
+TEST_CASE("install_default_policies: clear-then-push (idempotent across calls)") {
+    auto rt_ = fresh_runtime("idp_idem"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_phi_scrubber());
+    rt.policies().push(make_phi_scrubber());
+    rt.policies().push(make_phi_scrubber());
+    CHECK(rt.policies().size() == 3);
+    REQUIRE(rt.install_default_policies());
+    CHECK(rt.policies().size() == 2);
+    REQUIRE(rt.install_default_policies());
+    CHECK(rt.policies().size() == 2);
+}
+
+TEST_CASE("install_default_policies: PHI scrubbing is active end-to-end") {
+    auto rt_ = fresh_runtime("idp_e2e"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.install_default_policies());
+
+    auto pid = PatientId::pseudonymous("p_idp_e2e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto out = inf.value().run("call 415-555-1234 today",
+        [](std::string s)->Result<std::string>{ return s; });
+    REQUIRE(out);
+    CHECK(out.value().find("415-555-1234") == std::string::npos);
+    CHECK(out.value().find("[REDACTED:phone]") != std::string::npos);
+    REQUIRE(inf.value().commit());
+}

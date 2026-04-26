@@ -981,6 +981,66 @@ Ledger::range_by_event_type(std::string_view event_type) const {
     return out;
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::range_by_actor(std::string_view actor) const {
+    if (actor.empty()) {
+        return Error::invalid("range_by_actor requires non-empty actor");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.actor == actor) out.push_back(e);
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+Result<std::vector<LedgerEntry>> Ledger::oldest_n(std::size_t n) const {
+    if (n == 0) return std::vector<LedgerEntry>{};
+    std::vector<LedgerEntry> out;
+    out.reserve(n);
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        out.push_back(e);
+        // Stop the scan once we've collected n entries.
+        return out.size() < n;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+Result<std::vector<LedgerEntry>>
+Ledger::filter(std::string_view event_type, const std::string& tenant) const {
+    if (event_type.empty()) {
+        return Error::invalid("filter requires non-empty event_type");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.event_type == event_type && e.header.tenant == tenant) {
+            out.push_back(e);
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+Result<std::uint64_t> Ledger::byte_size_for_tenant(const std::string& tenant) const {
+    const auto chain_len = impl_->length.load();
+    if (chain_len == 0) return std::uint64_t{0};
+
+    constexpr std::uint64_t kChunk = 1024;
+    std::uint64_t total = 0;
+    for (std::uint64_t start = 1; start <= chain_len; start += kChunk) {
+        std::uint64_t end = std::min(chain_len + 1, start + kChunk);
+        auto rng = impl_->storage->select_range_for_tenant(tenant, start, end);
+        if (!rng) return rng.error();
+        for (const auto& e : rng.value()) {
+            total += e.body_json.size();
+        }
+    }
+    return total;
+}
+
 Result<Ledger::HistoricalHead> Ledger::head_at_time(Time t) const {
     HistoricalHead h{};
     if (impl_->length.load() == 0) return h;

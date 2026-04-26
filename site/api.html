@@ -186,7 +186,7 @@
   <div class="container">
     <span class="kbd">api · auto-generated · 2026-04-26</span>
     <h1>Every public symbol, <i>from the source.</i></h1>
-    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 139 public symbols. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
+    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 220+ public symbols after rounds 57–74. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
   </div>
 </section>
 
@@ -194,16 +194,16 @@
 <section class="api-toc">
   <ul>
     <li><a href="#hdr-asclepius-hpp"><code>asclepius.hpp</code> <em>0 symbols</em></a></li>
-    <li><a href="#hdr-audit-hpp"><code>audit.hpp</code> <em>23 symbols</em></a></li>
-    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>9 symbols</em></a></li>
+    <li><a href="#hdr-audit-hpp"><code>audit.hpp</code> <em>49 symbols</em></a></li>
+    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>27 symbols</em></a></li>
     <li><a href="#hdr-core-hpp"><code>core.hpp</code> <em>19 symbols</em></a></li>
     <li><a href="#hdr-evaluation-hpp"><code>evaluation.hpp</code> <em>6 symbols</em></a></li>
     <li><a href="#hdr-hashing-hpp"><code>hashing.hpp</code> <em>11 symbols</em></a></li>
     <li><a href="#hdr-identity-hpp"><code>identity.hpp</code> <em>14 symbols</em></a></li>
     <li><a href="#hdr-fhir-hpp"><code>interop/fhir.hpp</code> <em>5 symbols</em></a></li>
-    <li><a href="#hdr-policy-hpp"><code>policy.hpp</code> <em>12 symbols</em></a></li>
-    <li><a href="#hdr-runtime-hpp"><code>runtime.hpp</code> <em>19 symbols</em></a></li>
-    <li><a href="#hdr-telemetry-hpp"><code>telemetry.hpp</code> <em>19 symbols</em></a></li>
+    <li><a href="#hdr-policy-hpp"><code>policy.hpp</code> <em>17 symbols</em></a></li>
+    <li><a href="#hdr-runtime-hpp"><code>runtime.hpp</code> <em>34 symbols</em></a></li>
+    <li><a href="#hdr-telemetry-hpp"><code>telemetry.hpp</code> <em>43 symbols</em></a></li>
     <li><a href="#hdr-version-hpp"><code>version.hpp</code> <em>2 symbols</em></a></li>
   </ul>
 </section>
@@ -230,6 +230,8 @@
       <dd><pre>std::array&lt;std::uint8_t, pk_bytes&gt; public_key()</pre></dd>
       <dt><code>sign</code></dt>
       <dd><pre>std::array&lt;std::uint8_t, sig_bytes&gt; sign(Bytes message)</pre></dd>
+      <dt><code>fingerprint</code></dt>
+      <dd><pre>std::string fingerprint()</pre><p>Short, human-comparable digest of the public key — a 16-hex prefix safe to print on a sticker, embed in a status badge, or read out over the phone during a key-rotation ceremony.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -269,6 +271,68 @@
       <dd><pre>std::string key_id()</pre></dd>
       <dt><code>sign_attestation</code></dt>
       <dd><pre>std::array&lt;std::uint8_t, KeyStore::sig_bytes&gt; sign_attestation(Bytes message)</pre><p>Sign an arbitrary attestation (e.g., an evidence-bundle manifest) with the same key that signs ledger entries. The signature can be verified against public_key() with KeyStore::verify. This is intentionally narrow: forging a ledger entry would still require matching seq, prev_hash, and the canonical entry encoding, none of which this method generates.</p></dd>
+      <dt><code>stats</code></dt>
+      <dd><pre>Stats stats()</pre><p>Snapshot of aggregate ledger counters: total entries, byte size on disk, distinct tenants, distinct actors, oldest/newest seq and timestamp. Cheap; safe to call on a hot path.</p></dd>
+      <dt><code>stats_for_tenant</code></dt>
+      <dd><pre>Stats stats_for_tenant(const TenantId&amp; tenant)</pre><p>Same shape as <code>stats()</code> but scoped to one tenant. Use for per-customer dashboards.</p></dd>
+      <dt><code>byte_size_for_tenant</code></dt>
+      <dd><pre>std::uint64_t byte_size_for_tenant(const TenantId&amp; tenant)</pre><p>Cheap byte-size accounting for one tenant&#x27;s slice — useful for billing and quota.</p></dd>
+      <dt><code>tenants</code></dt>
+      <dd><pre>std::vector&lt;TenantId&gt; tenants()</pre><p>All distinct tenants ever to have written to this chain.</p></dd>
+      <dt><code>actors</code></dt>
+      <dd><pre>std::vector&lt;ActorId&gt; actors()</pre><p>All distinct actors observed across the chain — clinicians, services, system actors.</p></dd>
+      <dt><code>find_by_inference_id</code></dt>
+      <dd><pre>Result&lt;LedgerEntry&gt; find_by_inference_id(std::string_view id)</pre><p>O(log n) lookup by inference id (the ULID assigned by <code>begin_inference</code>). Returns the <code>inference.committed</code> entry, or <code>not_found</code>.</p></dd>
+      <dt><code>has_entry</code></dt>
+      <dd><pre>bool has_entry(std::uint64_t seq)</pre><p>Existence check without materializing the row.</p></dd>
+      <dt><code>oldest_n</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; oldest_n(std::size_t n)</pre><p>The first n entries (oldest first). Mirror of <code>tail()</code> at the head end.</p></dd>
+      <dt><code>tail_by_actor</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; tail_by_actor(const ActorId&amp; actor, std::size_t n)</pre><p>Last n entries authored by one actor.</p></dd>
+      <dt><code>range_by_actor</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range_by_actor(const ActorId&amp; actor, std::uint64_t start, std::uint64_t end)</pre></dd>
+      <dt><code>tail_by_event_type</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; tail_by_event_type(std::string_view type, std::size_t n)</pre><p>Last n entries of a given event type — e.g., the last 100 <code>consent.revoked</code>.</p></dd>
+      <dt><code>range_by_event_type</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range_by_event_type(std::string_view type, std::uint64_t start, std::uint64_t end)</pre></dd>
+      <dt><code>count_by_event_type</code></dt>
+      <dd><pre>std::uint64_t count_by_event_type(std::string_view type)</pre><p>Count without materializing rows. Backs the <code>ledger event-counts</code> CLI.</p></dd>
+      <dt><code>range_by_patient</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range_by_patient(const PatientId&amp; patient, std::uint64_t start, std::uint64_t end)</pre><p>Every entry naming this patient. The patient-rights workflow (right of access, right to know) lands here.</p></dd>
+      <dt><code>range_by_model</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range_by_model(const ModelId&amp; model, std::uint64_t start, std::uint64_t end)</pre><p>Every entry produced by a given model+version. Recall analyses live here.</p></dd>
+      <dt><code>tail_in_window</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; tail_in_window(Time from, Time to, std::size_t n)</pre><p>Time-windowed tail. Combines naturally with <code>verify_range</code> for &quot;verify last 24h.&quot;</p></dd>
+      <dt><code>count_in_window</code></dt>
+      <dd><pre>std::uint64_t count_in_window(Time from, Time to)</pre></dd>
+      <dt><code>verify_range</code></dt>
+      <dd><pre>Result&lt;void&gt; verify_range(std::uint64_t start, std::uint64_t end)</pre><p>Verify a contiguous slice — for incremental verification on a long chain. Bounds must align with seq monotonicity; <code>prev_hash</code> at <code>start</code> is anchored against the entry at <code>start - 1</code>.</p></dd>
+      <dt><code>verify_parallel</code></dt>
+      <dd><pre>Result&lt;void&gt; verify_parallel(std::size_t threads = 0)</pre><p>Same correctness contract as <code>verify()</code>, distributed over a thread pool. <code>threads = 0</code> picks <code>hardware_concurrency()</code>. Wins big on multi-million-entry chains.</p></dd>
+      <dt><code>head_at_time</code></dt>
+      <dd><pre>Result&lt;Hash&gt; head_at_time(Time t)</pre><p>The Merkle head as it was at wall time <code>t</code>. Lets a regulator anchor a third-party time-stamp without dragging the whole chain.</p></dd>
+      <dt><code>head_at_seq</code></dt>
+      <dd><pre>Result&lt;Hash&gt; head_at_seq(std::uint64_t seq)</pre><p>The Merkle head at sequence <code>seq</code>. Composes with off-system checkpointing.</p></dd>
+      <dt><code>attest</code></dt>
+      <dd><pre>Attestation attest()</pre><p>Produces a signed snapshot — head hash, length, key id, timestamp, signature — suitable for posting to a public timestamping service or pinning in a customer&#x27;s git repo. The struct serializes via <code>Attestation::to_json()</code>.</p></dd>
+      <dt><code>filter</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; filter(std::function&lt;bool(const LedgerEntry&amp;)&gt; predicate, std::size_t limit)</pre><p>Escape hatch for ad-hoc queries. Walks the chain, applies the predicate, returns up to <code>limit</code> matches. The cheaper indexed accessors above should always be preferred when they fit.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Stats</code></h3>
+    <p>Plain aggregate snapshot returned by <code>Ledger::stats()</code> and <code>stats_for_tenant()</code>.</p>
+    <dl class="api-list">
+      <dt><code>to_json</code></dt>
+      <dd><pre>std::string to_json()</pre><p>Canonical JSON for status pages and dashboards.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Attestation</code></h3>
+    <p>Signed head snapshot. Contains <code>head</code>, <code>length</code>, <code>key_id</code>, <code>timestamp</code>, and the Ed25519 signature over their canonical encoding.</p>
+    <dl class="api-list">
+      <dt><code>to_json</code></dt>
+      <dd><pre>std::string to_json()</pre></dd>
     </dl>
   </article>
 </section>
@@ -295,6 +359,42 @@
       <dd><pre>Result&lt;ConsentToken&gt; get(std::string_view token_id)</pre></dd>
       <dt><code>snapshot</code></dt>
       <dd><pre>std::vector&lt;ConsentToken&gt; snapshot()</pre><p>Snapshot for serialization / replay.</p></dd>
+      <dt><code>ingest</code></dt>
+      <dd><pre>Result&lt;void&gt; ingest(std::vector&lt;ConsentToken&gt; tokens)</pre><p>Reconstruct registry state from a list of tokens — used by the runtime at startup to replay consent state from the ledger. The audit chain is now genuinely the source of truth for consent.</p></dd>
+      <dt><code>clear</code></dt>
+      <dd><pre>void clear()</pre><p>Empty the registry. Pairs with <code>ingest</code> for cold-start replay.</p></dd>
+      <dt><code>tokens_for_patient</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; tokens_for_patient(const PatientId&amp; patient)</pre><p>Every token (active, expired, or revoked) ever issued for a patient.</p></dd>
+      <dt><code>active_tokens_for_patient</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; active_tokens_for_patient(const PatientId&amp; patient)</pre><p>Only the currently-valid tokens for a patient.</p></dd>
+      <dt><code>tokens_for_purpose</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; tokens_for_purpose(Purpose purpose)</pre></dd>
+      <dt><code>has_purpose_for_patient</code></dt>
+      <dd><pre>bool has_purpose_for_patient(const PatientId&amp; patient, Purpose purpose)</pre><p>Cheap predicate — backs the <code>permits</code> path on the inference hot loop.</p></dd>
+      <dt><code>token_exists</code></dt>
+      <dd><pre>bool token_exists(std::string_view token_id)</pre></dd>
+      <dt><code>extend</code></dt>
+      <dd><pre>Result&lt;void&gt; extend(std::string_view token_id, Time new_expiry)</pre><p>Push a token&#x27;s expiry forward. Emits <code>consent.extended</code> through the runtime.</p></dd>
+      <dt><code>extend_all_for_patient</code></dt>
+      <dd><pre>Result&lt;std::size_t&gt; extend_all_for_patient(const PatientId&amp; patient, Time new_expiry)</pre><p>Bulk extend; returns how many tokens were touched.</p></dd>
+      <dt><code>expire_all_for_patient</code></dt>
+      <dd><pre>Result&lt;std::size_t&gt; expire_all_for_patient(const PatientId&amp; patient)</pre><p>Force-expire every active token for a patient — the right-of-withdrawal path.</p></dd>
+      <dt><code>cleanup_expired</code></dt>
+      <dd><pre>std::size_t cleanup_expired()</pre><p>Garbage-collect tokens past expiry. Returns count removed.</p></dd>
+      <dt><code>active_count</code></dt>
+      <dd><pre>std::size_t active_count()</pre></dd>
+      <dt><code>expired_count</code></dt>
+      <dd><pre>std::size_t expired_count()</pre></dd>
+      <dt><code>total_count</code></dt>
+      <dd><pre>std::size_t total_count()</pre></dd>
+      <dt><code>longest_active</code></dt>
+      <dd><pre>std::optional&lt;ConsentToken&gt; longest_active()</pre><p>The active token with the latest expiry — a useful canary for &quot;who is consented furthest into the future.&quot;</p></dd>
+      <dt><code>oldest_active</code></dt>
+      <dd><pre>std::optional&lt;ConsentToken&gt; oldest_active()</pre></dd>
+      <dt><code>soonest_to_expire</code></dt>
+      <dd><pre>std::optional&lt;ConsentToken&gt; soonest_to_expire()</pre><p>The active token with the earliest expiry — drives renewal-reminder workflows.</p></dd>
+      <dt><code>set_observer</code></dt>
+      <dd><pre>void set_observer(std::function&lt;void(const ConsentToken&amp;, std::string_view event)&gt; cb)</pre><p>Register a sink for grant / revoke / expire events. Runtime uses this to mirror state to the ledger.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>
@@ -517,6 +617,14 @@
       <dd><pre>void push(std::shared_ptr&lt;IPolicy&gt; policy)</pre></dd>
       <dt><code>names</code></dt>
       <dd><pre>std::vector&lt;std::string&gt; names()</pre><p>Names of registered policies, in order.</p></dd>
+      <dt><code>has</code></dt>
+      <dd><pre>bool has(std::string_view name)</pre><p>Predicate over <code>names()</code>; cheap.</p></dd>
+      <dt><code>size</code></dt>
+      <dd><pre>std::size_t size()</pre></dd>
+      <dt><code>remove</code></dt>
+      <dd><pre>bool remove(std::string_view name)</pre><p>Drop a policy by name. Returns whether one was removed. Mutating the chain at runtime emits <code>policy.config_change</code> in the ledger.</p></dd>
+      <dt><code>clear</code></dt>
+      <dd><pre>void clear()</pre><p>Empty the chain. Test-fixture territory; production should remove by name.</p></dd>
       <dt><code>evaluate_input</code></dt>
       <dd><pre>Result&lt;std::string&gt; evaluate_input(const InferenceContext&amp; ctx, std::string payload)</pre><p>Evaluate against input. Returns the (possibly modified) payload, or the first blocker&#x27;s Error.</p></dd>
       <dt><code>evaluate_output</code></dt>
@@ -539,12 +647,46 @@
     <dl class="api-list">
       <dt><code>run</code></dt>
       <dd><pre>Result&lt;std::string&gt; run(std::string input, const ModelCallback&amp; model_call)</pre><p>Run input through the input policy chain, invoke model_call with the resulting payload, run output through the output policy chain, append the inference event to the ledger. Returns the (possibly modified) model output, or an error if any policy blocked or the model failed.</p></dd>
+      <dt><code>run_with_timeout</code></dt>
+      <dd><pre>Result&lt;std::string&gt; run_with_timeout(std::string input, const ModelCallback&amp; model_call, std::chrono::milliseconds budget)</pre><p>As <code>run</code>, but the model callback is bounded by a wall-clock budget. On timeout the inference is aborted and the failure recorded; no <code>inference.committed</code> entry is appended.</p></dd>
+      <dt><code>run_cancellable</code></dt>
+      <dd><pre>Result&lt;std::string&gt; run_cancellable(std::string input, const ModelCallback&amp; model_call, CancelToken&amp; token)</pre><p>As <code>run</code>, but cooperatively cancellable from another thread by calling <code>token.cancel()</code>. Pairs with request-deadline shedders in front of long-running models.</p></dd>
       <dt><code>commit</code></dt>
       <dd><pre>Result&lt;void&gt; commit()</pre><p>Commit the inference to the ledger. Idempotent. After commit, drift observations are flushed and ground-truth/override hooks remain valid.</p></dd>
+      <dt><code>commit_idempotent</code></dt>
+      <dd><pre>Result&lt;bool&gt; commit_idempotent()</pre><p>Same as <code>commit</code> but returns <code>true</code> only on the first successful commit; further calls return <code>false</code> with no error. Use when retry logic might double-call.</p></dd>
       <dt><code>capture_override</code></dt>
       <dd><pre>Result&lt;void&gt; capture_override(std::string rationale, nlohmann::json corrected)</pre><p>Capture a clinician override of the model&#x27;s output. Stored with the inference id so prospective evaluation can join later.</p></dd>
+      <dt><code>attach_ground_truth</code></dt>
+      <dd><pre>Result&lt;void&gt; attach_ground_truth(nlohmann::json truth)</pre><p>Bind ground truth directly to the inference at the handle level. Convenience over <code>EvaluationHarness::attach_ground_truth</code>: the inference id is already known.</p></dd>
+      <dt><code>add_metadata</code></dt>
+      <dd><pre>Result&lt;void&gt; add_metadata(std::string key, nlohmann::json value)</pre><p>Attach arbitrary key/value metadata to the inference event. Hashed into the entry; not free-text mutable post-commit.</p></dd>
       <dt><code>observe_drift</code></dt>
       <dd><pre>Result&lt;void&gt; observe_drift(std::string_view feature, double value)</pre><p>Attach a numeric drift observation under a registered feature.</p></dd>
+      <dt><code>id</code></dt>
+      <dd><pre>std::string id()</pre><p>The ULID assigned at <code>begin_inference</code>. Stable for the lifetime of the handle.</p></dd>
+      <dt><code>seq</code></dt>
+      <dd><pre>std::optional&lt;std::uint64_t&gt; seq()</pre><p>Ledger sequence of the committed entry, or <code>nullopt</code> before commit.</p></dd>
+      <dt><code>tenant</code></dt>
+      <dd><pre>const TenantId&amp; tenant()</pre></dd>
+      <dt><code>has_run</code></dt>
+      <dd><pre>bool has_run()</pre><p>True after <code>run</code> / <code>run_with_timeout</code> / <code>run_cancellable</code> has completed (success or block).</p></dd>
+      <dt><code>is_committed</code></dt>
+      <dd><pre>bool is_committed()</pre></dd>
+      <dt><code>status</code></dt>
+      <dd><pre>InferenceStatus status()</pre><p>One of <code>pending</code>, <code>ran</code>, <code>blocked</code>, <code>committed</code>, <code>aborted</code>. Useful in test harnesses and metrics.</p></dd>
+      <dt><code>elapsed_ms</code></dt>
+      <dd><pre>double elapsed_ms()</pre><p>Wall-clock time from <code>begin_inference</code> to now. Reads zero before <code>run</code>.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>CancelToken</code></h3>
+    <p>Cooperative cancellation flag passed to <code>Inference::run_cancellable</code>. Thread-safe.</p>
+    <dl class="api-list">
+      <dt><code>cancel</code></dt>
+      <dd><pre>void cancel()</pre></dd>
+      <dt><code>is_cancelled</code></dt>
+      <dd><pre>bool is_cancelled()</pre></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -573,6 +715,28 @@
       <dd><pre>const PolicyChain&amp; policies()</pre></dd>
       <dt><code>ledger</code></dt>
       <dd><pre>const Ledger&amp; ledger()</pre></dd>
+      <dt><code>health</code></dt>
+      <dd><pre>Health health()</pre><p>One-shot liveness summary: ledger length and head, key id, drift-monitor feature count, active inference count, ledger byte size, version. Backs <code>asclepius runtime health</code>.</p></dd>
+      <dt><code>self_test</code></dt>
+      <dd><pre>Result&lt;void&gt; self_test()</pre><p>Best-effort end-to-end smoke test: hashes a known input, signs and verifies, opens an in-memory chain, appends, verifies, tears down. Returns <code>ok</code> if every component is wired correctly. Use as a startup gate.</p></dd>
+      <dt><code>version</code></dt>
+      <dd><pre>std::string version()</pre><p>Library version string (e.g., <code>0.3.0</code>). Mirrors <code>asclepius::version()</code>.</p></dd>
+      <dt><code>ledger_size_bytes</code></dt>
+      <dd><pre>std::uint64_t ledger_size_bytes()</pre><p>Total on-disk size of the ledger database.</p></dd>
+      <dt><code>list_loaded_features</code></dt>
+      <dd><pre>std::vector&lt;std::string&gt; list_loaded_features()</pre><p>Names of all drift features registered on the runtime — useful for status pages.</p></dd>
+      <dt><code>active_inference_count</code></dt>
+      <dd><pre>std::size_t active_inference_count()</pre><p>How many <code>Inference</code> handles are currently in-flight (begun but neither committed nor dropped).</p></dd>
+      <dt><code>reset_metrics</code></dt>
+      <dd><pre>void reset_metrics()</pre><p>Zero the in-memory metric registry. Does <em>not</em> touch the ledger. Use after a baseline-recalibration run.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Health</code></h3>
+    <p>Snapshot returned by <code>Runtime::health()</code>. Composed of plain fields; serialize via <code>to_json()</code>.</p>
+    <dl class="api-list">
+      <dt><code>to_json</code></dt>
+      <dd><pre>std::string to_json()</pre></dd>
     </dl>
   </article>
 </section>
@@ -597,6 +761,18 @@
       <dd><pre>static double ks(const Histogram&amp; reference, const Histogram&amp; current)</pre><p>Two-sample Kolmogorov-Smirnov statistic on the empirical CDFs.</p></dd>
       <dt><code>emd</code></dt>
       <dd><pre>static double emd(const Histogram&amp; reference, const Histogram&amp; current)</pre><p>Earth Mover&#x27;s Distance (1D).</p></dd>
+      <dt><code>quantile</code></dt>
+      <dd><pre>double quantile(double q)</pre><p>Linearly-interpolated quantile within the binned distribution. <code>q ∈ [0, 1]</code>; clamped.</p></dd>
+      <dt><code>mean</code></dt>
+      <dd><pre>double mean()</pre></dd>
+      <dt><code>stddev</code></dt>
+      <dd><pre>double stddev()</pre></dd>
+      <dt><code>min</code></dt>
+      <dd><pre>double min()</pre></dd>
+      <dt><code>max</code></dt>
+      <dd><pre>double max()</pre></dd>
+      <dt><code>merge</code></dt>
+      <dd><pre>Result&lt;void&gt; merge(const Histogram&amp; other)</pre><p>Bin-wise merge with another histogram of identical shape. Lets you fan out histogram observations across shards and reduce centrally.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -614,6 +790,18 @@
       <dd><pre>void rotate()</pre><p>Reset the current window — typically called daily or on alert.</p></dd>
       <dt><code>classify</code></dt>
       <dd><pre>static DriftSeverity classify(double psi)</pre><p>Severity classification thresholds (exposed for tests/calibration).</p></dd>
+      <dt><code>observation_count</code></dt>
+      <dd><pre>std::uint64_t observation_count(std::string_view feature)</pre><p>How many observations have landed in the current window for <code>feature</code>.</p></dd>
+      <dt><code>baseline_count</code></dt>
+      <dd><pre>std::uint64_t baseline_count(std::string_view feature)</pre><p>Sample count in the frozen baseline.</p></dd>
+      <dt><code>has_feature</code></dt>
+      <dd><pre>bool has_feature(std::string_view feature)</pre></dd>
+      <dt><code>list_features</code></dt>
+      <dd><pre>std::vector&lt;std::string&gt; list_features()</pre></dd>
+      <dt><code>feature_count</code></dt>
+      <dd><pre>std::size_t feature_count()</pre></dd>
+      <dt><code>reset</code></dt>
+      <dd><pre>Result&lt;void&gt; reset(std::string_view feature)</pre><p>Reset just the current window for one feature; baseline is preserved.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -626,6 +814,22 @@
       <dd><pre>void observe(std::string_view name, double value)</pre></dd>
       <dt><code>count</code></dt>
       <dd><pre>std::uint64_t count(std::string_view name)</pre></dd>
+      <dt><code>counter_count</code></dt>
+      <dd><pre>std::size_t counter_count()</pre><p>Number of distinct counters registered.</p></dd>
+      <dt><code>list_counters</code></dt>
+      <dd><pre>std::vector&lt;std::string&gt; list_counters()</pre></dd>
+      <dt><code>counter_snapshot</code></dt>
+      <dd><pre>std::vector&lt;std::pair&lt;std::string, std::uint64_t&gt;&gt; counter_snapshot()</pre><p>All counter (name, value) pairs at a point in time.</p></dd>
+      <dt><code>histogram_count</code></dt>
+      <dd><pre>std::uint64_t histogram_count(std::string_view name)</pre><p>Total observations into the named histogram.</p></dd>
+      <dt><code>histogram_sum</code></dt>
+      <dd><pre>double histogram_sum(std::string_view name)</pre><p>Sum of observed values — pairs with <code>histogram_count</code> for averages.</p></dd>
+      <dt><code>clear</code></dt>
+      <dd><pre>void clear()</pre><p>Drop every counter and histogram. Dev-only.</p></dd>
+      <dt><code>reset</code></dt>
+      <dd><pre>void reset()</pre><p>Zero counters and histogram observations; keep registrations.</p></dd>
+      <dt><code>reset_histograms</code></dt>
+      <dd><pre>void reset_histograms()</pre><p>Reset only histograms — counters unaffected.</p></dd>
       <dt><code>snapshot_json</code></dt>
       <dd><pre>std::string snapshot_json()</pre><p>JSON-shaped snapshot for export (Prometheus exposition format planned).</p></dd>
     </dl>

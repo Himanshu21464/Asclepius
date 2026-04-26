@@ -286,7 +286,31 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.3.0</b><time class="dt-published" datetime="2026-04-25">2026-04-25</time><span class="pill">current</span>
+            <b class="p-name">v0.3.1</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Surface area lands</em>. Eighty-odd new public methods across rounds 57–74 — query the ledger like a database, introspect the runtime like a process, drive consent through its full life-cycle. No on-disk format changes; nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Inference</code>: <code>run_with_timeout</code>, <code>run_cancellable</code> + <code>CancelToken</code>, <code>commit_idempotent</code>, <code>add_metadata</code>, <code>attach_ground_truth</code>, plus <code>id</code> / <code>seq</code> / <code>tenant</code> / <code>has_run</code> / <code>is_committed</code> / <code>status</code> / <code>elapsed_ms</code> introspection.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger</code> indexed queries: <code>find_by_inference_id</code>, <code>tail_by_actor</code>, <code>range_by_actor</code>, <code>tail_by_event_type</code> + <code>count_by_event_type</code>, <code>range_by_patient</code>, <code>range_by_model</code>, <code>tail_in_window</code> + <code>count_in_window</code>, <code>oldest_n</code>, <code>has_entry</code>, <code>filter</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::stats()</code> + <code>Stats::to_json()</code>, <code>stats_for_tenant</code>, <code>byte_size_for_tenant</code>, <code>tenants()</code>, <code>actors()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::verify_range</code>, <code>verify_parallel</code>, <code>head_at_time</code>, <code>head_at_seq</code>, <code>attest()</code> + <code>Attestation</code> for off-system anchoring.</span></li>
+            <li class="add"><b>add</b><span><code>KeyStore::fingerprint()</code> — short, human-comparable digest of the public key.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::health()</code> + <code>Health::to_json()</code>, <code>self_test()</code>, <code>version()</code>, <code>ledger_size_bytes()</code>, <code>list_loaded_features()</code>, <code>active_inference_count()</code>, <code>reset_metrics()</code>.</span></li>
+            <li class="add"><b>add</b><span>CLI: <code>runtime health</code>, <code>runtime self-test</code>, <code>consent list</code>, <code>ledger stats</code>, <code>ledger stats-tenant</code>, <code>ledger find</code>, <code>ledger event-counts</code>, <code>ledger tail-actor</code>.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry</code>: <code>tokens_for_patient</code>, <code>active_tokens_for_patient</code>, <code>tokens_for_purpose</code>, <code>has_purpose_for_patient</code>, <code>extend</code> + <code>extend_all_for_patient</code>, <code>expire_all_for_patient</code>, <code>cleanup_expired</code>, <code>{active,expired,total}_count</code>, <code>longest_active</code> / <code>oldest_active</code> / <code>soonest_to_expire</code>, <code>set_observer</code>, <code>ingest</code> / <code>clear</code>, <code>token_exists</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram</code>: <code>quantile</code>, <code>mean</code>, <code>stddev</code>, <code>min</code>, <code>max</code>, <code>merge</code>.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry</code>: <code>histogram_count</code>, <code>histogram_sum</code>, <code>counter_count</code>, <code>list_counters</code>, <code>counter_snapshot</code>, <code>clear</code>, <code>reset</code>, <code>reset_histograms</code>.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor</code>: <code>observation_count</code>, <code>baseline_count</code>, <code>has_feature</code>, <code>list_features</code>, <code>feature_count</code>, <code>reset(feature)</code>.</span></li>
+            <li class="add"><b>add</b><span><code>PolicyChain</code>: <code>has</code>, <code>remove</code>, <code>clear</code>, <code>size</code>, <code>names</code> — chains are now mutable by name, not just push-only.</span></li>
+            <li class="fix"><b>fix</b><span>Runtime now replays consent state from the ledger on startup. Previously the in-memory registry could outlive the chain; now <em>the audit chain is the source of truth for consent</em>, recoverable from a single SQLite file.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.3.0</b><time class="dt-published" datetime="2026-04-25">2026-04-25</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             The current development tip. Consent now flows through the ledger;

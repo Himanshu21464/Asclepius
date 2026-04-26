@@ -268,6 +268,20 @@ asclepius ledger verify  ./asclepius.db
 <span class="c"># dump the last 50 entries as JSON</span>
 asclepius ledger inspect ./asclepius.db --tail 50
 
+<span class="c"># aggregate ledger stats (whole chain or per tenant)</span>
+asclepius ledger stats         ./asclepius.db
+asclepius ledger stats-tenant  ./asclepius.db kp-northwest
+
+<span class="c"># find one inference, count event types, tail one actor</span>
+asclepius ledger find          ./asclepius.db &lt;ulid&gt;
+asclepius ledger event-counts  ./asclepius.db
+asclepius ledger tail-actor    ./asclepius.db clinician:dr.smith 50
+
+<span class="c"># runtime liveness + smoke test</span>
+asclepius runtime health       ./asclepius.db
+asclepius runtime self-test
+asclepius consent list         ./asclepius.db
+
 <span class="c"># export a 30-day evidence bundle</span>
 asclepius evidence bundle ./asclepius.db \
     --window 30d --out evidence.tar
@@ -276,6 +290,80 @@ asclepius evidence bundle ./asclepius.db \
 <span class="c"># reverify offline (anyone can run this)</span>
 asclepius evidence verify evidence.tar
 <span class="ok">OK</span></code></pre>
+    </article>
+
+    <article class="ch-card">
+      <h2>Inference handle <small>new in 0.4</small></h2>
+<pre><code><span class="c">// time-bounded run</span>
+inf.run_with_timeout(input, model, <span class="n">2000</span>ms);
+
+<span class="c">// cooperative cancellation</span>
+CancelToken tok;
+std::thread([&amp;]{ <span class="c">/* ... */</span> tok.cancel(); }).detach();
+inf.run_cancellable(input, model, tok);
+
+<span class="c">// arbitrary metadata + ground truth</span>
+inf.add_metadata(<span class="s">"shift"</span>, <span class="s">"night"</span>);
+inf.attach_ground_truth(truth_json);
+
+<span class="c">// idempotent commit, status introspection</span>
+inf.commit_idempotent();
+<span class="k">if</span> (inf.is_committed()) log(inf.seq().value());
+log(inf.id(), inf.elapsed_ms());</code></pre>
+    </article>
+
+    <article class="ch-card">
+      <h2>Ledger queries <small>indexed</small></h2>
+      <dl class="pair">
+        <dt><code>find_by_inference_id</code></dt><dd>O(log n) by ULID</dd>
+        <dt><code>tail_by_actor</code></dt><dd>last n by clinician/service</dd>
+        <dt><code>tail_by_event_type</code></dt><dd>last n consent.revoked, etc.</dd>
+        <dt><code>count_by_event_type</code></dt><dd>cheap counter</dd>
+        <dt><code>range_by_patient</code></dt><dd>right-of-access</dd>
+        <dt><code>range_by_model</code></dt><dd>recall analysis</dd>
+        <dt><code>tail_in_window</code></dt><dd>time-windowed</dd>
+        <dt><code>verify_range</code></dt><dd>partial verify</dd>
+        <dt><code>verify_parallel</code></dt><dd>thread-pool verify</dd>
+        <dt><code>head_at_time</code></dt><dd>head as-of t</dd>
+        <dt><code>head_at_seq</code></dt><dd>head at seq n</dd>
+        <dt><code>attest()</code></dt><dd>signed head snapshot</dd>
+        <dt><code>stats()</code></dt><dd>aggregate counters</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
+      <h2>Runtime introspection</h2>
+<pre><code><span class="c">// liveness, smoke test, version</span>
+auto h = rt.health();      <span class="c">// → Health::to_json()</span>
+rt.self_test();
+rt.version();              <span class="c">// "0.3.0"</span>
+
+<span class="c">// what's loaded, who's running, how big</span>
+rt.list_loaded_features();
+rt.active_inference_count();
+rt.ledger_size_bytes();
+rt.reset_metrics();        <span class="c">// dev / recalibration</span>
+
+<span class="c">// key fingerprint for status pages</span>
+rt.ledger().key_id();
+rt.ledger().public_key();</code></pre>
+    </article>
+
+    <article class="ch-card">
+      <h2>Consent <small>now ledger-replayed at boot</small></h2>
+      <dl class="pair">
+        <dt><code>tokens_for_patient</code></dt><dd>all, ever</dd>
+        <dt><code>active_tokens_for_patient</code></dt><dd>currently valid</dd>
+        <dt><code>has_purpose_for_patient</code></dt><dd>cheap predicate</dd>
+        <dt><code>extend</code> / <code>extend_all_for_patient</code></dt><dd>push expiry</dd>
+        <dt><code>expire_all_for_patient</code></dt><dd>right-of-withdrawal</dd>
+        <dt><code>cleanup_expired</code></dt><dd>GC past-due</dd>
+        <dt><code>{active,expired,total}_count</code></dt><dd>dashboard</dd>
+        <dt><code>longest_active</code> / <code>oldest_active</code></dt><dd>canaries</dd>
+        <dt><code>soonest_to_expire</code></dt><dd>renewal alerts</dd>
+        <dt><code>set_observer</code></dt><dd>mirror to ledger</dd>
+      </dl>
+      <p>Runtime now <em>replays consent state from the ledger</em> at startup. The audit chain is the source of truth.</p>
     </article>
 
     <article class="ch-card">
