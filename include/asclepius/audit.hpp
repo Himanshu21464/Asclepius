@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -232,6 +233,14 @@ public:
     };
 
     Result<Stats> stats() const;
+
+    // Count entries grouped by event_type. Returns a map keyed by the
+    // header.event_type string. O(n) scan over the chain via for_each;
+    // O(1) memory aside from the result map. Useful for dashboards
+    // ("how many inferences vs drift events today?") and for spotting
+    // unexpected event types from custom integrations.
+    Result<std::unordered_map<std::string, std::uint64_t>>
+        count_by_event_type() const;
 
     // ---- Forensic lookup ------------------------------------------------
     //

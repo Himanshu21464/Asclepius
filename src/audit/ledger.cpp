@@ -689,6 +689,17 @@ std::string Ledger::Stats::to_json() const {
     return j.dump();
 }
 
+Result<std::unordered_map<std::string, std::uint64_t>>
+Ledger::count_by_event_type() const {
+    std::unordered_map<std::string, std::uint64_t> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        out[e.header.event_type] += 1;
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
 Result<LedgerEntry> Ledger::find_by_inference_id(std::string_view id) const {
     if (id.empty()) {
         return Error::invalid("find_by_inference_id requires non-empty id");

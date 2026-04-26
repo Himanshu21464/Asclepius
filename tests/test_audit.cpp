@@ -1292,6 +1292,72 @@ TEST_CASE("Ledger::stats handles 1000-entry chain") {
     CHECK(s.value().avg_body_bytes > 0);
 }
 
+// ============== Ledger::count_by_event_type =============================
+
+TEST_CASE("count_by_event_type tallies one type") {
+    auto p = tmp_db("count_one");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 7; i++) {
+        REQUIRE(l.append("evt_a", "x", nlohmann::json::object(), ""));
+    }
+    auto c = l.count_by_event_type(); REQUIRE(c);
+    CHECK(c.value().size() == 1);
+    CHECK(c.value().at("evt_a") == 7);
+}
+
+TEST_CASE("count_by_event_type tallies multiple types separately") {
+    auto p = tmp_db("count_multi");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++)
+        REQUIRE(l.append("alpha", "x", nlohmann::json::object(), ""));
+    for (int i = 0; i < 3; i++)
+        REQUIRE(l.append("beta", "x", nlohmann::json::object(), ""));
+    for (int i = 0; i < 9; i++)
+        REQUIRE(l.append("gamma", "x", nlohmann::json::object(), ""));
+    auto c = l.count_by_event_type(); REQUIRE(c);
+    CHECK(c.value().size() == 3);
+    CHECK(c.value().at("alpha") == 5);
+    CHECK(c.value().at("beta")  == 3);
+    CHECK(c.value().at("gamma") == 9);
+}
+
+TEST_CASE("count_by_event_type on empty ledger returns empty map") {
+    auto p = tmp_db("count_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto c = l_.value().count_by_event_type(); REQUIRE(c);
+    CHECK(c.value().empty());
+}
+
+TEST_CASE("count_by_event_type sums to entry_count") {
+    auto p = tmp_db("count_sum");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 10; i++)
+        REQUIRE(l.append("evt_" + std::to_string(i % 3),
+                         "x", nlohmann::json::object(), ""));
+    auto c = l.count_by_event_type(); REQUIRE(c);
+    std::uint64_t sum = 0;
+    for (const auto& [_, n] : c.value()) sum += n;
+    CHECK(sum == l.length());
+}
+
+TEST_CASE("count_by_event_type survives reopen") {
+    auto p = tmp_db("count_reopen");
+    {
+        auto l_ = Ledger::open(p); REQUIRE(l_);
+        for (int i = 0; i < 4; i++)
+            REQUIRE(l_.value().append("a", "x", nlohmann::json::object(), ""));
+        for (int i = 0; i < 6; i++)
+            REQUIRE(l_.value().append("b", "x", nlohmann::json::object(), ""));
+    }
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto c = l_.value().count_by_event_type(); REQUIRE(c);
+    CHECK(c.value().at("a") == 4);
+    CHECK(c.value().at("b") == 6);
+}
+
 // ============== Ledger::find_by_inference_id ============================
 
 TEST_CASE("find_by_inference_id locates the matching entry") {
