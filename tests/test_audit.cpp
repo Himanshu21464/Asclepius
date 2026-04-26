@@ -135,6 +135,266 @@ TEST_CASE("KeyStore signs and verifies") {
         std::span<const std::uint8_t, KeyStore::pk_bytes>{pk.data(),  pk.size()}));
 }
 
+TEST_CASE("Ledger appends 100 entries and verifies clean") {
+    auto p   = tmp_db("append_100");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    for (int i = 0; i < 100; ++i) {
+        b["i"] = i;
+        REQUIRE(led.value().append("stress.t", "sys", b, ""));
+    }
+    CHECK(led.value().length() == 100);
+    REQUIRE(led.value().verify());
+}
+
+TEST_CASE("Ledger seq is contiguous after 250 appends") {
+    auto p   = tmp_db("seq_contig");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    for (int i = 0; i < 250; ++i) REQUIRE(led.value().append("seq", "sys", b));
+    auto all = led.value().range(1, 251);
+    REQUIRE(all);
+    REQUIRE(all.value().size() == 250);
+    for (std::size_t i = 0; i < 250; ++i) {
+        CHECK(all.value()[i].header.seq == i + 1);
+    }
+}
+
+TEST_CASE("Ledger prev_hash chains correctly across 100 appends") {
+    auto p   = tmp_db("prev_chain");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    Hash prev = Hash::zero();
+    for (int i = 0; i < 100; ++i) {
+        auto e = led.value().append("chain", "sys", b);
+        REQUIRE(e);
+        CHECK(e.value().header.prev_hash == prev);
+        prev = e.value().entry_hash();
+    }
+    CHECK(led.value().head() == prev);
+}
+
+TEST_CASE("Ledger reopens preserve length and head") {
+    auto p   = tmp_db("reopen");
+    Hash    expected_head;
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+        nlohmann::json b;
+        for (int i = 0; i < 30; ++i) REQUIRE(led.value().append("re", "sys", b));
+        expected_head = led.value().head();
+    }
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+        CHECK(led.value().length() == 30);
+        CHECK(led.value().head() == expected_head);
+        REQUIRE(led.value().verify());
+    }
+}
+
+TEST_CASE("Tenant filtering across many tenants is correct") {
+    auto p   = tmp_db("tenant_many");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    // 50 entries each across tenants alpha/beta/gamma/delta + 50 default.
+    for (int i = 0; i < 50; ++i) {
+        REQUIRE(led.value().append("e", "sys", b, "alpha"));
+        REQUIRE(led.value().append("e", "sys", b, "beta"));
+        REQUIRE(led.value().append("e", "sys", b, "gamma"));
+        REQUIRE(led.value().append("e", "sys", b, "delta"));
+        REQUIRE(led.value().append("e", "sys", b, ""));
+    }
+    CHECK(led.value().length() == 250);
+    CHECK(led.value().tail_for_tenant("alpha", 100).value().size() == 50);
+    CHECK(led.value().tail_for_tenant("beta",  100).value().size() == 50);
+    CHECK(led.value().tail_for_tenant("gamma", 100).value().size() == 50);
+    CHECK(led.value().tail_for_tenant("delta", 100).value().size() == 50);
+    CHECK(led.value().tail_for_tenant("",      100).value().size() == 50);
+    CHECK(led.value().tail_for_tenant("missing", 100).value().empty());
+
+    auto alpha_range = led.value().range_for_tenant("alpha", 1, 251);
+    REQUIRE(alpha_range);
+    CHECK(alpha_range.value().size() == 50);
+    for (const auto& e : alpha_range.value()) CHECK(e.header.tenant == "alpha");
+}
+
+TEST_CASE("Time-range query bounds are half-open") {
+    auto p   = tmp_db("time_bounds");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    Time t0 = Time::now();
+    auto e1 = led.value().append("a", "sys", b); REQUIRE(e1);
+    Time t1 = e1.value().header.ts;
+    auto e2 = led.value().append("b", "sys", b); REQUIRE(e2);
+    Time t2 = e2.value().header.ts;
+    auto e3 = led.value().append("c", "sys", b); REQUIRE(e3);
+    Time t3 = e3.value().header.ts;
+    Time tEnd = Time::now() + std::chrono::seconds{1};
+
+    auto all = led.value().range_by_time(t0, tEnd);
+    REQUIRE(all);
+    CHECK(all.value().size() == 3);
+
+    // Half-open: [t1, t3) must include e1 and e2 but not e3.
+    auto mid = led.value().range_by_time(t1, t3);
+    REQUIRE(mid);
+    CHECK(mid.value().size() == 2);
+    CHECK(mid.value()[0].header.seq == 1);
+    CHECK(mid.value()[1].header.seq == 2);
+    (void)t2;
+}
+
+TEST_CASE("Subscriber receives every entry in order across 50 appends") {
+    auto p   = tmp_db("sub_50");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<std::uint64_t> seen;
+    auto sub = led.value().subscribe([&](const LedgerEntry& e) {
+        seen.push_back(e.header.seq);
+    });
+    nlohmann::json b;
+    for (int i = 0; i < 50; ++i) REQUIRE(led.value().append("s", "sys", b));
+    REQUIRE(seen.size() == 50);
+    for (std::size_t i = 0; i < 50; ++i) CHECK(seen[i] == i + 1);
+}
+
+TEST_CASE("Checkpoint reflects current head after multiple appends") {
+    auto p   = tmp_db("cp_multi");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+
+    auto cp0 = led.value().checkpoint();
+    CHECK(cp0.seq == 0);
+    CHECK(cp0.head_hash == Hash::zero());
+    REQUIRE(verify_checkpoint(cp0));
+
+    REQUIRE(led.value().append("a", "sys", b));
+    auto cp1 = led.value().checkpoint();
+    CHECK(cp1.seq == 1);
+    CHECK(cp1.head_hash != cp0.head_hash);
+    REQUIRE(verify_checkpoint(cp1));
+
+    for (int i = 0; i < 9; ++i) REQUIRE(led.value().append("b", "sys", b));
+    auto cp10 = led.value().checkpoint();
+    CHECK(cp10.seq == 10);
+    REQUIRE(verify_checkpoint(cp10));
+}
+
+TEST_CASE("Checkpoint key_id matches ledger key_id") {
+    auto p   = tmp_db("cp_keyid");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append("a", "sys", b));
+    auto cp = led.value().checkpoint();
+    CHECK(cp.key_id == led.value().key_id());
+}
+
+TEST_CASE("Checkpoint with tampered seq fails verify") {
+    auto p   = tmp_db("cp_seq");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append("a", "sys", b));
+    auto cp = led.value().checkpoint();
+    cp.seq += 1;
+    CHECK(!verify_checkpoint(cp));
+}
+
+TEST_CASE("Checkpoint with tampered ts fails verify") {
+    auto p   = tmp_db("cp_ts");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append("a", "sys", b));
+    auto cp = led.value().checkpoint();
+    cp.ts = Time{cp.ts.nanos_since_epoch() + 1000};
+    CHECK(!verify_checkpoint(cp));
+}
+
+TEST_CASE("Checkpoint with tampered key_id fails verify") {
+    auto p   = tmp_db("cp_kid");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append("a", "sys", b));
+    auto cp = led.value().checkpoint();
+    cp.key_id += "X";
+    CHECK(!verify_checkpoint(cp));
+}
+
+TEST_CASE("Checkpoint from_json rejects malformed inputs") {
+    CHECK(!LedgerCheckpoint::from_json(""));
+    CHECK(!LedgerCheckpoint::from_json("{"));
+    CHECK(!LedgerCheckpoint::from_json("{}"));
+    CHECK(!LedgerCheckpoint::from_json(R"({"seq":1})"));
+    CHECK(!LedgerCheckpoint::from_json(
+        R"({"seq":1,"head_hash":"too-short","ts_ns":0,"key_id":"x","signature":"","public_key":""})"));
+}
+
+TEST_CASE("JSONL export of empty ledger writes zero entries") {
+    auto p   = tmp_db("jsonl_empty");
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+    }
+    auto out = std::filesystem::temp_directory_path()
+             / ("asc_jsonl_empty_" + std::to_string(std::random_device{}()) + ".jsonl");
+    auto stats = LedgerJsonl::export_to(p.string(), out.string());
+    REQUIRE(stats);
+    CHECK(stats.value().entries_written == 0);
+    CHECK(std::filesystem::exists(out));
+    std::filesystem::remove(out);
+}
+
+TEST_CASE("JSONL import rejects malformed lines") {
+    auto bad = std::filesystem::temp_directory_path()
+             / ("asc_jsonl_bad_" + std::to_string(std::random_device{}()) + ".jsonl");
+    {
+        std::ofstream o(bad);
+        o << "this is not json\n";
+    }
+    auto dst = tmp_db("jsonl_bad_dst");
+    auto led = Ledger::open(dst);
+    REQUIRE(led);
+    // We need a key — generate any.
+    auto key = KeyStore::generate();
+    auto r = LedgerJsonl::import_to(bad.string(), dst.string(), std::move(key));
+    CHECK(!r);
+    std::filesystem::remove(bad);
+}
+
+TEST_CASE("Migrator refuses non-empty destination") {
+    auto src = tmp_db("mig_src");
+    auto dst = tmp_db("mig_dst");
+    {
+        auto sl = Ledger::open(src);
+        REQUIRE(sl);
+        nlohmann::json b;
+        REQUIRE(sl.value().append("a", "sys", b));
+    }
+    {
+        auto dl = Ledger::open(dst);
+        REQUIRE(dl);
+        nlohmann::json b;
+        REQUIRE(dl.value().append("preexisting", "sys", b));  // make non-empty
+    }
+    auto src_key_path = src; src_key_path.replace_extension(".key");
+    std::ifstream kf(src_key_path);
+    std::string blob((std::istreambuf_iterator<char>(kf)), {});
+    auto key = KeyStore::deserialize(blob);
+    REQUIRE(key);
+    auto r = LedgerMigrator::copy(src.string(), dst.string(), std::move(key.value()));
+    CHECK(!r);
+}
+
 TEST_CASE("KeyStore serialize/deserialize round-trips") {
     auto k   = KeyStore::generate();
     auto enc = k.serialize();

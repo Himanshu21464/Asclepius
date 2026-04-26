@@ -95,16 +95,23 @@ if(NOT TARGET sodium)
 endif()
 
 # libpq (PostgreSQL client library) ------------------------------------
-# Required at runtime for the optional postgres:// ledger backend; the
-# SQLite backend is always available. We use libpq's C API rather than
-# a higher-level wrapper to keep the dependency surface small and stable.
+# Required only when the PostgreSQL backend is enabled (default ON; turn
+# off with -DASCLEPIUS_WITH_POSTGRES=OFF). The SQLite backend is always
+# available, so a build without libpq still has a fully functional
+# ledger.
 
-find_package(PostgreSQL REQUIRED)
-if(NOT TARGET PostgreSQL::PostgreSQL)
-    message(FATAL_ERROR
-        "libpq not found. Install with:\n"
-        "  Debian/Ubuntu : sudo apt install libpq-dev\n"
-        "  macOS         : brew install libpq\n"
-        "  Fedora/RHEL   : sudo dnf install libpq-devel\n"
-    )
+if(ASCLEPIUS_WITH_POSTGRES)
+    find_package(PostgreSQL REQUIRED)
+    if(NOT TARGET PostgreSQL::PostgreSQL)
+        message(FATAL_ERROR
+            "libpq not found (ASCLEPIUS_WITH_POSTGRES=ON). Install with:\n"
+            "  Debian/Ubuntu : sudo apt install libpq-dev\n"
+            "  macOS         : brew install libpq\n"
+            "  Fedora/RHEL   : sudo dnf install libpq-devel\n"
+            "Or build SQLite-only with -DASCLEPIUS_WITH_POSTGRES=OFF.\n"
+        )
+    endif()
+    message(STATUS "PostgreSQL backend: ENABLED (libpq found)")
+else()
+    message(STATUS "PostgreSQL backend: disabled (-DASCLEPIUS_WITH_POSTGRES=OFF)")
 endif()
