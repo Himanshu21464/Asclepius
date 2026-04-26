@@ -904,6 +904,29 @@ ok('security.txt Expires is in the future', () => {
 ok('security.txt has Canonical:', () => /^Canonical:/m.test(SECTXT));
 ok('security.txt has Policy:',    () => /^Policy:/m.test(SECTXT));
 
+// ─── canonical GitHub org — every gh URL points at the project repo ────
+// Round 22's bulk replace caught github.com/asclepius-ai/asclepius. Round
+// 32 caught a residual github.com/asclepius-ai/concrete that the literal-
+// string substitution missed. This guard catches any future asclepius-ai/*
+// URL — there is no such GitHub org; everything must point to the canonical
+// Himanshu21464/Asclepius repo.
+
+console.log('canonical GitHub org:');
+const stalenessIssues = [];
+for (const f of htmlPages) {
+    const raw = readFileSync(path.join(SITE_ROOT, f), 'utf-8');
+    for (const m of raw.matchAll(/github\.com\/asclepius-ai\/[^"'\s)]+/g)) {
+        stalenessIssues.push(`${f}: stale URL ${m[0]}`);
+    }
+}
+ok(`no github.com/asclepius-ai/* URLs (canonical is Himanshu21464/Asclepius)`,
+   () => {
+       if (stalenessIssues.length) {
+           console.error('   stale:\n' + stalenessIssues.slice(0, 8).map((l) => '     ' + l).join('\n'));
+       }
+       return stalenessIssues.length === 0;
+   });
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
