@@ -276,13 +276,40 @@ public:
     }
 
     Result<void> for_each(std::function<bool(const LedgerEntry&)> visitor) override {
-        // For now uses select_all under the hood; a future improvement is
-        // to use libpq's COPY-OUT or single-row mode for true streaming.
-        // The interface is fixed so callers can switch transparently.
-        auto all = select_all();
-        if (!all) return all.error();
-        for (const auto& e : all.value()) {
-            if (!visitor(e)) break;
+        // libpq single-row mode: PQsendQueryParams + PQsetSingleRowMode lets
+        // the server stream rows without materializing the whole result set
+        // in libpq's memory. Each PQgetResult call returns ONE row at a
+        // time; the caller iterates until PQgetResult returns nullptr.
+        std::string sql = std::string{kSelectCols} + "ORDER BY seq ASC;";
+        if (!PQsendQueryParams(conn_, sql.c_str(), 0, nullptr,
+                               nullptr, nullptr, nullptr, /*binary=*/1)) {
+            return Error::backend(std::string{"postgres send: "} + PQerrorMessage(conn_));
+        }
+        if (!PQsetSingleRowMode(conn_)) {
+            // Drain whatever's pending so the connection stays usable.
+            while (PGresult* drain = PQgetResult(conn_)) PQclear(drain);
+            return Error::backend("postgres single-row mode rejected");
+        }
+
+        bool stopped = false;
+        while (PGresult* r = PQgetResult(conn_)) {
+            auto status = PQresultStatus(r);
+            if (status == PGRES_SINGLE_TUPLE) {
+                if (!stopped) {
+                    auto e = row_to_entry(r, 0);
+                    if (!visitor(e)) stopped = true;
+                }
+                PQclear(r);
+            } else if (status == PGRES_TUPLES_OK) {
+                // End-of-stream marker. No actual rows in this result.
+                PQclear(r);
+            } else {
+                std::string err = PQresultErrorMessage(r);
+                PQclear(r);
+                // Drain to keep connection clean.
+                while (PGresult* drain = PQgetResult(conn_)) PQclear(drain);
+                return Error::backend("postgres for_each: " + err);
+            }
         }
         return Result<void>::ok();
     }

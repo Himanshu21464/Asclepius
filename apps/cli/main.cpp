@@ -65,6 +65,62 @@ int cmd_ledger_inspect(const std::string& db, std::size_t tail) {
     return 0;
 }
 
+int cmd_ledger_migrate(const std::string& src_uri, const std::string& dst_uri) {
+    if (src_uri.compare(0, 11, "postgres://") == 0
+     || src_uri.compare(0, 13, "postgresql://") == 0) {
+        fmt::print(stderr, "migrate: postgres-as-source not yet supported by CLI; "
+                           "use the LedgerMigrator API directly with an explicit KeyStore\n");
+        return 2;
+    }
+
+    // SQLite source: read the .key file beside the path.
+    std::filesystem::path src_path{src_uri};
+    auto src_key_path = src_path; src_key_path.replace_extension(".key");
+    if (!std::filesystem::exists(src_key_path)) {
+        fmt::print(stderr, "migrate: source key {} not found\n", src_key_path.string());
+        return 2;
+    }
+    std::ifstream kf(src_key_path);
+    std::string blob((std::istreambuf_iterator<char>(kf)), {});
+    auto key = KeyStore::deserialize(blob);
+    if (!key) { fmt::print(stderr, "migrate: bad key: {}\n", key.error().what()); return 2; }
+
+    auto stats = LedgerMigrator::copy(src_uri, dst_uri, std::move(key.value()));
+    if (!stats) { fmt::print(stderr, "migrate: {}\n", stats.error().what()); return 2; }
+
+    // Copy the source's signing key to the destination's expected key path
+    // so the operator can immediately verify the destination without
+    // shuffling keys by hand. Same logic as Ledger::open_uri:
+    //   postgres URI → ./<dbname>.key
+    //   sqlite path  → <path>.key
+    std::filesystem::path dst_key_path;
+    if (dst_uri.compare(0, 11, "postgres://") == 0
+     || dst_uri.compare(0, 13, "postgresql://") == 0) {
+        std::string db = "asclepius";
+        auto last_slash = dst_uri.rfind('/');
+        if (last_slash != std::string::npos && last_slash + 1 < dst_uri.size()) {
+            auto q = dst_uri.find('?', last_slash + 1);
+            db = dst_uri.substr(last_slash + 1,
+                                (q == std::string::npos ? dst_uri.size() : q) - last_slash - 1);
+            if (db.empty()) db = "asclepius";
+        }
+        dst_key_path = db + ".key";
+    } else {
+        dst_key_path = std::filesystem::path{dst_uri};
+        dst_key_path.replace_extension(".key");
+    }
+    std::filesystem::copy_file(src_key_path, dst_key_path,
+                               std::filesystem::copy_options::overwrite_existing);
+
+    fmt::print("OK: copied {} entries · src_head={} · dst_head={}\n"
+               "    src_key {} -> dst_key {}\n",
+               stats.value().entries_copied,
+               stats.value().source_head.hex(),
+               stats.value().dest_head.hex(),
+               src_key_path.string(), dst_key_path.string());
+    return 0;
+}
+
 int cmd_drift_report(const std::string& /*db*/) {
     // Drift state is in-process; reading drift from a long-lived sidecar is
     // a future enhancement. For now we emit an empty report so scripts have
@@ -156,6 +212,14 @@ int main(int argc, char** argv) {
                ->required();
         inspect->add_option("--tail", tail_n, "number of entries (default 20)");
         inspect->callback([&]() { std::exit(cmd_ledger_inspect(db_uri, tail_n)); });
+    }
+    std::string mig_src, mig_dst;
+    {
+        auto* migrate = ledger->add_subcommand("migrate",
+            "copy a chain from one backend to another (e.g. SQLite → Postgres)");
+        migrate->add_option("src", mig_src, "source ledger URI (SQLite path)")->required();
+        migrate->add_option("dst", mig_dst, "destination ledger URI")->required();
+        migrate->callback([&]() { std::exit(cmd_ledger_migrate(mig_src, mig_dst)); });
     }
 
     auto* drift = app.add_subcommand("drift", "drift operations");

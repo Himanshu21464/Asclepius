@@ -20,6 +20,7 @@
 #include <fstream>
 #include <random>
 #include <string>
+#include <thread>
 
 using namespace asclepius;
 using namespace std::chrono_literals;
@@ -265,4 +266,54 @@ TEST_CASE("[postgres] LedgerMigrator: SQLite → Postgres preserves the chain") 
 
     std::filesystem::remove(src_path);
     std::filesystem::remove(key_path);
+}
+
+TEST_CASE("[postgres] concurrent appends produce a contiguous chain") {
+    if (!pg_available()) return;
+    truncate_pg_ledger();
+
+    auto rt = Runtime::open_uri(pg_uri());
+    REQUIRE(rt);
+    auto pid = PatientId::pseudonymous("p_pg_concurrent");
+    auto tok = rt.value().consent().grant(pid, {Purpose::triage}, 1h);
+    REQUIRE(tok);
+
+    constexpr int kThreads = 4;
+    constexpr int kPerThread = 10;
+    std::vector<std::thread> ts;
+    std::atomic<int> ok_count{0};
+    for (int t = 0; t < kThreads; ++t) {
+        ts.emplace_back([&, t] {
+            for (int i = 0; i < kPerThread; ++i) {
+                auto inf = rt.value().begin_inference({
+                    .model            = ModelId{"scribe", "v3"},
+                    .actor            = ActorId::clinician("c_" + std::to_string(t)),
+                    .patient          = pid,
+                    .encounter        = EncounterId::make(),
+                    .purpose          = Purpose::triage,
+                    .tenant           = TenantId{},
+                    .consent_token_id = tok.value().token_id,
+                });
+                if (!inf) continue;
+                if (!inf.value().run("e",
+                        [](std::string s) -> Result<std::string> { return s; })) continue;
+                if (inf.value().commit()) ++ok_count;
+            }
+        });
+    }
+    for (auto& t : ts) t.join();
+
+    // Every successful commit produced an entry; verify the resulting chain.
+    CHECK(ok_count >= kThreads * kPerThread / 2);  // allow some setup overhead
+    CHECK(rt.value().ledger().length() >= ok_count);
+    auto v = rt.value().ledger().verify();
+    REQUIRE(v);
+
+    // The seqs must be 1..N contiguous (no gaps) — verify enforces this but
+    // an explicit check makes the failure mode legible.
+    auto all = rt.value().ledger().range(1, rt.value().ledger().length() + 1);
+    REQUIRE(all);
+    for (std::size_t i = 0; i < all.value().size(); ++i) {
+        CHECK(all.value()[i].header.seq == i + 1);
+    }
 }
