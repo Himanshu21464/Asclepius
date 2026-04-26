@@ -616,6 +616,36 @@ ok(`no skipped heading levels (${htmlPages.length} pages)`, () => {
     return headingIssues.length === 0;
 });
 
+// ─── sitemap coverage — every page reachable from sitemap.html ─────────
+// The human sitemap should link to every public page. Drift here is how
+// pages quietly become orphaned; the test catches it the moment it happens.
+
+console.log('sitemap coverage:');
+const SITEMAP_HTML = readFileSync(path.join(SITE_ROOT, 'sitemap.html'), 'utf-8');
+const sitemapHrefs = new Set([...SITEMAP_HTML.matchAll(/href="([a-z0-9_\-]+\.html)"/g)].map((m) => m[1]));
+const SITEMAP_EXEMPT = new Set(['404.html', 'sitemap.html']);
+const missingFromSitemap = htmlPages.filter((p) => !SITEMAP_EXEMPT.has(p) && !sitemapHrefs.has(p));
+ok(`sitemap.html links to every page (${htmlPages.length - SITEMAP_EXEMPT.size} expected)`, () => {
+    if (missingFromSitemap.length) {
+        console.error('   missing from sitemap.html: ' + missingFromSitemap.join(', '));
+    }
+    return missingFromSitemap.length === 0;
+});
+
+const SITEMAP_XML = readFileSync(path.join(SITE_ROOT, 'sitemap.xml'), 'utf-8');
+const xmlPages = new Set(
+    [...SITEMAP_XML.matchAll(/<loc>https:\/\/asclepius\.health\/([a-z0-9_\-]+\.html)<\/loc>/g)]
+        .map((m) => m[1]),
+);
+xmlPages.add('index.html');  // root URL
+const missingFromXml = htmlPages.filter((p) => !SITEMAP_EXEMPT.has(p) && !xmlPages.has(p));
+ok(`sitemap.xml lists every page`, () => {
+    if (missingFromXml.length) {
+        console.error('   missing from sitemap.xml: ' + missingFromXml.join(', '));
+    }
+    return missingFromXml.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
