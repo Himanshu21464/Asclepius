@@ -115,10 +115,14 @@ Result<std::string> Inference::run(std::string input, const ModelCallback& model
     impl_->ledger_body["status"]      = "ok";
     impl_->ledger_body["input_hash"]  = in_hash.hex();
     impl_->ledger_body["output_hash"] = out_hash.hex();
-    impl_->ledger_body["latency_ns"]  =
-        (Time::now() - impl_->ctx.started_at()).count();
+    auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
+    impl_->ledger_body["latency_ns"] = latency_ns;
 
     metrics.inc("inference.ok");
+    // Record latency in seconds into a histogram so operators get
+    // distribution data (p50, p95, p99) directly in Prometheus.
+    metrics.observe("inference_latency_seconds",
+                    static_cast<double>(latency_ns) / 1e9);
     return post_output;
 }
 

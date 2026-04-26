@@ -121,6 +121,32 @@ int cmd_ledger_migrate(const std::string& src_uri, const std::string& dst_uri) {
     return 0;
 }
 
+int cmd_metrics_export(const std::string& db) {
+    // Open the ledger, walk it once to derive counter values from event
+    // types, and emit Prometheus exposition format. Histograms (latency
+    // distributions etc.) only exist for live runtimes; this is a static
+    // export of what the chain itself contains, which is all an operator
+    // can derive from a stopped process. For live histograms, scrape the
+    // /metrics endpoint of an asclepius-svc instance.
+    auto led = Ledger::open_uri(db);
+    if (!led) { fmt::print(stderr, "open: {}\n", led.error().what()); return 2; }
+
+    MetricRegistry m;
+    auto r = led.value().subscribe([&](const LedgerEntry&) { /* unused for static walk */ });
+    (void)r;
+
+    auto all = led.value().range(1, led.value().length() + 1);
+    if (!all) { fmt::print(stderr, "range: {}\n", all.error().what()); return 2; }
+    for (const auto& e : all.value()) {
+        m.inc("ledger.entries.total");
+        m.inc("ledger.entries." + e.header.event_type);
+        if (!e.header.tenant.empty()) m.inc("ledger.entries.tenant_scoped");
+    }
+    m.inc("ledger.length", led.value().length());
+    std::cout << m.snapshot_prometheus();
+    return 0;
+}
+
 int cmd_drift_report(const std::string& /*db*/) {
     // Drift state is in-process; reading drift from a long-lived sidecar is
     // a future enhancement. For now we emit an empty report so scripts have
@@ -220,6 +246,13 @@ int main(int argc, char** argv) {
         migrate->add_option("src", mig_src, "source ledger URI (SQLite path)")->required();
         migrate->add_option("dst", mig_dst, "destination ledger URI")->required();
         migrate->callback([&]() { std::exit(cmd_ledger_migrate(mig_src, mig_dst)); });
+    }
+    {
+        auto* metrics = ledger->add_subcommand("metrics",
+            "emit Prometheus exposition derived from the chain");
+        metrics->add_option("db", db_uri,
+                            "ledger: SQLite path or postgres://...")->required();
+        metrics->callback([&]() { std::exit(cmd_metrics_export(db_uri)); });
     }
 
     auto* drift = app.add_subcommand("drift", "drift operations");
