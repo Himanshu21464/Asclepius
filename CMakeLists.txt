@@ -72,6 +72,7 @@ target_sources(asclepius
         src/audit/sqlite_backend.cpp
         src/audit/postgres_backend.cpp
         src/audit/storage_factory.cpp
+        src/audit/migrator.cpp
         src/telemetry/drift.cpp
         src/telemetry/metrics.cpp
         src/consent/registry.cpp

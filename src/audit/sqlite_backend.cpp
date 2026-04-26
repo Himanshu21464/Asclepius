@@ -205,6 +205,36 @@ public:
         return out;
     }
 
+    Result<std::vector<LedgerEntry>> select_time_range(std::int64_t from_ns,
+                                                       std::int64_t to_ns) override {
+        sqlite3_stmt* st = nullptr;
+        std::string sql = std::string{kSelectCols}
+                        + "WHERE ts_ns >= ? AND ts_ns < ? ORDER BY seq ASC;";
+        if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+            return Error::backend(std::string{"sqlite prepare: "} + sqlite3_errmsg(db_));
+        }
+        sqlite3_bind_int64(st, 1, static_cast<sqlite3_int64>(from_ns));
+        sqlite3_bind_int64(st, 2, static_cast<sqlite3_int64>(to_ns));
+        std::vector<LedgerEntry> out;
+        while (sqlite3_step(st) == SQLITE_ROW) out.push_back(row_to_entry(st));
+        sqlite3_finalize(st);
+        return out;
+    }
+
+    Result<void> for_each(std::function<bool(const LedgerEntry&)> visitor) override {
+        sqlite3_stmt* st = nullptr;
+        std::string sql = std::string{kSelectCols} + "ORDER BY seq ASC;";
+        if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+            return Error::backend(std::string{"sqlite prepare: "} + sqlite3_errmsg(db_));
+        }
+        while (sqlite3_step(st) == SQLITE_ROW) {
+            auto e = row_to_entry(st);
+            if (!visitor(e)) break;
+        }
+        sqlite3_finalize(st);
+        return Result<void>::ok();
+    }
+
 private:
     std::string  path_;
     sqlite3*     db_ = nullptr;

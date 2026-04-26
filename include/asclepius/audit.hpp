@@ -121,8 +121,13 @@ public:
     // Read entries within [start, end) seq range.
     Result<std::vector<LedgerEntry>> range(std::uint64_t start, std::uint64_t end) const;
 
+    // Read entries by ts_ns in [from, to). Half-open. Index-backed.
+    Result<std::vector<LedgerEntry>> range_by_time(Time from, Time to) const;
+
     // Verify the entire chain: each entry's prev_hash matches the previous,
     // each signature matches the registered public key, payload_hash matches.
+    // Streams through entries one at a time so memory usage is O(1) regardless
+    // of chain length.
     Result<void> verify() const;
 
     // Current chain head (hash of the most recent entry, or zero if empty).
@@ -145,6 +150,29 @@ private:
     Ledger() = default;
     struct Impl;
     Impl* impl_ = nullptr;
+};
+
+// ---- LedgerMigrator -----------------------------------------------------
+//
+// Copy a chain from one backend to another, byte-for-byte. The destination
+// receives the same entries in the same order with the same signatures, so
+// the destination's verify() passes against the same public key the source
+// used. Useful for SQLite → Postgres migrations and for cold-storage
+// snapshots.
+
+struct LedgerMigrationStats {
+    std::uint64_t entries_copied = 0;
+    Hash          source_head{};
+    Hash          dest_head{};
+};
+
+class LedgerMigrator {
+public:
+    // Copy every entry from src to dst. dst must be empty; otherwise the
+    // chain would fork at the first entry. Verifies the source mid-stream
+    // and stops with an integrity error if the source chain is broken.
+    static Result<LedgerMigrationStats>
+    copy(const std::string& src_uri, const std::string& dst_uri, KeyStore key);
 };
 
 }  // namespace asclepius

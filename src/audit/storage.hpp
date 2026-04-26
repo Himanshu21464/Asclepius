@@ -13,6 +13,7 @@
 #define ASCLEPIUS_AUDIT_STORAGE_HPP
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -49,6 +50,15 @@ public:
     virtual Result<std::vector<LedgerEntry>> select_tail(std::size_t n) = 0;
     virtual Result<std::vector<LedgerEntry>> select_range(std::uint64_t start, std::uint64_t end) = 0;
     virtual Result<std::vector<LedgerEntry>> select_all() = 0;
+
+    // Time-range query: every entry with from_ns <= ts_ns < to_ns, seq ASC.
+    virtual Result<std::vector<LedgerEntry>> select_time_range(std::int64_t from_ns,
+                                                               std::int64_t to_ns) = 0;
+
+    // Streaming visit of the entire chain in seq ASC. Stops if the visitor
+    // returns false. Lets verify() and large exports skip materialising the
+    // whole chain in memory.
+    virtual Result<void> for_each(std::function<bool(const LedgerEntry&)> visitor) = 0;
 };
 
 // Open the appropriate backend based on a URI.

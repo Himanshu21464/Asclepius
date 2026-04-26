@@ -24,6 +24,7 @@
 #include <cstring>
 #include <fstream>
 #include <mutex>
+#include <optional>
 
 #if defined(__unix__) || defined(__APPLE__)
 #  include <sys/stat.h>
@@ -254,46 +255,54 @@ Result<std::vector<LedgerEntry>> Ledger::range(std::uint64_t start, std::uint64_
     return impl_->storage->select_range(start, end);
 }
 
-Result<void> Ledger::verify() const {
-    auto all = impl_->storage->select_all();
-    if (!all) return all.error();
+Result<std::vector<LedgerEntry>> Ledger::range_by_time(Time from, Time to) const {
+    return impl_->storage->select_time_range(from.nanos_since_epoch(),
+                                             to.nanos_since_epoch());
+}
 
+Result<void> Ledger::verify() const {
     Hash          expected_prev = Hash::zero();
     std::uint64_t expected_seq  = 1;
+    std::optional<Error> visit_err;
 
-    for (const auto& e : all.value()) {
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
         if (e.header.seq != expected_seq) {
-            return Error::integrity(fmt::format("ledger gap at seq {} (expected {})",
-                                                e.header.seq, expected_seq));
+            visit_err = Error::integrity(fmt::format("ledger gap at seq {} (expected {})",
+                                                     e.header.seq, expected_seq));
+            return false;
         }
         if (!(e.header.prev_hash == expected_prev)) {
-            return Error::integrity(fmt::format("chain break at seq {}", e.header.seq));
+            visit_err = Error::integrity(fmt::format("chain break at seq {}", e.header.seq));
+            return false;
         }
-
         json body;
         try { body = json::parse(e.body_json); }
         catch (...) {
-            return Error::integrity(fmt::format("body parse failure at seq {}", e.header.seq));
+            visit_err = Error::integrity(fmt::format("body parse failure at seq {}", e.header.seq));
+            return false;
         }
         auto recomputed = compute_payload_hash(e.header.event_type, body);
         if (!(recomputed == e.header.payload_hash)) {
-            return Error::integrity(fmt::format("payload hash mismatch at seq {}", e.header.seq));
+            visit_err = Error::integrity(fmt::format("payload hash mismatch at seq {}", e.header.seq));
+            return false;
         }
-
         auto sb = bytes_to_sign(e.header, e.body_json);
         if (!KeyStore::verify(Bytes{sb.data(), sb.size()},
                               std::span<const std::uint8_t, KeyStore::sig_bytes>{
                                   e.signature.data(), KeyStore::sig_bytes},
                               std::span<const std::uint8_t, KeyStore::pk_bytes>{
                                   impl_->public_key.data(), KeyStore::pk_bytes})) {
-            return Error::integrity(fmt::format("bad signature at seq {}", e.header.seq));
+            visit_err = Error::integrity(fmt::format("bad signature at seq {}", e.header.seq));
+            return false;
         }
-
         expected_prev = compute_entry_hash(e.header, e.body_json,
                                            Bytes{e.signature.data(), e.signature.size()},
                                            e.key_id);
         ++expected_seq;
-    }
+        return true;
+    });
+    if (!r) return r.error();
+    if (visit_err) return visit_err.value();
     return Result<void>::ok();
 }
 

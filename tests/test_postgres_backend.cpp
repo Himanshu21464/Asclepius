@@ -16,6 +16,8 @@
 #include "asclepius/asclepius.hpp"
 
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <random>
 #include <string>
 
@@ -164,4 +166,103 @@ TEST_CASE("[postgres] verify catches retroactive entry mutation") {
     REQUIRE(rt2);
     auto v = rt2.value().ledger().verify();
     CHECK(!v);
+}
+
+TEST_CASE("[postgres] range_by_time covers entries within a window") {
+    if (!pg_available()) return;
+    truncate_pg_ledger();
+
+    auto rt = Runtime::open_uri(pg_uri());
+    REQUIRE(rt);
+    auto pid = PatientId::pseudonymous("p_pg_time");
+    auto tok = rt.value().consent().grant(pid, {Purpose::triage}, 1h);
+    REQUIRE(tok);
+
+    Time t0 = Time::now() - 1s;
+    for (int i = 0; i < 4; ++i) {
+        auto inf = rt.value().begin_inference({
+            .model            = ModelId{"scribe", "v3"},
+            .actor            = ActorId::clinician("smith"),
+            .patient          = pid,
+            .encounter        = EncounterId::make(),
+            .purpose          = Purpose::triage,
+            .tenant           = TenantId{},
+            .consent_token_id = tok.value().token_id,
+        });
+        REQUIRE(inf);
+        REQUIRE(inf.value().run("e", [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    Time t1 = Time::now() + 1s;
+
+    auto in_window = rt.value().ledger().range_by_time(t0, t1);
+    REQUIRE(in_window);
+    CHECK(in_window.value().size() >= 4);
+
+    // Empty future window returns 0 entries.
+    auto future = rt.value().ledger().range_by_time(t1 + 1h, t1 + 2h);
+    REQUIRE(future);
+    CHECK(future.value().empty());
+}
+
+TEST_CASE("[postgres] LedgerMigrator: SQLite → Postgres preserves the chain") {
+    if (!pg_available()) return;
+    truncate_pg_ledger();
+
+    // Build a fresh SQLite ledger with a few entries via Runtime,
+    // capturing the keystore so we can pass the same key when verifying
+    // the destination.
+    auto src_path = std::filesystem::temp_directory_path()
+                  / ("asc_mig_" + std::to_string(std::random_device{}()) + ".db");
+    {
+        auto rt = Runtime::open(src_path);
+        REQUIRE(rt);
+        auto pid = PatientId::pseudonymous("p_mig");
+        auto tok = rt.value().consent().grant(pid, {Purpose::triage}, 1h);
+        REQUIRE(tok);
+        for (int i = 0; i < 3; ++i) {
+            auto inf = rt.value().begin_inference({
+                .model            = ModelId{"scribe", "v3"},
+                .actor            = ActorId::clinician("smith"),
+                .patient          = pid,
+                .encounter        = EncounterId::make(),
+                .purpose          = Purpose::triage,
+                .tenant           = TenantId{},
+                .consent_token_id = tok.value().token_id,
+            });
+            REQUIRE(inf);
+            REQUIRE(inf.value().run("hello",
+                                    [](std::string s) -> Result<std::string> { return s; }));
+            REQUIRE(inf.value().commit());
+        }
+        REQUIRE(rt.value().ledger().verify());
+    }
+
+    // The signing key is at <src_path>.key — this is what the migrator
+    // doesn't need to read (entries are already signed) but the destination
+    // needs to verify against the same public key.
+    auto key_path = src_path;
+    key_path.replace_extension(".key");
+    std::ifstream kf(key_path);
+    std::string blob((std::istreambuf_iterator<char>(kf)), {});
+    auto key_for_verify = KeyStore::deserialize(blob);
+    REQUIRE(key_for_verify);
+
+    auto stats = LedgerMigrator::copy(src_path.string(), pg_uri(),
+                                      std::move(key_for_verify.value()));
+    REQUIRE(stats);
+    CHECK(stats.value().entries_copied >= 3);
+
+    // Verify the destination chain with the SAME signing key (heads must match).
+    auto k2 = KeyStore::deserialize(blob);
+    REQUIRE(k2);
+    auto dst = Runtime::open_uri(pg_uri(), std::move(k2.value()));
+    REQUIRE(dst);
+    auto v = dst.value().ledger().verify();
+    REQUIRE(v);
+    CHECK(dst.value().ledger().length() == stats.value().entries_copied);
+    CHECK(dst.value().ledger().head().bytes == stats.value().dest_head.bytes);
+
+    std::filesystem::remove(src_path);
+    std::filesystem::remove(key_path);
 }

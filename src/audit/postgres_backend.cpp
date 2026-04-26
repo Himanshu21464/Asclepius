@@ -255,6 +255,38 @@ public:
         return run_select(sql, 0, nullptr, nullptr, nullptr);
     }
 
+    Result<std::vector<LedgerEntry>> select_time_range(std::int64_t from_ns,
+                                                       std::int64_t to_ns) override {
+        std::int64_t f_be, t_be;
+        {
+            auto u = htobe64(static_cast<std::uint64_t>(from_ns));
+            std::memcpy(&f_be, &u, sizeof(f_be));
+            u = htobe64(static_cast<std::uint64_t>(to_ns));
+            std::memcpy(&t_be, &u, sizeof(t_be));
+        }
+        const char* values[2] = {
+            reinterpret_cast<const char*>(&f_be),
+            reinterpret_cast<const char*>(&t_be),
+        };
+        int lengths[2] = { sizeof(f_be), sizeof(t_be) };
+        int formats[2] = { 1, 1 };
+        std::string sql = std::string{kSelectCols}
+                        + "WHERE ts_ns >= $1 AND ts_ns < $2 ORDER BY seq ASC;";
+        return run_select(sql, 2, values, lengths, formats);
+    }
+
+    Result<void> for_each(std::function<bool(const LedgerEntry&)> visitor) override {
+        // For now uses select_all under the hood; a future improvement is
+        // to use libpq's COPY-OUT or single-row mode for true streaming.
+        // The interface is fixed so callers can switch transparently.
+        auto all = select_all();
+        if (!all) return all.error();
+        for (const auto& e : all.value()) {
+            if (!visitor(e)) break;
+        }
+        return Result<void>::ok();
+    }
+
 private:
     Result<std::vector<LedgerEntry>> run_select(const std::string& sql,
                                                 int nparams,
