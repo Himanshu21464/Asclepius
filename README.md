@@ -8,6 +8,30 @@ cryptographically signed Merkle ledger, drift detection, override telemetry,
 consent-and-scope enforcement, and an evidence pipeline that emits regulator-
 ready bundles.
 
+## Screenshots
+
+The product website (single-file static HTML+CSS+vanilla JS, no build step)
+lives in [`site/`](site/). Selected pages — full source under that
+directory:
+
+| Page | Preview |
+|---|---|
+| **Landing** — manifesto, anatomy of a wrapped inference, signed Merkle ledger row | ![](assets/readme/01-home.png) |
+| **Explained** — plain-words on-ramp for non-technical readers | ![](assets/readme/02-explained.png) |
+| **Playground** — in-browser demo, ~400 LoC of vanilla JS reimplementing the C++ runtime | ![](assets/readme/03-demo.png) |
+| **API reference** — every public symbol, regenerated from the headers | ![](assets/readme/04-api.png) |
+| **Benchmarks** — real numbers from the C++20 runtime on a single core | ![](assets/readme/05-benchmarks.png) |
+| **Operators** — production-ops runbook (day-one → disaster recovery) | ![](assets/readme/06-operators.png) |
+| **Cheatsheet** — every pattern most integrations actually use, on one page | ![](assets/readme/07-cheatsheet.png) |
+
+Run the site locally:
+
+```sh
+cd site && python3 -m http.server 8765
+# → http://localhost:8765
+```
+
+
 It is the substrate, not the app. It does not care if the wrapped tool is a
 GPT-class scribe, a radiology CNN, an internal LLM agent, or rule-based CDS —
 any clinical AI inference becomes auditable, rate-limited, schema-checked,
