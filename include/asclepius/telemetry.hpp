@@ -120,8 +120,15 @@ public:
     void  observe(std::string_view name, double value);
     std::uint64_t count(std::string_view name) const;
 
-    // JSON-shaped snapshot for export (Prometheus exposition format planned).
+    // JSON-shaped snapshot.
     std::string snapshot_json() const;
+
+    // Prometheus 0.0.4 text exposition format. Emits one HELP + TYPE pair
+    // followed by a single sample line per counter, with names sanitized
+    // to [a-zA-Z_:][a-zA-Z0-9_:]* per the spec. The output is suitable for
+    // serving directly at /metrics from an HTTP handler that sets
+    // Content-Type: text/plain; version=0.0.4; charset=utf-8.
+    std::string snapshot_prometheus() const;
 
 private:
     mutable std::mutex                          mu_;

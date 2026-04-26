@@ -89,3 +89,45 @@ TEST_CASE("MetricRegistry counters") {
     CHECK(m.count("err") == 1);
     CHECK(m.snapshot_json().find("\"ok\":2") != std::string::npos);
 }
+
+TEST_CASE("MetricRegistry Prometheus exposition format") {
+    MetricRegistry m;
+    m.inc("inferences_total", 42);
+    m.inc("policy_violations_total");
+    m.inc("policy_violations_total");
+    auto out = m.snapshot_prometheus();
+
+    // Prefix all metrics with "asclepius_" so they're identifiable.
+    CHECK(out.find("asclepius_inferences_total") != std::string::npos);
+    CHECK(out.find("asclepius_policy_violations_total") != std::string::npos);
+    // HELP + TYPE per metric.
+    CHECK(out.find("# HELP ") != std::string::npos);
+    CHECK(out.find("# TYPE asclepius_inferences_total counter") != std::string::npos);
+    // Sample line ending in the value.
+    CHECK(out.find("asclepius_inferences_total 42") != std::string::npos);
+    CHECK(out.find("asclepius_policy_violations_total 2") != std::string::npos);
+}
+
+TEST_CASE("MetricRegistry sanitizes invalid metric name characters") {
+    MetricRegistry m;
+    m.inc("invalid-name.with-stuff", 7);
+    auto out = m.snapshot_prometheus();
+    // Hyphens and dots get replaced with underscores per Prometheus rules.
+    CHECK(out.find("asclepius_invalid_name_with_stuff 7") != std::string::npos);
+}
+
+TEST_CASE("MetricRegistry Prometheus output is deterministic (sorted by key)") {
+    MetricRegistry m;
+    m.inc("z_last");
+    m.inc("a_first");
+    m.inc("m_middle");
+    auto out = m.snapshot_prometheus();
+    auto a = out.find("a_first");
+    auto mid = out.find("m_middle");
+    auto z = out.find("z_last");
+    REQUIRE(a != std::string::npos);
+    REQUIRE(mid != std::string::npos);
+    REQUIRE(z != std::string::npos);
+    CHECK(a < mid);
+    CHECK(mid < z);
+}
