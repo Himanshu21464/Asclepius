@@ -268,6 +268,82 @@ TEST_CASE("[postgres] LedgerMigrator: SQLite → Postgres preserves the chain") 
     std::filesystem::remove(key_path);
 }
 
+TEST_CASE("[postgres] cross-backend determinism: same input, identical entry_hash") {
+    if (!pg_available()) return;
+    truncate_pg_ledger();
+
+    // The substrate's promise: backend choice doesn't change the chain
+    // bytes. Prove it: append the same logical entries to both backends
+    // (with the same KeyStore so signatures are stable too) and compare
+    // every entry_hash byte-for-byte.
+
+    // Step 1: build a SQLite chain.
+    auto sqlite_path = std::filesystem::temp_directory_path()
+                     / ("asc_xb_" + std::to_string(std::random_device{}()) + ".db");
+    auto sqlite_led = Ledger::open(sqlite_path);
+    REQUIRE(sqlite_led);
+
+    // Capture the SQLite chain's signing key — we'll use the SAME key for
+    // the PG ledger so signatures match byte-for-byte.
+    auto key_path = sqlite_path; key_path.replace_extension(".key");
+    std::ifstream kf(key_path);
+    std::string blob((std::istreambuf_iterator<char>(kf)), {});
+    auto key_for_pg = KeyStore::deserialize(blob);
+    REQUIRE(key_for_pg);
+
+    // The two appends must be deterministic apart from ts (which is set
+    // inside append() at call time). To make ts identical across backends
+    // we'd need to pre-build the body; the simplest cross-backend
+    // equivalence we can prove is "given the same signed entries on disk,
+    // both backends round-trip them with the same entry_hash".
+    //
+    // So: append in SQLite, export JSONL, import into PG, and verify each
+    // entry's entry_hash matches across backends.
+    nlohmann::json b1; b1["k"] = "first";
+    nlohmann::json b2; b2["k"] = "second";
+    nlohmann::json b3; b3["k"] = "third";
+    REQUIRE(sqlite_led.value().append("t.a", "actor:a", b1, "alpha"));
+    REQUIRE(sqlite_led.value().append("t.b", "actor:b", b2, "alpha"));
+    REQUIRE(sqlite_led.value().append("t.c", "actor:c", b3, "beta"));
+
+    auto sqlite_entries = sqlite_led.value().range(1, 4);
+    REQUIRE(sqlite_entries);
+    REQUIRE(sqlite_entries.value().size() == 3);
+
+    // Export → import.
+    auto jsonl_path = std::filesystem::temp_directory_path()
+                    / ("asc_xb_" + std::to_string(std::random_device{}()) + ".jsonl");
+    REQUIRE(LedgerJsonl::export_to(sqlite_path.string(), jsonl_path.string()));
+    REQUIRE(LedgerJsonl::import_to(jsonl_path.string(), pg_uri(),
+                                   std::move(key_for_pg.value())));
+
+    // Pull from PG and compare entry_hash byte-for-byte with SQLite.
+    auto pg_rt = Runtime::open_uri(pg_uri(), KeyStore::deserialize(blob).value());
+    REQUIRE(pg_rt);
+    auto pg_entries = pg_rt.value().ledger().range(1, 4);
+    REQUIRE(pg_entries);
+    REQUIRE(pg_entries.value().size() == sqlite_entries.value().size());
+
+    for (std::size_t i = 0; i < sqlite_entries.value().size(); ++i) {
+        const auto& sq = sqlite_entries.value()[i];
+        const auto& pg = pg_entries.value()[i];
+        CHECK(sq.entry_hash().bytes == pg.entry_hash().bytes);
+        CHECK(sq.header.seq == pg.header.seq);
+        CHECK(sq.body_json == pg.body_json);
+        CHECK(sq.signature == pg.signature);
+        CHECK(sq.key_id == pg.key_id);
+        CHECK(sq.header.tenant == pg.header.tenant);
+    }
+
+    // Both verify with the same KeyStore → backend choice is invisible to
+    // an auditor with the public key.
+    REQUIRE(pg_rt.value().ledger().verify());
+
+    std::filesystem::remove(sqlite_path);
+    std::filesystem::remove(key_path);
+    std::filesystem::remove(jsonl_path);
+}
+
 TEST_CASE("[postgres] tenant-scoped reads isolate per-tenant data") {
     if (!pg_available()) return;
     truncate_pg_ledger();

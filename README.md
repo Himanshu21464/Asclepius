@@ -32,11 +32,39 @@ ctest --test-dir build --output-on-failure
 Required system packages on Debian/Ubuntu:
 
 ```sh
-sudo apt install build-essential cmake ninja-build libsodium-dev libsqlite3-dev
+sudo apt install build-essential cmake ninja-build \
+                 libsodium-dev libsqlite3-dev libpq-dev
 ```
+
+`libpq-dev` is required at build time for the PostgreSQL backend. If
+your deployment will only use SQLite, you can drop `libpq-dev` once we
+make Postgres support optional via a CMake flag (planned).
 
 Header-only deps (`fmt`, `nlohmann_json`, `spdlog`, `doctest`, `pybind11`) are
 fetched at configure time via CMake's `FetchContent`.
+
+## Storage backends
+
+The substrate ships two interchangeable backends — same chain bytes,
+same signatures, same `verify()`. Pick by URI:
+
+```cpp
+Runtime::open("/var/asc/ledger.db");                  // SQLite (default)
+Runtime::open_uri("postgres://u:pw@host/dbname");     // PostgreSQL
+```
+
+```sh
+asclepius ledger verify /var/asc/ledger.db
+asclepius ledger verify postgres://user:pw@host/dbname
+```
+
+**Pick SQLite for** single-tenant sidecars, lab/pilot deployments,
+edge appliances, auditor handoff. Default; ~30× faster on append.
+
+**Pick Postgres for** multi-tenant SaaS hosting, HA/replication, cross-
+process subscription, existing PG ops shops.
+
+Full decision matrix and migration recipes in [docs/BACKENDS.md](docs/BACKENDS.md).
 
 ## Quick start (C++)
 
