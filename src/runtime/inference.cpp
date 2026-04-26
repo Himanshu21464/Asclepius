@@ -219,6 +219,107 @@ Result<std::string> Inference::run_with_timeout(
     return post_output;
 }
 
+Result<std::string> Inference::run_cancellable(
+        std::string input,
+        const ModelCallback& model_call,
+        CancelToken token,
+        std::chrono::milliseconds poll_interval) {
+
+    if (impl_->completed) {
+        return Error::invalid("inference.run called twice on the same handle");
+    }
+    impl_->completed = true;
+    auto& metrics = impl_->rt->metrics();
+    metrics.inc("inference.attempts");
+
+    // Honour pre-cancelled tokens: skip the model call entirely so the
+    // caller pays no work for a token they already cancelled.
+    if (token.is_cancelled()) {
+        metrics.inc("inference.cancelled");
+        impl_->ledger_body["status"] = "cancelled";
+        impl_->ledger_body["cancel_phase"] = "pre_input";
+        return Error::cancelled("cancelled before input policies ran");
+    }
+
+    auto in_v = impl_->rt->policies().evaluate_input(impl_->ctx, std::move(input));
+    if (!in_v) {
+        metrics.inc("inference.blocked.input");
+        impl_->ledger_body["status"]     = "blocked.input";
+        impl_->ledger_body["block_code"] = to_string(in_v.error().code());
+        impl_->ledger_body["block_msg"]  = std::string{in_v.error().what()};
+        return in_v.error();
+    }
+    const std::string post_input = std::move(in_v).value();
+    auto in_hash = hash(post_input);
+
+    if (token.is_cancelled()) {
+        metrics.inc("inference.cancelled");
+        impl_->ledger_body["status"]     = "cancelled";
+        impl_->ledger_body["cancel_phase"] = "pre_model";
+        impl_->ledger_body["input_hash"] = in_hash.hex();
+        return Error::cancelled("cancelled before model_call dispatch");
+    }
+
+    auto promise = std::make_shared<std::promise<Result<std::string>>>();
+    auto future  = promise->get_future();
+    std::thread worker([promise, cb = model_call, in = post_input]() {
+        try {
+            promise->set_value(cb(in));
+        } catch (...) {
+            try { promise->set_exception(std::current_exception()); }
+            catch (...) { /* already-satisfied; swallow. */ }
+        }
+    });
+
+    // Poll the future and the cancel flag together. We sleep for at most
+    // poll_interval at a time so cancellation latency is bounded.
+    const auto step = poll_interval.count() <= 0
+        ? std::chrono::milliseconds{1}
+        : poll_interval;
+    while (true) {
+        if (future.wait_for(step) == std::future_status::ready) break;
+        if (token.is_cancelled()) {
+            worker.detach();
+            metrics.inc("inference.cancelled");
+            impl_->ledger_body["status"]      = "cancelled";
+            impl_->ledger_body["cancel_phase"] = "model_inflight";
+            impl_->ledger_body["input_hash"]  = in_hash.hex();
+            return Error::cancelled("cancelled while model_call was running");
+        }
+    }
+    worker.join();
+    auto out_r = future.get();
+    if (!out_r) {
+        metrics.inc("inference.model_error");
+        impl_->ledger_body["status"]    = "model_error";
+        impl_->ledger_body["error_msg"] = std::string{out_r.error().what()};
+        return out_r.error();
+    }
+
+    auto out_v = impl_->rt->policies().evaluate_output(impl_->ctx, std::move(out_r).value());
+    if (!out_v) {
+        metrics.inc("inference.blocked.output");
+        impl_->ledger_body["status"]     = "blocked.output";
+        impl_->ledger_body["block_code"] = to_string(out_v.error().code());
+        impl_->ledger_body["block_msg"]  = std::string{out_v.error().what()};
+        return out_v.error();
+    }
+
+    const std::string post_output = std::move(out_v).value();
+    auto out_hash = hash(post_output);
+
+    impl_->ledger_body["status"]      = "ok";
+    impl_->ledger_body["input_hash"]  = in_hash.hex();
+    impl_->ledger_body["output_hash"] = out_hash.hex();
+    auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
+    impl_->ledger_body["latency_ns"] = latency_ns;
+
+    metrics.inc("inference.ok");
+    metrics.observe("inference_latency_seconds",
+                    static_cast<double>(latency_ns) / 1e9);
+    return post_output;
+}
+
 Result<void> Inference::commit() {
     if (!impl_->completed) {
         return Error::invalid("inference.commit called before run");

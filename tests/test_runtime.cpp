@@ -371,6 +371,248 @@ TEST_CASE("run_with_timeout: cannot be called twice on same handle") {
     CHECK(r.error().code() == ErrorCode::invalid_argument);
 }
 
+// ============== run_cancellable ==========================================
+
+TEST_CASE("run_cancellable: callback that returns first wins, no cancellation") {
+    auto rt_ = fresh_runtime("rc_fast"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_fast");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    CancelToken token;
+    auto r = inf.value().run_cancellable("hello",
+        [](std::string s) -> Result<std::string> { return s + "!"; },
+        token);
+    REQUIRE(r);
+    CHECK(r.value() == "hello!");
+    REQUIRE(inf.value().commit());
+}
+
+TEST_CASE("run_cancellable: cancel during model_call returns cancelled") {
+    auto rt_ = fresh_runtime("rc_cancel"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_cancel");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    CancelToken token;
+    std::thread canceller([token]() mutable {
+        std::this_thread::sleep_for(std::chrono::milliseconds{15});
+        token.cancel();
+    });
+    auto r = inf.value().run_cancellable("x",
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{200});
+            return s;
+        },
+        token,
+        std::chrono::milliseconds{2});
+    canceller.join();
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::cancelled);
+}
+
+TEST_CASE("run_cancellable: pre-cancelled token short-circuits before policies") {
+    auto rt_ = fresh_runtime("rc_pre"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_pre");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    CancelToken token;
+    token.cancel();
+    bool model_was_called = false;
+    auto r = inf.value().run_cancellable("hi",
+        [&](std::string s) -> Result<std::string> {
+            model_was_called = true;
+            return s;
+        },
+        token);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::cancelled);
+    CHECK(!model_was_called);
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1);
+    REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body["status"]       == "cancelled");
+    CHECK(body["cancel_phase"] == "pre_input");
+}
+
+TEST_CASE("run_cancellable: cancel during model_call writes cancel_phase=model_inflight") {
+    auto rt_ = fresh_runtime("rc_phase"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_phase");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    CancelToken token;
+    std::thread canceller([token]() mutable {
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        token.cancel();
+    });
+    REQUIRE(!inf.value().run_cancellable("x",
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{300});
+            return s;
+        },
+        token,
+        std::chrono::milliseconds{2}));
+    canceller.join();
+    REQUIRE(inf.value().commit());
+
+    auto tail = rt.ledger().tail(1);
+    REQUIRE(tail);
+    auto body = nlohmann::json::parse(tail.value()[0].body_json);
+    CHECK(body["status"]       == "cancelled");
+    CHECK(body["cancel_phase"] == "model_inflight");
+    CHECK(body.contains("input_hash"));
+}
+
+TEST_CASE("run_cancellable: cancellation latency is bounded by poll_interval") {
+    auto rt_ = fresh_runtime("rc_latency"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_latency");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    CancelToken token;
+    auto t0 = std::chrono::steady_clock::now();
+    std::thread canceller([token]() mutable {
+        std::this_thread::sleep_for(std::chrono::milliseconds{20});
+        token.cancel();
+    });
+    REQUIRE(!inf.value().run_cancellable("x",
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::seconds{5});
+            return s;
+        },
+        token,
+        std::chrono::milliseconds{1}));
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t0);
+    canceller.join();
+    // Should return within a few ms of cancel(); definitely under 200ms even
+    // on a loaded box, well below the 5s callback duration.
+    CHECK(elapsed < std::chrono::milliseconds{500});
+}
+
+TEST_CASE("run_cancellable: model error propagates, not cancelled") {
+    auto rt_ = fresh_runtime("rc_err"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_err");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    CancelToken token;
+    auto r = inf.value().run_cancellable("x",
+        [](std::string) -> Result<std::string> { return Error::internal("oops"); },
+        token);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::internal);
+    REQUIRE(inf.value().commit());
+}
+
+TEST_CASE("run_cancellable: zero poll_interval is clamped, not infinite-spin") {
+    auto rt_ = fresh_runtime("rc_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_zero");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    CancelToken token;
+    auto r = inf.value().run_cancellable("x",
+        [](std::string s) -> Result<std::string> { return s; },
+        token,
+        std::chrono::milliseconds{0});
+    REQUIRE(r);
+    CHECK(r.value() == "x");
+}
+
+TEST_CASE("run_cancellable: shared cancel token aborts many concurrent inferences") {
+    auto rt_ = fresh_runtime("rc_shared"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_shared");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    CancelToken token;
+    constexpr int N = 6;
+    std::vector<std::thread> workers;
+    std::atomic<int> cancelled_count{0};
+    for (int i = 0; i < N; i++) {
+        workers.emplace_back([&]() {
+            auto inf = begin(rt, pid, tok.token_id);
+            if (!inf) return;
+            auto r = inf.value().run_cancellable("x",
+                [](std::string s) -> Result<std::string> {
+                    std::this_thread::sleep_for(std::chrono::seconds{2});
+                    return s;
+                },
+                token,
+                std::chrono::milliseconds{1});
+            if (!r && r.error().code() == ErrorCode::cancelled) cancelled_count++;
+        });
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds{30});
+    token.cancel();
+    for (auto& t : workers) t.join();
+    CHECK(cancelled_count.load() == N);
+}
+
+TEST_CASE("run_cancellable: token state is shared across copies") {
+    CancelToken a;
+    CancelToken b = a;
+    CHECK(!a.is_cancelled());
+    CHECK(!b.is_cancelled());
+    b.cancel();
+    CHECK(a.is_cancelled());
+    CHECK(b.is_cancelled());
+}
+
+TEST_CASE("run_cancellable: cannot be called twice on same handle") {
+    auto rt_ = fresh_runtime("rc_twice"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_twice");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id);
+    REQUIRE(inf);
+    CancelToken token;
+    REQUIRE(inf.value().run_cancellable("x",
+        [](std::string s)->Result<std::string>{ return s; }, token));
+    auto r = inf.value().run_cancellable("y",
+        [](std::string s)->Result<std::string>{ return s; }, token);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("run_cancellable: cancellation does not break ledger chain") {
+    auto rt_ = fresh_runtime("rc_chain"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rc_chain");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    for (int i = 0; i < 5; i++) {
+        auto inf = begin(rt, pid, tok.token_id);
+        REQUIRE(inf);
+        CancelToken token;
+        if (i % 2 == 0) token.cancel();
+        (void)inf.value().run_cancellable("x",
+            [](std::string s) -> Result<std::string> { return s; }, token);
+        REQUIRE(inf.value().commit());
+    }
+    REQUIRE(rt.ledger().verify());
+}
+
 TEST_CASE("Inference::commit_idempotent dedupes across handles by inference_id") {
     auto p = std::filesystem::temp_directory_path()
            / ("asc_idemp_" + std::to_string(std::random_device{}()) + ".db");

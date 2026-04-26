@@ -107,6 +107,22 @@ public:
         const ModelCallback& model_call,
         std::chrono::milliseconds timeout);
 
+    // Caller-driven cancellation. Spawns the model call on a worker thread
+    // and polls the supplied CancelToken at `poll_interval`. If the token
+    // is cancelled before the model returns, the worker is detached, this
+    // method returns Error::cancelled, and the inference's ledger body is
+    // marked `status: cancelled`. The detached worker may still be running
+    // — its result is discarded. If the model finishes first, the normal
+    // output policy chain applies. Combine with run_with_timeout when you
+    // need both deadline-based and caller-driven abort: prefer this method
+    // for graceful shutdown / user-requested abort, and run_with_timeout
+    // for runaway-model protection.
+    Result<std::string> run_cancellable(
+        std::string input,
+        const ModelCallback& model_call,
+        CancelToken token,
+        std::chrono::milliseconds poll_interval = std::chrono::milliseconds{5});
+
     // Commit the inference to the ledger. Idempotent within the lifetime
     // of this Inference handle (calling commit() twice on the same handle
     // is a no-op). After commit, drift observations are flushed and

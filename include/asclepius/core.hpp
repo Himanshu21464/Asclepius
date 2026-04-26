@@ -3,8 +3,10 @@
 #ifndef ASCLEPIUS_CORE_HPP
 #define ASCLEPIUS_CORE_HPP
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -152,6 +154,30 @@ public:
 
 private:
     nanos_t ns_ = 0;
+};
+
+// ---- CancelToken --------------------------------------------------------
+//
+// A lightweight, copyable cancellation flag. All copies share the same
+// atomic state via shared_ptr, so calling cancel() on any copy is observed
+// by all other copies. Cheap to pass by value into worker threads, lambdas,
+// and across module boundaries. Single-shot: once cancelled, stays
+// cancelled.
+
+class CancelToken {
+public:
+    CancelToken() : state_(std::make_shared<State>()) {}
+
+    // Idempotent. Marks the shared state as cancelled.
+    void cancel() noexcept { state_->flag.store(true, std::memory_order_release); }
+
+    bool is_cancelled() const noexcept {
+        return state_->flag.load(std::memory_order_acquire);
+    }
+
+private:
+    struct State { std::atomic<bool> flag{false}; };
+    std::shared_ptr<State> state_;
 };
 
 // ---- Bytes / span helpers -----------------------------------------------
