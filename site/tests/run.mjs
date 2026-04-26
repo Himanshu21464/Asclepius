@@ -848,6 +848,31 @@ ok(`every page loads the standard JS module set`, () => {
     return jsGaps.length === 0;
 });
 
+// ─── noscript fallback — JS-critical pages must declare what's broken ──
+// Pages whose main feature is JS-driven need a <noscript> banner so users
+// without JS aren't silently confused. Index has a generic banner; the
+// JS-critical pages need tailored ones.
+
+console.log('noscript fallback (JS-critical pages):');
+const JS_CRITICAL_PAGES = new Set([
+    'compare.html', 'crypto.html', 'explorer.html', 'glossary.html',
+    'sandbox.html', 'sitegraph.html', 'validate.html',
+]);
+const noScriptGaps = [];
+for (const f of JS_CRITICAL_PAGES) {
+    if (!htmlPages.includes(f)) continue;
+    const raw = readFileSync(path.join(SITE_ROOT, f), 'utf-8');
+    if (!/<noscript\b/i.test(raw)) {
+        noScriptGaps.push(`${f}: no <noscript> banner for JS-critical page`);
+    }
+}
+ok(`every JS-critical page has a <noscript> fallback banner`, () => {
+    if (noScriptGaps.length) {
+        console.error('   gaps:\n' + noScriptGaps.map((l) => '     ' + l).join('\n'));
+    }
+    return noScriptGaps.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
