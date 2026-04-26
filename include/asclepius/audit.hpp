@@ -257,6 +257,18 @@ public:
     // by chain length, run off the hot path.
     Result<LedgerEntry> find_by_inference_id(std::string_view id) const;
 
+    // Return the last `n` entries whose header.actor matches the supplied
+    // string, most-recent first. Used for "what did this clinician do
+    // today?" style forensic queries; the system: actor strings
+    // (system:drift_monitor, system:consent_registry) are also matchable
+    // for cross-event-type tracing. O(n) scan via for_each, but stops
+    // accumulating once n matches are found.
+    //
+    // Empty actor returns invalid_argument; n=0 returns the empty vector
+    // (cheap no-op).
+    Result<std::vector<LedgerEntry>> tail_by_actor(std::string_view actor,
+                                                   std::size_t      n) const;
+
     // ---- Subscription ---------------------------------------------------
     //
     // Register a callback that fires after each successful append, on the

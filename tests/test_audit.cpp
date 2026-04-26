@@ -1453,6 +1453,98 @@ TEST_CASE("count_by_event_type survives reopen") {
     CHECK(c.value().at("b") == 6);
 }
 
+// ============== Ledger::tail_by_actor ===================================
+
+TEST_CASE("tail_by_actor returns matches most-recent first") {
+    auto p = tmp_db("actor_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json{{"i", 2}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 3}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 4}}, ""));
+    auto r = l.tail_by_actor("alice", 5); REQUIRE(r);
+    REQUIRE(r.value().size() == 3);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    auto b2 = nlohmann::json::parse(r.value()[2].body_json);
+    CHECK(b0["i"] == 4);  // most recent
+    CHECK(b1["i"] == 3);
+    CHECK(b2["i"] == 1);
+}
+
+TEST_CASE("tail_by_actor caps at n entries") {
+    auto p = tmp_db("actor_cap");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 50; i++)
+        REQUIRE(l.append("e", "alice", nlohmann::json{{"i", i}}, ""));
+    auto r = l.tail_by_actor("alice", 10); REQUIRE(r);
+    CHECK(r.value().size() == 10);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    CHECK(b0["i"] == 49);  // most recent
+    auto b9 = nlohmann::json::parse(r.value()[9].body_json);
+    CHECK(b9["i"] == 40);  // 10th most recent
+}
+
+TEST_CASE("tail_by_actor: unknown actor returns empty vector, not error") {
+    auto p = tmp_db("actor_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    auto r = l.tail_by_actor("ghost", 5); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("tail_by_actor: empty actor returns invalid_argument") {
+    auto p = tmp_db("actor_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().tail_by_actor("", 5);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("tail_by_actor: n=0 returns empty vector") {
+    auto p = tmp_db("actor_zero");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    auto r = l.tail_by_actor("alice", 0); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("tail_by_actor: matches system: actors") {
+    auto p = tmp_db("actor_system");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice",                   nlohmann::json::object(), ""));
+    REQUIRE(l.append("a", "system:drift_monitor",     nlohmann::json::object(), ""));
+    REQUIRE(l.append("b", "system:consent_registry",  nlohmann::json::object(), ""));
+    REQUIRE(l.append("c", "system:drift_monitor",     nlohmann::json::object(), ""));
+    auto r = l.tail_by_actor("system:drift_monitor", 10); REQUIRE(r);
+    CHECK(r.value().size() == 2);
+    for (const auto& e : r.value())
+        CHECK(e.header.actor == "system:drift_monitor");
+}
+
+TEST_CASE("tail_by_actor: large chain n-cap ring buffer correctness") {
+    auto p = tmp_db("actor_ring");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 2000; i++) {
+        REQUIRE(l.append("e", (i % 3 == 0) ? "alice" : "bob",
+                         nlohmann::json{{"i", i}}, ""));
+    }
+    auto r = l.tail_by_actor("alice", 5); REQUIRE(r);
+    CHECK(r.value().size() == 5);
+    // Last alice entry: i=1998 (since 1998 % 3 == 0). Entries before:
+    // 1995, 1992, 1989, 1986.
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b4 = nlohmann::json::parse(r.value()[4].body_json);
+    CHECK(b0["i"] == 1998);
+    CHECK(b4["i"] == 1986);
+}
+
 // ============== Ledger::find_by_inference_id ============================
 
 TEST_CASE("find_by_inference_id locates the matching entry") {

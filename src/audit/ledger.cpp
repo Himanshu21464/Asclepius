@@ -732,6 +732,33 @@ Ledger::count_by_event_type() const {
     return out;
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::tail_by_actor(std::string_view actor, std::size_t n) const {
+    if (actor.empty()) {
+        return Error::invalid("tail_by_actor requires non-empty actor");
+    }
+    if (n == 0) return std::vector<LedgerEntry>{};
+
+    // Ring buffer of the last `n` matches, oldest-first. We'll reverse on
+    // return so callers see most-recent-first.
+    std::vector<LedgerEntry> ring;
+    ring.reserve(n);
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.actor != actor) return true;
+        if (ring.size() < n) {
+            ring.push_back(e);
+        } else {
+            // Slide: drop oldest, push newest.
+            std::move(ring.begin() + 1, ring.end(), ring.begin());
+            ring.back() = e;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    std::reverse(ring.begin(), ring.end());
+    return ring;
+}
+
 Result<LedgerEntry> Ledger::find_by_inference_id(std::string_view id) const {
     if (id.empty()) {
         return Error::invalid("find_by_inference_id requires non-empty id");
