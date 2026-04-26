@@ -1,54 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://asclepius.health/</loc>                  <changefreq>weekly</changefreq>  <priority>1.0</priority></url>
-  <url><loc>https://asclepius.health/docs.html</loc>         <changefreq>weekly</changefreq>  <priority>0.9</priority></url>
-  <url><loc>https://asclepius.health/use-cases.html</loc>    <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/api.html</loc>          <changefreq>weekly</changefreq>  <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/integrations.html</loc> <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/playbooks.html</loc>    <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/regulator.html</loc>    <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/observability.html</loc> <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/research.html</loc>     <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/validate.html</loc>     <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/economics.html</loc>    <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/migrations.html</loc>   <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/threat-tabletop.html</loc> <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/release-process.html</loc> <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/quickstart.html</loc>     <changefreq>monthly</changefreq> <priority>0.9</priority></url>
-  <url><loc>https://asclepius.health/decisions.html</loc>    <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/schemas/audit-entry.v1.json</loc> <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/demo.html</loc>         <changefreq>weekly</changefreq>  <priority>0.9</priority></url>
-  <url><loc>https://asclepius.health/architecture.html</loc> <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/spec.html</loc>         <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/threat-model.html</loc> <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/benchmarks.html</loc>   <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/changelog.html</loc>    <changefreq>weekly</changefreq>  <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/roadmap.html</loc>      <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/security.html</loc>     <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/conformance.html</loc>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/status.html</loc>       <changefreq>daily</changefreq>   <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/labs.html</loc>         <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/contributing.html</loc> <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/press.html</loc>        <changefreq>monthly</changefreq> <priority>0.5</priority></url>
-  <url><loc>https://asclepius.health/crypto.html</loc>       <changefreq>monthly</changefreq> <priority>0.5</priority></url>
-  <url><loc>https://asclepius.health/glossary.html</loc>     <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/sitemap.html</loc>     <changefreq>monthly</changefreq> <priority>0.5</priority></url>
-  <url><loc>https://asclepius.health/accessibility.html</loc> <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/verify-bundle.html</loc> <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/explorer.html</loc>      <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/learn.html</loc>         <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/licenses.html</loc>    <changefreq>monthly</changefreq> <priority>0.5</priority></url>
-  <url><loc>https://asclepius.health/sitegraph.html</loc>     <changefreq>weekly</changefreq>  <priority>0.5</priority></url>
-  <url><loc>https://asclepius.health/cookies.html</loc>     <changefreq>monthly</changefreq> <priority>0.5</priority></url>
-  <url><loc>https://asclepius.health/compare.html</loc>      <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/atom.xml</loc>        <changefreq>weekly</changefreq>  <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/sandbox.html</loc>      <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/deploy.html</loc>       <changefreq>monthly</changefreq> <priority>0.8</priority></url>
-  <url><loc>https://asclepius.health/.well-known/dnt-policy.txt</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
-  <url><loc>https://asclepius.health/cheatsheet.html</loc>    <changefreq>monthly</changefreq> <priority>0.7</priority></url>
-  <url><loc>https://asclepius.health/governance.html</loc>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/colophon.html</loc>    <changefreq>monthly</changefreq> <priority>0.5</priority></url>
-  <url><loc>https://asclepius.health/principles.html</loc>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
-  <url><loc>https://asclepius.health/badges.html</loc>     <changefreq>monthly</changefreq> <priority>0.5</priority></url>
-  <url><loc>https://asclepius.health/status.json</loc>     <changefreq>daily</changefreq>   <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/</loc>                  <lastmod>2026-04-26</lastmod>  <changefreq>weekly</changefreq>  <priority>1.0</priority></url>
+  <url><loc>https://asclepius.health/docs.html</loc>         <lastmod>2026-04-26</lastmod>  <changefreq>weekly</changefreq>  <priority>0.9</priority></url>
+  <url><loc>https://asclepius.health/use-cases.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/api.html</loc>          <lastmod>2026-04-26</lastmod>  <changefreq>weekly</changefreq>  <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/integrations.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/playbooks.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/regulator.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/observability.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/research.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/validate.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/economics.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/migrations.html</loc>   <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/threat-tabletop.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/release-process.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/quickstart.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.9</priority></url>
+  <url><loc>https://asclepius.health/decisions.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/schemas/audit-entry.v1.json</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/demo.html</loc>         <lastmod>2026-04-26</lastmod>  <changefreq>weekly</changefreq>  <priority>0.9</priority></url>
+  <url><loc>https://asclepius.health/architecture.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/spec.html</loc>         <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/threat-model.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/benchmarks.html</loc>   <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/changelog.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>weekly</changefreq>  <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/roadmap.html</loc>      <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/security.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/conformance.html</loc>  <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/status.html</loc>       <lastmod>2026-04-26</lastmod>  <changefreq>daily</changefreq>   <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/labs.html</loc>         <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/contributing.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/press.html</loc>        <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/crypto.html</loc>       <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/glossary.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/sitemap.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/accessibility.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/verify-bundle.html</loc> <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/explorer.html</loc>      <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/learn.html</loc>         <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/licenses.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/sitegraph.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>weekly</changefreq>  <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/cookies.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/compare.html</loc>      <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/atom.xml</loc>        <lastmod>2026-04-26</lastmod>  <changefreq>weekly</changefreq>  <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/sandbox.html</loc>      <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/deploy.html</loc>       <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.8</priority></url>
+  <url><loc>https://asclepius.health/.well-known/dnt-policy.txt</loc><lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://asclepius.health/cheatsheet.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.7</priority></url>
+  <url><loc>https://asclepius.health/governance.html</loc>  <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/colophon.html</loc>    <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/principles.html</loc>  <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.6</priority></url>
+  <url><loc>https://asclepius.health/badges.html</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>monthly</changefreq> <priority>0.5</priority></url>
+  <url><loc>https://asclepius.health/status.json</loc>     <lastmod>2026-04-26</lastmod>  <changefreq>daily</changefreq>   <priority>0.5</priority></url>
 </urlset>

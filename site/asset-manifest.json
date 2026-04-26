@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T07:40:11Z",
+  "generated_at": "2026-04-26T07:42:02Z",
   "algorithm": "SHA-256",
   "count": 89,
   "files": {
@@ -92,8 +92,8 @@
       "bytes": 3727
     },
     "badges.html": {
-      "sha256": "08f2441173153e758918e24f6e472490dfda94cfbadc53969fecfdd68b80e0e3",
-      "bytes": 15697
+      "sha256": "2e0bd913fa985a28e9ccfbfdc8a35617e25f8625f6384818bc9e5cfddb530d16",
+      "bytes": 15889
     },
     "benchmarks.html": {
       "sha256": "7740d7e545da563699f2e8bde839cb8456affcb43b55feebbd42985780495312",
@@ -316,8 +316,8 @@
       "bytes": 16898
     },
     "sitemap.xml": {
-      "sha256": "b4f8596e6a74a21737a7a58885180ed0737db940ca3300ca91468edda5e73a4a",
-      "bytes": 6505
+      "sha256": "2258edca22c86360bd822295d08054f81393910562e651599b965057ceec7c56",
+      "bytes": 8086
     },
     "spec.html": {
       "sha256": "9f8d2ce743a2a25de4e85968cd57a8759b886ba79e689e066d22b2258e8a7122",
@@ -328,7 +328,7 @@
       "bytes": 21322
     },
     "status.json": {
-      "sha256": "d4df73678ec8bd04d96688402d0dbf453686b016ced605333ce70111526cc59f",
+      "sha256": "563e508a03c80e4e5f5661904f5d4dcc4980f322f2f5782c8d756b31c55b29b0",
       "bytes": 1045
     },
     "styles.css": {

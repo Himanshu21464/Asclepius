@@ -927,6 +927,41 @@ ok(`no github.com/asclepius-ai/* URLs (canonical is Himanshu21464/Asclepius)`,
        return stalenessIssues.length === 0;
    });
 
+// ─── sitemap.xml: every <url> has <lastmod> for SEO crawl efficiency ───
+// Search engines that see <lastmod> can skip unchanged URLs on incremental
+// crawls. The whole site missed it pre-round-33; this guard locks it in.
+
+console.log('sitemap.xml lastmod:');
+const SM_XML = readFileSync(path.join(SITE_ROOT, 'sitemap.xml'), 'utf-8');
+const urlBlocks = [...SM_XML.matchAll(/<url>[\s\S]*?<\/url>/g)].map((m) => m[0]);
+const noLastmod = urlBlocks.filter((b) => !b.includes('<lastmod>'));
+ok(`every <url> has <lastmod> (${urlBlocks.length} entries)`,
+   () => noLastmod.length === 0);
+
+// ─── img loading=lazy on below-the-fold imagery ────────────────────────
+// Decorative imagery below the fold should defer load to avoid blocking
+// LCP. The hero/og-card on a page is allowed to omit loading=, but every
+// other <img> should have one.
+
+console.log('img lazy-loading:');
+const imgGaps = [];
+for (const f of htmlPages) {
+    const stripped = rawByPage.get(f);
+    for (const m of stripped.matchAll(/<img\b([^>]*)>/g)) {
+        const attrs = m[1];
+        if (!/\bloading=/.test(attrs)) {
+            const src = /\bsrc="([^"]+)"/.exec(attrs);
+            imgGaps.push(`${f}: <img src="${src ? src[1] : '?'}"> missing loading attribute`);
+        }
+    }
+}
+ok(`every <img> declares loading= (lazy or eager)`, () => {
+    if (imgGaps.length) {
+        console.error('   gaps:\n' + imgGaps.slice(0, 8).map((l) => '     ' + l).join('\n'));
+    }
+    return imgGaps.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
