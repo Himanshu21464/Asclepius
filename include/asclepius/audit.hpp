@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-#include <nlohmann/json_fwd.hpp>
+#include <nlohmann/json.hpp>
 
 #include "asclepius/core.hpp"
 #include "asclepius/hashing.hpp"
@@ -128,6 +128,23 @@ public:
                                std::string actor,
                                nlohmann::json body,
                                std::string tenant = "");
+
+    // One spec per entry in a batch.
+    struct AppendSpec {
+        std::string    event_type;
+        std::string    actor;
+        nlohmann::json body;
+        std::string    tenant;
+    };
+
+    // Append N entries atomically. Either all entries land in the chain
+    // (ordered, gap-free, prev_hash-linked) or none of them do — the
+    // backend transaction rolls back on failure. Returns the appended
+    // entries in seq-ascending order. Subscribers fire once per entry,
+    // after the entire batch has committed.
+    //
+    // Empty input is a valid no-op; returns an empty vector.
+    Result<std::vector<LedgerEntry>> append_batch(std::vector<AppendSpec> specs);
 
     // Read an entry by sequence number.
     Result<LedgerEntry> at(std::uint64_t seq) const;

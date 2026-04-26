@@ -151,6 +151,31 @@ public:
         return Result<void>::ok();
     }
 
+    Result<void> begin_transaction() override {
+        PGresult* r = PQexec(conn_, "BEGIN;");
+        auto status = PQresultStatus(r);
+        std::string err = PQresultErrorMessage(r);
+        PQclear(r);
+        if (status != PGRES_COMMAND_OK) return Error::backend("postgres begin: " + err);
+        return Result<void>::ok();
+    }
+    Result<void> commit_transaction() override {
+        PGresult* r = PQexec(conn_, "COMMIT;");
+        auto status = PQresultStatus(r);
+        std::string err = PQresultErrorMessage(r);
+        PQclear(r);
+        if (status != PGRES_COMMAND_OK) return Error::backend("postgres commit: " + err);
+        return Result<void>::ok();
+    }
+    Result<void> rollback_transaction() override {
+        PGresult* r = PQexec(conn_, "ROLLBACK;");
+        auto status = PQresultStatus(r);
+        std::string err = PQresultErrorMessage(r);
+        PQclear(r);
+        if (status != PGRES_COMMAND_OK) return Error::backend("postgres rollback: " + err);
+        return Result<void>::ok();
+    }
+
     Result<void> insert_entry(const LedgerEntry& e, const Hash& entry_h) override {
         // Param order matches the INSERT below.
         std::uint64_t seq_be = pg_htobe64(e.header.seq);

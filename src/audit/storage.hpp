@@ -43,6 +43,14 @@ public:
     // Append one entry. Storage is responsible for persistence and indexing.
     virtual Result<void> insert_entry(const LedgerEntry& e, const Hash& entry_hash) = 0;
 
+    // Atomic transactional helpers. The default implementations work for
+    // SQLite (BEGIN IMMEDIATE / COMMIT / ROLLBACK) and PostgreSQL (BEGIN /
+    // COMMIT / ROLLBACK). Backends override only if they need different
+    // SQL or non-SQL semantics.
+    virtual Result<void> begin_transaction()   = 0;
+    virtual Result<void> commit_transaction()  = 0;
+    virtual Result<void> rollback_transaction() = 0;
+
     // Returns (seq, entry_hash) of the most recent row, or (0, Hash::zero()) if empty.
     virtual Result<std::pair<std::uint64_t, Hash>> read_tail() = 0;
 

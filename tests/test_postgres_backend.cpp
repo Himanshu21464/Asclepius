@@ -344,6 +344,61 @@ TEST_CASE("[postgres] cross-backend determinism: same input, identical entry_has
     std::filesystem::remove(jsonl_path);
 }
 
+TEST_CASE("[postgres] append_batch commits all-or-nothing under PG transaction") {
+    if (!pg_available()) return;
+    truncate_pg_ledger();
+
+    auto rt = Runtime::open_uri(pg_uri());
+    REQUIRE(rt);
+
+    std::vector<Ledger::AppendSpec> specs;
+    nlohmann::json b;
+    for (int i = 0; i < 25; ++i) {
+        b["i"] = i;
+        specs.push_back({"batch.t", "sys", b, (i % 2) ? "alpha" : ""});
+    }
+    auto r = rt.value().ledger().append_batch(std::move(specs));
+    REQUIRE(r);
+    CHECK(r.value().size() == 25);
+    CHECK(rt.value().ledger().length() == 25);
+    REQUIRE(rt.value().ledger().verify());
+
+    // Tenant scopes are correctly stored inside the transaction.
+    CHECK(rt.value().ledger().tail_for_tenant("alpha", 100).value().size() == 12);
+    CHECK(rt.value().ledger().tail_for_tenant("",      100).value().size() == 13);
+}
+
+TEST_CASE("[postgres] append_batch large run preserves chain integrity") {
+    if (!pg_available()) return;
+    truncate_pg_ledger();
+
+    auto rt = Runtime::open_uri(pg_uri());
+    REQUIRE(rt);
+
+    std::vector<Ledger::AppendSpec> specs;
+    nlohmann::json b;
+    for (int i = 0; i < 200; ++i) specs.push_back({"e", "sys", b, ""});
+    REQUIRE(rt.value().ledger().append_batch(std::move(specs)));
+    CHECK(rt.value().ledger().length() == 200);
+    REQUIRE(rt.value().ledger().verify());
+}
+
+TEST_CASE("[postgres] append_batch fires PG-backed subscribers in order") {
+    if (!pg_available()) return;
+    truncate_pg_ledger();
+
+    auto rt = Runtime::open_uri(pg_uri());
+    REQUIRE(rt);
+    std::vector<std::uint64_t> seen;
+    auto sub = rt.value().ledger().subscribe([&](const LedgerEntry& e) {
+        seen.push_back(e.header.seq);
+    });
+    std::vector<Ledger::AppendSpec> specs(10, {"e","sys",nlohmann::json{},""});
+    REQUIRE(rt.value().ledger().append_batch(std::move(specs)));
+    REQUIRE(seen.size() == 10);
+    for (std::size_t i = 0; i < seen.size(); ++i) CHECK(seen[i] == i + 1);
+}
+
 TEST_CASE("[postgres] tenant-scoped reads isolate per-tenant data") {
     if (!pg_available()) return;
     truncate_pg_ledger();

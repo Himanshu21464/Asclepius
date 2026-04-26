@@ -395,6 +395,319 @@ TEST_CASE("Migrator refuses non-empty destination") {
     CHECK(!r);
 }
 
+// ============== append_batch ==============================================
+
+TEST_CASE("append_batch with empty input is a no-op") {
+    auto p   = tmp_db("batch_empty");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    auto r = led.value().append_batch({});
+    REQUIRE(r);
+    CHECK(r.value().empty());
+    CHECK(led.value().length() == 0);
+    REQUIRE(led.value().verify());
+}
+
+TEST_CASE("append_batch with one entry equals append()") {
+    auto p1 = tmp_db("batch_one_a");
+    auto p2 = tmp_db("batch_one_b");
+    auto l1 = Ledger::open(p1);
+    auto l2 = Ledger::open(p2, [&]{
+        auto kp = p1; kp.replace_extension(".key");
+        std::ifstream kf(kp);
+        std::string blob((std::istreambuf_iterator<char>(kf)), {});
+        return KeyStore::deserialize(blob).value();
+    }());
+    REQUIRE(l1); REQUIRE(l2);
+
+    nlohmann::json b; b["x"] = 1;
+    auto e1 = l1.value().append("evt", "act", b, "");
+    REQUIRE(e1);
+
+    auto e2 = l2.value().append_batch({{"evt", "act", b, ""}});
+    REQUIRE(e2);
+    REQUIRE(e2.value().size() == 1);
+
+    // Same key + same logical content + same seq=1 → same entry_hash.
+    // (ts will differ but the test enforces structural equivalence.)
+    CHECK(e1.value().header.seq == e2.value()[0].header.seq);
+    CHECK(e1.value().body_json   == e2.value()[0].body_json);
+    CHECK(e1.value().header.actor == e2.value()[0].header.actor);
+}
+
+TEST_CASE("append_batch returns entries in seq-ascending order") {
+    auto p   = tmp_db("batch_order");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs;
+    nlohmann::json b;
+    for (int i = 0; i < 10; ++i) {
+        b["i"] = i;
+        specs.push_back({"e", "sys", b, ""});
+    }
+    auto r = led.value().append_batch(std::move(specs));
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 10);
+    for (std::size_t i = 0; i < r.value().size(); ++i) {
+        CHECK(r.value()[i].header.seq == i + 1);
+    }
+}
+
+TEST_CASE("append_batch chains prev_hash correctly within the batch") {
+    auto p   = tmp_db("batch_chain");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs(20, {"e", "sys", nlohmann::json{}, ""});
+    auto r = led.value().append_batch(std::move(specs));
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 20);
+
+    Hash expected_prev = Hash::zero();
+    for (std::size_t i = 0; i < r.value().size(); ++i) {
+        CHECK(r.value()[i].header.prev_hash == expected_prev);
+        expected_prev = r.value()[i].entry_hash();
+    }
+    CHECK(led.value().head() == expected_prev);
+}
+
+TEST_CASE("append_batch + verify() end-to-end") {
+    auto p   = tmp_db("batch_verify");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs(50, {"e", "sys", nlohmann::json{}, ""});
+    REQUIRE(led.value().append_batch(std::move(specs)));
+    CHECK(led.value().length() == 50);
+    REQUIRE(led.value().verify());
+}
+
+TEST_CASE("append_batch preserves chain across batch boundary") {
+    auto p   = tmp_db("batch_boundary");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+
+    nlohmann::json b;
+    auto first = led.value().append("pre", "sys", b);
+    REQUIRE(first);
+    Hash h_after_first = first.value().entry_hash();
+
+    std::vector<Ledger::AppendSpec> specs(10, {"e", "sys", b, ""});
+    auto batch = led.value().append_batch(std::move(specs));
+    REQUIRE(batch);
+
+    // First batch entry's prev_hash MUST match the chain head before
+    // append_batch was called (the single pre-existing entry's hash).
+    CHECK(batch.value()[0].header.prev_hash == h_after_first);
+    REQUIRE(led.value().verify());
+    CHECK(led.value().length() == 11);
+}
+
+TEST_CASE("append_batch can interleave with single appends") {
+    auto p   = tmp_db("batch_interleave");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+
+    REQUIRE(led.value().append("s1", "sys", b));
+    REQUIRE(led.value().append_batch({{"b1","sys",b,""},{"b2","sys",b,""}}));
+    REQUIRE(led.value().append("s2", "sys", b));
+    REQUIRE(led.value().append_batch({{"b3","sys",b,""}}));
+
+    CHECK(led.value().length() == 5);
+    REQUIRE(led.value().verify());
+    auto all = led.value().range(1, 6);
+    REQUIRE(all);
+    CHECK(all.value()[0].header.event_type == "s1");
+    CHECK(all.value()[1].header.event_type == "b1");
+    CHECK(all.value()[2].header.event_type == "b2");
+    CHECK(all.value()[3].header.event_type == "s2");
+    CHECK(all.value()[4].header.event_type == "b3");
+}
+
+TEST_CASE("append_batch with mixed tenants tags each entry correctly") {
+    auto p   = tmp_db("batch_tenants");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    auto r = led.value().append_batch({
+        {"e","s",b,"alpha"}, {"e","s",b,"alpha"},
+        {"e","s",b,"beta"},  {"e","s",b,""},
+        {"e","s",b,"alpha"},
+    });
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 5);
+    CHECK(r.value()[0].header.tenant == "alpha");
+    CHECK(r.value()[1].header.tenant == "alpha");
+    CHECK(r.value()[2].header.tenant == "beta");
+    CHECK(r.value()[3].header.tenant == "");
+    CHECK(r.value()[4].header.tenant == "alpha");
+
+    // Tenant-scoped reads see the right counts.
+    CHECK(led.value().tail_for_tenant("alpha", 100).value().size() == 3);
+    CHECK(led.value().tail_for_tenant("beta",  100).value().size() == 1);
+    CHECK(led.value().tail_for_tenant("",      100).value().size() == 1);
+}
+
+TEST_CASE("append_batch with mixed event types is preserved") {
+    auto p   = tmp_db("batch_evtypes");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append_batch({
+        {"alpha", "s", b, ""},
+        {"beta",  "s", b, ""},
+        {"gamma", "s", b, ""},
+    }));
+    auto all = led.value().range(1, 4);
+    REQUIRE(all);
+    CHECK(all.value()[0].header.event_type == "alpha");
+    CHECK(all.value()[1].header.event_type == "beta");
+    CHECK(all.value()[2].header.event_type == "gamma");
+}
+
+TEST_CASE("append_batch fires subscribers in entry order, after commit") {
+    auto p   = tmp_db("batch_sub");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<std::uint64_t> seen;
+    auto sub = led.value().subscribe([&](const LedgerEntry& e) {
+        seen.push_back(e.header.seq);
+    });
+    nlohmann::json b;
+    REQUIRE(led.value().append_batch({
+        {"a","s",b,""}, {"b","s",b,""}, {"c","s",b,""}, {"d","s",b,""},
+    }));
+    REQUIRE(seen.size() == 4);
+    CHECK(seen[0] == 1);
+    CHECK(seen[1] == 2);
+    CHECK(seen[2] == 3);
+    CHECK(seen[3] == 4);
+}
+
+TEST_CASE("append_batch large stress: 500 entries + verify") {
+    auto p   = tmp_db("batch_500");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs;
+    specs.reserve(500);
+    nlohmann::json b;
+    for (int i = 0; i < 500; ++i) {
+        b["i"] = i;
+        specs.push_back({"stress", "sys", b, ""});
+    }
+    auto r = led.value().append_batch(std::move(specs));
+    REQUIRE(r);
+    CHECK(r.value().size() == 500);
+    CHECK(led.value().length() == 500);
+    REQUIRE(led.value().verify());
+}
+
+TEST_CASE("append_batch survives ledger reopen") {
+    auto p   = tmp_db("batch_reopen");
+    Hash    expected;
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+        std::vector<Ledger::AppendSpec> specs(40, {"e","s",nlohmann::json{},""});
+        REQUIRE(led.value().append_batch(std::move(specs)));
+        expected = led.value().head();
+    }
+    {
+        auto led = Ledger::open(p);
+        REQUIRE(led);
+        CHECK(led.value().length() == 40);
+        CHECK(led.value().head() == expected);
+        REQUIRE(led.value().verify());
+    }
+}
+
+TEST_CASE("append_batch entries each carry distinct entry_hash") {
+    auto p   = tmp_db("batch_distinct");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    auto r = led.value().append_batch({
+        {"e","s",b,""}, {"e","s",b,""}, {"e","s",b,""},
+    });
+    REQUIRE(r);
+    // Same event_type, same body, same actor — but ts differs, so seq+ts
+    // makes prev_hash different, so entry_hash is different.
+    CHECK(r.value()[0].entry_hash() != r.value()[1].entry_hash());
+    CHECK(r.value()[1].entry_hash() != r.value()[2].entry_hash());
+    CHECK(r.value()[0].entry_hash() != r.value()[2].entry_hash());
+}
+
+TEST_CASE("append_batch + range_by_time queries land within the batch window") {
+    auto p   = tmp_db("batch_time");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    Time before = Time::now();
+    std::vector<Ledger::AppendSpec> specs(15, {"t","s",nlohmann::json{},""});
+    REQUIRE(led.value().append_batch(std::move(specs)));
+    Time after = Time::now() + std::chrono::seconds{1};
+
+    auto in_window = led.value().range_by_time(before, after);
+    REQUIRE(in_window);
+    CHECK(in_window.value().size() == 15);
+}
+
+TEST_CASE("append_batch interacts with checkpoint correctly") {
+    auto p   = tmp_db("batch_cp");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs(7, {"e","s",nlohmann::json{},""});
+    REQUIRE(led.value().append_batch(std::move(specs)));
+    auto cp = led.value().checkpoint();
+    CHECK(cp.seq == 7);
+    REQUIRE(verify_checkpoint(cp));
+}
+
+TEST_CASE("append_batch JSON-loaded body is canonicalized") {
+    auto p   = tmp_db("batch_canon");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    // Two semantically-identical bodies, different key ordering. After
+    // canonicalisation they should produce the same body_json string.
+    nlohmann::json b1 = nlohmann::json::object({{"a", 1}, {"b", 2}, {"c", 3}});
+    nlohmann::json b2 = nlohmann::json::object({{"c", 3}, {"a", 1}, {"b", 2}});
+    auto r = led.value().append_batch({
+        {"x","s",b1,""}, {"x","s",b2,""},
+    });
+    REQUIRE(r);
+    CHECK(r.value()[0].body_json == r.value()[1].body_json);
+}
+
+TEST_CASE("append_batch + tenant filter is index-friendly") {
+    auto p   = tmp_db("batch_tfilter");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs;
+    nlohmann::json b;
+    for (int i = 0; i < 100; ++i) {
+        specs.push_back({"e","s",b, (i % 3 == 0) ? "alpha" : "beta"});
+    }
+    REQUIRE(led.value().append_batch(std::move(specs)));
+    int alpha_count = (100 + 2) / 3;  // ceil(100/3) = 34
+    CHECK(led.value().tail_for_tenant("alpha", 1000).value().size()
+          == static_cast<std::size_t>(alpha_count));
+    CHECK(led.value().tail_for_tenant("beta", 1000).value().size()
+          == static_cast<std::size_t>(100 - alpha_count));
+}
+
+TEST_CASE("append_batch with 1000 entries scales linearly in chain integrity") {
+    auto p   = tmp_db("batch_1k");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    std::vector<Ledger::AppendSpec> specs;
+    specs.reserve(1000);
+    nlohmann::json b;
+    for (int i = 0; i < 1000; ++i) specs.push_back({"e","s",b,""});
+    auto r = led.value().append_batch(std::move(specs));
+    REQUIRE(r);
+    CHECK(r.value().size() == 1000);
+    CHECK(led.value().length() == 1000);
+    REQUIRE(led.value().verify());
+}
+
 TEST_CASE("KeyStore serialize/deserialize round-trips") {
     auto k   = KeyStore::generate();
     auto enc = k.serialize();

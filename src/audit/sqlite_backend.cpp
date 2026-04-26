@@ -94,6 +94,28 @@ public:
         return Result<void>::ok();
     }
 
+    Result<void> begin_transaction() override {
+        if (sqlite3_exec(db_, "BEGIN IMMEDIATE;", nullptr, nullptr, nullptr) != SQLITE_OK) {
+            return Error::backend(std::string{"sqlite begin: "} + sqlite3_errmsg(db_));
+        }
+        return Result<void>::ok();
+    }
+    Result<void> commit_transaction() override {
+        if (sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, nullptr) != SQLITE_OK) {
+            return Error::backend(std::string{"sqlite commit: "} + sqlite3_errmsg(db_));
+        }
+        return Result<void>::ok();
+    }
+    Result<void> rollback_transaction() override {
+        // ROLLBACK can fail if no transaction is active; that's fine —
+        // callers only invoke this on a known-active transaction. We
+        // still report any sqlite error for diagnostics.
+        if (sqlite3_exec(db_, "ROLLBACK;", nullptr, nullptr, nullptr) != SQLITE_OK) {
+            return Error::backend(std::string{"sqlite rollback: "} + sqlite3_errmsg(db_));
+        }
+        return Result<void>::ok();
+    }
+
     Result<void> insert_entry(const LedgerEntry& e, const Hash& entry_h) override {
         sqlite3_stmt* stmt = nullptr;
         const char* sql =

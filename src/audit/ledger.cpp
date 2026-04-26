@@ -263,6 +263,78 @@ Result<LedgerEntry> Ledger::append(std::string event_type,
     return e;
 }
 
+Result<std::vector<LedgerEntry>> Ledger::append_batch(std::vector<AppendSpec> specs) {
+    // Empty input is a valid no-op.
+    if (specs.empty()) return std::vector<LedgerEntry>{};
+
+    std::lock_guard<std::mutex> lk(impl_->mu);
+
+    auto txn = impl_->storage->begin_transaction();
+    if (!txn) return txn.error();
+
+    // Build & insert each entry; track the running prev/seq locally so
+    // intermediate rollbacks don't corrupt the in-memory state.
+    std::vector<LedgerEntry> emitted;
+    emitted.reserve(specs.size());
+    Hash          working_prev = impl_->head;
+    std::uint64_t working_seq  = impl_->length.load();
+
+    for (auto& spec : specs) {
+        LedgerEntry e;
+        e.header.seq          = ++working_seq;
+        e.header.ts           = Time::now();
+        e.header.prev_hash    = working_prev;
+        e.header.actor        = std::move(spec.actor);
+        e.header.event_type   = std::move(spec.event_type);
+        e.header.tenant       = std::move(spec.tenant);
+        e.body_json           = canonical_json(spec.body);
+        e.header.payload_hash = compute_payload_hash(e.header.event_type, spec.body);
+
+        auto sign_buf = bytes_to_sign(e.header, e.body_json);
+        e.signature   = impl_->signer.sign(Bytes{sign_buf.data(), sign_buf.size()});
+        e.key_id      = impl_->key_id;
+
+        Hash entry_h = compute_entry_hash(e.header, e.body_json,
+                                          Bytes{e.signature.data(), e.signature.size()},
+                                          e.key_id);
+
+        auto rr = impl_->storage->insert_entry(e, entry_h);
+        if (!rr) {
+            // Roll back; nothing in this batch is observable.
+            (void)impl_->storage->rollback_transaction();
+            return rr.error();
+        }
+        working_prev = entry_h;
+        emitted.push_back(std::move(e));
+    }
+
+    auto cm = impl_->storage->commit_transaction();
+    if (!cm) {
+        (void)impl_->storage->rollback_transaction();
+        return cm.error();
+    }
+
+    // Promote the working state on success.
+    impl_->head = working_prev;
+    impl_->length.store(working_seq);
+
+    // Snapshot subscribers under sub_mu, fire without it. Order: same
+    // as registration; events: in seq-ascending order across the batch.
+    std::vector<Subscriber> snap;
+    {
+        std::lock_guard<std::mutex> lk2(impl_->sub_mu);
+        snap.reserve(impl_->subs.size());
+        for (const auto& [_, cb] : impl_->subs) snap.push_back(cb);
+    }
+    for (const auto& cb : snap) {
+        for (const auto& entry : emitted) {
+            try { cb(entry); } catch (...) { /* swallow */ }
+        }
+    }
+
+    return emitted;
+}
+
 Result<LedgerEntry> Ledger::at(std::uint64_t seq) const {
     return impl_->storage->select_at(seq);
 }
