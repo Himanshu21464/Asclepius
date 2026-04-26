@@ -117,22 +117,38 @@ private:
 class MetricRegistry {
 public:
     void  inc(std::string_view name, std::uint64_t delta = 1);
+
+    // Record a measurement into a histogram. Buckets are exponential with
+    // bases at the supplied list (le upper bounds). If a histogram of this
+    // name already exists, value is added; otherwise it's created with the
+    // default latency-shaped bucket set:
+    //   0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, +Inf
     void  observe(std::string_view name, double value);
+
     std::uint64_t count(std::string_view name) const;
 
     // JSON-shaped snapshot.
     std::string snapshot_json() const;
 
-    // Prometheus 0.0.4 text exposition format. Emits one HELP + TYPE pair
-    // followed by a single sample line per counter, with names sanitized
-    // to [a-zA-Z_:][a-zA-Z0-9_:]* per the spec. The output is suitable for
-    // serving directly at /metrics from an HTTP handler that sets
-    // Content-Type: text/plain; version=0.0.4; charset=utf-8.
+    // Prometheus 0.0.4 text exposition format. Emits HELP + TYPE pair
+    // followed by sample lines per metric. Counters get one sample;
+    // histograms get one _bucket{le="…"} line per cumulative bucket plus
+    // _sum and _count. Names sanitized to [a-zA-Z_:][a-zA-Z0-9_:]*. Output
+    // is suitable for serving at /metrics with Content-Type:
+    // text/plain; version=0.0.4; charset=utf-8.
     std::string snapshot_prometheus() const;
 
 private:
-    mutable std::mutex                          mu_;
-    std::unordered_map<std::string, std::uint64_t> counters_;
+    struct Hist {
+        std::vector<double>        buckets;     // upper bounds, ascending
+        std::vector<std::uint64_t> bucket_counts;  // count_of(value <= buckets[i])
+        std::uint64_t              count = 0;
+        double                     sum   = 0.0;
+    };
+
+    mutable std::mutex                                mu_;
+    std::unordered_map<std::string, std::uint64_t>    counters_;
+    std::unordered_map<std::string, Hist>             histograms_;
 };
 
 }  // namespace asclepius

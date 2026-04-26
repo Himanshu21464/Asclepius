@@ -131,3 +131,40 @@ TEST_CASE("MetricRegistry Prometheus output is deterministic (sorted by key)") {
     CHECK(a < mid);
     CHECK(mid < z);
 }
+
+TEST_CASE("MetricRegistry observe() records into a real histogram") {
+    MetricRegistry m;
+    // Latency-shaped observations.
+    m.observe("inference_latency_seconds", 0.0005);  // < 0.001
+    m.observe("inference_latency_seconds", 0.003);   // 0.001 < x <= 0.005
+    m.observe("inference_latency_seconds", 0.150);   // 0.1 < x <= 0.25
+    m.observe("inference_latency_seconds", 1.2);     // 1.0 < x <= 2.5
+    m.observe("inference_latency_seconds", 100.0);   // > 5.0, lands in +Inf
+
+    CHECK(m.count("inference_latency_seconds") == 5);
+
+    auto out = m.snapshot_prometheus();
+    CHECK(out.find("# TYPE asclepius_inference_latency_seconds histogram") != std::string::npos);
+    // Cumulative buckets: at le=0.001 we have 1, at le=0.005 we have 2, ...
+    CHECK(out.find("asclepius_inference_latency_seconds_bucket{le=\"0.001\"} 1") != std::string::npos);
+    CHECK(out.find("asclepius_inference_latency_seconds_bucket{le=\"0.005\"} 2") != std::string::npos);
+    CHECK(out.find("asclepius_inference_latency_seconds_bucket{le=\"0.25\"} 3")  != std::string::npos);
+    CHECK(out.find("asclepius_inference_latency_seconds_bucket{le=\"2.5\"} 4")   != std::string::npos);
+    CHECK(out.find("asclepius_inference_latency_seconds_bucket{le=\"+Inf\"} 5")  != std::string::npos);
+    // _sum and _count present.
+    CHECK(out.find("asclepius_inference_latency_seconds_count 5")  != std::string::npos);
+    CHECK(out.find("asclepius_inference_latency_seconds_sum ")     != std::string::npos);
+}
+
+TEST_CASE("MetricRegistry counters and histograms coexist in Prometheus output") {
+    MetricRegistry m;
+    m.inc("appends_total", 10);
+    m.observe("append_latency_seconds", 0.05);
+    m.observe("append_latency_seconds", 0.07);
+
+    auto out = m.snapshot_prometheus();
+    CHECK(out.find("# TYPE asclepius_appends_total counter")             != std::string::npos);
+    CHECK(out.find("# TYPE asclepius_append_latency_seconds histogram") != std::string::npos);
+    CHECK(out.find("asclepius_appends_total 10")                          != std::string::npos);
+    CHECK(out.find("asclepius_append_latency_seconds_count 2")            != std::string::npos);
+}
