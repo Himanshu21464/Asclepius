@@ -8,6 +8,7 @@
 #include <sqlite3.h>
 
 #include <filesystem>
+#include <fstream>
 #include <random>
 
 using namespace asclepius;
@@ -241,6 +242,88 @@ TEST_CASE("Subscription handle moves correctly") {
     nlohmann::json b;
     REQUIRE(l.append("t.x", "sys", b));
     CHECK(hits == 1);  // holder still subscribed
+}
+
+TEST_CASE("JSONL export + import round-trips a chain") {
+    auto src_path = tmp_db("jsonl_src");
+    auto dst_path = tmp_db("jsonl_dst");
+
+    // Build a 5-entry chain in src.
+    {
+        auto led = Ledger::open(src_path);
+        REQUIRE(led);
+        nlohmann::json b;
+        for (int i = 0; i < 5; ++i) {
+            REQUIRE(led.value().append("t.x", "sys", b, i % 2 ? "alpha" : ""));
+        }
+        REQUIRE(led.value().verify());
+    }
+
+    // Export to JSONL.
+    auto jsonl = std::filesystem::temp_directory_path()
+               / ("asc_jsonl_" + std::to_string(std::random_device{}()) + ".jsonl");
+    auto exp = LedgerJsonl::export_to(src_path.string(), jsonl.string());
+    REQUIRE(exp);
+    CHECK(exp.value().entries_written == 5);
+    CHECK(std::filesystem::exists(jsonl));
+    CHECK(std::filesystem::file_size(jsonl) > 0);
+
+    // Read the source's signing key — destination needs the same one to verify.
+    auto src_key = src_path; src_key.replace_extension(".key");
+    std::ifstream kf(src_key);
+    std::string blob((std::istreambuf_iterator<char>(kf)), {});
+    auto key = KeyStore::deserialize(blob);
+    REQUIRE(key);
+
+    // Import into a fresh dst ledger.
+    {
+        auto led = Ledger::open(dst_path, KeyStore::deserialize(blob).value());
+        REQUIRE(led);
+    }
+    auto imp = LedgerJsonl::import_to(jsonl.string(), dst_path.string(), std::move(key.value()));
+    REQUIRE(imp);
+    CHECK(imp.value().entries_imported == 5);
+    CHECK(imp.value().dest_head.bytes == exp.value().last_entry_hash.bytes);
+
+    // Verify the destination chain with the source's key.
+    auto k2 = KeyStore::deserialize(blob);
+    REQUIRE(k2);
+    auto led2 = Ledger::open(dst_path, std::move(k2.value()));
+    REQUIRE(led2);
+    REQUIRE(led2.value().verify());
+    CHECK(led2.value().length() == 5);
+
+    std::filesystem::remove(jsonl);
+}
+
+TEST_CASE("JSONL import refuses non-empty destinations") {
+    auto src = tmp_db("jsonl_src2");
+    {
+        auto led = Ledger::open(src);
+        REQUIRE(led);
+        nlohmann::json b;
+        REQUIRE(led.value().append("t.x", "sys", b));
+    }
+    auto jsonl = std::filesystem::temp_directory_path()
+               / ("asc_jsonl_" + std::to_string(std::random_device{}()) + ".jsonl");
+    REQUIRE(LedgerJsonl::export_to(src.string(), jsonl.string()));
+
+    auto src_key = src; src_key.replace_extension(".key");
+    std::ifstream kf(src_key);
+    std::string blob((std::istreambuf_iterator<char>(kf)), {});
+    auto key = KeyStore::deserialize(blob);
+    REQUIRE(key);
+
+    auto dst = tmp_db("jsonl_dst2");
+    {
+        auto led = Ledger::open(dst);
+        REQUIRE(led);
+        nlohmann::json b;
+        REQUIRE(led.value().append("t.x", "sys", b));  // non-empty dst
+    }
+    auto imp = LedgerJsonl::import_to(jsonl.string(), dst.string(), std::move(key.value()));
+    CHECK(!imp);  // refuses
+    std::filesystem::remove(jsonl);
 }
 
 TEST_CASE("Tenant-scoped reads isolate per-tenant data") {

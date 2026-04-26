@@ -121,6 +121,59 @@ int cmd_ledger_migrate(const std::string& src_uri, const std::string& dst_uri) {
     return 0;
 }
 
+int cmd_ledger_export_jsonl(const std::string& src_uri, const std::filesystem::path& out_path) {
+    auto stats = LedgerJsonl::export_to(src_uri, out_path.string());
+    if (!stats) { fmt::print(stderr, "export-jsonl: {}\n", stats.error().what()); return 2; }
+    fmt::print("OK: wrote {} entries to {} · last_hash={}\n",
+               stats.value().entries_written, out_path.string(),
+               stats.value().last_entry_hash.hex());
+    return 0;
+}
+
+int cmd_ledger_import_jsonl(const std::filesystem::path& in_path,
+                            const std::string& dst_uri,
+                            const std::filesystem::path& key_path) {
+    if (!std::filesystem::exists(key_path)) {
+        fmt::print(stderr, "import-jsonl: key file {} not found\n", key_path.string());
+        return 2;
+    }
+    std::ifstream kf(key_path);
+    std::string blob((std::istreambuf_iterator<char>(kf)), {});
+    auto key = KeyStore::deserialize(blob);
+    if (!key) { fmt::print(stderr, "import-jsonl: bad key: {}\n", key.error().what()); return 2; }
+
+    auto stats = LedgerJsonl::import_to(in_path.string(), dst_uri, std::move(key.value()));
+    if (!stats) { fmt::print(stderr, "import-jsonl: {}\n", stats.error().what()); return 2; }
+
+    // Copy the signing key to the destination's expected key location so
+    // subsequent `ledger verify` against the destination uses the same
+    // public key the imported entries were signed with.
+    std::filesystem::path dst_key_path;
+    if (dst_uri.compare(0, 11, "postgres://") == 0
+     || dst_uri.compare(0, 13, "postgresql://") == 0) {
+        std::string db = "asclepius";
+        auto last_slash = dst_uri.rfind('/');
+        if (last_slash != std::string::npos && last_slash + 1 < dst_uri.size()) {
+            auto q = dst_uri.find('?', last_slash + 1);
+            db = dst_uri.substr(last_slash + 1,
+                                (q == std::string::npos ? dst_uri.size() : q) - last_slash - 1);
+            if (db.empty()) db = "asclepius";
+        }
+        dst_key_path = db + ".key";
+    } else {
+        dst_key_path = std::filesystem::path{dst_uri};
+        dst_key_path.replace_extension(".key");
+    }
+    std::filesystem::copy_file(key_path, dst_key_path,
+                               std::filesystem::copy_options::overwrite_existing);
+
+    fmt::print("OK: imported {} entries · dst_head={}\n"
+               "    src_key {} -> dst_key {}\n",
+               stats.value().entries_imported, stats.value().dest_head.hex(),
+               key_path.string(), dst_key_path.string());
+    return 0;
+}
+
 int cmd_metrics_export(const std::string& db) {
     // Open the ledger, walk it once to derive counter values from event
     // types, and emit Prometheus exposition format. Histograms (latency
@@ -253,6 +306,24 @@ int main(int argc, char** argv) {
         metrics->add_option("db", db_uri,
                             "ledger: SQLite path or postgres://...")->required();
         metrics->callback([&]() { std::exit(cmd_metrics_export(db_uri)); });
+    }
+    std::filesystem::path jsonl_path;
+    {
+        auto* exp = ledger->add_subcommand("export-jsonl",
+            "stream the chain as JSONL (one entry per line)");
+        exp->add_option("src", db_uri, "ledger URI")->required();
+        exp->add_option("out", jsonl_path, "output JSONL path")->required();
+        exp->callback([&]() { std::exit(cmd_ledger_export_jsonl(db_uri, jsonl_path)); });
+    }
+    std::filesystem::path key_path;
+    {
+        auto* imp = ledger->add_subcommand("import-jsonl",
+            "ingest a JSONL stream into a fresh ledger (signatures verified)");
+        imp->add_option("src",  jsonl_path, "input JSONL file")->required()->check(CLI::ExistingFile);
+        imp->add_option("dst",  db_uri,     "destination ledger URI (must be empty)")->required();
+        imp->add_option("--key", key_path,
+                        "signing key (PEM-shaped); required to validate the import")->required();
+        imp->callback([&]() { std::exit(cmd_ledger_import_jsonl(jsonl_path, db_uri, key_path)); });
     }
 
     auto* drift = app.add_subcommand("drift", "drift operations");

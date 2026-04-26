@@ -195,6 +195,41 @@ private:
     Impl* impl_ = nullptr;
 };
 
+// ---- JSONL export / import ----------------------------------------------
+//
+// One JSON object per line, emitted in seq-ascending order. Each line is
+// the canonical-JSON form of a LedgerEntry: every header field, the body,
+// the hex signature, the key id. Suitable for `jq`-driven auditing,
+// cold-storage archive, or substrate-agnostic transfer.
+//
+// Importing into a fresh ledger preserves seq, prev_hash, signatures,
+// entry hashes — i.e. the destination's verify() passes against the
+// same KeyStore the source used. Refuses non-empty destinations.
+
+struct LedgerExportStats {
+    std::uint64_t entries_written = 0;
+    Hash          last_entry_hash{};
+};
+
+struct LedgerImportStats {
+    std::uint64_t entries_imported = 0;
+    Hash          dest_head{};
+};
+
+class LedgerJsonl {
+public:
+    // Stream every entry in src, seq ASC, to out_path as JSONL. The file
+    // is created (or truncated) and closed cleanly even on early exit.
+    static Result<LedgerExportStats>
+    export_to(const std::string& src_uri, const std::string& out_path);
+
+    // Read JSONL from in_path, verify each entry's signature against the
+    // supplied KeyStore's public key, and append to dst. Stops on the
+    // first verification failure with an integrity error.
+    static Result<LedgerImportStats>
+    import_to(const std::string& in_path, const std::string& dst_uri, KeyStore key);
+};
+
 // ---- LedgerMigrator -----------------------------------------------------
 //
 // Copy a chain from one backend to another, byte-for-byte. The destination
