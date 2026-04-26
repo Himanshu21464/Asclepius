@@ -382,3 +382,49 @@ TEST_CASE("active_count vs total_count: revoked counts toward total only") {
     CHECK(r.total_count() == 3);
     CHECK(r.active_count() == 2);
 }
+
+TEST_CASE("expire_all_for_patient revokes all of one patient's tokens") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("alice");
+    auto pb = PatientId::pseudonymous("bob");
+    REQUIRE(r.grant(pa, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(pa, {Purpose::ambient_documentation}, 1h));
+    REQUIRE(r.grant(pa, {Purpose::medication_review}, 1h));
+    REQUIRE(r.grant(pb, {Purpose::triage}, 1h));
+    auto n = r.expire_all_for_patient(pa);
+    CHECK(n == 3);
+    auto perm = r.permits(pa, Purpose::triage);
+    CHECK(perm.value() == false);
+    auto perm_b = r.permits(pb, Purpose::triage);
+    CHECK(perm_b.value() == true);
+}
+
+TEST_CASE("expire_all_for_patient: no-op for unknown patient") {
+    ConsentRegistry r;
+    auto n = r.expire_all_for_patient(PatientId::pseudonymous("ghost"));
+    CHECK(n == 0);
+}
+
+TEST_CASE("expire_all_for_patient skips already-revoked tokens") {
+    ConsentRegistry r;
+    auto p  = PatientId::pseudonymous("p");
+    auto t1 = r.grant(p, {Purpose::triage}, 1h).value();
+    REQUIRE(r.grant(p, {Purpose::ambient_documentation}, 1h));
+    REQUIRE(r.revoke(t1.token_id));  // already revoked
+    auto n = r.expire_all_for_patient(p);
+    CHECK(n == 1);  // only the second one needed revoking
+}
+
+TEST_CASE("expire_all_for_patient fires the observer once per token") {
+    ConsentRegistry r;
+    int revokes = 0;
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken&) {
+        if (e == ConsentRegistry::Event::revoked) revokes++;
+    });
+    auto p = PatientId::pseudonymous("p");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(p, {Purpose::ambient_documentation}, 1h));
+    auto n = r.expire_all_for_patient(p);
+    CHECK(n == 2);
+    CHECK(revokes == 2);
+}

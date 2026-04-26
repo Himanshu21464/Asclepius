@@ -164,6 +164,24 @@ std::size_t ConsentRegistry::total_count() const {
     return by_id_.size();
 }
 
+std::size_t ConsentRegistry::expire_all_for_patient(const PatientId& patient) {
+    std::vector<ConsentToken> revoked_now;
+    Observer obs_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        for (auto& [_, t] : by_id_) {
+            if (t.patient != patient || t.revoked) continue;
+            t.revoked = true;
+            revoked_now.push_back(t);
+        }
+        obs_copy = observer_;
+    }
+    if (obs_copy) {
+        for (const auto& t : revoked_now) obs_copy(Event::revoked, t);
+    }
+    return revoked_now.size();
+}
+
 Result<ConsentToken> ConsentRegistry::extend(std::string_view     token_id,
                                              std::chrono::seconds additional_ttl) {
     if (additional_ttl.count() <= 0) {

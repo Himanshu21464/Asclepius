@@ -93,6 +93,14 @@ public:
     std::size_t active_count() const;
     std::size_t total_count() const;
 
+    // Emergency revoke all active tokens for a patient. Returns the
+    // number of tokens that were revoked (already-revoked and expired
+    // tokens are not counted, but unchanged). Fires the observer once
+    // per token revoked. Used on patient-side withdrawal of consent
+    // ("revoke everything for this patient now"); each ledger entry
+    // produced is independent so the audit chain shows the cascade.
+    std::size_t expire_all_for_patient(const PatientId& patient);
+
     // Install (or clear, by passing {}) the observer fired on grant/revoke.
     // Idempotent: repeat calls replace the previous observer.
     void set_observer(Observer obs);

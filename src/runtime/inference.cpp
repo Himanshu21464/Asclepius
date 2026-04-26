@@ -367,6 +367,12 @@ std::string Inference::status() const {
     return it->get<std::string>();
 }
 
+std::int64_t Inference::elapsed_ms() const noexcept {
+    if (!impl_) return 0;
+    auto ns = (Time::now() - impl_->ctx.started_at()).count();
+    return ns / 1'000'000;
+}
+
 Result<void> Inference::commit_idempotent(std::size_t lookback) {
     if (!impl_->completed) {
         return Error::invalid("inference.commit_idempotent called before run");

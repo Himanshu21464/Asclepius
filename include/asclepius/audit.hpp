@@ -49,6 +49,11 @@ public:
 
     // The key id is the hex of the public key truncated to 16 hex chars.
     std::string                            key_id() const;
+    // 8-byte BLAKE2b fingerprint of the public key, hex-encoded
+    // (16 hex chars). Cheaper to display than the full pubkey but
+    // collision-resistant for human comparison. Same shape as key_id()
+    // but derived from a hash, so safer to compare across deployments.
+    std::string                            fingerprint() const;
     std::array<std::uint8_t, pk_bytes>     public_key() const;
     std::array<std::uint8_t, sig_bytes>    sign(Bytes message) const;
 
@@ -305,6 +310,13 @@ public:
     // the entry at `seq` and the seq itself, or invalid_argument if
     // seq > length() or seq == 0.
     Result<HistoricalHead> head_at_seq(std::uint64_t seq) const;
+
+    // Inference-committed entries whose body's "patient" field matches
+    // the supplied PatientId. O(n) scan; cheap substring prefilter
+    // before JSON parse. Used by patient-scoped audit views ("show me
+    // every inference run on patient X").
+    Result<std::vector<LedgerEntry>>
+        range_by_patient(const std::string& patient) const;
 
     // ---- Subscription ---------------------------------------------------
     //

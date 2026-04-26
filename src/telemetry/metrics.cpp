@@ -144,6 +144,12 @@ Result<void> MetricRegistry::reset(std::string_view name) {
     return Result<void>::ok();
 }
 
+std::unordered_map<std::string, std::uint64_t>
+MetricRegistry::counter_snapshot() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    return counters_;
+}
+
 std::vector<std::string> MetricRegistry::list_counters() const {
     std::lock_guard<std::mutex> lk(mu_);
     std::vector<std::string> out;

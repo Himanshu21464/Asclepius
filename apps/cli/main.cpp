@@ -101,6 +101,32 @@ int cmd_ledger_tail_actor(const std::string& db,
     return 0;
 }
 
+int cmd_consent_list(const std::string& db) {
+    auto rt = Runtime::open_uri(db);
+    if (!rt) {
+        fmt::print(stderr, "open: {}\n", rt.error().what());
+        return 2;
+    }
+    auto snap = rt.value().consent().snapshot();
+    auto now  = Time::now();
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto& t : snap) {
+        nlohmann::json j;
+        j["token_id"]   = t.token_id;
+        j["patient"]    = std::string{t.patient.str()};
+        j["issued_at"]  = t.issued_at.iso8601();
+        j["expires_at"] = t.expires_at.iso8601();
+        j["revoked"]    = t.revoked;
+        j["active"]     = !t.revoked && t.expires_at > now;
+        nlohmann::json purposes = nlohmann::json::array();
+        for (auto p : t.purposes) purposes.push_back(to_string(p));
+        j["purposes"] = std::move(purposes);
+        arr.push_back(j);
+    }
+    std::cout << arr.dump() << '\n';
+    return 0;
+}
+
 int cmd_runtime_health(const std::string& db) {
     auto rt = Runtime::open_uri(db);
     if (!rt) {
@@ -596,6 +622,16 @@ int main(int argc, char** argv) {
         auto* verify = evidence->add_subcommand("verify", "verify a bundle file");
         verify->add_option("bundle", bundle_out)->required()->check(CLI::ExistingFile);
         verify->callback([&]() { std::exit(cmd_evidence_verify(bundle_out)); });
+    }
+
+    auto* consent = app.add_subcommand("consent", "consent registry queries");
+    consent->require_subcommand(1);
+    {
+        auto* list = consent->add_subcommand("list",
+            "emit all consent tokens (active + revoked) as JSON array");
+        list->add_option("db", db_uri,
+                         "ledger: SQLite path or postgres://...")->required();
+        list->callback([&]() { std::exit(cmd_consent_list(db_uri)); });
     }
 
     auto* policy = app.add_subcommand("policy", "policy operations");

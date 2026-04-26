@@ -313,3 +313,14 @@ TEST_CASE("MetricRegistry::reset on unknown counter returns not_found") {
     CHECK(!r);
     CHECK(r.error().code() == ErrorCode::not_found);
 }
+
+TEST_CASE("MetricRegistry::counter_snapshot returns full map") {
+    MetricRegistry m;
+    m.inc("a", 3);
+    m.inc("b", 5);
+    m.inc("a", 1);
+    auto snap = m.counter_snapshot();
+    CHECK(snap.at("a") == 4);
+    CHECK(snap.at("b") == 5);
+    CHECK(snap.size() == 2);
+}

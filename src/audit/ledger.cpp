@@ -809,6 +809,32 @@ Result<void> Ledger::verify_range(std::uint64_t start, std::uint64_t end) const 
     return Result<void>::ok();
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::range_by_patient(const std::string& patient) const {
+    if (patient.empty()) {
+        return Error::invalid("range_by_patient requires non-empty patient");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Only inference-committed events carry the "patient" body field
+        // produced by Inference::commit. Cheap prefilter on the raw body
+        // string before parsing.
+        if (e.header.event_type != "inference.committed") return true;
+        if (e.body_json.find(patient) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("patient");
+            if (it != j.end() && it->is_string() &&
+                it->get<std::string>() == patient) {
+                out.push_back(e);
+            }
+        } catch (...) {}
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
 Result<Ledger::HistoricalHead> Ledger::head_at_seq(std::uint64_t seq) const {
     if (seq == 0 || seq > impl_->length.load()) {
         return Error::invalid("head_at_seq: seq out of range");

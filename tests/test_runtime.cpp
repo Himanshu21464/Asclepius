@@ -1350,3 +1350,16 @@ TEST_CASE("Runtime::self_test on empty runtime is OK") {
     auto rt_ = fresh_runtime("self_empty"); REQUIRE(rt_);
     REQUIRE(rt_.value().self_test());
 }
+
+TEST_CASE("Inference::elapsed_ms is monotonically nondecreasing") {
+    auto rt_ = fresh_runtime("elapsed"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_elapsed");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto t1 = inf.value().elapsed_ms();
+    std::this_thread::sleep_for(std::chrono::milliseconds{15});
+    auto t2 = inf.value().elapsed_ms();
+    CHECK(t2 >= t1);
+    CHECK(t2 - t1 >= 10);
+}

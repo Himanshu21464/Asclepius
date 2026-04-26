@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Asclepius Contributors
 #include "asclepius/audit.hpp"
+#include "asclepius/hashing.hpp"
 
 #include <sodium.h>
 
@@ -135,6 +136,11 @@ Result<KeyStore> KeyStore::deserialize(std::string_view encoded) {
 
 std::string KeyStore::key_id() const {
     return hex_of(impl_->pk.data(), 8);  // first 16 hex chars
+}
+
+std::string KeyStore::fingerprint() const {
+    auto h = hash(Bytes{impl_->pk.data(), impl_->pk.size()});
+    return hex_of(h.bytes.data(), 8);
 }
 
 std::array<std::uint8_t, KeyStore::pk_bytes> KeyStore::public_key() const {

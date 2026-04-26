@@ -1816,3 +1816,55 @@ TEST_CASE("head_at_seq: out-of-range rejected") {
     CHECK(!l.head_at_seq(0));
     CHECK(!l.head_at_seq(99));
 }
+
+TEST_CASE("KeyStore::fingerprint is stable across keystore copies") {
+    auto k1 = KeyStore::generate();
+    auto fp1 = k1.fingerprint();
+    auto serialized = k1.serialize();
+    auto k2 = KeyStore::deserialize(serialized).value();
+    CHECK(k2.fingerprint() == fp1);
+    CHECK(fp1.size() == 16);  // 8 bytes hex
+}
+
+TEST_CASE("KeyStore::fingerprint differs from key_id") {
+    auto k = KeyStore::generate();
+    CHECK(k.fingerprint() != k.key_id());
+}
+
+TEST_CASE("range_by_patient finds inferences for one patient only") {
+    auto p = tmp_db("rbp_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i1"}, {"patient", "pat:alice"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i2"}, {"patient", "pat:bob"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i3"}, {"patient", "pat:alice"}}, ""));
+    auto r = l.range_by_patient("pat:alice"); REQUIRE(r);
+    CHECK(r.value().size() == 2);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    CHECK(b0["inference_id"] == "i1");
+    CHECK(b1["inference_id"] == "i3");
+}
+
+TEST_CASE("range_by_patient skips non-inference events") {
+    auto p = tmp_db("rbp_skip");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("consent.granted", "x",
+        nlohmann::json{{"patient", "pat:alice"}}, ""));
+    REQUIRE(l.append("inference.committed", "x",
+        nlohmann::json{{"inference_id", "i1"}, {"patient", "pat:alice"}}, ""));
+    auto r = l.range_by_patient("pat:alice"); REQUIRE(r);
+    CHECK(r.value().size() == 1);
+}
+
+TEST_CASE("range_by_patient empty patient rejected") {
+    auto p = tmp_db("rbp_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().range_by_patient("");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}

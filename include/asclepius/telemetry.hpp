@@ -177,6 +177,11 @@ public:
     // if no such counter exists. Histograms are not affected.
     Result<void> reset(std::string_view name);
 
+    // Snapshot of all counters as a map of {name: value}. O(n) copy;
+    // suitable for diff'ing across two points in time without parsing
+    // the prometheus exposition.
+    std::unordered_map<std::string, std::uint64_t> counter_snapshot() const;
+
 private:
     struct Hist {
         std::vector<double>        buckets;     // upper bounds, ascending

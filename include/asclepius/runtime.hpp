@@ -188,6 +188,11 @@ public:
     // what would be written if commit() were called now.
     std::string status() const;
 
+    // Wallclock milliseconds elapsed since started_at(). Convenience
+    // sugar for sidecar dashboards that don't want to convert
+    // chrono::nanoseconds manually each time.
+    std::int64_t elapsed_ms() const noexcept;
+
     const InferenceContext& ctx() const noexcept;
 
 private:
