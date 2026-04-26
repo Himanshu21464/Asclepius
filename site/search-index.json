@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T07:11:23Z",
+  "generated_at": "2026-04-26T07:16:32Z",
   "count": 47,
   "pages": [
     {
@@ -542,6 +542,7 @@
       "title": "Quickstart — Asclepius",
       "description": "From zero to a signed inference in five minutes. C++ · Python · CLI · Docker. The first wrap, the first append, the first verify.",
       "headings": [
+        "Pick your stack.",
         "Get the library.",
         "Open a runtime, push policies.",
         "Sign one entry.",

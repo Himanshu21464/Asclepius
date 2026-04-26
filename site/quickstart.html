@@ -59,9 +59,19 @@
 .qs-clock__cell b { display: block; color: var(--primary); font-weight: 500; font-size: 1.1rem; margin-bottom: .15rem; font-family: var(--font-serif); }
 .qs-clock__cell.is-now { border-color: var(--primary); background: rgba(181,123,255,.05); }
 
+.qs-section-h2 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    line-height: 1.1;
+    color: var(--ink-warm);
+    margin: 2rem 0 0;
+}
+.qs-section-h2 i { color: var(--primary); font-style: italic; }
+
 .qs-tabs {
     display: flex; gap: 0;
-    margin: 2rem 0 0;
+    margin: 1rem 0 0;
     border-bottom: 1px solid var(--rule);
     flex-wrap: wrap;
 }
@@ -284,6 +294,7 @@
 </section>
 
 <section class="container">
+  <h2 class="qs-section-h2">Pick your <i>stack.</i></h2>
   <div class="qs-tabs" role="tablist" aria-label="quickstart stack">
     <button role="tab" class="is-active" data-pane="qs-cpp">C++</button>
     <button role="tab" data-pane="qs-py">Python</button>

@@ -542,6 +542,80 @@ ok(`every internal link resolves (${htmlPages.length} pages walked)`, () => {
     return linkIssues.length === 0;
 });
 
+// ─── accessibility — every input has an accessible name ────────────────
+// WCAG 2.2 SC 4.1.2: every form control needs a programmatically-determined
+// name. Acceptable sources: aria-label, aria-labelledby, a wrapping <label>,
+// or a sibling <label for="X"> where X matches the input id. Hidden inputs
+// (type="hidden") and submit/button types with a `value` attribute are
+// exempt; everything else must have one.
+
+console.log('a11y — input accessible names:');
+const a11yIssues = [];
+const LABEL_FOR_RE = /<label[^>]*\bfor="([^"]+)"/g;
+
+for (const f of htmlPages) {
+    const stripped = rawByPage.get(f);
+    const labelTargets = new Set([...stripped.matchAll(LABEL_FOR_RE)].map((m) => m[1]));
+    for (const m of stripped.matchAll(/<input\b([^>]*)>/g)) {
+        const attrs = m[1];
+        const typeM = /\btype="([^"]+)"/.exec(attrs);
+        const type = typeM ? typeM[1] : 'text';
+        if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') continue;
+        if (/\baria-label(?:ledby)?=/.test(attrs)) continue;
+        const idM = /\bid="([^"]+)"/.exec(attrs);
+        if (idM && labelTargets.has(idM[1])) continue;
+        a11yIssues.push(`${f}: <input type="${type}"${idM ? ` id="${idM[1]}"` : ''}> has no accessible name`);
+    }
+    for (const m of stripped.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
+        const attrs = m[1];
+        const inner = m[2].replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, '').trim();
+        if (/\baria-label(?:ledby)?=/.test(attrs)) continue;
+        if (inner.length > 0) continue;
+        a11yIssues.push(`${f}: empty <button> has no accessible name`);
+    }
+    for (const m of stripped.matchAll(/<img\b([^>]*)>/g)) {
+        if (!/\balt=/.test(m[1])) {
+            a11yIssues.push(`${f}: <img> missing alt`);
+        }
+    }
+}
+
+ok(`every input/button/img has accessible name (${htmlPages.length} pages)`, () => {
+    if (a11yIssues.length) {
+        console.error('   issues:\n' + a11yIssues.slice(0, 10).map((l) => '     ' + l).join('\n'));
+    }
+    return a11yIssues.length === 0;
+});
+
+// ─── heading hierarchy — h1 → h2 → h3 with no skipped levels ───────────
+// WCAG 2.4.6 + 1.3.1: heading levels create a document outline; jumping
+// from h1 to h3 (skipping h2) breaks screen-reader navigation. We allow
+// jumping back UP (h3 → h2) but never DOWN past one level.
+
+console.log('heading hierarchy:');
+const headingIssues = [];
+for (const f of htmlPages) {
+    const stripped = rawByPage.get(f);
+    const bodyIdx = stripped.indexOf('<body');
+    const body = bodyIdx >= 0 ? stripped.slice(bodyIdx) : stripped;
+    const levels = [...body.matchAll(/<h([1-6])\b/g)].map((m) => Number(m[1]));
+    if (!levels.length) continue;
+    if (levels[0] !== 1) {
+        headingIssues.push(`${f}: starts at h${levels[0]} (should start at h1)`);
+    }
+    for (let i = 1; i < levels.length; i++) {
+        if (levels[i] > levels[i - 1] + 1) {
+            headingIssues.push(`${f}: h${levels[i - 1]} → h${levels[i]} (skipped a level)`);
+        }
+    }
+}
+ok(`no skipped heading levels (${htmlPages.length} pages)`, () => {
+    if (headingIssues.length) {
+        console.error('   issues:\n' + headingIssues.slice(0, 10).map((l) => '     ' + l).join('\n'));
+    }
+    return headingIssues.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
