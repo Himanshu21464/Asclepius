@@ -23,11 +23,38 @@
 
 #include <libpq-fe.h>
 
-#include <arpa/inet.h>  // htobe64
 #include <cstring>
-#include <endian.h>
 #include <fmt/core.h>
 #include <utility>
+
+// Portable host-to-big-endian / be-to-host for 64-bit integers. libpq's
+// binary parameter format requires network-byte-order (big-endian); we
+// can't depend on <endian.h> (Linux glibc only) or <libkern/OSByteOrder.h>
+// (macOS only). C++20 doesn't have std::byteswap until C++23, so we
+// provide our own. Renamed away from htobe64/be64toh to avoid clashing
+// with the glibc macros of those names.
+namespace {
+inline std::uint64_t bswap64(std::uint64_t v) noexcept {
+    return ((v & 0x00000000000000FFULL) << 56) |
+           ((v & 0x000000000000FF00ULL) << 40) |
+           ((v & 0x0000000000FF0000ULL) << 24) |
+           ((v & 0x00000000FF000000ULL) << 8)  |
+           ((v & 0x000000FF00000000ULL) >> 8)  |
+           ((v & 0x0000FF0000000000ULL) >> 24) |
+           ((v & 0x00FF000000000000ULL) >> 40) |
+           ((v & 0xFF00000000000000ULL) >> 56);
+}
+inline bool is_little_endian() noexcept {
+    constexpr std::uint16_t probe = 0x1;
+    return *reinterpret_cast<const std::uint8_t*>(&probe) == 0x1;
+}
+inline std::uint64_t pg_htobe64(std::uint64_t v) noexcept {
+    return is_little_endian() ? bswap64(v) : v;
+}
+inline std::uint64_t pg_be64toh(std::uint64_t v) noexcept {
+    return is_little_endian() ? bswap64(v) : v;
+}
+}  // namespace
 
 namespace asclepius::detail {
 
@@ -70,7 +97,7 @@ LedgerEntry row_to_entry(PGresult* res, int r) {
     auto read_u64 = [&](int c) -> std::uint64_t {
         std::uint64_t be;
         std::memcpy(&be, PQgetvalue(res, r, c), sizeof(be));
-        return be64toh(be);
+        return pg_be64toh(be);
     };
     auto read_bytea = [&](int c, void* dst, std::size_t n) {
         if (PQgetlength(res, r, c) >= static_cast<int>(n)) {
@@ -126,10 +153,10 @@ public:
 
     Result<void> insert_entry(const LedgerEntry& e, const Hash& entry_h) override {
         // Param order matches the INSERT below.
-        std::uint64_t seq_be = htobe64(e.header.seq);
+        std::uint64_t seq_be = pg_htobe64(e.header.seq);
         std::int64_t  ts_be_signed;
         {
-            auto u = htobe64(static_cast<std::uint64_t>(e.header.ts.nanos_since_epoch()));
+            auto u = pg_htobe64(static_cast<std::uint64_t>(e.header.ts.nanos_since_epoch()));
             std::memcpy(&ts_be_signed, &u, sizeof(ts_be_signed));
         }
 
@@ -192,7 +219,7 @@ public:
         if (PQntuples(r) > 0) {
             std::uint64_t be;
             std::memcpy(&be, PQgetvalue(r, 0, 0), sizeof(be));
-            result.first = be64toh(be);
+            result.first = pg_be64toh(be);
             int n = PQgetlength(r, 0, 1);
             if (n == static_cast<int>(Hash::size)) {
                 std::memcpy(result.second.bytes.data(), PQgetvalue(r, 0, 1), Hash::size);
@@ -203,7 +230,7 @@ public:
     }
 
     Result<LedgerEntry> select_at(std::uint64_t seq) override {
-        std::uint64_t seq_be = htobe64(seq);
+        std::uint64_t seq_be = pg_htobe64(seq);
         const char* values[1] = { reinterpret_cast<const char*>(&seq_be) };
         int lengths[1] = { sizeof(seq_be) };
         int formats[1] = { 1 };
@@ -227,7 +254,7 @@ public:
     Result<std::vector<LedgerEntry>> select_tail(std::size_t n) override {
         std::int64_t lim_be;
         {
-            auto u = htobe64(static_cast<std::uint64_t>(n));
+            auto u = pg_htobe64(static_cast<std::uint64_t>(n));
             std::memcpy(&lim_be, &u, sizeof(lim_be));
         }
         const char* values[1] = { reinterpret_cast<const char*>(&lim_be) };
@@ -238,8 +265,8 @@ public:
     }
 
     Result<std::vector<LedgerEntry>> select_range(std::uint64_t start, std::uint64_t end) override {
-        std::uint64_t s_be = htobe64(start);
-        std::uint64_t e_be = htobe64(end);
+        std::uint64_t s_be = pg_htobe64(start);
+        std::uint64_t e_be = pg_htobe64(end);
         const char* values[2] = {
             reinterpret_cast<const char*>(&s_be),
             reinterpret_cast<const char*>(&e_be),
@@ -260,9 +287,9 @@ public:
                                                        std::int64_t to_ns) override {
         std::int64_t f_be, t_be;
         {
-            auto u = htobe64(static_cast<std::uint64_t>(from_ns));
+            auto u = pg_htobe64(static_cast<std::uint64_t>(from_ns));
             std::memcpy(&f_be, &u, sizeof(f_be));
-            u = htobe64(static_cast<std::uint64_t>(to_ns));
+            u = pg_htobe64(static_cast<std::uint64_t>(to_ns));
             std::memcpy(&t_be, &u, sizeof(t_be));
         }
         const char* values[2] = {
@@ -280,7 +307,7 @@ public:
                                                             std::size_t n) override {
         std::int64_t lim_be;
         {
-            auto u = htobe64(static_cast<std::uint64_t>(n));
+            auto u = pg_htobe64(static_cast<std::uint64_t>(n));
             std::memcpy(&lim_be, &u, sizeof(lim_be));
         }
         const char* values[2] = {
@@ -297,8 +324,8 @@ public:
     Result<std::vector<LedgerEntry>> select_range_for_tenant(const std::string& tenant,
                                                              std::uint64_t start,
                                                              std::uint64_t end) override {
-        std::uint64_t s_be = htobe64(start);
-        std::uint64_t e_be = htobe64(end);
+        std::uint64_t s_be = pg_htobe64(start);
+        std::uint64_t e_be = pg_htobe64(end);
         const char* values[3] = {
             tenant.c_str(),
             reinterpret_cast<const char*>(&s_be),
