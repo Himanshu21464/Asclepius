@@ -174,6 +174,32 @@ int cmd_ledger_import_jsonl(const std::filesystem::path& in_path,
     return 0;
 }
 
+int cmd_ledger_checkpoint(const std::string& db) {
+    auto led = Ledger::open_uri(db);
+    if (!led) { fmt::print(stderr, "open: {}\n", led.error().what()); return 2; }
+    auto cp = led.value().checkpoint();
+    fmt::print("{}\n", cp.to_json());
+    return 0;
+}
+
+int cmd_ledger_verify_checkpoint(const std::filesystem::path& path) {
+    std::ifstream in(path);
+    if (!in) { fmt::print(stderr, "open: {}\n", path.string()); return 2; }
+    std::string blob((std::istreambuf_iterator<char>(in)), {});
+    auto cp = LedgerCheckpoint::from_json(blob);
+    if (!cp) { fmt::print(stderr, "parse: {}\n", cp.error().what()); return 2; }
+    auto v = verify_checkpoint(cp.value());
+    if (!v) {
+        fmt::print(stderr, "INVALID: {} ({})\n",
+                   v.error().what(), to_string(v.error().code()));
+        return 1;
+    }
+    fmt::print("OK: seq={} head={} ts={} key_id={}\n",
+               cp.value().seq, cp.value().head_hash.hex(),
+               cp.value().ts.iso8601(), cp.value().key_id);
+    return 0;
+}
+
 int cmd_metrics_export(const std::string& db) {
     // Open the ledger, walk it once to derive counter values from event
     // types, and emit Prometheus exposition format. Histograms (latency
@@ -314,6 +340,20 @@ int main(int argc, char** argv) {
         exp->add_option("src", db_uri, "ledger URI")->required();
         exp->add_option("out", jsonl_path, "output JSONL path")->required();
         exp->callback([&]() { std::exit(cmd_ledger_export_jsonl(db_uri, jsonl_path)); });
+    }
+    {
+        auto* cp = ledger->add_subcommand("checkpoint",
+            "emit a tiny signed attestation of the chain head (CT-style beacon)");
+        cp->add_option("db", db_uri, "ledger URI")->required();
+        cp->callback([&]() { std::exit(cmd_ledger_checkpoint(db_uri)); });
+    }
+    std::filesystem::path cp_path;
+    {
+        auto* vc = ledger->add_subcommand("verify-checkpoint",
+            "verify a checkpoint signature (no ledger needed)");
+        vc->add_option("checkpoint", cp_path, "checkpoint JSON file")
+          ->required()->check(CLI::ExistingFile);
+        vc->callback([&]() { std::exit(cmd_ledger_verify_checkpoint(cp_path)); });
     }
     std::filesystem::path key_path;
     {

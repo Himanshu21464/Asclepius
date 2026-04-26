@@ -346,6 +346,145 @@ std::array<std::uint8_t, KeyStore::sig_bytes> Ledger::sign_attestation(Bytes mes
     return impl_->signer.sign(message);
 }
 
+// ---- Checkpoint helpers -------------------------------------------------
+
+namespace {
+
+// Canonical signing input: (seq, head_hash_hex, ts_ns, key_id) packed as
+// JSON with sorted keys, no whitespace. Bit-equal across hosts.
+std::string checkpoint_sign_input(std::uint64_t seq,
+                                  const Hash&   head,
+                                  Time          ts,
+                                  std::string_view key_id) {
+    json j;
+    j["head_hash"] = head.hex();
+    j["key_id"]    = std::string{key_id};
+    j["seq"]       = seq;
+    j["ts_ns"]     = ts.nanos_since_epoch();
+    return j.dump(/*indent=*/-1, /*indent_char=*/' ', /*ensure_ascii=*/false,
+                  json::error_handler_t::strict);
+}
+
+std::string b64_encode(std::span<const std::uint8_t> in) {
+    static const char* a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    out.reserve(((in.size() + 2) / 3) * 4);
+    for (std::size_t i = 0; i < in.size(); i += 3) {
+        std::uint32_t v = std::uint32_t(in[i]) << 16;
+        if (i + 1 < in.size()) v |= std::uint32_t(in[i + 1]) << 8;
+        if (i + 2 < in.size()) v |= std::uint32_t(in[i + 2]);
+        out.push_back(a[(v >> 18) & 0x3F]);
+        out.push_back(a[(v >> 12) & 0x3F]);
+        out.push_back(i + 1 < in.size() ? a[(v >> 6) & 0x3F] : '=');
+        out.push_back(i + 2 < in.size() ? a[(v >> 0) & 0x3F] : '=');
+    }
+    return out;
+}
+
+bool b64_decode(std::string_view in, std::vector<std::uint8_t>& out) {
+    auto val = [](char c) -> int {
+        if (c >= 'A' && c <= 'Z') return c - 'A';
+        if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+        if (c >= '0' && c <= '9') return c - '0' + 52;
+        if (c == '+') return 62;
+        if (c == '/') return 63;
+        return -1;
+    };
+    out.clear();
+    if (in.size() % 4 != 0) return false;
+    out.reserve(in.size() / 4 * 3);
+    for (std::size_t i = 0; i < in.size(); i += 4) {
+        int a0 = val(in[i]),     a1 = val(in[i + 1]);
+        int a2 = in[i + 2] == '=' ? 0 : val(in[i + 2]);
+        int a3 = in[i + 3] == '=' ? 0 : val(in[i + 3]);
+        if (a0 < 0 || a1 < 0 || a2 < 0 || a3 < 0) return false;
+        std::uint32_t v = std::uint32_t(a0) << 18
+                        | std::uint32_t(a1) << 12
+                        | std::uint32_t(a2) << 6
+                        | std::uint32_t(a3);
+        out.push_back(static_cast<std::uint8_t>(v >> 16));
+        if (in[i + 2] != '=') out.push_back(static_cast<std::uint8_t>(v >> 8));
+        if (in[i + 3] != '=') out.push_back(static_cast<std::uint8_t>(v));
+    }
+    return true;
+}
+
+}  // namespace
+
+std::string LedgerCheckpoint::to_json() const {
+    json j;
+    j["seq"]        = seq;
+    j["head_hash"]  = head_hash.hex();
+    j["ts_ns"]      = ts.nanos_since_epoch();
+    j["key_id"]     = key_id;
+    j["signature"]  = b64_encode({signature.data(), signature.size()});
+    j["public_key"] = b64_encode({public_key.data(), public_key.size()});
+    return j.dump();
+}
+
+Result<LedgerCheckpoint> LedgerCheckpoint::from_json(std::string_view s) {
+    LedgerCheckpoint cp;
+    try {
+        auto j = json::parse(s);
+        cp.seq    = j.at("seq").get<std::uint64_t>();
+        std::string head_hex = j.at("head_hash").get<std::string>();
+        if (head_hex.size() != Hash::size * 2) return Error::invalid("head_hash hex size");
+        // hex -> bytes
+        auto valc = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return -1;
+        };
+        for (std::size_t i = 0; i < Hash::size; ++i) {
+            int hi = valc(head_hex[2 * i]);
+            int lo = valc(head_hex[2 * i + 1]);
+            if (hi < 0 || lo < 0) return Error::invalid("head_hash hex");
+            cp.head_hash.bytes[i] = static_cast<std::uint8_t>((hi << 4) | lo);
+        }
+        cp.ts     = Time{j.at("ts_ns").get<std::int64_t>()};
+        cp.key_id = j.at("key_id").get<std::string>();
+        std::vector<std::uint8_t> sig, pk;
+        if (!b64_decode(j.at("signature").get<std::string>(), sig)
+         || sig.size() != KeyStore::sig_bytes)
+            return Error::invalid("signature b64 size");
+        if (!b64_decode(j.at("public_key").get<std::string>(), pk)
+         || pk.size() != KeyStore::pk_bytes)
+            return Error::invalid("public_key b64 size");
+        std::memcpy(cp.signature.data(), sig.data(), KeyStore::sig_bytes);
+        std::memcpy(cp.public_key.data(), pk.data(), KeyStore::pk_bytes);
+    } catch (const std::exception& ex) {
+        return Error::invalid(std::string{"checkpoint json: "} + ex.what());
+    }
+    return cp;
+}
+
+LedgerCheckpoint Ledger::checkpoint() const {
+    LedgerCheckpoint cp;
+    cp.seq        = impl_->length.load();
+    cp.head_hash  = impl_->head;
+    cp.ts         = Time::now();
+    cp.key_id     = impl_->key_id;
+    cp.public_key = impl_->public_key;
+    auto inp      = checkpoint_sign_input(cp.seq, cp.head_hash, cp.ts, cp.key_id);
+    cp.signature  = impl_->signer.sign(
+        Bytes{reinterpret_cast<const std::uint8_t*>(inp.data()), inp.size()});
+    return cp;
+}
+
+Result<void> verify_checkpoint(const LedgerCheckpoint& cp) {
+    auto inp = checkpoint_sign_input(cp.seq, cp.head_hash, cp.ts, cp.key_id);
+    if (!KeyStore::verify(
+            Bytes{reinterpret_cast<const std::uint8_t*>(inp.data()), inp.size()},
+            std::span<const std::uint8_t, KeyStore::sig_bytes>{
+                cp.signature.data(), cp.signature.size()},
+            std::span<const std::uint8_t, KeyStore::pk_bytes>{
+                cp.public_key.data(), cp.public_key.size()})) {
+        return Error::integrity("checkpoint signature does not match public key");
+    }
+    return Result<void>::ok();
+}
+
 // ---- Subscription -------------------------------------------------------
 
 Ledger::Subscription::Subscription(Subscription&& other) noexcept

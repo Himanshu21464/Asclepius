@@ -244,6 +244,73 @@ TEST_CASE("Subscription handle moves correctly") {
     CHECK(hits == 1);  // holder still subscribed
 }
 
+TEST_CASE("Ledger checkpoint signs the head and verifies offline") {
+    auto p   = tmp_db("checkpoint");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append("t.x", "sys", b));
+    REQUIRE(led.value().append("t.y", "sys", b));
+    REQUIRE(led.value().append("t.z", "sys", b));
+
+    auto cp = led.value().checkpoint();
+    CHECK(cp.seq == 3);
+    CHECK(cp.head_hash == led.value().head());
+    CHECK(cp.key_id == led.value().key_id());
+
+    // verify_checkpoint requires no ledger access — pure crypto.
+    auto v = verify_checkpoint(cp);
+    REQUIRE(v);
+}
+
+TEST_CASE("Checkpoint round-trips through JSON") {
+    auto p   = tmp_db("cp_json");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append("t.a", "sys", b));
+
+    auto cp = led.value().checkpoint();
+    auto serialized = cp.to_json();
+    auto parsed     = LedgerCheckpoint::from_json(serialized);
+    REQUIRE(parsed);
+    CHECK(parsed.value().seq == cp.seq);
+    CHECK(parsed.value().head_hash == cp.head_hash);
+    CHECK(parsed.value().key_id == cp.key_id);
+    CHECK(parsed.value().signature == cp.signature);
+    CHECK(parsed.value().public_key == cp.public_key);
+    REQUIRE(verify_checkpoint(parsed.value()));
+}
+
+TEST_CASE("Checkpoint with tampered head_hash fails verify") {
+    auto p   = tmp_db("cp_tamper");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append("t.a", "sys", b));
+
+    auto cp = led.value().checkpoint();
+    REQUIRE(verify_checkpoint(cp));
+
+    // Flip a byte in head_hash — signature no longer matches.
+    cp.head_hash.bytes[0] ^= 0x42;
+    auto v = verify_checkpoint(cp);
+    CHECK(!v);
+}
+
+TEST_CASE("Checkpoint with tampered signature fails verify") {
+    auto p   = tmp_db("cp_sig");
+    auto led = Ledger::open(p);
+    REQUIRE(led);
+    nlohmann::json b;
+    REQUIRE(led.value().append("t.a", "sys", b));
+
+    auto cp = led.value().checkpoint();
+    cp.signature[0] ^= 0xFF;
+    auto v = verify_checkpoint(cp);
+    CHECK(!v);
+}
+
 TEST_CASE("JSONL export + import round-trips a chain") {
     auto src_path = tmp_db("jsonl_src");
     auto dst_path = tmp_db("jsonl_dst");

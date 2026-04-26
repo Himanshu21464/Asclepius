@@ -82,6 +82,22 @@ struct LedgerEntry {
     Hash entry_hash() const;  // hash(header || body || sig || key_id)
 };
 
+// ---- Checkpoint (declared before Ledger so Ledger::checkpoint() can name it) -
+
+struct LedgerCheckpoint {
+    std::uint64_t                                 seq{};
+    Hash                                          head_hash{};
+    Time                                          ts{};
+    std::string                                   key_id;
+    std::array<std::uint8_t, KeyStore::sig_bytes> signature{};
+    std::array<std::uint8_t, KeyStore::pk_bytes>  public_key{};
+
+    std::string to_json() const;
+    static Result<LedgerCheckpoint> from_json(std::string_view s);
+};
+
+Result<void> verify_checkpoint(const LedgerCheckpoint& cp);
+
 // ---- Ledger --------------------------------------------------------------
 //
 // An append-only, Merkle-chained, Ed25519-signed event log persisted to a
@@ -156,6 +172,11 @@ public:
     // prev_hash, and the canonical entry encoding, none of which this method
     // generates.
     std::array<std::uint8_t, KeyStore::sig_bytes> sign_attestation(Bytes message) const;
+
+    // Produce a checkpoint for the current chain head. Self-contained
+    // proof that this signing key (whose pubkey is embedded) attested
+    // to the seq/head_hash pair at the returned ts.
+    LedgerCheckpoint checkpoint() const;
 
     // ---- Subscription ---------------------------------------------------
     //
