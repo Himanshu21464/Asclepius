@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T07:47:39Z",
+  "generated_at": "2026-04-26T07:49:29Z",
   "algorithm": "SHA-256",
   "count": 89,
   "files": {
@@ -24,8 +24,8 @@
       "bytes": 37854
     },
     "architecture.html": {
-      "sha256": "94725bf0c47ab3ab4b5f5ea244f072315d4bebaa20c0528ba5cc5e575ad58521",
-      "bytes": 24349
+      "sha256": "9fcd0defe93b4a1c7669a5c3b3aff6cfcf88db76b4c74fd2ea90aecb50d41b78",
+      "bytes": 24479
     },
     "assets/apple-touch-icon.png": {
       "sha256": "db96009398e8d877d5529dbdfa9333064080e1486dbd90e35fe0768e3edb0bf8",
@@ -100,8 +100,8 @@
       "bytes": 22262
     },
     "changelog.html": {
-      "sha256": "e2080d46d28d0b6c80f9a28abf68fc0963026dd8eef269a8b30c307a8c9658dd",
-      "bytes": 23269
+      "sha256": "cdccfeae2ff923065c837463ec8d7a3fc45df8d238e097d32c95de913fbe7bb2",
+      "bytes": 23630
     },
     "cheatsheet.html": {
       "sha256": "a724489fdec01031451e3775d34d795747fc3aa33750e4992a4c4872d7a78dcf",
@@ -264,8 +264,8 @@
       "bytes": 33394
     },
     "press.html": {
-      "sha256": "b3d1f204ecc8244a20bbbc00a271675b34284d36b1381ef28127d5907cbed165",
-      "bytes": 24240
+      "sha256": "c5106732cc857fe01278c254c2089100f19e7195fa4c8799ae683c14fdd5c127",
+      "bytes": 24259
     },
     "principles.html": {
       "sha256": "0dfa9b8accd938d961beeb2dd4464fdb9de7c74af2c0837cfdd91a50b4e81f58",
@@ -308,8 +308,8 @@
       "bytes": 14418
     },
     "sitegraph.html": {
-      "sha256": "b84683cb60636a2008ceb98a18be85a0bf826d5761de4f615a8ece12c1d5109a",
-      "bytes": 18324
+      "sha256": "3eaecd20a5c6ca549ea4f1c2d41dd5fbe57fc8e14d9bc6c013e17ddc0fb2cf18",
+      "bytes": 18425
     },
     "sitemap.html": {
       "sha256": "8055ec891b27a2b7b18b213ebb5f6dca7529288895079ba9a875319e583a20f6",
@@ -324,11 +324,11 @@
       "bytes": 15466
     },
     "status.html": {
-      "sha256": "89a308b29359eb867e7c79c036d71520a39c04cd57b5acd4186bff52f41409f9",
-      "bytes": 21453
+      "sha256": "e63b2b4adecc86ade0764376730b3fc39b4058252fdeb24f5de5a5d3d4a143bf",
+      "bytes": 21472
     },
     "status.json": {
-      "sha256": "8483db6e510b5e8ab32c4d85ac87b7b661914674be771d611490d0334bd99c42",
+      "sha256": "216b45b169884eef68a94891d31a4239ca6bf9abe17ecde949ab3800a5fc2e78",
       "bytes": 1045
     },
     "styles.css": {

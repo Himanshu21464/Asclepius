@@ -1051,6 +1051,38 @@ ok(`no placeholder <a href="#">label</a> anchors`, () => {
     return placeholderIssues.length === 0;
 });
 
+// ─── inline SVG accessibility — every <svg> is hidden or labeled ───────
+// Inline SVGs in body content must be one of:
+//   - aria-hidden="true"           (decorative)
+//   - role="img" + aria-label="…"  (meaningful)
+//   - role="img" + <title>…</title> (meaningful)
+// Otherwise screen readers either skip them silently or announce them
+// uselessly. Round 37's audit found 23 unannotated SVGs.
+
+console.log('inline SVG accessibility:');
+const svgIssues = [];
+for (const f of htmlPages) {
+    const stripped = rawByPage.get(f);
+    const bodyIdx = stripped.indexOf('<body');
+    if (bodyIdx < 0) continue;
+    const body = stripped.slice(bodyIdx);
+    for (const m of body.matchAll(/<svg\b([^>]*)>/g)) {
+        const attrs = m[1];
+        if (/\baria-hidden=/.test(attrs)) continue;
+        if (/\brole="img"/.test(attrs) && /\baria-label(?:ledby)?=/.test(attrs)) continue;
+        // Check for child <title> within first 200 bytes after open tag
+        const tail = body.slice(m.index + m[0].length, m.index + m[0].length + 200);
+        if (/<title\b/.test(tail)) continue;
+        svgIssues.push(`${f}: <svg> without aria-hidden, aria-label, or <title>`);
+    }
+}
+ok(`every inline <svg> declares accessibility intent`, () => {
+    if (svgIssues.length) {
+        console.error('   issues:\n' + svgIssues.slice(0, 8).map((l) => '     ' + l).join('\n'));
+    }
+    return svgIssues.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
