@@ -32,20 +32,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev libsqlite3-dev libpq-dev postgresql ninja-build
+          sudo apt-get install -y libsodium-dev libsqlite3-dev ninja-build
           if [[ "${{ matrix.cxx }}" == clang++-18 ]]; then
             sudo apt-get install -y clang-18
           fi
 
       - name: Install system deps (macOS)
         if: runner.os == 'macOS'
-        run: brew install libsodium sqlite libpq ninja
-
-      - name: Set libpq path for macOS find_package
-        if: runner.os == 'macOS'
-        run: |
-          echo "PostgreSQL_ROOT=$(brew --prefix libpq)" >> $GITHUB_ENV
-          echo "$(brew --prefix libpq)/bin" >> $GITHUB_PATH
+        run: brew install libsodium sqlite ninja
 
       - name: Configure
         env:
@@ -69,90 +63,6 @@ jobs:
 
       - name: Smoke — bench (small N)
         run: ./build/examples/04_bench/example_bench --n 1000
-
-  sqlite-only-build:
-    name: SQLite-only build (ASCLEPIUS_WITH_POSTGRES=OFF)
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install build deps (no libpq)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsodium-dev libsqlite3-dev ninja-build
-
-      - name: Configure (PG off)
-        run: |
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DASCLEPIUS_WITH_POSTGRES=OFF \
-            -DASCLEPIUS_BUILD_TESTS=ON \
-            -DASCLEPIUS_BUILD_EXAMPLES=ON \
-            -DASCLEPIUS_BUILD_CLI=ON
-
-      - name: Build
-        run: cmake --build build -j
-
-      - name: Verify libpq is NOT linked
-        run: |
-          if ldd ./build/apps/cli/asclepius | grep -q libpq; then
-            echo "::error::libpq linked in no-PG build"
-            exit 1
-          fi
-          echo "OK: libpq absent from binary"
-
-      - name: SQLite test suite
-        run: ./build/tests/asclepius_tests
-
-      - name: postgres:// URI returns clean error
-        run: |
-          ./build/apps/cli/asclepius ledger verify postgres://x:y@h/db 2>&1 | grep -i "ASCLEPIUS_WITH_POSTGRES=OFF"
-
-  postgres-e2e:
-    name: postgres backend e2e
-    runs-on: ubuntu-24.04
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER:     asclepius
-          POSTGRES_PASSWORD: asclepius
-          POSTGRES_DB:       asclepius
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U asclepius -d asclepius"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsodium-dev libsqlite3-dev libpq-dev ninja-build
-
-      - name: Configure
-        run: |
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DASCLEPIUS_BUILD_TESTS=ON \
-            -DASCLEPIUS_BUILD_EXAMPLES=ON \
-            -DASCLEPIUS_BUILD_CLI=ON
-
-      - name: Build
-        run: cmake --build build -j
-
-      - name: Run SQLite test suite
-        run: ./build/tests/asclepius_tests
-
-      - name: Run Postgres test suite
-        env:
-          ASCLEPIUS_PG_URI: postgres://asclepius:asclepius@127.0.0.1:5432/asclepius
-        run: ./build/tests/asclepius_tests --test-case='[postgres]*'
 
   site-lint:
     name: site lint (HTML / JS / hashes)

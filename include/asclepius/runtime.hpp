@@ -271,15 +271,11 @@ public:
     Runtime(const Runtime&)            = delete;
     Runtime& operator=(const Runtime&) = delete;
 
-    // Open or create a runtime backed by a SQLite file (default) or a
-    // PostgreSQL database via "postgres://" URI. The runtime generates
-    // a fresh signing key on first open and persists it next to the
-    // SQLite file with 0600 permissions; for Postgres backends a
-    // KeyStore must be supplied explicitly.
+    // Open or create a SQLite-backed runtime at the given filesystem path.
+    // The runtime generates a fresh signing key on first open and persists
+    // it next to the SQLite file with 0600 permissions.
     static Result<Runtime> open(std::filesystem::path db_path);
     static Result<Runtime> open(std::filesystem::path db_path, KeyStore key);
-    static Result<Runtime> open_uri(const std::string& uri);
-    static Result<Runtime> open_uri(const std::string& uri, KeyStore key);
 
     // Begin an inference. Performs consent and scope checks before
     // returning the handle. The returned Inference must be commit()ed to
@@ -349,13 +345,9 @@ public:
     // from under it. Best-effort observability sugar for dashboards.
     std::size_t active_inference_count() const;
 
-    // Size in bytes of the ledger backing storage. For SQLite-backed
-    // runtimes this is the on-disk size of the .db file at the time
-    // of the call (subject to WAL checkpoint timing). For Postgres
-    // backends this returns ErrorCode::unimplemented — the database
-    // is remote and its byte-footprint is not directly observable
-    // through this API. Used by capacity-planning probes and quota
-    // dashboards.
+    // Size in bytes of the ledger backing storage — the on-disk size of
+    // the .db file at the time of the call (subject to WAL checkpoint
+    // timing). Used by capacity-planning probes and quota dashboards.
     Result<std::int64_t> ledger_size_bytes() const;
 
     // Snapshot of the names of all currently-registered drift

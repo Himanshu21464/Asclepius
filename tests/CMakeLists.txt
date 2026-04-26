@@ -12,7 +12,6 @@ add_executable(asclepius_tests
     test_runtime.cpp
     test_evaluation.cpp
     test_fhir.cpp
-    test_postgres_backend.cpp
 )
 
 target_link_libraries(asclepius_tests

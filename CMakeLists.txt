@@ -30,7 +30,6 @@ option(ASCLEPIUS_BUILD_SVC      "Build the HTTP/gRPC sidecar"               OFF)
 option(ASCLEPIUS_ENABLE_ASAN    "Enable AddressSanitizer in Debug builds"   ON)
 option(ASCLEPIUS_ENABLE_UBSAN   "Enable UndefinedBehaviorSanitizer (Debug)" ON)
 option(ASCLEPIUS_WARNINGS_AS_ERRORS "Promote compiler warnings to errors"   OFF)
-option(ASCLEPIUS_WITH_POSTGRES  "Enable PostgreSQL backend (requires libpq)" ON)
 
 include(CompilerWarnings)
 include(Sanitizers)
@@ -56,12 +55,6 @@ target_link_libraries(asclepius
         sodium
         SQLite::SQLite3
 )
-if(ASCLEPIUS_WITH_POSTGRES)
-    target_link_libraries(asclepius PRIVATE PostgreSQL::PostgreSQL)
-    target_compile_definitions(asclepius PRIVATE ASCLEPIUS_WITH_POSTGRES=1)
-    target_sources(asclepius PRIVATE src/audit/postgres_backend.cpp)
-endif()
-
 target_sources(asclepius
     PRIVATE
         src/core/error.cpp
@@ -75,7 +68,6 @@ target_sources(asclepius
         src/audit/ledger.cpp
         src/audit/keystore.cpp
         src/audit/sqlite_backend.cpp
-        src/audit/storage_factory.cpp
         src/audit/migrator.cpp
         src/audit/jsonl.cpp
         src/telemetry/drift.cpp

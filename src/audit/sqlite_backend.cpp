@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Asclepius Contributors
 //
-// SQLite implementation of LedgerStorage. The default backend; selected
-// when Ledger::open() is given a filesystem path or a URI that doesn't
-// match a Postgres scheme.
+// SQLite implementation of LedgerStorage. The only backend.
 
 #include "storage.hpp"
 

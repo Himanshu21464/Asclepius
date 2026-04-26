@@ -20,7 +20,7 @@ using namespace asclepius;
 namespace {
 
 int cmd_ledger_verify(const std::string& db) {
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -39,7 +39,7 @@ int cmd_ledger_verify(const std::string& db) {
 }
 
 int cmd_ledger_stats(const std::string& db) {
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -54,7 +54,7 @@ int cmd_ledger_stats(const std::string& db) {
 }
 
 int cmd_ledger_stats_tenant(const std::string& db, const std::string& tenant) {
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -75,7 +75,7 @@ int cmd_ledger_tail_actor(const std::string& db,
         fmt::print(stderr, "tail-actor: actor is required\n");
         return 2;
     }
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -102,7 +102,7 @@ int cmd_ledger_tail_actor(const std::string& db,
 }
 
 int cmd_consent_list(const std::string& db) {
-    auto rt = Runtime::open_uri(db);
+    auto rt = Runtime::open(db);
     if (!rt) {
         fmt::print(stderr, "open: {}\n", rt.error().what());
         return 2;
@@ -128,7 +128,7 @@ int cmd_consent_list(const std::string& db) {
 }
 
 int cmd_runtime_health(const std::string& db) {
-    auto rt = Runtime::open_uri(db);
+    auto rt = Runtime::open(db);
     if (!rt) {
         fmt::print(stderr, "open: {}\n", rt.error().what());
         return 2;
@@ -138,7 +138,7 @@ int cmd_runtime_health(const std::string& db) {
 }
 
 int cmd_runtime_self_test(const std::string& db) {
-    auto rt = Runtime::open_uri(db);
+    auto rt = Runtime::open(db);
     if (!rt) {
         fmt::print(stderr, "open: {}\n", rt.error().what());
         return 2;
@@ -153,7 +153,7 @@ int cmd_runtime_self_test(const std::string& db) {
 }
 
 int cmd_ledger_event_counts(const std::string& db) {
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -174,7 +174,7 @@ int cmd_ledger_find(const std::string& db, const std::string& inference_id) {
         fmt::print(stderr, "find: inference_id is required\n");
         return 2;
     }
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -203,7 +203,7 @@ int cmd_ledger_find(const std::string& db, const std::string& inference_id) {
 }
 
 int cmd_ledger_inspect(const std::string& db, std::size_t tail) {
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) {
         fmt::print(stderr, "open: {}\n", led.error().what());
         return 2;
@@ -230,14 +230,7 @@ int cmd_ledger_inspect(const std::string& db, std::size_t tail) {
 }
 
 int cmd_ledger_migrate(const std::string& src_uri, const std::string& dst_uri) {
-    if (src_uri.compare(0, 11, "postgres://") == 0
-     || src_uri.compare(0, 13, "postgresql://") == 0) {
-        fmt::print(stderr, "migrate: postgres-as-source not yet supported by CLI; "
-                           "use the LedgerMigrator API directly with an explicit KeyStore\n");
-        return 2;
-    }
-
-    // SQLite source: read the .key file beside the path.
+    // SQLite-only: read the .key file beside the source path.
     std::filesystem::path src_path{src_uri};
     auto src_key_path = src_path; src_key_path.replace_extension(".key");
     if (!std::filesystem::exists(src_key_path)) {
@@ -252,27 +245,10 @@ int cmd_ledger_migrate(const std::string& src_uri, const std::string& dst_uri) {
     auto stats = LedgerMigrator::copy(src_uri, dst_uri, std::move(key.value()));
     if (!stats) { fmt::print(stderr, "migrate: {}\n", stats.error().what()); return 2; }
 
-    // Copy the source's signing key to the destination's expected key path
-    // so the operator can immediately verify the destination without
-    // shuffling keys by hand. Same logic as Ledger::open_uri:
-    //   postgres URI → ./<dbname>.key
-    //   sqlite path  → <path>.key
-    std::filesystem::path dst_key_path;
-    if (dst_uri.compare(0, 11, "postgres://") == 0
-     || dst_uri.compare(0, 13, "postgresql://") == 0) {
-        std::string db = "asclepius";
-        auto last_slash = dst_uri.rfind('/');
-        if (last_slash != std::string::npos && last_slash + 1 < dst_uri.size()) {
-            auto q = dst_uri.find('?', last_slash + 1);
-            db = dst_uri.substr(last_slash + 1,
-                                (q == std::string::npos ? dst_uri.size() : q) - last_slash - 1);
-            if (db.empty()) db = "asclepius";
-        }
-        dst_key_path = db + ".key";
-    } else {
-        dst_key_path = std::filesystem::path{dst_uri};
-        dst_key_path.replace_extension(".key");
-    }
+    // Copy the source's signing key beside the destination so the operator
+    // can immediately verify the destination without shuffling keys by hand.
+    std::filesystem::path dst_key_path{dst_uri};
+    dst_key_path.replace_extension(".key");
     std::filesystem::copy_file(src_key_path, dst_key_path,
                                std::filesystem::copy_options::overwrite_existing);
 
@@ -309,25 +285,11 @@ int cmd_ledger_import_jsonl(const std::filesystem::path& in_path,
     auto stats = LedgerJsonl::import_to(in_path.string(), dst_uri, std::move(key.value()));
     if (!stats) { fmt::print(stderr, "import-jsonl: {}\n", stats.error().what()); return 2; }
 
-    // Copy the signing key to the destination's expected key location so
-    // subsequent `ledger verify` against the destination uses the same
-    // public key the imported entries were signed with.
-    std::filesystem::path dst_key_path;
-    if (dst_uri.compare(0, 11, "postgres://") == 0
-     || dst_uri.compare(0, 13, "postgresql://") == 0) {
-        std::string db = "asclepius";
-        auto last_slash = dst_uri.rfind('/');
-        if (last_slash != std::string::npos && last_slash + 1 < dst_uri.size()) {
-            auto q = dst_uri.find('?', last_slash + 1);
-            db = dst_uri.substr(last_slash + 1,
-                                (q == std::string::npos ? dst_uri.size() : q) - last_slash - 1);
-            if (db.empty()) db = "asclepius";
-        }
-        dst_key_path = db + ".key";
-    } else {
-        dst_key_path = std::filesystem::path{dst_uri};
-        dst_key_path.replace_extension(".key");
-    }
+    // Copy the signing key beside the destination so subsequent
+    // `ledger verify` uses the same public key the imported entries were
+    // signed with.
+    std::filesystem::path dst_key_path{dst_uri};
+    dst_key_path.replace_extension(".key");
     std::filesystem::copy_file(key_path, dst_key_path,
                                std::filesystem::copy_options::overwrite_existing);
 
@@ -339,7 +301,7 @@ int cmd_ledger_import_jsonl(const std::filesystem::path& in_path,
 }
 
 int cmd_ledger_checkpoint(const std::string& db) {
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) { fmt::print(stderr, "open: {}\n", led.error().what()); return 2; }
     auto cp = led.value().checkpoint();
     fmt::print("{}\n", cp.to_json());
@@ -371,7 +333,7 @@ int cmd_metrics_export(const std::string& db) {
     // export of what the chain itself contains, which is all an operator
     // can derive from a stopped process. For live histograms, scrape the
     // /metrics endpoint of an asclepius-svc instance.
-    auto led = Ledger::open_uri(db);
+    auto led = Ledger::open(db);
     if (!led) { fmt::print(stderr, "open: {}\n", led.error().what()); return 2; }
 
     MetricRegistry m;
@@ -401,7 +363,7 @@ int cmd_drift_report(const std::string& /*db*/) {
 int cmd_evidence_bundle(const std::string&           db,
                         const std::filesystem::path& out,
                         const std::string&           since) {
-    auto rt = Runtime::open_uri(db);
+    auto rt = Runtime::open(db);
     if (!rt) { fmt::print(stderr, "open: {}\n", rt.error().what()); return 2; }
 
     // Parse the "since" duration (e.g. "30d", "24h"). Default 30 days.
@@ -463,13 +425,13 @@ int main(int argc, char** argv) {
     auto* ledger = app.add_subcommand("ledger", "ledger operations");
     ledger->require_subcommand(1);
 
-    // db can be a SQLite filesystem path or a postgres:// URI; we don't apply
-    // CLI::ExistingFile because postgres URIs aren't files.
+    // db is a SQLite filesystem path; not validated as ExistingFile because
+    // a fresh open is allowed to create the file.
     std::string db_uri;
     {
         auto* verify = ledger->add_subcommand("verify", "verify chain integrity");
         verify->add_option("db", db_uri,
-                           "ledger: SQLite path or postgres://user:pass@host/dbname")
+                           "ledger: SQLite path")
               ->required();
         verify->callback([&]() { std::exit(cmd_ledger_verify(db_uri)); });
     }
@@ -477,7 +439,7 @@ int main(int argc, char** argv) {
     {
         auto* inspect = ledger->add_subcommand("inspect", "print recent entries as JSON");
         inspect->add_option("db", db_uri,
-                            "ledger: SQLite path or postgres://...")
+                            "ledger: SQLite path")
                ->required();
         inspect->add_option("--tail", tail_n, "number of entries (default 20)");
         inspect->callback([&]() { std::exit(cmd_ledger_inspect(db_uri, tail_n)); });
@@ -485,7 +447,7 @@ int main(int argc, char** argv) {
     std::string mig_src, mig_dst;
     {
         auto* migrate = ledger->add_subcommand("migrate",
-            "copy a chain from one backend to another (e.g. SQLite → Postgres)");
+            "copy a chain from one SQLite ledger to another");
         migrate->add_option("src", mig_src, "source ledger URI (SQLite path)")->required();
         migrate->add_option("dst", mig_dst, "destination ledger URI")->required();
         migrate->callback([&]() { std::exit(cmd_ledger_migrate(mig_src, mig_dst)); });
@@ -494,14 +456,14 @@ int main(int argc, char** argv) {
         auto* metrics = ledger->add_subcommand("metrics",
             "emit Prometheus exposition derived from the chain");
         metrics->add_option("db", db_uri,
-                            "ledger: SQLite path or postgres://...")->required();
+                            "ledger: SQLite path")->required();
         metrics->callback([&]() { std::exit(cmd_metrics_export(db_uri)); });
     }
     {
         auto* stats = ledger->add_subcommand("stats",
             "emit chain summary as JSON (count, head, oldest/newest, key id)");
         stats->add_option("db", db_uri,
-                          "ledger: SQLite path or postgres://...")->required();
+                          "ledger: SQLite path")->required();
         stats->callback([&]() { std::exit(cmd_ledger_stats(db_uri)); });
     }
     std::string tenant_arg;
@@ -509,7 +471,7 @@ int main(int argc, char** argv) {
         auto* st = ledger->add_subcommand("stats-tenant",
             "per-tenant chain summary as JSON");
         st->add_option("db", db_uri,
-                       "ledger: SQLite path or postgres://...")->required();
+                       "ledger: SQLite path")->required();
         st->add_option("tenant", tenant_arg,
                        "tenant to scope to (use empty string for default scope)")
           ->required();
@@ -519,7 +481,7 @@ int main(int argc, char** argv) {
         auto* ec = ledger->add_subcommand("event-counts",
             "emit {event_type: count} JSON map for the chain");
         ec->add_option("db", db_uri,
-                       "ledger: SQLite path or postgres://...")->required();
+                       "ledger: SQLite path")->required();
         ec->callback([&]() { std::exit(cmd_ledger_event_counts(db_uri)); });
     }
     std::string actor_arg;
@@ -528,7 +490,7 @@ int main(int argc, char** argv) {
         auto* ta = ledger->add_subcommand("tail-actor",
             "print the last N entries by a given actor (most recent first)");
         ta->add_option("db", db_uri,
-                       "ledger: SQLite path or postgres://...")->required();
+                       "ledger: SQLite path")->required();
         ta->add_option("actor", actor_arg,
                        "actor string to scope to "
                        "(e.g. 'system:drift_monitor')")->required();
@@ -542,7 +504,7 @@ int main(int argc, char** argv) {
         auto* find = ledger->add_subcommand("find",
             "look up a single ledger entry by inference_id (incident response)");
         find->add_option("db", db_uri,
-                         "ledger: SQLite path or postgres://...")->required();
+                         "ledger: SQLite path")->required();
         find->add_option("inference_id", find_id,
                          "the inference_id to locate")->required();
         find->callback([&]() { std::exit(cmd_ledger_find(db_uri, find_id)); });
@@ -586,14 +548,14 @@ int main(int argc, char** argv) {
         auto* health = runtime->add_subcommand("health",
             "emit a /healthz JSON snapshot for the runtime");
         health->add_option("db", db_uri,
-                           "ledger: SQLite path or postgres://...")->required();
+                           "ledger: SQLite path")->required();
         health->callback([&]() { std::exit(cmd_runtime_health(db_uri)); });
     }
     {
         auto* st = runtime->add_subcommand("self-test",
             "run runtime invariants (full chain verify, consent + drift sanity)");
         st->add_option("db", db_uri,
-                       "ledger: SQLite path or postgres://...")->required();
+                       "ledger: SQLite path")->required();
         st->callback([&]() { std::exit(cmd_runtime_self_test(db_uri)); });
     }
 
@@ -612,7 +574,7 @@ int main(int argc, char** argv) {
     {
         auto* bundle = evidence->add_subcommand("bundle", "export an evidence bundle");
         bundle->add_option("db", db_uri,
-                           "ledger: SQLite path or postgres://...")
+                           "ledger: SQLite path")
               ->required();
         bundle->add_option("--out", bundle_out, "output tar path")->required();
         bundle->add_option("--window", since, "lookback window (e.g. 30d, 24h)");
@@ -630,7 +592,7 @@ int main(int argc, char** argv) {
         auto* list = consent->add_subcommand("list",
             "emit all consent tokens (active + revoked) as JSON array");
         list->add_option("db", db_uri,
-                         "ledger: SQLite path or postgres://...")->required();
+                         "ledger: SQLite path")->required();
         list->callback([&]() { std::exit(cmd_consent_list(db_uri)); });
     }
 

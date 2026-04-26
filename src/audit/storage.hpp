@@ -2,9 +2,9 @@
 // Copyright 2026 Asclepius Contributors
 //
 // Internal storage interface for the ledger. The Ledger class is backed by
-// one of these — currently SQLite (default) or PostgreSQL (opt-in via URI).
-// Adding a new backend means writing one of these and wiring it into
-// make_storage() in this directory.
+// a SQLite implementation (the only backend). Kept as an abstract base so
+// the substrate can grow alternative on-disk formats later without
+// reworking ledger.cpp.
 //
 // Not a public header — consumers should use the Ledger interface in
 // include/asclepius/audit.hpp.
@@ -43,10 +43,8 @@ public:
     // Append one entry. Storage is responsible for persistence and indexing.
     virtual Result<void> insert_entry(const LedgerEntry& e, const Hash& entry_hash) = 0;
 
-    // Atomic transactional helpers. The default implementations work for
-    // SQLite (BEGIN IMMEDIATE / COMMIT / ROLLBACK) and PostgreSQL (BEGIN /
-    // COMMIT / ROLLBACK). Backends override only if they need different
-    // SQL or non-SQL semantics.
+    // Atomic transactional helpers. Backed by SQLite's
+    // BEGIN IMMEDIATE / COMMIT / ROLLBACK.
     virtual Result<void> begin_transaction()   = 0;
     virtual Result<void> commit_transaction()  = 0;
     virtual Result<void> rollback_transaction() = 0;
@@ -79,11 +77,8 @@ public:
     virtual Result<void> for_each(std::function<bool(const LedgerEntry&)> visitor) = 0;
 };
 
-// Open the appropriate backend based on a URI.
-//   "postgres://user:pass@host:port/dbname"     — PostgreSQL backend
-//   "postgresql://user:pass@host:port/dbname"   — alias of postgres://
-//   anything else                               — SQLite backed by a file at that path
-Result<std::unique_ptr<LedgerStorage>> make_storage(const std::string& uri);
+// Open a SQLite-backed storage at the given filesystem path.
+Result<std::unique_ptr<LedgerStorage>> make_sqlite_storage(const std::string& path);
 
 }  // namespace asclepius::detail
 

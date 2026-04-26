@@ -2,9 +2,8 @@
 // Copyright 2026 Asclepius Contributors
 //
 // Ledger: append-only, Merkle-chained, Ed25519-signed event log. Storage
-// is delegated to a LedgerStorage backend (SQLite or PostgreSQL); see
-// src/audit/storage.hpp for the interface and src/audit/sqlite_backend.cpp
-// + postgres_backend.cpp for the implementations.
+// is delegated to a SQLite-backed LedgerStorage; see src/audit/storage.hpp
+// for the interface and src/audit/sqlite_backend.cpp for the implementation.
 //
 // This file owns:
 //   - canonical-JSON encoding for hash inputs
@@ -145,9 +144,8 @@ Ledger::~Ledger() { delete impl_; }
 
 namespace {
 
-// Look up or generate the keypair for a SQLite path-based ledger. For
-// Postgres-backed ledgers callers must pass an explicit KeyStore, since
-// there's no obvious filesystem location for the key.
+// Look up or generate the keypair beside the SQLite ledger file. The key
+// is stored at <db>.key with 0600 permissions.
 KeyStore key_for_path(const std::filesystem::path& path) {
     auto kp = key_path_for(path);
     if (std::filesystem::exists(kp)) {
@@ -171,35 +169,7 @@ Result<Ledger> Ledger::open(std::filesystem::path path) {
 }
 
 Result<Ledger> Ledger::open(std::filesystem::path path, KeyStore key) {
-    return open_uri(path.string(), std::move(key));
-}
-
-Result<Ledger> Ledger::open_uri(const std::string& uri) {
-    // SQLite paths reuse the SQLite key-on-disk discovery (sibling .key file).
-    // Postgres URIs use a default key location: ./<dbname>.key in the current
-    // working directory. Production deployments should pass an explicit
-    // KeyStore via open_uri(uri, key) — the default is for development only.
-    if (uri.compare(0, 11, "postgres://") == 0
-     || uri.compare(0, 13, "postgresql://") == 0) {
-        // Pull the dbname out of the URI for a stable per-DB keystore path.
-        // libpq URIs end with /<dbname>?<params> ; we take the segment between
-        // the last '/' and the first '?' (or end of string).
-        std::string db = "asclepius";
-        auto last_slash = uri.rfind('/');
-        if (last_slash != std::string::npos && last_slash + 1 < uri.size()) {
-            auto q = uri.find('?', last_slash + 1);
-            db = uri.substr(last_slash + 1,
-                            (q == std::string::npos ? uri.size() : q) - last_slash - 1);
-            if (db.empty()) db = "asclepius";
-        }
-        std::filesystem::path key_path{db + ".key"};
-        return open_uri(uri, key_for_path(key_path));
-    }
-    return open_uri(uri, key_for_path(std::filesystem::path{uri}));
-}
-
-Result<Ledger> Ledger::open_uri(const std::string& uri, KeyStore key) {
-    auto s = detail::make_storage(uri);
+    auto s = detail::make_sqlite_storage(path.string());
     if (!s) return s.error();
 
     auto* impl = new Impl{std::move(s.value()), std::move(key)};

@@ -95,7 +95,7 @@ Result<LedgerEntry> entry_from_json(const json& j) {
 
 Result<LedgerExportStats>
 LedgerJsonl::export_to(const std::string& src_uri, const std::string& out_path) {
-    auto src = detail::make_storage(src_uri);
+    auto src = detail::make_sqlite_storage(src_uri);
     if (!src) return src.error();
 
     std::ofstream out(out_path, std::ios::trunc | std::ios::binary);
@@ -126,7 +126,7 @@ LedgerJsonl::import_to(const std::string& in_path,
     std::ifstream in(in_path);
     if (!in) return Error::backend(fmt::format("could not open {} for reading", in_path));
 
-    auto dst = detail::make_storage(dst_uri);
+    auto dst = detail::make_sqlite_storage(dst_uri);
     if (!dst) return dst.error();
 
     auto dst_tail = dst.value()->read_tail();

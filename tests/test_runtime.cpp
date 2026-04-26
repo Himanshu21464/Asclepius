@@ -1448,18 +1448,10 @@ TEST_CASE("Runtime::ledger_size_bytes grows monotonically as events append") {
     CHECK(after.value() >= initial.value());
 }
 
-TEST_CASE("Runtime::ledger_size_bytes returns unimplemented for postgres URIs") {
-    // We can't actually open a postgres URI in this test env, but we can
-    // construct a Runtime by hand-faking the path: instead, exercise the
-    // behaviour by opening with a path and then verifying that for a
-    // freshly-opened SQLite runtime ledger_size_bytes works (positive
-    // path). The unimplemented branch is covered by the path inspection
-    // logic — we sanity-check that the live SQLite path resolves and
-    // does not return ErrorCode::unimplemented.
-    auto rt_ = fresh_runtime("lsb_not_pg"); REQUIRE(rt_);
+TEST_CASE("Runtime::ledger_size_bytes returns positive for SQLite runtime") {
+    auto rt_ = fresh_runtime("lsb_sqlite"); REQUIRE(rt_);
     auto sz = rt_.value().ledger_size_bytes();
     REQUIRE(sz);
-    // Successful path; not an unimplemented-shaped error.
     CHECK(sz.value() > 0);
 }
 

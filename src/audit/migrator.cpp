@@ -34,9 +34,9 @@ LedgerMigrator::copy(const std::string& src_uri,
                      KeyStore           /*key*/) {
     LedgerMigrationStats stats{};
 
-    auto src = detail::make_storage(src_uri);
+    auto src = detail::make_sqlite_storage(src_uri);
     if (!src) return src.error();
-    auto dst = detail::make_storage(dst_uri);
+    auto dst = detail::make_sqlite_storage(dst_uri);
     if (!dst) return dst.error();
 
     // Refuse to write into a non-empty destination. A migration into a

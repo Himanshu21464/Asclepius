@@ -118,16 +118,11 @@ public:
     Ledger& operator=(Ledger&&) noexcept;
     ~Ledger();
 
-    // Open or create a ledger. Two URL schemes:
-    //   - filesystem path or "file://…" → SQLite-backed (the default)
-    //   - "postgres://…" or "postgresql://…" → PostgreSQL-backed
+    // Open or create a SQLite-backed ledger at the given filesystem path.
     // If a key is not provided one is generated and stored alongside the
-    // SQLite file (0600). For Postgres backends the key file lives next to
-    // the cwd as <key_id>.key — see open_postgres notes in deploy.html.
+    // SQLite file (0600).
     static Result<Ledger> open(std::filesystem::path path);
     static Result<Ledger> open(std::filesystem::path path, KeyStore key);
-    static Result<Ledger> open_uri(const std::string& uri);
-    static Result<Ledger> open_uri(const std::string& uri, KeyStore key);
 
     // Append a new event. body must be a canonicalizable JSON value.
     Result<LedgerEntry> append(std::string event_type,
@@ -514,11 +509,11 @@ public:
 
 // ---- LedgerMigrator -----------------------------------------------------
 //
-// Copy a chain from one backend to another, byte-for-byte. The destination
-// receives the same entries in the same order with the same signatures, so
-// the destination's verify() passes against the same public key the source
-// used. Useful for SQLite → Postgres migrations and for cold-storage
-// snapshots.
+// Copy a chain from one SQLite ledger to another, byte-for-byte. The
+// destination receives the same entries in the same order with the same
+// signatures, so the destination's verify() passes against the same public
+// key the source used. Useful for cold-storage snapshots and chain
+// relocation.
 
 struct LedgerMigrationStats {
     std::uint64_t entries_copied = 0;
