@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Concepts — Asclepius primer</title>
+<meta name="description" content="Concepts primer for Asclepius: trust substrate, audit chain, consent as state, drift in three numbers, policy chain, offline-verifiable evidence.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/concepts.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Concepts primer">
+<meta property="og:description"  content="Trust substrate, the audit chain, consent as state, drift in three numbers. Between the explainer and the spec.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta property="og:url"          content="https://asclepius.health/concepts.html">
+<meta property="og:site_name"    content="Asclepius">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .cp { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .cp__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2.4rem; margin-bottom: 3rem; max-width: 64ch; }
+  .cp__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .cp__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.6rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .cp__hero h1 i { color: var(--primary); font-style: italic; }
+  .cp__hero p {
+    color: var(--ink-mute); font-family: var(--font-prose);
+    font-size: 1.1rem; line-height: 1.65; margin: 0 0 1rem;
+  }
+  .cp__hero p em { color: var(--primary); font-style: italic; }
+  .cp__hero p code {
+    font-family: var(--font-mono); font-size: .9em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .08em .35em; color: var(--ink-warm);
+  }
+
+  .cp-toc {
+    margin: 1.6rem 0 0;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    max-width: 64ch;
+  }
+  .cp-toc b {
+    display: block; margin-bottom: .55rem;
+    font-family: var(--font-mono); font-size: .72rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .cp-toc ol {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .15rem .9rem;
+    font-family: var(--font-prose); font-size: .94rem;
+  }
+  .cp-toc li::before {
+    content: "§" counter(toc, decimal-leading-zero) "  ";
+    counter-increment: toc;
+    font-family: var(--font-mono); color: var(--ink-faint);
+    font-size: .76rem; letter-spacing: .04em;
+  }
+  .cp-toc ol { counter-reset: toc; }
+  .cp-toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted transparent; }
+  .cp-toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+  .cp-toc a em { color: var(--primary); font-style: italic; }
+
+  .cp-sec { padding: 2.2rem 0 1.6rem; border-bottom: 1px solid var(--rule-soft); }
+  .cp-sec:last-of-type { border-bottom: 0; }
+  .cp-sec h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em;
+    margin: .4rem 0 1.2rem; line-height: 1.2;
+    max-width: 52ch;
+  }
+  .cp-sec h2 i { color: var(--primary); font-style: italic; }
+  .cp-sec p {
+    font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7;
+    color: var(--ink); margin: 0 0 1rem; max-width: 64ch;
+  }
+  .cp-sec p em { color: var(--primary); font-style: italic; }
+  .cp-sec p code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .08em .35em; color: var(--ink-warm);
+  }
+  .cp-sec ul, .cp-sec ol {
+    font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7;
+    color: var(--ink); max-width: 64ch;
+    margin: 0 0 1rem; padding-left: 1.4rem;
+  }
+  .cp-sec li { margin: .35rem 0; }
+  .cp-sec li em { color: var(--primary); font-style: italic; }
+  .cp-sec li code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .cp-callout {
+    margin: 1.4rem 0 1rem;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-prose);
+    font-size: .98rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    max-width: 64ch;
+  }
+  .cp-callout b {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: .35rem;
+  }
+  .cp-callout em { color: var(--ink); font-style: italic; }
+  .cp-callout code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .cp-chain {
+    margin: 1.4rem 0;
+    padding: 1rem 1.2rem;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    line-height: 1.65;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    max-width: 78ch;
+    white-space: pre;
+  }
+  .cp-chain .k { color: var(--primary); }
+  .cp-chain .c { color: var(--ink-faint); font-style: italic; }
+  .cp-chain .a { color: var(--accent); }
+  .cp-chain .arrow { color: var(--ink-mute); }
+
+  .cp-cmp {
+    list-style: none; padding: 0; margin: 1rem 0 1.4rem;
+    max-width: 70ch;
+    display: grid; grid-template-columns: minmax(0, auto) 1fr;
+    gap: .35rem 1.2rem;
+  }
+  .cp-cmp dt {
+    font-family: var(--font-mono); font-size: .82rem;
+    color: var(--primary); padding-top: 2px;
+  }
+  .cp-cmp dd {
+    font-family: var(--font-prose); font-size: .96rem;
+    margin: 0; color: var(--ink); line-height: 1.55;
+  }
+  .cp-cmp dd em { color: var(--primary); font-style: italic; }
+
+  .cp-grid3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 1.4rem 0 .8rem;
+  }
+  .cp-card {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 1.1rem 1.2rem;
+    border-radius: 6px;
+  }
+  .cp-card h3 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.15rem; line-height: 1.25;
+    color: var(--ink-warm); margin: 0 0 .4rem;
+  }
+  .cp-card h3 i { color: var(--primary); font-style: italic; }
+  .cp-card p {
+    font-family: var(--font-prose); font-size: .92rem;
+    line-height: 1.6; color: var(--ink-mute);
+    margin: 0 0 .5rem; max-width: none;
+  }
+  .cp-card p:last-child { margin: 0; }
+  .cp-card .tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: .66rem; letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .5rem;
+  }
+  .cp-card code {
+    font-family: var(--font-mono); font-size: .82em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .cp-not {
+    list-style: none; padding: 0; margin: 1rem 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: .7rem;
+    max-width: 80ch;
+  }
+  .cp-not li {
+    padding: .8rem 1rem;
+    border: 1px dashed var(--rule);
+    border-radius: 4px;
+    background: transparent;
+  }
+  .cp-not li b {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: .76rem; letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .3rem;
+  }
+  .cp-not li span {
+    font-family: var(--font-prose); font-size: .94rem;
+    color: var(--ink-mute); line-height: 1.55;
+  }
+  .cp-not li span em { color: var(--ink); font-style: italic; }
+
+  .cp-next {
+    list-style: none; padding: 0; margin: 1.2rem 0 .6rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .8rem;
+  }
+  .cp-next a {
+    display: block;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, transform .15s;
+  }
+  .cp-next a:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .cp-next b {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.15rem; color: var(--ink-warm);
+    display: block; margin-bottom: .3rem;
+  }
+  .cp-next b i { color: var(--primary); font-style: italic; }
+  .cp-next em {
+    font-family: var(--font-mono); font-size: .75rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint); font-style: normal;
+  }
+
+  .cp-coda {
+    margin-top: 3.4rem; padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+    max-width: 64ch;
+    font-family: var(--font-prose); color: var(--ink-mute);
+    font-size: 1rem; line-height: 1.7;
+  }
+  .cp-coda em { color: var(--primary); font-style: italic; }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",     "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Concepts", "item": "https://asclepius.health/concepts.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-concepts">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="explained.html">explained</a>
+      <a href="concepts.html" class="is-active" aria-current="page">concepts</a>
+      <a href="docs.html">docs</a>
+      <a href="api.html">api</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="cp">
+  <div class="container">
+
+    <header class="cp__hero">
+      <span class="kbd">conceptual&nbsp;primer&nbsp;·&nbsp;between&nbsp;explainer&nbsp;and&nbsp;spec</span>
+      <h1>Asclepius, <i>in concept.</i></h1>
+      <p>
+        <a href="explained.html">/explained</a> answers <em>what is this?</em>
+        in plain words. <a href="architecture.html">/architecture</a> answers
+        <em>how is it built?</em> in spec-grade detail. This page sits between
+        them: the vocabulary the rest of the site assumes, with the substrate
+        intuitions that make the spec readable.
+      </p>
+      <p>
+        It is for engineers, regulators, security architects, and clinical
+        informaticists who want the <em>why each piece is shaped this way</em>
+        before reading <code>SPEC.md</code> line-for-line. Eight short
+        sections; thirty minutes end-to-end.
+      </p>
+
+      <nav class="cp-toc" aria-label="contents">
+        <b>contents</b>
+        <ol>
+          <li><a href="#substrate">what <em>trust substrate</em> means</a></li>
+          <li><a href="#chain">the <em>audit chain</em></a></li>
+          <li><a href="#consent">consent as <em>state</em></a></li>
+          <li><a href="#drift">drift, in <em>three numbers</em></a></li>
+          <li><a href="#policy">the <em>policy chain</em></a></li>
+          <li><a href="#offline">why <em>offline-verifiable</em></a></li>
+          <li><a href="#adjacent">things this <em>is not</em></a></li>
+          <li><a href="#next">where to <em>go from here</em></a></li>
+        </ol>
+      </nav>
+    </header>
+
+    <!-- §01 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="substrate">
+      <div class="section-head">
+        <span class="section-num">§01</span>
+        <span class="section-name">trust substrate, defined</span>
+      </div>
+
+      <h2>What "<i>trust substrate</i>" actually means.</h2>
+      <p>
+        The word <em>substrate</em> is borrowed from infrastructure. In a
+        Kubernetes cluster, the <em>compute substrate</em> is the layer that
+        sits between containers and machines and proves things about how
+        they were scheduled. In TLS, the <em>transport substrate</em> sits
+        between two sockets and proves things about how they exchanged
+        bytes. In Postgres, the <em>storage substrate</em> sits between a
+        query and a disk and proves things about commit ordering and
+        durability.
+      </p>
+      <p>
+        A trust substrate is the same shape, applied to clinical AI. It
+        sits between a clinical AI tool and the rest of a hospital's
+        systems and <em>proves things about how they interacted</em>. Not
+        what the AI <em>should have</em> said, not whether the diagnosis
+        was correct — those are model-quality questions. A substrate has
+        no opinion on those. It records, in tamper-evident form, what
+        actually happened, and lets a third party verify that record
+        without trusting any of the participants.
+      </p>
+      <p>
+        Three properties together earn the word:
+      </p>
+      <ul>
+        <li><em>Thinness.</em> The substrate is small relative to the systems on either side of it. Asclepius is roughly twelve thousand lines of C++; a clinical AI model is millions of weights and ten thousand lines of serving code. The substrate is not a competitor to either; it would not <em>fit</em>.</li>
+        <li><em>Vendor-neutrality.</em> The substrate has no preference among the systems above it. Wrap an Epic-installed scribe, an open-source classifier, an in-house triage model — the substrate behaves the same way. Apache 2.0; no SaaS hooks.</li>
+        <li><em>Provability.</em> Every claim the substrate makes — about consent, about drift, about which policy ran — reduces to bytes that a third party can re-check. The substrate does not say <em>trust me</em>. It hands you the math.</li>
+      </ul>
+
+      <p class="cp-callout">
+        <b>analogy</b>
+        <em>The same way Linux does not care which application sits on top
+        of <code>read()</code> and <code>write()</code> — it just guarantees
+        the syscall semantics — Asclepius does not care which model sits
+        on top of <code>begin_inference()</code>. It just guarantees the
+        ledger semantics.</em>
+      </p>
+    </section>
+
+    <!-- §02 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="chain">
+      <div class="section-head">
+        <span class="section-num">§02</span>
+        <span class="section-name">the audit chain</span>
+      </div>
+
+      <h2>The <i>audit chain.</i></h2>
+      <p>
+        Every interaction the substrate sees becomes one row in an
+        append-only log. The log is a Merkle chain — a fancy phrase for a
+        simple discipline: each row carries the <em>hash</em> of the row
+        before it, and the whole row (including that link) is signed.
+      </p>
+
+<pre class="cp-chain"><span class="c">─── one row of the chain ───────────────────────</span>
+<span class="k">seq</span>           <span class="arrow">=</span> <span class="a">42</span>
+<span class="k">timestamp</span>     <span class="arrow">=</span> 2026-04-26T17:22:25.301Z
+<span class="k">event_type</span>    <span class="arrow">=</span> inference.committed
+<span class="k">actor</span>         <span class="arrow">=</span> clinician:dr.demo
+<span class="k">payload_hash</span>  <span class="arrow">=</span> blake2b256(<span class="c">// canonical event body</span>)
+<span class="k">prev_hash</span>     <span class="arrow">=</span> blake2b256(row #41)   <span class="c">// the link</span>
+<span class="k">signature</span>     <span class="arrow">=</span> ed25519(payload_hash || prev_hash)
+</pre>
+
+      <p>
+        That structure has two consequences worth memorizing.
+      </p>
+      <p>
+        <em>Tampering is mathematically detectable.</em> Edit one byte at
+        seq 17 and the hash of seq 17 changes. That breaks the
+        <code>prev_hash</code> link in seq 18, which breaks 19, which
+        breaks every row up to the head. A verifier walking the chain sees
+        the break at exactly seq 17 — the row whose recomputed hash no
+        longer matches what the next row references.
+      </p>
+      <p>
+        <em>Signing makes the chain authoring-evident, not just
+        ordering-evident.</em> The Ed25519 signature binds each row to a
+        specific keypair. Anyone holding the public key can verify the
+        signature; only the holder of the private key could have produced
+        it. So a regulator with the public key can confirm both
+        <em>this is the order in which events happened</em> and
+        <em>they were authored by the runtime that holds this key</em>.
+      </p>
+      <p>
+        There is no blockchain in the cryptocurrency sense — no consensus,
+        no network, no miners, no coins. The chain is a single SQLite
+        file, written by one process, signed with one key. The
+        cryptography is the part that scales; the operations are
+        deliberately small.
+      </p>
+      <p class="cp-callout">
+        <b>why ed25519 + blake2b</b>
+        <em>Both are libsodium-stock primitives — a single-vendor
+        dependency reduces the audit surface. Ed25519 signs in ~50 µs
+        per row on commodity silicon; BLAKE2b-256 hashes at &gt;1 GB/s.
+        The substrate adds &lt;200 µs to a model call that takes hundreds
+        of milliseconds, so its overhead is invisible in production but
+        visible in <a href="benchmarks.html">/benchmarks</a>.</em>
+      </p>
+
+      <h3 style="font-family: var(--font-serif); font-size: 1.4rem; color: var(--ink-warm); font-weight: 400; margin: 1.6rem 0 .6rem;">Inclusion <i>proofs.</i></h3>
+      <p>
+        For a regulator who only cares about <em>one</em> entry — a single
+        diagnosis suggestion on a specific patient on a specific day — the
+        substrate can produce an <em>inclusion proof</em>: a compact
+        witness that this seq belongs to the published chain whose head
+        hash you have on file. The witness is verifiable offline against
+        the head alone; the regulator does not need to download the whole
+        chain. (See <code>Ledger::inclusion_proof(seq)</code> in
+        <a href="api.html#hdr-audit-hpp">the API</a>.)
+      </p>
+    </section>
+
+    <!-- §03 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="consent">
+      <div class="section-head">
+        <span class="section-num">§03</span>
+        <span class="section-name">consent as state</span>
+      </div>
+
+      <h2>Consent as <i>state</i>, not just a checkbox.</h2>
+      <p>
+        Most clinical-AI consent today is a row in a database that says
+        <em>patient signed a form on date X</em>. It records that consent
+        was, at one moment, given. It does not record that consent is, at
+        the moment of the AI call, <em>still active</em>, <em>scoped to
+        this purpose</em>, and <em>not revoked</em>.
+      </p>
+      <p>
+        Asclepius treats consent as live runtime state. A
+        <code>ConsentToken</code> carries the patient, the granted
+        purposes, the grant timestamp, the absolute expiry, and — when
+        revocation has happened — a <code>revoked_at</code> wall-clock
+        instant. Every grant, extension, expiry, and revocation appends a
+        ledger entry; the in-memory registry is reconstructable from the
+        chain alone. <em>The audit chain is the source of truth for
+        consent.</em>
+      </p>
+
+      <dl class="cp-cmp">
+        <dt>checkbox</dt>          <dd>"the patient signed a form once"</dd>
+        <dt>state</dt>              <dd>"this AI call, for this patient, for <em>this</em> purpose, is permitted right now — and the runtime can prove it from the chain"</dd>
+        <dt>checkbox</dt>          <dd>revocation is "we put a flag in the EHR"</dd>
+        <dt>state</dt>              <dd>revocation appends <code>consent.revoked</code>; subsequent inferences refuse to run; the refusal itself is logged</dd>
+        <dt>checkbox</dt>          <dd>scope is loose — "agreed to AI"</dd>
+        <dt>state</dt>              <dd>scope is one of eight codified <code>Purpose</code> values; adding a new one is a governance event, not a string change</dd>
+      </dl>
+
+      <p>
+        A <code>permits(patient, purpose)</code> check is on the inference
+        hot path. <em>If consent is missing, the inference does not
+        run.</em> This is the property that distinguishes a substrate
+        from a logger: the substrate refuses the call. A logger only
+        records that the call happened.
+      </p>
+      <p class="cp-callout">
+        <b>recovery</b>
+        <em>If the in-memory registry is wiped — restart, crash, migration —
+        the runtime replays consent state from the ledger on startup
+        (<code>ingest()</code> over <code>tail_by_event_type</code>). The
+        operator never needs to back up consent state separately; the
+        chain is the backup.</em>
+      </p>
+    </section>
+
+    <!-- §04 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="drift">
+      <div class="section-head">
+        <span class="section-num">§04</span>
+        <span class="section-name">drift, in three numbers</span>
+      </div>
+
+      <h2>Drift, in <i>three numbers.</i></h2>
+      <p>
+        A clinical AI deployed on Tuesday is not necessarily the same
+        clinical AI on Friday. The model's weights have not changed — but
+        the population it sees has. New clinic, new accents, a flu wave,
+        a different referral pattern. The model's outputs start to drift
+        away from the distribution it was tested on. By the time the
+        outputs are visibly worse, weeks of degraded care have already
+        landed.
+      </p>
+      <p>
+        The substrate detects drift before that happens, by comparing the
+        live distribution of inputs and outputs against the deployment
+        baseline. Three statistics, run in parallel — each catches what
+        the others miss.
+      </p>
+
+      <div class="cp-grid3">
+        <article class="cp-card">
+          <span class="tag">psi</span>
+          <h3>Population <i>Stability Index</i></h3>
+          <p>Sum of <code>(p<sub>i</sub> − q<sub>i</sub>) · ln(p<sub>i</sub> / q<sub>i</sub>)</code> over bins. Catches mass moving between bins of a binned distribution. <em>Industry default</em> for tabular drift; well-understood thresholds: &lt; 0.10 stable, 0.10–0.25 minor, &gt; 0.25 significant.</p>
+        </article>
+
+        <article class="cp-card">
+          <span class="tag">ks</span>
+          <h3>Kolmogorov-<i>Smirnov</i></h3>
+          <p>Maximum gap between two empirical CDFs. Catches shape changes that PSI smooths over — a bimodal split, a tail-heavy turn. <em>Distribution-free.</em></p>
+        </article>
+
+        <article class="cp-card">
+          <span class="tag">emd</span>
+          <h3>Earth Mover's <i>Distance</i></h3>
+          <p>The "work" needed to move mass from one distribution to another. Catches gradual translation — values drifting up or down across the whole range — that neither PSI nor KS handles cleanly.</p>
+        </article>
+      </div>
+
+      <p>
+        Each is computed per registered feature — input length, output
+        length, latency, an extracted score. <code>DriftMonitor::report()</code>
+        returns severity (none / minor / moderate / severe) per feature;
+        <code>any_severe()</code> is the cheap predicate behind a page-the-on-call
+        alert. <code>most_drifted_feature()</code> answers the obvious
+        next question: <em>which one</em>.
+      </p>
+      <p>
+        The threshold lives at <code>DriftSeverity::classify(psi)</code>
+        and is exposed for tests and calibration — operators tune by
+        feature, not by global knob.
+      </p>
+      <p class="cp-callout">
+        <b>not a diagnostic</b>
+        <em>Drift detection answers "is the input distribution moving?",
+        not "is the model still correct?". A clean drift report is
+        necessary but not sufficient. Pair drift with override capture
+        and ground-truth attachment for a complete behavioral picture.</em>
+      </p>
+    </section>
+
+    <!-- §05 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="policy">
+      <div class="section-head">
+        <span class="section-num">§05</span>
+        <span class="section-name">the policy chain</span>
+      </div>
+
+      <h2>The <i>policy chain.</i></h2>
+      <p>
+        Every input the model is about to see, and every output it just
+        produced, passes through a chain of small, composable filters.
+        Each filter returns a verdict: <em>allow</em>, <em>modify</em>, or
+        <em>block</em>. The first <em>block</em> wins; <em>modify</em>
+        rewrites the payload; <em>allow</em> falls through.
+      </p>
+
+<pre class="cp-chain"><span class="c">─── input flow ─────────────────────────────────</span>
+caller payload
+   <span class="arrow">→</span> <span class="k">phi_scrubber</span>            <span class="arrow">→</span> [REDACTED] for names, MRNs, SSNs
+   <span class="arrow">→</span> <span class="k">schema_validator</span>        <span class="arrow">→</span> JSON Schema subset, BLOCK on violation
+   <span class="arrow">→</span> <span class="k">length_limit(8k, 8k)</span>    <span class="arrow">→</span> guard against runaway tokens
+   <span class="arrow">→</span> <span class="a">model_call(payload)</span>
+   <span class="arrow">→</span> <span class="k">clinical_action_filter</span>  <span class="arrow">→</span> BLOCK orders / Rx / messages outside allowlist
+   <span class="arrow">→</span> caller receives output
+</pre>
+
+      <p>
+        Four built-ins ship with the runtime. Hospitals add their own —
+        the chain is mutable by name (<code>policies().push</code>,
+        <code>remove</code>, <code>has</code>) and every mutation appends
+        a <code>policy.config_change</code> ledger entry. <em>The
+        configuration of the chain is itself audited.</em>
+      </p>
+
+      <ul>
+        <li><em>PHI scrubber.</em> Conservative regex + dictionary detector for names, MRNs, SSNs, phone numbers, addresses, DOBs. Decision: MODIFY, replacing detected PHI with <code>[REDACTED]</code>. Favors false positives — better to over-redact than to leak.</li>
+        <li><em>Schema validator.</em> JSON Schema subset (type / required / enum / minimum / maximum / minLength / maxLength). Decision: BLOCK. Used to enforce shape on agentic outputs that emit structured calls.</li>
+        <li><em>Length limit.</em> Input + output max lengths. Decision: BLOCK. Cheap; first line of defense against runaway inference cost.</li>
+        <li><em>Clinical action filter.</em> Allowlist for clinical action codes when wrapping agentic tools that emit orders or prescriptions. Decision: BLOCK on any non-allowlisted action.</li>
+      </ul>
+
+      <h3 style="font-family: var(--font-serif); font-size: 1.4rem; color: var(--ink-warm); font-weight: 400; margin: 1.6rem 0 .6rem;">Per-policy <i>timing.</i></h3>
+      <p>
+        Each policy contributes its own latency to the inference budget.
+        The metric registry tracks per-policy histograms;
+        <code>MetricRegistry::histogram_count(name)</code> and
+        <code>histogram_sum(name)</code> give the average; <code>has_histogram(name)</code>
+        distinguishes "never registered" from "zero observations" on a
+        dashboard. When a hospital adds a custom policy that runs slow,
+        <em>the policy is named in the dashboard</em> — not buried inside
+        a totalizer.
+      </p>
+    </section>
+
+    <!-- §06 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="offline">
+      <div class="section-head">
+        <span class="section-num">§06</span>
+        <span class="section-name">offline-verifiable</span>
+      </div>
+
+      <h2>Why <i>offline-verifiable</i> matters.</h2>
+      <p>
+        The whole substrate is shaped around one operational scenario: a
+        regulator opens an inquiry, asks for evidence, and verifies it
+        without contacting the hospital, the AI vendor, or us. <em>The
+        verifier runs on a laptop, air-gapped, off a USB stick.</em>
+      </p>
+      <p>
+        That constraint is load-bearing. It rules out anything that
+        depends on a phone-home check, a cloud token-exchange, a vendor
+        license server. It rules out database-side trust ("our query
+        returned X, you'll have to take our word for it"). It rules out
+        opaque binary formats. The output of <code>asclepius evidence
+        bundle</code> is a USTAR tar with a manifest, the relevant ledger
+        excerpt, the public verification key, and a cross-platform
+        verifier binary. Open it on any laptop with a working clock, run
+        the verifier, get one of two answers: <em>chain intact</em> or
+        <em>broken at seq N</em>.
+      </p>
+
+      <ul>
+        <li><em>Air-gapped audits.</em> A regulator working in a sensitive jurisdiction, or a hospital security team unwilling to expose internal infrastructure, can verify in a SCIF with no network. The bundle and the verifier are the whole dependency surface.</li>
+        <li><em>Regulator independence.</em> The regulator does not run our software in production. They run our verifier post-hoc. The trust boundary is the public key; everything else is bytes.</li>
+        <li><em>Vendor-neutral evidence.</em> Bundles emitted by Asclepius v0.4 verify under v0.4, v0.5, v1.0. The format is frozen at v1.0 onward and bundles continue to verify with the same major version forever (see the compatibility guarantees on <a href="changelog.html">/changelog</a>).</li>
+      </ul>
+
+      <p class="cp-callout">
+        <b>contrast</b>
+        <em>An EHR-vendor "AI audit" feature ships you a dashboard you
+        log into. A SaaS "model observability" platform ships you an
+        invoice. Asclepius ships you a tar file. Bytes carry the proof;
+        nothing else has to be online for the audit to clear.</em>
+      </p>
+    </section>
+
+    <!-- §07 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="adjacent">
+      <div class="section-head">
+        <span class="section-num">§07</span>
+        <span class="section-name">adjacent things</span>
+      </div>
+
+      <h2>Adjacent things this <i>is not.</i></h2>
+      <p>
+        The clinical-AI tooling landscape is busy and the labels overlap.
+        Asclepius shares vocabulary with several adjacent product
+        categories without being any of them. If you arrived expecting
+        one of these, the project you want is on the right of the line.
+      </p>
+
+      <ul class="cp-not">
+        <li>
+          <b>not an MLOps platform</b>
+          <span>Weights &amp; Biases, MLflow, Comet — they track <em>experiments</em> and <em>training runs</em>. Asclepius tracks <em>production interactions</em>. The substrate sits below an MLOps platform, not next to it.</span>
+        </li>
+        <li>
+          <b>not a model-observability dashboard</b>
+          <span>Arize, WhyLabs, Fiddler — beautiful UIs over inference logs you ship them. They are the consumers of an audit substrate; Asclepius is the producer. Run their dashboard; have them ingest your ledger.</span>
+        </li>
+        <li>
+          <b>not an EHR plugin</b>
+          <span>Epic, Cerner, athena — the substrate doesn't replace a chart, doesn't normalize FHIR, doesn't do CDS hooks. It is FHIR-aware in the narrow sense that <code>EncounterScope</code> can extract Patient + Encounter references; that's it.</span>
+        </li>
+        <li>
+          <b>not an AI scribe</b>
+          <span>Abridge, Nuance DAX, Suki — they generate notes. Asclepius wraps them. The scribe sits above; the substrate sits below.</span>
+        </li>
+        <li>
+          <b>not a diagnostic model</b>
+          <span>Aidoc, Viz.ai, Tempus — they suggest diagnoses. Asclepius records what they suggested, what the clinician did with the suggestion, whether the model was drifting at the time.</span>
+        </li>
+        <li>
+          <b>not a governance committee</b>
+          <span>The substrate produces evidence. People — CMIOs, ethics boards, regulators — make decisions. Tooling does not replace governance; it gives governance something to point at.</span>
+        </li>
+        <li>
+          <b>not a privacy lawyer</b>
+          <span>HIPAA, GDPR, the EU AI Act — the substrate produces the artifacts these regimes demand, but compliance is a human job. Counsel reads the bundle; they do not run the runtime.</span>
+        </li>
+        <li>
+          <b>not a SaaS product</b>
+          <span>Apache 2.0; ships as source. There is no managed service, no telemetry, no call-home. Run it on a hospital GPU node, run it on a developer laptop, run it on a regulator's air-gapped workstation.</span>
+        </li>
+      </ul>
+
+      <p>
+        If a feature would push the project toward one of those — making
+        Asclepius into the scribe, into the dashboard, into the EHR
+        plugin — we push back. <em>Substrate, not app.</em> The whole
+        point is to be the layer underneath, where everyone agrees the
+        bytes mean what they say.
+      </p>
+    </section>
+
+    <!-- §08 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="next">
+      <div class="section-head">
+        <span class="section-num">§08</span>
+        <span class="section-name">where to go</span>
+      </div>
+
+      <h2>Where to go <i>from here.</i></h2>
+      <p>
+        Four doors. The first three are the documentation; the last one
+        is the substrate running in your browser.
+      </p>
+
+      <ul class="cp-next">
+        <li>
+          <a href="architecture.html">
+            <b>The <i>architecture</i></b>
+            <em>component map · /architecture</em>
+          </a>
+        </li>
+        <li>
+          <a href="threat-model.html">
+            <b>The <i>threat model</i></b>
+            <em>what we defend · /threat-model</em>
+          </a>
+        </li>
+        <li>
+          <a href="spec.html">
+            <b>The <i>spec</i></b>
+            <em>on-disk format · /spec</em>
+          </a>
+        </li>
+        <li>
+          <a href="demo.html">
+            <b>The <i>playground</i></b>
+            <em>a chain in-browser · /demo</em>
+          </a>
+        </li>
+      </ul>
+
+      <p>
+        Or peel sideways: <a href="explained.html">/explained</a> for the
+        plain-words version, <a href="quickstart.html">/quickstart</a>
+        for the hands-on five-minute build,
+        <a href="api.html">/api</a> for every public symbol,
+        <a href="cheatsheet.html">/cheatsheet</a> for the pinned
+        one-pager, <a href="glossary.html">/glossary</a> for any term you
+        ran into here that wasn't defined cleanly enough.
+      </p>
+    </section>
+
+    <p class="cp-coda">
+      <em>Concepts before code.</em> If a section here did not survive
+      contact with your reading — if a metaphor broke down, if a phrase
+      did more harm than good — say so on
+      <a href="contributing.html">/contributing</a>. This page is the
+      intermediate rung of a ladder; it should hold weight or be
+      replaced.
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — concepts.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>start here</b>
+        <a href="explained.html">explained</a>
+        <a href="concepts.html">concepts</a>
+        <a href="quickstart.html">quickstart</a>
+        <a href="learn.html">learn (3 surfaces)</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="api.html">API reference</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="governance.html">governance</a>
+        <a href="principles.html">principles</a>
+        <a href="security.html">security</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/Himanshu21464/Asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/floating.js" defer></script>
+</body>
+</html>

@@ -285,7 +285,46 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.1</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.2</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Inclusion proofs, drift ranking, per-patient stats.</em>
+            Round 79 lands the regulator-grade primitives the substrate
+            still owed: a compact <code>InclusionProof</code> for any seq,
+            <code>oldest_entry</code> / <code>newest_entry</code> /
+            <code>seq_at_time</code> as chain-bound time anchors. Drift
+            grows a "look at this one first" pointer
+            (<code>most_drifted_feature</code>); telemetry adds histogram
+            <code>sum</code> / <code>range</code> and the
+            registry-existence predicates dashboards need to render n/a
+            rather than zero. Consent gains per-patient stats, a
+            has-ever-existed predicate, a windowed
+            <code>recently_revoked</code> queue, and
+            <code>most_recently_granted</code> as the canary for
+            "is consent flowing at all." <code>ConsentToken</code> picks up
+            a <code>revoked_at</code> field; the runtime gains
+            <code>quick_status</code> / <code>is_healthy</code> /
+            <code>ledger_age</code>; <code>Inference</code> exposes
+            <code>was_blocked</code> and <code>has_completed</code>. No
+            on-disk format changes; nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::inclusion_proof(seq)</code> + <code>InclusionProof</code> — compact witness, verifiable offline against a published head.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::oldest_entry()</code>, <code>newest_entry()</code>, <code>seq_at_time(t)</code> — chain-bound time anchors without two range queries.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::sum()</code>, <code>range()</code> — span and total without re-walking observations.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::has_counter(name)</code>, <code>has_histogram(name)</code> — typo-proof predicates that distinguish "zero" from "never registered."</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::most_drifted_feature()</code> — name the worst-offender feature in one call; pairs with <code>any_severe()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::stats_for_patient(p)</code>, <code>is_patient_known(p)</code>, <code>recently_revoked(window)</code>, <code>most_recently_granted()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentToken</code>: <code>revoked_at: Time</code> field on the token struct itself.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::was_blocked()</code>, <code>has_completed()</code> — terminal-state predicates that survive idempotent retries.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::quick_status()</code>, <code>is_healthy()</code>, <code>ledger_age()</code> — the one-line CLI line, the boolean <code>/healthz</code> wants, and the chain's lifespan.</span></li>
+            <li class="docs"><b>doc</b><span>New <code>/concepts</code> page — between the explainer and the architecture spec. <code>/api</code> and <code>/cheatsheet</code> updated.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.1</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Patient + window + replication queries.</em> Round 78 lands the

@@ -213,6 +213,22 @@ public:
     // record an aborted-inference event.
     bool is_committed() const noexcept;
 
+    // True iff status() begins with "blocked." (i.e. "blocked.input"
+    // or "blocked.output"). Cheap accessor — sidecars on the hot path
+    // would otherwise re-allocate / re-compare the status string each
+    // call. Returns false on a handle that hasn't run, on null impl,
+    // or on any non-blocked terminal status (ok / model_error /
+    // timeout / cancelled / aborted).
+    bool was_blocked() const noexcept;
+
+    // True iff run() / run_with_timeout() / run_cancellable() reached
+    // a terminal state on this handle, regardless of whether commit()
+    // followed. Mirrors has_run() at the impl level but is named for
+    // the post-condition rather than the call: callers reading
+    // "did this inference finish?" pair it with is_committed() to
+    // distinguish run-but-uncommitted from never-ran. noexcept.
+    bool has_completed() const noexcept;
+
     // JSON snapshot of the pending ledger_body. Read-only debug
     // accessor — useful for sidecars that want to inspect what would
     // be committed before calling commit() (e.g. assert a metadata
@@ -322,6 +338,30 @@ public:
     };
 
     Health health() const;
+
+    // True iff health().ok is true. Cheap, allocation-free wrapper
+    // for /healthz endpoints and sidecar gates that only need the
+    // boolean liveness verdict. Equivalent to health().ok but
+    // saves callers the Health struct construction when they
+    // don't care about its fields.
+    bool is_healthy() const noexcept;
+
+    // Single-line human-readable status string. Format:
+    //   "OK · N entries · K active consent · F drift features · P policies"
+    // or "EMPTY" when the runtime has never been written to. Used by
+    // sidecar log lines and short health probes that want a one-line
+    // summary without parsing JSON. Pulls from health() + ledger
+    // length; never errors. The middle dot (·) separator is U+00B7
+    // — the same character the website uses in eyebrow lines.
+    std::string quick_status() const;
+
+    // Wallclock duration since the oldest entry in the chain.
+    // Returns std::chrono::nanoseconds::zero() on an empty chain
+    // (and on any read error — diagnostics belong on health(), not
+    // here). Used by ops dashboards as a coarse "how long has this
+    // runtime been recording?" gauge. Implementation reads ledger().
+    // at(1); the call is bounded — one indexed lookup, not a scan.
+    std::chrono::nanoseconds ledger_age() const;
 
     // Sugar over ledger().length(). Saves callers the indirection
     // of grabbing a Ledger& reference when they only want the count

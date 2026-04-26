@@ -1,10 +1,10 @@
 {
   "ok": true,
   "version": "0.1.0",
-  "current_release": "v0.4.1",
+  "current_release": "v0.4.2",
   "released_at": "2026-04-26",
-  "site_built_at": "2026-04-26T13:08:36Z",
-  "pages": 48,
+  "site_built_at": "2026-04-26T13:20:32Z",
+  "pages": 49,
   "files_attested": 90,
   "ledger_head": "8e510bf4…21b04a",
   "key_id": "a1f2…74e6",

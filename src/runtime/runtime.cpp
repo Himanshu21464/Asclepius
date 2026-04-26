@@ -293,6 +293,56 @@ Runtime::Health Runtime::health() const {
     return h;
 }
 
+bool Runtime::is_healthy() const noexcept {
+    // health() doesn't currently throw, but it's not declared noexcept;
+    // a future addition (e.g. checking a SQLite WAL stat) might widen
+    // the contract. We catch defensively so this accessor stays
+    // truly noexcept for sidecar gates.
+    try {
+        return health().ok;
+    } catch (...) {
+        return false;
+    }
+}
+
+std::string Runtime::quick_status() const {
+    if (impl_->ledger.length() == 0) {
+        return std::string{"EMPTY"};
+    }
+    auto h = health();
+    // U+00B7 MIDDLE DOT (UTF-8: 0xC2 0xB7) — same character as the
+    // site's eyebrow separators.
+    constexpr const char* kDot = " \xC2\xB7 ";
+    std::string out;
+    out.reserve(96);
+    out += "OK";
+    out += kDot;
+    out += std::to_string(h.ledger_length);
+    out += " entries";
+    out += kDot;
+    out += std::to_string(h.active_consent_tokens);
+    out += " active consent";
+    out += kDot;
+    out += std::to_string(h.drift_features);
+    out += " drift features";
+    out += kDot;
+    out += std::to_string(h.policy_count);
+    out += " policies";
+    return out;
+}
+
+std::chrono::nanoseconds Runtime::ledger_age() const {
+    if (impl_->ledger.length() == 0) {
+        return std::chrono::nanoseconds::zero();
+    }
+    auto first = impl_->ledger.at(1);
+    if (!first) {
+        // Diagnostics belong on health(); this accessor is best-effort.
+        return std::chrono::nanoseconds::zero();
+    }
+    return Time::now() - first.value().header.ts;
+}
+
 Result<void> Runtime::audit_spot_check(std::size_t lookback) const {
     if (lookback == 0) {
         return Error::invalid("audit_spot_check: lookback must be > 0");

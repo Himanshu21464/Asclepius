@@ -8,6 +8,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstring>
 #include <future>
 #include <memory>
 #include <thread>
@@ -362,6 +363,24 @@ Result<std::uint64_t> Inference::seq() const noexcept {
 
 bool Inference::is_committed() const noexcept {
     return impl_ && impl_->committed;
+}
+
+bool Inference::was_blocked() const noexcept {
+    if (!impl_) return false;
+    auto it = impl_->ledger_body.find("status");
+    if (it == impl_->ledger_body.end() || !it->is_string()) return false;
+    // Read the string in-place (no copy). "blocked." is 8 bytes; only
+    // accept exact prefix on a known status string. We avoid pulling
+    // <string_view> here to keep the accessor allocation-free.
+    const auto& s = it->get_ref<const std::string&>();
+    static constexpr char kPrefix[] = "blocked.";
+    constexpr std::size_t kLen = sizeof(kPrefix) - 1;
+    if (s.size() < kLen) return false;
+    return std::memcmp(s.data(), kPrefix, kLen) == 0;
+}
+
+bool Inference::has_completed() const noexcept {
+    return impl_ && impl_->completed;
 }
 
 nlohmann::json Inference::body_snapshot() const {

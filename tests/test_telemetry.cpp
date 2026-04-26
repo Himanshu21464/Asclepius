@@ -1335,6 +1335,218 @@ TEST_CASE("MetricRegistry::diff: counters dropped since baseline emit negative d
     for (const auto& [_, v] : zero) CHECK(v == 0);
 }
 
+// ============== Histogram::sum ==========================================
+
+TEST_CASE("Histogram::sum returns 0.0 on empty histogram") {
+    Histogram empty{0.0, 1.0, 10};
+    CHECK(empty.sum() == doctest::Approx(0.0));
+
+    // Off-zero range — empty must still return 0.0, not lo or anything
+    // derived from the range.
+    Histogram off{5.0, 15.0, 10};
+    CHECK(off.sum() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::sum equals bin_midpoint*count weighted total") {
+    Histogram h{0.0, 1.0, 10};
+    // 90 obs at bin 0 (midpoint 0.05) + 10 obs at bin 9 (midpoint 0.95)
+    // → sum = 90 * 0.05 + 10 * 0.95 = 4.5 + 9.5 = 14.0.
+    for (int i = 0; i < 90; ++i) h.observe(0.05);
+    for (int i = 0; i < 10; ++i) h.observe(0.95);
+    CHECK(h.sum() == doctest::Approx(14.0).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::sum is mean*total (integration)") {
+    Histogram h{0.0, 10.0, 10};
+    for (int b = 0; b < 10; ++b) {
+        for (int i = 0; i < 10; ++i) h.observe(static_cast<double>(b) + 0.5);
+    }
+    // mean ~5.0, total 100 → sum ~500.
+    CHECK(h.sum() == doctest::Approx(h.mean() * static_cast<double>(h.total()))
+                        .epsilon(1e-9));
+    CHECK(h.sum() == doctest::Approx(500.0).epsilon(1e-9));
+
+    // Single-bin distribution: sum == midpoint * total.
+    Histogram tight{0.0, 10.0, 10};
+    for (int i = 0; i < 25; ++i) tight.observe(4.5);
+    CHECK(tight.sum() == doctest::Approx(4.5 * 25).epsilon(1e-9));
+}
+
+// ============== Histogram::range ========================================
+
+TEST_CASE("Histogram::range returns 0.0 on empty histogram") {
+    Histogram empty{0.0, 1.0, 10};
+    CHECK(empty.range() == doctest::Approx(0.0));
+
+    // Off-zero range with no observations — must NOT return hi - lo.
+    Histogram off{5.0, 15.0, 10};
+    CHECK(off.range() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::range is zero for a single populated bin") {
+    Histogram h{0.0, 10.0, 10};
+    for (int i = 0; i < 5; ++i) h.observe(4.5);
+    // min == max == 4.5 → range == 0.
+    CHECK(h.range() == doctest::Approx(0.0).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::range matches max() - min() (integration)") {
+    Histogram h{0.0, 10.0, 10};
+    h.observe(0.1);   // bin 0, midpoint 0.5
+    h.observe(9.9);   // bin 9, midpoint 9.5
+    // range == 9.5 - 0.5 == 9.0.
+    CHECK(h.range() == doctest::Approx(9.0).epsilon(1e-9));
+    CHECK(h.range() == doctest::Approx(h.max() - h.min()).epsilon(1e-9));
+
+    // Interior empty bins are correctly ignored — range tracks populated
+    // extremes, not lo/hi.
+    Histogram g{0.0, 1.0, 10};
+    for (int i = 0; i < 3; ++i) g.observe(0.25);  // midpoint 0.25
+    for (int i = 0; i < 4; ++i) g.observe(0.75);  // midpoint 0.75
+    CHECK(g.range() == doctest::Approx(0.5).epsilon(1e-9));
+}
+
+// ============== MetricRegistry::has_counter =============================
+
+TEST_CASE("MetricRegistry::has_counter returns false on empty registry") {
+    MetricRegistry m;
+    CHECK(m.has_counter("anything") == false);
+    CHECK(m.has_counter("") == false);
+}
+
+TEST_CASE("MetricRegistry::has_counter returns true for incremented names only") {
+    MetricRegistry m;
+    m.inc("alpha");
+    m.add("beta", 4);
+    CHECK(m.has_counter("alpha"));
+    CHECK(m.has_counter("beta"));
+    CHECK(!m.has_counter("ghost"));
+    // Substring should not false-positive.
+    CHECK(!m.has_counter("alph"));
+    // Histograms must NOT show up here — independent name space.
+    m.observe("hist", 0.1);
+    CHECK(!m.has_counter("hist"));
+}
+
+TEST_CASE("MetricRegistry::has_counter survives reset, cleared by clear() (integration)") {
+    MetricRegistry m;
+    m.inc("c", 5);
+    CHECK(m.has_counter("c"));
+
+    // reset() zeroes the value but keeps the entry — has_counter() stays
+    // true (consistent with counter_count() not dropping after reset).
+    REQUIRE(m.reset("c"));
+    CHECK(m.has_counter("c"));
+    CHECK(m.count("c") == 0);
+
+    // clear() drops everything.
+    m.clear();
+    CHECK(!m.has_counter("c"));
+}
+
+// ============== MetricRegistry::has_histogram ===========================
+
+TEST_CASE("MetricRegistry::has_histogram returns false on empty registry") {
+    MetricRegistry m;
+    CHECK(m.has_histogram("anything") == false);
+    CHECK(m.has_histogram("") == false);
+}
+
+TEST_CASE("MetricRegistry::has_histogram returns true for observed names only") {
+    MetricRegistry m;
+    m.observe("latency", 0.1);
+    m.observe("queue_depth", 7.0);
+    CHECK(m.has_histogram("latency"));
+    CHECK(m.has_histogram("queue_depth"));
+    CHECK(!m.has_histogram("ghost"));
+    // Counters must NOT show up here.
+    m.inc("counter_only", 3);
+    CHECK(!m.has_histogram("counter_only"));
+    // Substring should not false-positive.
+    CHECK(!m.has_histogram("laten"));
+}
+
+TEST_CASE("MetricRegistry::has_histogram clears with reset_histograms / clear (integration)") {
+    MetricRegistry m;
+    m.inc("c", 1);
+    m.observe("h", 0.5);
+    CHECK(m.has_histogram("h"));
+    CHECK(m.has_counter("c"));
+
+    // reset_histograms() drops histograms, leaves counters.
+    m.reset_histograms();
+    CHECK(!m.has_histogram("h"));
+    CHECK(m.has_counter("c"));
+
+    // Re-observing re-registers the histogram.
+    m.observe("h", 0.2);
+    CHECK(m.has_histogram("h"));
+
+    // clear() wipes both.
+    m.clear();
+    CHECK(!m.has_histogram("h"));
+    CHECK(!m.has_counter("c"));
+}
+
+// ============== DriftMonitor::most_drifted_feature ======================
+
+TEST_CASE("DriftMonitor::most_drifted_feature: not_found on empty monitor") {
+    DriftMonitor dm;
+    auto r = dm.most_drifted_feature();
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("DriftMonitor::most_drifted_feature picks the highest-PSI feature") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("stable", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("drifted", baseline, 0.0, 1.0, 10));
+
+    // Stable mirrors baseline (low PSI); drifted diverges (high PSI).
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("stable", 0.5));
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("drifted", 0.95));
+
+    auto r = dm.most_drifted_feature();
+    REQUIRE(r);
+    CHECK(r.value() == "drifted");
+}
+
+TEST_CASE("DriftMonitor::most_drifted_feature breaks ties alphabetically (integration)") {
+    DriftMonitor dm;
+    std::vector<double> baseline(100, 0.5);
+    // Three features registered with identical baselines; never observed
+    // → all current windows are empty → all PSIs are bitwise-equal. The
+    // tie-break must yield the alphabetically smallest name.
+    REQUIRE(dm.register_feature("zebra",  baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("apple",  baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("monkey", baseline, 0.0, 1.0, 10));
+
+    auto r = dm.most_drifted_feature();
+    REQUIRE(r);
+    CHECK(r.value() == "apple");
+
+    // Drift one feature mildly so its PSI is strictly larger; the
+    // tie-breaker should now defer to the genuine maximum.
+    for (int i = 0; i < 50; ++i) REQUIRE(dm.observe("zebra", 0.05));
+    auto r2 = dm.most_drifted_feature();
+    REQUIRE(r2);
+    CHECK(r2.value() == "zebra");
+
+    // Cross-check: report() must agree on which feature has the largest
+    // PSI value.
+    auto rep = dm.report();
+    double max_psi = -1.0;
+    std::string winner;
+    for (const auto& d : rep) {
+        if (d.psi > max_psi || (d.psi == max_psi && d.feature < winner)) {
+            max_psi = d.psi;
+            winner  = d.feature;
+        }
+    }
+    CHECK(winner == r2.value());
+}
+
 TEST_CASE("DriftMonitor::observation_count resets after reset() and rotate()") {
     DriftMonitor dm;
     REQUIRE(dm.register_feature("a", {0.1}, 0.0, 1.0, 10));

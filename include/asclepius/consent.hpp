@@ -175,6 +175,36 @@ public:
     };
     Summary summary() const;
 
+    // Per-patient version of summary(). Same Summary struct, but counts
+    // are scoped to a single patient. The `patients` field is 1 if the
+    // patient has any tokens on file (active, expired, or revoked), else
+    // 0 — useful for callers that want a "do we know this patient?"
+    // bit alongside the breakdown.
+    Summary stats_for_patient(const PatientId& patient) const;
+
+    // Cheap noexcept existence check at the patient level: true iff at
+    // least one token (any state — active, expired, or revoked) exists
+    // for this patient. Useful for /healthz dashboards and idempotent
+    // ledger replay paths that want to avoid copying out tokens just to
+    // ask "have we ever seen this patient?"
+    bool is_patient_known(const PatientId& patient) const noexcept;
+
+    // Tokens that are revoked AND whose issued_at falls within the past
+    // `window`. Heuristic: we don't track revocation timestamps
+    // explicitly, so a revoked token is "recently revoked" only if the
+    // grant itself is recent — long-running grants that get revoked are
+    // not surfaced. Order: by issued_at descending (newest first).
+    // window <= 0 returns empty.
+    std::vector<ConsentToken>
+    recently_revoked(std::chrono::seconds window) const;
+
+    // Token with the largest issued_at across the entire registry,
+    // regardless of revoked / expired state. Returns Error::not_found
+    // when the registry is empty. Tiebreak among equal issued_at values
+    // is unspecified. Useful for operator probes: "what's the freshest
+    // grant we've recorded?"
+    Result<ConsentToken> most_recently_granted() const;
+
     // Active (non-revoked, non-expired) tokens whose expires_at - now()
     // is <= horizon — i.e. "what's about to lapse?" Used by ops
     // dashboards that want to nudge clinicians to re-consent before a

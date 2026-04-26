@@ -2401,3 +2401,244 @@ TEST_CASE("is_chain_empty: agrees with ledger().length() == 0 invariant") {
     (void)rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
     CHECK(rt.is_chain_empty() == (rt.ledger().length() == 0));
 }
+
+// ============== Inference::was_blocked ====================================
+
+TEST_CASE("was_blocked: false on a successful run") {
+    auto rt_ = fresh_runtime("wb_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_phi_scrubber());
+    auto pid = PatientId::pseudonymous("p_wb_ok");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    CHECK(!inf.value().was_blocked());
+    CHECK(inf.value().status() == "ok");
+}
+
+TEST_CASE("was_blocked: true on blocked.input") {
+    auto rt_ = fresh_runtime("wb_in"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_length_limit(/*input_max=*/4, /*output_max=*/0));
+    auto pid = PatientId::pseudonymous("p_wb_in");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto r = inf.value().run("this input is way too long",
+        [](std::string s) -> Result<std::string> { return s; });
+    REQUIRE(!r);
+    CHECK(inf.value().was_blocked());
+    CHECK(inf.value().status() == "blocked.input");
+}
+
+TEST_CASE("was_blocked: true on blocked.output, false before run, false on null status") {
+    auto rt_ = fresh_runtime("wb_out"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_length_limit(/*input_max=*/0, /*output_max=*/4));
+    auto pid = PatientId::pseudonymous("p_wb_out");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    // Edge: pre-run, no status is staged — was_blocked must return false.
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(!inf.value().was_blocked());
+    CHECK(!inf.value().has_completed());
+
+    auto r = inf.value().run("hi",
+        [](std::string) -> Result<std::string> { return std::string{"this output is too long"}; });
+    REQUIRE(!r);
+    CHECK(inf.value().was_blocked());
+    CHECK(inf.value().status() == "blocked.output");
+
+    // Integration: model_error must NOT count as blocked even though the
+    // run failed — was_blocked is about policy-chain rejection only.
+    auto inf2 = begin(rt, pid, tok.token_id); REQUIRE(inf2);
+    auto r2 = inf2.value().run("ok",
+        [](std::string) -> Result<std::string> { return Error::internal("boom"); });
+    REQUIRE(!r2);
+    CHECK(!inf2.value().was_blocked());
+    CHECK(inf2.value().status() == "model_error");
+}
+
+// ============== Inference::has_completed ==================================
+
+TEST_CASE("has_completed: false on a fresh handle") {
+    auto rt_ = fresh_runtime("hc_fresh"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hc_fresh");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(!inf.value().has_completed());
+    CHECK(!inf.value().is_committed());
+}
+
+TEST_CASE("has_completed: true after run, regardless of commit") {
+    auto rt_ = fresh_runtime("hc_run"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hc_run");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    CHECK(inf.value().has_completed());
+    // Pre-commit: completed but not committed — the run-but-not-committed
+    // state has_completed() lets sidecars detect.
+    CHECK(!inf.value().is_committed());
+    REQUIRE(inf.value().commit());
+    CHECK(inf.value().has_completed());  // unchanged by commit
+    CHECK(inf.value().is_committed());
+}
+
+TEST_CASE("has_completed: true even when run returned an error") {
+    auto rt_ = fresh_runtime("hc_err"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_hc_err");
+    auto tok = rt.consent().grant(pid, {Purpose::diagnostic_suggestion}, 1h).value();
+
+    auto inf = rt.begin_inference({
+        .model = ModelId{"m","v1"}, .actor = ActorId::clinician("smith"),
+        .patient = pid, .encounter = EncounterId::make(),
+        .purpose = Purpose::diagnostic_suggestion,
+        .tenant  = TenantId{},
+        .consent_token_id = tok.token_id,
+    });
+    REQUIRE(inf);
+    auto r = inf.value().run("x",
+        [](std::string) -> Result<std::string> { return Error::internal("boom"); });
+    REQUIRE(!r);
+    // Integration: even a failed run flips completed — pairs with
+    // was_blocked()/status() for full post-mortem.
+    CHECK(inf.value().has_completed());
+    CHECK(!inf.value().was_blocked());
+    CHECK(inf.value().status() == "model_error");
+}
+
+// ============== Runtime::quick_status =====================================
+
+TEST_CASE("quick_status: EMPTY on a fresh runtime") {
+    auto rt_ = fresh_runtime("qs_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.quick_status() == "EMPTY");
+}
+
+TEST_CASE("quick_status: OK with counts after activity") {
+    auto rt_ = fresh_runtime("qs_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_qs_ok");
+    (void)rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto s = rt.quick_status();
+    // Must lead with OK (non-empty chain) and contain the entry count.
+    CHECK(s.rfind("OK", 0) == 0);
+    CHECK(s.find("entries") != std::string::npos);
+    CHECK(s.find("active consent") != std::string::npos);
+    CHECK(s.find("drift features") != std::string::npos);
+    CHECK(s.find("policies") != std::string::npos);
+    // No newline — single-line invariant.
+    CHECK(s.find('\n') == std::string::npos);
+}
+
+TEST_CASE("quick_status: counts move with policy install and inference commit") {
+    auto rt_ = fresh_runtime("qs_grow"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_qs_grow");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto before = rt.quick_status();
+    CHECK(before.find("0 policies") != std::string::npos);
+    REQUIRE(rt.install_default_policies());
+    auto mid = rt.quick_status();
+    CHECK(mid.find("0 policies") == std::string::npos);
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    auto after = rt.quick_status();
+    // Entry count should have grown.
+    CHECK(rt.ledger_length() >= 2);
+    CHECK(after.find(std::to_string(rt.ledger_length()) + " entries")
+          != std::string::npos);
+}
+
+// ============== Runtime::is_healthy =======================================
+
+TEST_CASE("is_healthy: true on a fresh runtime") {
+    auto rt_ = fresh_runtime("ih_fresh"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.is_healthy());
+    CHECK(rt.is_healthy() == rt.health().ok);
+}
+
+TEST_CASE("is_healthy: still true after activity") {
+    auto rt_ = fresh_runtime("ih_act"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ih_act");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    CHECK(rt.is_healthy());
+}
+
+TEST_CASE("is_healthy: agrees with health().ok across multiple calls") {
+    auto rt_ = fresh_runtime("ih_inv"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Integration: stable across repeated probing — sidecars hammer
+    // /healthz and we don't want the boolean to flip on a quiet runtime.
+    for (int i = 0; i < 5; ++i) {
+        CHECK(rt.is_healthy() == rt.health().ok);
+    }
+}
+
+// ============== Runtime::ledger_age =======================================
+
+TEST_CASE("ledger_age: zero on an empty chain") {
+    auto rt_ = fresh_runtime("la_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.ledger_age() == std::chrono::nanoseconds::zero());
+}
+
+TEST_CASE("ledger_age: positive once the first entry has been written") {
+    auto rt_ = fresh_runtime("la_one"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_la_one");
+    (void)rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // Sleep a touch so age is comfortably above clock granularity.
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    auto age = rt.ledger_age();
+    CHECK(age > std::chrono::nanoseconds::zero());
+    CHECK(age < std::chrono::seconds{60});
+}
+
+TEST_CASE("ledger_age: pinned to the OLDEST entry, monotonically grows") {
+    auto rt_ = fresh_runtime("la_old"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_la_old");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto first_age = rt.ledger_age();
+    REQUIRE(first_age > std::chrono::nanoseconds::zero());
+
+    // Write more entries; ledger_age must reflect the oldest, not the
+    // newest, so it should keep increasing — never reset to ~0.
+    std::this_thread::sleep_for(std::chrono::milliseconds{3});
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto later_age = rt.ledger_age();
+    CHECK(later_age >= first_age);
+    // Integration: age should match (now - at(1).ts) within a small slack.
+    auto first = rt.ledger().at(1);
+    REQUIRE(first);
+    auto expected = Time::now() - first.value().header.ts;
+    auto delta = (later_age > expected)
+                    ? (later_age - expected)
+                    : (expected - later_age);
+    CHECK(delta < std::chrono::milliseconds{50});
+}

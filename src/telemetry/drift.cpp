@@ -232,6 +232,29 @@ double Histogram::max() const {
     return hi_;
 }
 
+double Histogram::sum() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0) return 0.0;
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    double s = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        s += mid * static_cast<double>(counts_[i]);
+    }
+    return s;
+}
+
+double Histogram::range() const {
+    // min() and max() each take their own lock. Check emptiness up
+    // front so we return the documented 0.0 sentinel (not hi - lo).
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        if (total_ == 0) return 0.0;
+    }
+    return max() - min();
+}
+
 Result<void> Histogram::merge(const Histogram& other) {
     if (this == &other) {
         // Self-merge: lock once and double our own counts.
@@ -494,6 +517,25 @@ Result<std::uint64_t> DriftMonitor::baseline_count(std::string_view feature) con
         return Error::not_found(fmt::format("unregistered feature: {}", feature));
     }
     return it->second->reference->total();
+}
+
+Result<std::string> DriftMonitor::most_drifted_feature() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (features_.empty()) {
+        return Error::not_found("no features registered");
+    }
+    const std::string* best_name = nullptr;
+    double             best_psi  = 0.0;
+    for (const auto& [name, fs] : features_) {
+        const double psi = Histogram::psi(*fs->reference, *fs->current);
+        if (best_name == nullptr
+         || psi > best_psi
+         || (psi == best_psi && name < *best_name)) {
+            best_name = &name;
+            best_psi  = psi;
+        }
+    }
+    return *best_name;
 }
 
 }  // namespace asclepius

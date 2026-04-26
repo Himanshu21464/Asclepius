@@ -501,6 +501,73 @@ std::string ConsentRegistry::dump_state_json() const {
     return out.dump();
 }
 
+ConsentRegistry::Summary
+ConsentRegistry::stats_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    Summary s{0, 0, 0, 0, 0};
+    for (const auto& [_, t] : by_id_) {
+        if (t.patient != patient) continue;
+        s.total++;
+        if (t.revoked) {
+            s.revoked++;
+        } else if (t.expires_at <= now) {
+            s.expired++;
+        } else {
+            s.active++;
+        }
+    }
+    s.patients = (s.total > 0) ? 1 : 0;
+    return s;
+}
+
+bool ConsentRegistry::is_patient_known(const PatientId& patient) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        for (const auto& [_, t] : by_id_) {
+            if (t.patient == patient) return true;
+        }
+        return false;
+    } catch (...) {
+        return false;
+    }
+}
+
+std::vector<ConsentToken>
+ConsentRegistry::recently_revoked(std::chrono::seconds window) const {
+    std::vector<ConsentToken> out;
+    if (window.count() <= 0) {
+        return out;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now    = Time::now();
+    const auto cutoff = now - std::chrono::nanoseconds{window};
+    for (const auto& [_, t] : by_id_) {
+        if (!t.revoked)            continue;
+        if (t.issued_at < cutoff)  continue;
+        out.push_back(t);
+    }
+    std::sort(out.begin(), out.end(),
+              [](const ConsentToken& a, const ConsentToken& b) {
+                  return a.issued_at > b.issued_at;
+              });
+    return out;
+}
+
+Result<ConsentToken> ConsentRegistry::most_recently_granted() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const ConsentToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (best == nullptr || t.issued_at > best->issued_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("registry is empty");
+    }
+    return *best;
+}
+
 std::size_t ConsentRegistry::extend_all_for_patient(const PatientId&     patient,
                                                     std::chrono::seconds additional_ttl) {
     if (additional_ttl.count() <= 0) {

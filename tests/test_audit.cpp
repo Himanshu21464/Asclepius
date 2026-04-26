@@ -2894,3 +2894,212 @@ TEST_CASE("content_address agrees with head_at_seq.head_hash and chains forward"
         CHECK(e.value().header.prev_hash.hex() == prev.value().hex());
     }
 }
+
+// ---- oldest_entry / newest_entry ----------------------------------------
+
+TEST_CASE("oldest_entry returns seq=1 on a populated chain") {
+    auto p = tmp_db("oldest_entry_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto e = l.oldest_entry();
+    REQUIRE(e);
+    CHECK(e.value().header.seq == 1);
+    // body matches the first append (i==0).
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body.at("i").get<int>() == 0);
+}
+
+TEST_CASE("oldest_entry on an empty chain returns not_found") {
+    auto p = tmp_db("oldest_entry_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto e = l_.value().oldest_entry();
+    REQUIRE(!e);
+    CHECK(e.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("oldest_entry agrees with at(1) and survives reopen") {
+    auto p = tmp_db("oldest_entry_persist");
+    {
+        auto l_ = Ledger::open(p); REQUIRE(l_);
+        auto& l = l_.value();
+        for (int i = 0; i < 6; i++) {
+            REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        }
+    }
+    auto l2 = Ledger::open(p); REQUIRE(l2);
+    auto a = l2.value().at(1);             REQUIRE(a);
+    auto o = l2.value().oldest_entry();    REQUIRE(o);
+    CHECK(o.value().entry_hash().hex() == a.value().entry_hash().hex());
+    CHECK(o.value().header.seq == 1);
+}
+
+TEST_CASE("newest_entry returns seq=length on a populated chain") {
+    auto p = tmp_db("newest_entry_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 7; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto e = l.newest_entry();
+    REQUIRE(e);
+    CHECK(e.value().header.seq == l.length());
+    CHECK(e.value().entry_hash().hex() == l.head().hex());
+}
+
+TEST_CASE("newest_entry on an empty chain returns not_found") {
+    auto p = tmp_db("newest_entry_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto e = l_.value().newest_entry();
+    REQUIRE(!e);
+    CHECK(e.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("newest_entry tracks the head after each append") {
+    auto p = tmp_db("newest_entry_tracks");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++) {
+        auto a = l.append("e", "x", nlohmann::json{{"i", i}}, "");
+        REQUIRE(a);
+        auto n = l.newest_entry(); REQUIRE(n);
+        CHECK(n.value().header.seq == static_cast<std::uint64_t>(i + 1));
+        CHECK(n.value().entry_hash().hex() == a.value().entry_hash().hex());
+        CHECK(n.value().entry_hash().hex() == l.head().hex());
+    }
+}
+
+// ---- seq_at_time --------------------------------------------------------
+
+TEST_CASE("seq_at_time returns largest seq with ts <= t") {
+    auto p = tmp_db("sat_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Insert 4 entries with a small sleep so timestamps are strictly
+    // increasing on every reasonable clock.
+    std::vector<Time> times;
+    for (int i = 0; i < 4; i++) {
+        auto a = l.append("e", "x", nlohmann::json{{"i", i}}, "");
+        REQUIRE(a);
+        times.push_back(a.value().header.ts);
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    // t == ts of entry 3 → seq 3.
+    auto r3 = l.seq_at_time(times[2]); REQUIRE(r3);
+    CHECK(r3.value() == 3);
+    // t far in the future → newest.
+    auto rfut = l.seq_at_time(Time::now() + std::chrono::hours(1));
+    REQUIRE(rfut);
+    CHECK(rfut.value() == l.length());
+    // t between entries 2 and 3 (just before ts[2]) → 2.
+    auto rmid = l.seq_at_time(times[2] - std::chrono::nanoseconds(1));
+    REQUIRE(rmid);
+    CHECK(rmid.value() == 2);
+}
+
+TEST_CASE("seq_at_time returns 0 for empty chain or pre-genesis time") {
+    auto p = tmp_db("sat_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain, any t.
+    auto r0 = l.seq_at_time(Time::now()); REQUIRE(r0);
+    CHECK(r0.value() == 0);
+    // Append, then ask for a t earlier than the first entry.
+    auto a = l.append("e", "x", nlohmann::json{{"i", 0}}, ""); REQUIRE(a);
+    auto rprior = l.seq_at_time(a.value().header.ts - std::chrono::nanoseconds(1));
+    REQUIRE(rprior);
+    CHECK(rprior.value() == 0);
+}
+
+TEST_CASE("seq_at_time agrees with head_at_time for the same t") {
+    auto p = tmp_db("sat_vs_head_at_time");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 6; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto t = Time::now();
+    auto sa = l.seq_at_time(t);   REQUIRE(sa);
+    auto ha = l.head_at_time(t);  REQUIRE(ha);
+    CHECK(sa.value() == ha.value().seq);
+}
+
+// ---- inclusion_proof ----------------------------------------------------
+
+TEST_CASE("inclusion_proof basic: chain_to_head replays prev_hash linkage") {
+    auto p = tmp_db("ip_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 6; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto pr = l.inclusion_proof(2); REQUIRE(pr);
+    const auto& proof = pr.value();
+    CHECK(proof.seq == 2);
+    CHECK(proof.head_seq == 6);
+    CHECK(proof.head_hash.hex() == l.head().hex());
+    // chain_to_head covers seq+1 .. head_seq.
+    REQUIRE(proof.chain_to_head.size() == 4);  // seqs 3,4,5,6
+
+    // Replay: each entry at seq+1+k has prev_hash equal to entry_hash
+    // of the prior step. Step 0's prior is entry_hash for seq=2.
+    Hash prior = proof.entry_hash;
+    for (std::size_t k = 0; k < proof.chain_to_head.size(); k++) {
+        auto e = l.at(proof.seq + 1 + k); REQUIRE(e);
+        CHECK(e.value().header.prev_hash.hex() == prior.hex());
+        // entry_hash in the proof equals the live recompute.
+        CHECK(proof.chain_to_head[k].hex() == e.value().entry_hash().hex());
+        prior = proof.chain_to_head[k];
+    }
+    // Final replayed hash equals the live head.
+    CHECK(prior.hex() == proof.head_hash.hex());
+}
+
+TEST_CASE("inclusion_proof edges: invalid_argument on seq=0 / out of range / empty") {
+    auto p = tmp_db("ip_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain: seq=1 out of range.
+    auto e0 = l.inclusion_proof(1);
+    REQUIRE(!e0);
+    CHECK(e0.error().code() == ErrorCode::invalid_argument);
+    for (int i = 0; i < 3; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto ezero = l.inclusion_proof(0);
+    REQUIRE(!ezero);
+    CHECK(ezero.error().code() == ErrorCode::invalid_argument);
+    auto eover = l.inclusion_proof(99);
+    REQUIRE(!eover);
+    CHECK(eover.error().code() == ErrorCode::invalid_argument);
+    // seq == length() is valid: chain_to_head is empty.
+    auto eend = l.inclusion_proof(l.length());
+    REQUIRE(eend);
+    CHECK(eend.value().chain_to_head.empty());
+    CHECK(eend.value().entry_hash.hex() == eend.value().head_hash.hex());
+}
+
+TEST_CASE("inclusion_proof: to_json round-trips fields and hex digests") {
+    auto p = tmp_db("ip_json");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto pr = l.inclusion_proof(1); REQUIRE(pr);
+    const auto& proof = pr.value();
+    auto j = nlohmann::json::parse(proof.to_json());
+    CHECK(j.at("seq").get<std::uint64_t>() == 1u);
+    CHECK(j.at("head_seq").get<std::uint64_t>() == 4u);
+    CHECK(j.at("entry_hash").get<std::string>() == proof.entry_hash.hex());
+    CHECK(j.at("head_hash").get<std::string>() == proof.head_hash.hex());
+    auto chain = j.at("chain_to_head");
+    REQUIRE(chain.is_array());
+    REQUIRE(chain.size() == proof.chain_to_head.size());
+    for (std::size_t k = 0; k < chain.size(); k++) {
+        CHECK(chain[k].get<std::string>() == proof.chain_to_head[k].hex());
+    }
+}

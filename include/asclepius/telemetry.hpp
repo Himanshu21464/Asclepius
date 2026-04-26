@@ -64,6 +64,16 @@ public:
     // histogram is empty (total()==0).
     double max() const;
 
+    // Sum of bin_midpoint * count across all bins. Returns 0.0 if the
+    // histogram is empty (total()==0). Equivalent to mean() * total(),
+    // but computed directly without the divide so it composes naturally
+    // when callers want a raw weighted total.
+    double sum() const;
+
+    // max() - min(). Returns 0.0 if the histogram is empty (total()==0).
+    // Useful as a one-shot "spread" diagnostic that doesn't allocate.
+    double range() const;
+
     // Add another histogram's bin counts into this one. Returns
     // invalid_argument if bin_count(), lo(), or hi() don't match.
     // Acquires both mutexes via std::lock to avoid deadlock.
@@ -193,6 +203,13 @@ public:
     // total. Returns not_found if the feature was never registered.
     Result<std::uint64_t> baseline_count(std::string_view feature) const;
 
+    // Name of the feature with the largest current PSI across all
+    // registered features. Returns Error::not_found if no features
+    // are registered. Ties (equal PSI to within bitwise equality) are
+    // broken by alphabetical name to keep the result deterministic
+    // for dashboards and tests.
+    Result<std::string> most_drifted_feature() const;
+
     // Aggregate health snapshot for the monitor. total_observations is
     // the sum of current-window observation counts across all features.
     // max_severity is the worst current PSI severity across features
@@ -245,6 +262,16 @@ public:
     void  observe(std::string_view name, double value);
 
     std::uint64_t count(std::string_view name) const;
+
+    // Cheap predicate: true iff a counter with this name has been
+    // registered (regardless of its current value). Locked, but does
+    // not allocate the way list_counters() / counter_snapshot() do.
+    bool has_counter(std::string_view name) const noexcept;
+
+    // Cheap predicate: true iff a histogram with this name has been
+    // observe()'d. Distinct from has_counter() — counters and
+    // histograms occupy independent name spaces. Locked, no alloc.
+    bool has_histogram(std::string_view name) const noexcept;
 
     // Read the count of a registered histogram by name. Returns not_found
     // if no histogram of that name has been observe()'d. Distinct from

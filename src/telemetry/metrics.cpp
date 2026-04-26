@@ -236,4 +236,25 @@ std::size_t MetricRegistry::histogram_count_total() const {
     return histograms_.size();
 }
 
+bool MetricRegistry::has_counter(std::string_view name) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        return counters_.find(std::string{name}) != counters_.end();
+    } catch (...) {
+        // Lock acquisition or string construction can theoretically throw.
+        // Contract is noexcept; degrade to "not present" rather than
+        // propagate.
+        return false;
+    }
+}
+
+bool MetricRegistry::has_histogram(std::string_view name) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        return histograms_.find(std::string{name}) != histograms_.end();
+    } catch (...) {
+        return false;
+    }
+}
+
 }  // namespace asclepius

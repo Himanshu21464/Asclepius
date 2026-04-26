@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-26T13:08:34Z",
-  "count": 48,
+  "generated_at": "2026-04-26T13:24:49Z",
+  "count": 49,
   "pages": [
     {
       "url": "accessibility.html",
@@ -25,6 +25,7 @@
         "LedgerEntryHeader",
         "LedgerEntry",
         "Ledger",
+        "InclusionProof",
         "Stats",
         "Attestation",
         "consent.hpp",
@@ -158,6 +159,7 @@
         "What not to expect",
         "Site keyboard shortcuts",
         "Round 78 patient · window · replication",
+        "Round 79 inclusion proofs · drift ranking · per-patient stats",
         "Where things live"
       ]
     },
@@ -181,6 +183,26 @@
       "title": "Compare bundles — Asclepius",
       "description": "Drop two ledger excerpts side by side. Asclepius diffs them by seq and payload_hash and highlights added, removed, and modified entries — in your browser, no upload.",
       "headings": []
+    },
+    {
+      "url": "concepts.html",
+      "title": "Concepts — Asclepius primer",
+      "description": "Concepts primer for Asclepius: trust substrate, audit chain, consent as state, drift in three numbers, policy chain, offline-verifiable evidence.",
+      "headings": [
+        "What \"trust substrate\" actually means.",
+        "The audit chain.",
+        "Inclusion proofs.",
+        "Consent as state, not just a checkbox.",
+        "Drift, in three numbers.",
+        "Population Stability Index",
+        "Kolmogorov-Smirnov",
+        "Earth Mover's Distance",
+        "The policy chain.",
+        "Per-policy timing.",
+        "Why offline-verifiable matters.",
+        "Adjacent things this is not.",
+        "Where to go from here."
+      ]
     },
     {
       "url": "conformance.html",

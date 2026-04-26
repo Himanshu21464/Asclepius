@@ -561,6 +561,26 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 79 <small>inclusion proofs · drift ranking · per-patient stats</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.inclusion_proof(seq)</code></dt><dd>compact witness against the current head</dd>
+        <dt><code>ledger.oldest_entry() · newest_entry()</code></dt><dd>first / last row without a range query</dd>
+        <dt><code>ledger.seq_at_time(t)</code></dt><dd>"where was the chain at midnight?"</dd>
+        <dt><code>hist.sum() · range()</code></dt><dd>span and total without re-walking</dd>
+        <dt><code>metrics.has_counter(n) · has_histogram(n)</code></dt><dd>typo-proof predicates</dd>
+        <dt><code>drift.most_drifted_feature()</code></dt><dd>"look at this one first"</dd>
+        <dt><code>consent.stats_for_patient(p)</code></dt><dd>one row per patient on a dashboard</dd>
+        <dt><code>consent.is_patient_known(p)</code></dt><dd>has-ever-existed predicate</dd>
+        <dt><code>consent.recently_revoked(window)</code></dt><dd>right-of-withdrawal queue</dd>
+        <dt><code>consent.most_recently_granted()</code></dt><dd>"is consent flowing at all"</dd>
+        <dt><code>inf.was_blocked() · has_completed()</code></dt><dd>terminal-state predicates</dd>
+        <dt><code>rt.quick_status()</code></dt><dd>one-line CLI line</dd>
+        <dt><code>rt.is_healthy()</code></dt><dd>the boolean <code>/healthz</code> wants</dd>
+        <dt><code>rt.ledger_age()</code></dt><dd>"running N&nbsp;days without a break"</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Where things live</h2>
       <dl class="pair">
         <dt>headers</dt><dd><code>include/asclepius/*.hpp</code></dd>

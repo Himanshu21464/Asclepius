@@ -400,6 +400,42 @@ public:
     // seq > length() or seq == 0.
     Result<HistoricalHead> head_at_seq(std::uint64_t seq) const;
 
+    // Oldest entry (seq == 1). not_found on an empty chain. Cheap
+    // single-row lookup; complement to newest_entry().
+    Result<LedgerEntry> oldest_entry() const;
+
+    // Newest entry (seq == length()). not_found on an empty chain.
+    // Cheap single-row lookup; complement to oldest_entry(). Equivalent
+    // to at(length()) but avoids the caller having to read length()
+    // first and handle the empty case.
+    Result<LedgerEntry> newest_entry() const;
+
+    // Largest seq whose entry.ts <= t. Returns 0 for an empty chain
+    // or for a `t` earlier than the first entry's timestamp. Useful
+    // anchor for "what was the chain like at time T" queries — pairs
+    // with head_at_time which returns the head_hash, while this returns
+    // just the seq for cheaper time-based slicing.
+    Result<std::uint64_t> seq_at_time(Time t) const;
+
+    // Compact attestation that a specific entry at `seq` is part of the
+    // current chain. `chain_to_head` is the sequence of entry_hashes
+    // from seq+1 to head_seq, in seq-ascending order, so a verifier can
+    // replay the prev_hash linkage from the named entry forward to the
+    // head. Used for third-party attestations of single entries without
+    // shipping the entire chain (or even neighboring bodies).
+    //
+    // seq == 0 or seq > length() returns invalid_argument.
+    struct InclusionProof {
+        std::uint64_t     seq{};
+        Hash              entry_hash{};
+        std::vector<Hash> chain_to_head;  // entry_hashes for seq+1 .. head_seq
+        std::uint64_t     head_seq{};
+        Hash              head_hash{};
+
+        std::string to_json() const;
+    };
+    Result<InclusionProof> inclusion_proof(std::uint64_t seq) const;
+
     // Last `n` entries whose header.ts falls in [from, to), most-recent
     // first. Half-open interval. n=0 returns the empty vector;
     // from > to returns invalid_argument. O(n) scan via for_each with

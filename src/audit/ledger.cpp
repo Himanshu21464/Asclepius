@@ -972,6 +972,75 @@ Result<Ledger::HistoricalHead> Ledger::head_at_seq(std::uint64_t seq) const {
     return h;
 }
 
+Result<LedgerEntry> Ledger::oldest_entry() const {
+    if (impl_->length.load() == 0) {
+        return Error::not_found("oldest_entry: chain is empty");
+    }
+    return impl_->storage->select_at(1);
+}
+
+Result<LedgerEntry> Ledger::newest_entry() const {
+    const auto len = impl_->length.load();
+    if (len == 0) {
+        return Error::not_found("newest_entry: chain is empty");
+    }
+    return impl_->storage->select_at(len);
+}
+
+Result<std::uint64_t> Ledger::seq_at_time(Time t) const {
+    if (impl_->length.load() == 0) return std::uint64_t{0};
+    std::uint64_t out = 0;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Entries are emitted in seq-ascending order. Stop scanning at
+        // the first entry past t — everything beyond is also > t since
+        // ts is monotonic across appends in normal flow. Note: if a
+        // future backend permits non-monotonic ts we'd need to drop the
+        // early-exit; for now this matches head_at_time's strategy.
+        if (e.header.ts > t) return false;
+        out = e.header.seq;
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+std::string Ledger::InclusionProof::to_json() const {
+    json j;
+    j["seq"]        = seq;
+    j["entry_hash"] = entry_hash.hex();
+    j["head_seq"]   = head_seq;
+    j["head_hash"]  = head_hash.hex();
+    json chain = json::array();
+    for (const auto& h : chain_to_head) chain.push_back(h.hex());
+    j["chain_to_head"] = std::move(chain);
+    return j.dump();
+}
+
+Result<Ledger::InclusionProof> Ledger::inclusion_proof(std::uint64_t seq) const {
+    const auto len = impl_->length.load();
+    if (seq == 0 || seq > len) {
+        return Error::invalid("inclusion_proof: seq out of range");
+    }
+    auto target = impl_->storage->select_at(seq);
+    if (!target) return target.error();
+
+    InclusionProof proof;
+    proof.seq        = seq;
+    proof.entry_hash = target.value().entry_hash();
+    proof.head_seq   = len;
+    proof.head_hash  = impl_->head;
+
+    if (seq < len) {
+        auto rng = impl_->storage->select_range(seq + 1, len + 1);
+        if (!rng) return rng.error();
+        proof.chain_to_head.reserve(rng.value().size());
+        for (const auto& e : rng.value()) {
+            proof.chain_to_head.push_back(e.entry_hash());
+        }
+    }
+    return proof;
+}
+
 Result<std::vector<LedgerEntry>>
 Ledger::tail_in_window(Time from, Time to, std::size_t n) const {
     if (from > to) {
