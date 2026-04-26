@@ -646,6 +646,36 @@ ok(`sitemap.xml lists every page`, () => {
     return missingFromXml.length === 0;
 });
 
+// ─── _redirects coverage — every page has a friendly /name → /name.html ─
+// Operators paste the friendly form; if the redirect is missing, they hit
+// 404. This is the test that would have caught the round-22 quickstart gap.
+
+console.log('_redirects coverage:');
+const REDIRECTS = readFileSync(path.join(SITE_ROOT, '_redirects'), 'utf-8');
+const redirectMap = new Map();
+for (const line of REDIRECTS.split('\n')) {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) continue;
+    const parts = t.split(/\s+/);
+    if (parts.length >= 2) redirectMap.set(parts[0], parts[1]);
+}
+const REDIRECT_EXEMPT = new Set(['index.html', '404.html']);
+const redirectGaps = [];
+for (const page of htmlPages) {
+    if (REDIRECT_EXEMPT.has(page)) continue;
+    const slug = '/' + page.replace('.html', '');
+    const expected = '/' + page;
+    if (redirectMap.get(slug) !== expected) {
+        redirectGaps.push(`${slug} → expected ${expected}, got ${redirectMap.get(slug) ?? '<missing>'}`);
+    }
+}
+ok(`every page has a friendly /name → /name.html redirect`, () => {
+    if (redirectGaps.length) {
+        console.error('   gaps:\n' + redirectGaps.slice(0, 8).map((l) => '     ' + l).join('\n'));
+    }
+    return redirectGaps.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
