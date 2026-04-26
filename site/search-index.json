@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T07:23:57Z",
+  "generated_at": "2026-04-26T07:26:22Z",
   "count": 47,
   "pages": [
     {
@@ -214,7 +214,7 @@
     {
       "url": "crypto.html",
       "title": "Crypto toolbox — Asclepius",
-      "description": "In-browser cryptographic playground: hash visualizer (SHA-256 / SHA-384 / SHA-512), Ed25519 keypair generation and signing, chain-forge demonstration. All Web Crypto, no network.",
+      "description": "In-browser cryptographic playground: hash visualizer (SHA-256/384/512), Ed25519 keypair gen + signing, chain-forge demo. All Web Crypto, no network.",
       "headings": [
         "Same input, three fingerprints.",
         "One keypair, one signature, irrefutable.",
@@ -224,7 +224,7 @@
     {
       "url": "decisions.html",
       "title": "Decisions — Asclepius",
-      "description": "Architecture Decision Records (ADRs) for the Asclepius substrate. Why Ed25519, why BLAKE2b, why C++20, why SQLite, why canonical JSON, why USTAR tar, why Pimpl, why Result&lt;T&gt;.",
+      "description": "Architecture Decision Records for Asclepius. Why Ed25519, BLAKE2b, C++20, SQLite, canonical JSON, USTAR tar, Pimpl, Result&lt;T&gt; — and what we ruled out.",
       "headings": [
         "Ed25519 over RSA / ECDSA.",
         "context",
@@ -247,7 +247,7 @@
     {
       "url": "demo.html",
       "title": "Asclepius — playground",
-      "description": "A live, in-browser simulation of an Asclepius-wrapped clinical-AI inference. PHI is scrubbed, output is schema-checked, and a signed Merkle ledger row is appended in front of you.",
+      "description": "A live, in-browser simulation of an Asclepius-wrapped clinical-AI inference. PHI scrubbed, schema-checked, signed Merkle row appended in front of you.",
       "headings": [
         "Clinician transcript",
         "detected PHI",
@@ -259,7 +259,7 @@
     {
       "url": "deploy.html",
       "title": "Deploy — Asclepius",
-      "description": "Production deployment recipes for Asclepius: docker-compose, Postgres backend, sidecar, key custody, retention, multi-tenant. The page the production-ops engineer reads first.",
+      "description": "Production deployment recipes for Asclepius: docker-compose, Postgres backend, sidecar, key custody, retention, multi-tenant. Read this first.",
       "headings": [
         "Development.",
         "Production.",
@@ -292,7 +292,7 @@
     {
       "url": "economics.html",
       "title": "Economics — Asclepius",
-      "description": "What does it actually cost to run Asclepius? Bytes per entry, entries per day, signing CPU, verification CPU, bundle export size, WAL disk, retention multiplier — with worked examples for small / medium / large hospitals.",
+      "description": "What does Asclepius actually cost? Bytes per entry, signing CPU, bundle export size, retention — with worked examples for small / medium / large operators.",
       "headings": [
         "One signed entry.",
         "Three operators, three sizings.",
@@ -354,7 +354,7 @@
     {
       "url": "index.html",
       "title": "Asclepius — A Trust Substrate for Clinical AI",
-      "description": "Open, vendor-neutral C++ runtime that wraps any clinical AI tool with audit-grade safety: signed Merkle ledger, policy chain, drift detection, consent enforcement, and FDA-grade evidence bundles.",
+      "description": "Open, vendor-neutral C++ runtime that wraps any clinical AI with audit-grade safety: signed Merkle ledger, policy chain, drift, consent, evidence bundles.",
       "headings": [
         "Q1&nbsp;2026 alone&nbsp;cost&nbsp;American health systems more than&nbsp;the&nbsp;entire&nbsp;clinical-AI tooling&nbsp;market&nbsp;earned.",
         "Kaiser, Medicare-Advantage AI settlement.",
@@ -384,7 +384,7 @@
     {
       "url": "integrations.html",
       "title": "Integrations — Asclepius",
-      "description": "Copy-paste recipes for wrapping common clinical-AI tools in Asclepius. Ambient scribe, in-house model, agentic system, FHIR sidecar, batch evaluation. C++ and Python side-by-side, with the resulting ledger row.",
+      "description": "Copy-paste recipes for wrapping clinical-AI tools in Asclepius. Ambient scribe, in-house model, agent, FHIR sidecar, batch eval. C++ and Python side-by-side.",
       "headings": [
         "An ambient-scribe vendor.",
         "resulting ledger row",
@@ -413,7 +413,7 @@
     {
       "url": "learn.html",
       "title": "Learn — Asclepius",
-      "description": "Three interactive surfaces, in order: build a chain in the playground, walk the offline verify ritual, then inspect a real ledger in the explorer. Plus the crypto toolbox.",
+      "description": "Three interactive surfaces, in order: build a chain in the playground, walk the offline verify ritual, then inspect a real ledger in the explorer.",
       "headings": [
         "Wrap a model in your tab.",
         "Hand it off to a verifier.",
@@ -436,7 +436,7 @@
     {
       "url": "migrations.html",
       "title": "Migrations — Asclepius",
-      "description": "Version-to-version upgrade guides for the Asclepius substrate. v0.0.x → v0.1, v0.1 → v0.2 (Postgres backend), v0.2 → v1.0 (ML-DSA dual-sign). Pre-flight, runbook, rollback, verification.",
+      "description": "Version-to-version upgrade guides for Asclepius. v0.0→v0.1, v0.1→v0.2 (Postgres), v0.2→v1.0 (ML-DSA). Pre-flight, runbook, rollback, verify.",
       "headings": [
         "v0.0.x → v0.1 · initial GA.",
         "pre-flight",
@@ -458,7 +458,7 @@
     {
       "url": "observability.html",
       "title": "Observability — Asclepius",
-      "description": "Every metric, trace span, and structured log line the substrate emits. Prometheus shape, OpenTelemetry semantic conventions, JSON Lines logs, with example dashboards and alert rules.",
+      "description": "Every metric, trace span, and log line the substrate emits. Prometheus shape, OpenTelemetry conventions, JSON Lines logs, dashboards, alert rules.",
       "headings": [
         "Metrics — Prometheus shape.",
         "runtime",
@@ -475,7 +475,7 @@
     {
       "url": "playbooks.html",
       "title": "Playbooks — Asclepius",
-      "description": "Operator runbooks for incidents you will eventually face: key rotation, ledger truncation detected, drift threshold exceeded, consent revocation cascade, evidence-bundle subpoena, model-version mismatch, sidecar partition.",
+      "description": "Operator runbooks for the incidents you will face: key rotation, ledger truncation, drift breach, consent revocation, subpoena, sidecar partition.",
       "headings": [
         "Ledger truncation detected.",
         "detect",
@@ -572,7 +572,7 @@
     {
       "url": "regulator.html",
       "title": "For regulators — Asclepius",
-      "description": "A direct mapping from regulatory requirement to substrate primitive. HIPAA, EU AI Act high-risk obligations, FDA SaMD, California AB 3030, Joint Commission integrity rules — each tied to the exact Asclepius mechanism that addresses it.",
+      "description": "HIPAA, EU AI Act, FDA SaMD, California AB 3030, Joint Commission record integrity — each clause tied to the Asclepius primitive that addresses it.",
       "headings": [
         "HIPAA — Security &amp; Privacy Rules.",
         "EU AI Act — high-risk obligations.",
@@ -609,7 +609,7 @@
     {
       "url": "research.html",
       "title": "Research — Asclepius",
-      "description": "Annotated bibliography of papers and primitives Asclepius is built on. Merkle 1979, Bernstein et al. on Ed25519 / BLAKE2, drift detection literature, FHIR R5, and the clinical-AI accountability canon.",
+      "description": "Annotated bibliography of papers Asclepius is built on. Merkle 1979, Ed25519, BLAKE2, drift literature, FHIR R5, clinical-AI accountability canon.",
       "headings": [
         "Crypto we chose to build on.",
         "The Merkle tree — log integrity for forty-five years.",
@@ -751,7 +751,7 @@
     {
       "url": "threat-tabletop.html",
       "title": "Tabletop exercises — Asclepius",
-      "description": "Five concrete adversarial scenarios for the Asclepius substrate. Insider re-write, retroactive consent forgery, model-version swap, drift gaslighting, key-leak-but-detected. Each maps to threat-model adversaries and playbook runbooks.",
+      "description": "Five adversarial scenarios: insider re-write, consent forgery, model swap, drift gaslighting, key leak. With detection signals and response runbook refs.",
       "headings": [
         "An insider tries to re-write a row.",
         "what the substrate sees",
@@ -767,7 +767,7 @@
     {
       "url": "use-cases.html",
       "title": "Use cases — Asclepius",
-      "description": "Three concrete clinical-AI deployments wrapped by Asclepius: ambient scribe, diagnostic suggestion, agentic action. Each shows the policy chain, model boundary, consent flow, and audit-bundle schema.",
+      "description": "Three clinical-AI deployments wrapped by Asclepius: ambient scribe, diagnostic suggestion, agentic action. With policy chain, consent flow, and bundle.",
       "headings": [
         "An ambient scribe.",
         "policy chain",

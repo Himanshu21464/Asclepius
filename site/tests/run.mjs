@@ -754,6 +754,32 @@ ok(`no SVG contains <script> or inline event handlers (${svgCount} svgs)`, () =>
     return unsafeSvg.length === 0;
 });
 
+// ─── SEO meta lengths — title ≤ 70, description ≤ 170, og:desc ≤ 200 ───
+// Google truncates titles around 60 chars and descriptions around 160 in
+// search results; Open Graph parsers commonly cut off at 200. Pages that
+// run over lose the call-to-action portion of their snippet to ellipsis.
+
+console.log('SEO meta lengths:');
+const seoIssues = [];
+const SEO_EXEMPT = new Set(['404.html']);  // 404 deliberately minimal
+for (const f of htmlPages) {
+    if (SEO_EXEMPT.has(f)) continue;
+    const raw = readFileSync(path.join(SITE_ROOT, f), 'utf-8');
+    const t = /<title>([^<]+)<\/title>/.exec(raw);
+    const d = /<meta\s+name="description"\s+content="([^"]+)"/.exec(raw);
+    const og = /<meta\s+property="og:description"\s+content="([^"]+)"/.exec(raw);
+    if (t && t[1].trim().length > 70) seoIssues.push(`${f}: title ${t[1].trim().length} chars (>70)`);
+    if (d && d[1].trim().length > 170) seoIssues.push(`${f}: description ${d[1].trim().length} chars (>170)`);
+    if (d && d[1].trim().length < 50)  seoIssues.push(`${f}: description ${d[1].trim().length} chars (<50, too short)`);
+    if (og && og[1].trim().length > 200) seoIssues.push(`${f}: og:description ${og[1].trim().length} chars (>200)`);
+}
+ok(`title ≤ 70, description 50–170, og:description ≤ 200 (${htmlPages.length - SEO_EXEMPT.size} pages)`, () => {
+    if (seoIssues.length) {
+        console.error('   issues:\n' + seoIssues.slice(0, 10).map((l) => '     ' + l).join('\n'));
+    }
+    return seoIssues.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');
