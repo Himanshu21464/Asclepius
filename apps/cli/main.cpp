@@ -53,6 +53,38 @@ int cmd_ledger_stats(const std::string& db) {
     return 0;
 }
 
+int cmd_ledger_stats_tenant(const std::string& db, const std::string& tenant) {
+    auto led = Ledger::open_uri(db);
+    if (!led) {
+        fmt::print(stderr, "open: {}\n", led.error().what());
+        return 2;
+    }
+    auto s = led.value().stats_for_tenant(tenant);
+    if (!s) {
+        fmt::print(stderr, "stats-tenant: {}\n", s.error().what());
+        return 2;
+    }
+    std::cout << s.value().to_json() << '\n';
+    return 0;
+}
+
+int cmd_ledger_event_counts(const std::string& db) {
+    auto led = Ledger::open_uri(db);
+    if (!led) {
+        fmt::print(stderr, "open: {}\n", led.error().what());
+        return 2;
+    }
+    auto c = led.value().count_by_event_type();
+    if (!c) {
+        fmt::print(stderr, "event-counts: {}\n", c.error().what());
+        return 2;
+    }
+    nlohmann::json out = nlohmann::json::object();
+    for (const auto& [k, v] : c.value()) out[k] = v;
+    std::cout << out.dump() << '\n';
+    return 0;
+}
+
 int cmd_ledger_find(const std::string& db, const std::string& inference_id) {
     if (inference_id.empty()) {
         fmt::print(stderr, "find: inference_id is required\n");
@@ -387,6 +419,24 @@ int main(int argc, char** argv) {
         stats->add_option("db", db_uri,
                           "ledger: SQLite path or postgres://...")->required();
         stats->callback([&]() { std::exit(cmd_ledger_stats(db_uri)); });
+    }
+    std::string tenant_arg;
+    {
+        auto* st = ledger->add_subcommand("stats-tenant",
+            "per-tenant chain summary as JSON");
+        st->add_option("db", db_uri,
+                       "ledger: SQLite path or postgres://...")->required();
+        st->add_option("tenant", tenant_arg,
+                       "tenant to scope to (use empty string for default scope)")
+          ->required();
+        st->callback([&]() { std::exit(cmd_ledger_stats_tenant(db_uri, tenant_arg)); });
+    }
+    {
+        auto* ec = ledger->add_subcommand("event-counts",
+            "emit {event_type: count} JSON map for the chain");
+        ec->add_option("db", db_uri,
+                       "ledger: SQLite path or postgres://...")->required();
+        ec->callback([&]() { std::exit(cmd_ledger_event_counts(db_uri)); });
     }
     std::string find_id;
     {
