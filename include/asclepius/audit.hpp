@@ -210,6 +210,29 @@ public:
     // to the seq/head_hash pair at the returned ts.
     LedgerCheckpoint checkpoint() const;
 
+    // ---- Stats / observability ------------------------------------------
+    //
+    // A summary view of the ledger suitable for dashboards, capacity
+    // planning, and `status` endpoints. All fields are derivable from
+    // existing API but assembling them in one O(1)-or-bounded call lets
+    // operators avoid 5 round-trips per refresh.
+
+    struct Stats {
+        std::uint64_t entry_count{};
+        Hash          head_hash{};
+        std::uint64_t oldest_seq{};
+        std::uint64_t newest_seq{};
+        Time          oldest_ts{};
+        Time          newest_ts{};
+        std::uint64_t total_body_bytes{};   // sum of body_json lengths
+        std::uint64_t avg_body_bytes{};     // total_body_bytes / entry_count, or 0
+        std::string   key_id;
+
+        std::string to_json() const;
+    };
+
+    Result<Stats> stats() const;
+
     // ---- Subscription ---------------------------------------------------
     //
     // Register a callback that fires after each successful append, on the

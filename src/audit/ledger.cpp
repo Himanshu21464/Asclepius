@@ -645,6 +645,50 @@ Result<LedgerCheckpoint> LedgerCheckpoint::from_json(std::string_view s) {
     return cp;
 }
 
+Result<Ledger::Stats> Ledger::stats() const {
+    Stats s{};
+    s.entry_count = impl_->length.load();
+    s.head_hash   = impl_->head;
+    s.key_id      = impl_->key_id;
+
+    if (s.entry_count == 0) {
+        return s;
+    }
+
+    bool first = true;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (first) {
+            s.oldest_seq = e.header.seq;
+            s.oldest_ts  = e.header.ts;
+            first = false;
+        }
+        s.newest_seq         = e.header.seq;
+        s.newest_ts          = e.header.ts;
+        s.total_body_bytes  += e.body_json.size();
+        return true;
+    });
+    if (!r) return r.error();
+
+    s.avg_body_bytes = s.entry_count == 0
+        ? 0
+        : s.total_body_bytes / s.entry_count;
+    return s;
+}
+
+std::string Ledger::Stats::to_json() const {
+    nlohmann::json j;
+    j["entry_count"]      = entry_count;
+    j["head_hash"]        = head_hash.hex();
+    j["oldest_seq"]       = oldest_seq;
+    j["newest_seq"]       = newest_seq;
+    j["oldest_ts"]        = oldest_ts.iso8601();
+    j["newest_ts"]        = newest_ts.iso8601();
+    j["total_body_bytes"] = total_body_bytes;
+    j["avg_body_bytes"]   = avg_body_bytes;
+    j["key_id"]           = key_id;
+    return j.dump();
+}
+
 LedgerCheckpoint Ledger::checkpoint() const {
     LedgerCheckpoint cp;
     cp.seq        = impl_->length.load();

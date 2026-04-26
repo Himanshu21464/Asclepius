@@ -1179,3 +1179,115 @@ TEST_CASE("Tenant-scoped reads isolate per-tenant data") {
     CHECK(alpha_range.value().size() == 2);
     for (const auto& e : alpha_range.value()) CHECK(e.header.tenant == "alpha");
 }
+
+// ============== Ledger::stats ============================================
+
+TEST_CASE("Ledger::stats on empty ledger returns zeros and key id") {
+    auto p = tmp_db("stats_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto s = l_.value().stats(); REQUIRE(s);
+    CHECK(s.value().entry_count      == 0);
+    CHECK(s.value().total_body_bytes == 0);
+    CHECK(s.value().avg_body_bytes   == 0);
+    CHECK(s.value().oldest_seq       == 0);
+    CHECK(s.value().newest_seq       == 0);
+    CHECK(!s.value().key_id.empty());
+}
+
+TEST_CASE("Ledger::stats counts and sums body bytes") {
+    auto p = tmp_db("stats_count");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 10; i++) {
+        REQUIRE(l.append("evt", "actor",
+            nlohmann::json{{"i", i}, {"pad", std::string(50, 'x')}}, ""));
+    }
+    auto s = l.stats(); REQUIRE(s);
+    CHECK(s.value().entry_count == 10);
+    CHECK(s.value().oldest_seq  == 1);
+    CHECK(s.value().newest_seq  == 10);
+    CHECK(s.value().total_body_bytes > 500);  // 10 * (>50 bytes)
+    CHECK(s.value().avg_body_bytes ==
+          s.value().total_body_bytes / s.value().entry_count);
+}
+
+TEST_CASE("Ledger::stats head_hash matches Ledger::head") {
+    auto p = tmp_db("stats_head");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++) {
+        REQUIRE(l.append("evt", "actor", nlohmann::json{{"i", i}}, ""));
+    }
+    auto s = l.stats(); REQUIRE(s);
+    CHECK(s.value().head_hash.hex() == l.head().hex());
+}
+
+TEST_CASE("Ledger::stats oldest_ts <= newest_ts") {
+    auto p = tmp_db("stats_ts");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("a", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("b", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("c", "x", nlohmann::json::object(), ""));
+    auto s = l.stats(); REQUIRE(s);
+    CHECK(s.value().oldest_ts <= s.value().newest_ts);
+}
+
+TEST_CASE("Ledger::stats survives re-open") {
+    auto p = tmp_db("stats_reopen");
+    {
+        auto l_ = Ledger::open(p); REQUIRE(l_);
+        for (int i = 0; i < 7; i++) {
+            REQUIRE(l_.value().append("e", "a",
+                nlohmann::json{{"i", i}}, ""));
+        }
+    }
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto s = l_.value().stats(); REQUIRE(s);
+    CHECK(s.value().entry_count == 7);
+    CHECK(s.value().newest_seq  == 7);
+    CHECK(s.value().total_body_bytes > 0);
+}
+
+TEST_CASE("Ledger::Stats::to_json round-trips through JSON parser") {
+    auto p = tmp_db("stats_json");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("evt", "actor", nlohmann::json{{"k", "v"}}, "tnt"));
+    auto s = l.stats(); REQUIRE(s);
+    auto j = nlohmann::json::parse(s.value().to_json());
+    CHECK(j.contains("entry_count"));
+    CHECK(j.contains("head_hash"));
+    CHECK(j.contains("oldest_seq"));
+    CHECK(j.contains("newest_seq"));
+    CHECK(j.contains("oldest_ts"));
+    CHECK(j.contains("newest_ts"));
+    CHECK(j.contains("total_body_bytes"));
+    CHECK(j.contains("avg_body_bytes"));
+    CHECK(j.contains("key_id"));
+    CHECK(j["entry_count"].get<std::uint64_t>() == 1);
+    CHECK(j["key_id"].get<std::string>() == s.value().key_id);
+}
+
+TEST_CASE("Ledger::stats key_id matches Ledger::key_id") {
+    auto p = tmp_db("stats_keyid");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("evt", "x", nlohmann::json::object(), ""));
+    auto s = l.stats(); REQUIRE(s);
+    CHECK(s.value().key_id == l.key_id());
+}
+
+TEST_CASE("Ledger::stats handles 1000-entry chain") {
+    auto p = tmp_db("stats_1k");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 1000; i++) {
+        REQUIRE(l.append("e", "a", nlohmann::json{{"i", i}}, ""));
+    }
+    auto s = l.stats(); REQUIRE(s);
+    CHECK(s.value().entry_count == 1000);
+    CHECK(s.value().oldest_seq  == 1);
+    CHECK(s.value().newest_seq  == 1000);
+    CHECK(s.value().avg_body_bytes > 0);
+}
