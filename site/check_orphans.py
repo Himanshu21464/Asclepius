@@ -64,6 +64,8 @@ ALLOWLIST = {
     'assets/favicon.svg',
     'assets/favicon-mono.svg',
     'assets/apple-touch-icon.png',
+    'assets/icon-192.png',  # PWA install icon (manifest.json-only ref)
+    'assets/icon-512.png',  # PWA install icon (manifest.json-only ref)
     'assets/pgp.asc',
     'assets/bench.json',
     'assets/badges/version.svg',
