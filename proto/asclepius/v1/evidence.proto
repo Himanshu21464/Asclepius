@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Asclepius Contributors
+//
+// Evidence-bundle manifest and per-model metric shapes. The bundle on disk
+// is a USTAR tar (see docs/SPEC.md); these messages describe the structured
+// contents of `manifest.json`, `metrics.json`, and `drift.json` for systems
+// that consume bundles directly rather than through the tar API.
+
+syntax = "proto3";
+
+package asclepius.v1;
+
+import "asclepius/v1/common.proto";
+
+option cc_enable_arenas = true;
+option go_package        = "asclepius.health/proto/asclepius/v1;asclepiusv1";
+option java_package      = "health.asclepius.proto.v1";
+option java_multiple_files = true;
+
+message EvaluationWindow {
+  Time start = 1;
+  Time end   = 2;
+}
+
+message ModelMetrics {
+  string model         = 1;
+  uint64 n_inferences  = 2;
+  uint64 n_overrides   = 3;
+  uint64 n_blocked     = 4;
+  uint64 n_with_truth  = 5;
+  double accuracy      = 6;
+  double sensitivity   = 7;
+  double specificity   = 8;
+  double override_rate = 9;
+}
+
+message DriftReport {
+  string        feature      = 1;
+  double        psi          = 2;
+  double        ks_statistic = 3;
+  double        emd          = 4;
+  DriftSeverity severity     = 5;
+  uint64        reference_n  = 6;
+  uint64        current_n    = 7;
+  Time          computed_at  = 8;
+}
+
+message MetricsDocument {
+  EvaluationWindow      window    = 1;
+  repeated ModelMetrics per_model = 2;
+}
+
+message DriftDocument {
+  Time                 generated_at = 1;
+  repeated DriftReport reports      = 2;
+}
+
+// Shape of `manifest.json` inside an evidence bundle. The signature lives in
+// the sibling `manifest.sig` blob; the public key in `public_key`.
+message EvidenceManifest {
+  string asclepius_version = 1;
+
+  EvaluationWindow window = 2;
+
+  // Per-file BLAKE2b-256 hashes of every other artifact in the tar.
+  // Keys: "ledger_excerpt.jsonl" | "metrics.json" | "drift.json" |
+  //       "overrides.jsonl" | "ground_truth.jsonl"
+  map<string, Hash> files = 3;
+
+  Hash   ledger_head = 4;
+  string key_id      = 5;
+  Time   exported_at = 6;
+
+  // Optional: a human-readable note attached at export time.
+  string note = 7;
+}

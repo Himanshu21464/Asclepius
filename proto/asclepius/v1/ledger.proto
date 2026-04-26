@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Asclepius Contributors
+//
+// Ledger entry envelope and the standard event-body types written by the
+// Asclepius runtime. The wire form is byte-equivalent to the SQLite row
+// (see docs/SPEC.md): the same canonical-JSON `body` is emitted as the
+// `body_json` field, so a proto-decoded entry reverifies against the same
+// signature as the on-disk row.
+
+syntax = "proto3";
+
+package asclepius.v1;
+
+import "asclepius/v1/common.proto";
+
+option cc_enable_arenas = true;
+option go_package        = "asclepius.health/proto/asclepius/v1;asclepiusv1";
+option java_package      = "health.asclepius.proto.v1";
+option java_multiple_files = true;
+
+// ---- Ledger envelope -----------------------------------------------------
+
+message LedgerEntryHeader {
+  uint64 seq          = 1;
+  Time   ts           = 2;
+  Hash   prev_hash    = 3;
+  Hash   payload_hash = 4;
+  string actor        = 5;
+  string event_type   = 6;
+  string tenant       = 7;
+}
+
+message LedgerEntry {
+  LedgerEntryHeader header     = 1;
+  string            body_json  = 2;  // canonical JSON, untouched
+  Signature         signature  = 3;
+  Hash              entry_hash = 4;  // chain head bytes for this entry
+}
+
+// ---- Event bodies --------------------------------------------------------
+//
+// These are the payloads embedded in `LedgerEntry.body_json`. Decoders that
+// want strongly-typed access can parse the `body_json` string into one of
+// these messages by `event_type`. The canonical-JSON form is authoritative
+// for hashing; the proto messages are a derived view.
+
+message PolicyVerdictRecord {
+  string          policy_name = 1;
+  string          decision    = 2;  // "allow" | "modify" | "block"
+  string          rationale   = 3;
+  repeated string violations  = 4;
+}
+
+message InferenceCommittedBody {
+  string                       inference_id = 1;
+  Id                           model        = 2;
+  Id                           actor        = 3;
+  Id                           patient      = 4;
+  Id                           encounter    = 5;
+  Purpose                      purpose      = 6;
+  Id                           tenant       = 7;
+  InferenceStatus              status       = 8;
+  Hash                         input_hash   = 9;
+  Hash                         output_hash  = 10;
+  uint64                       latency_ns   = 11;
+  repeated PolicyVerdictRecord input_verdicts  = 12;
+  repeated PolicyVerdictRecord output_verdicts = 13;
+  // Drift observations recorded via Inference::observe_drift, flushed at
+  // commit. Keyed by feature name; values are domain-specific.
+  map<string, double>          drift_observations = 14;
+}
+
+message InferenceAbortedBody {
+  string          inference_id = 1;
+  string          reason       = 2;
+  InferenceStatus status       = 3;
+}
+
+message OverrideCapturedBody {
+  string inference_id   = 1;
+  Id     clinician      = 2;
+  string rationale      = 3;
+  string corrected_json = 4;  // canonical JSON
+  Time   occurred_at    = 5;
+}
+
+message GroundTruthAttachedBody {
+  string inference_id = 1;
+  string truth_json   = 2;  // canonical JSON
+  Time   captured_at  = 3;
+  string source       = 4;
+}
+
+message ConsentGrantedBody {
+  string           token_id   = 1;
+  Id               patient    = 2;
+  repeated Purpose purposes   = 3;
+  Time             issued_at  = 4;
+  Time             expires_at = 5;
+}
+
+message ConsentRevokedBody {
+  string token_id   = 1;
+  Time   revoked_at = 2;
+  string reason     = 3;
+}
+
+message PolicyConfigChangeBody {
+  enum ChangeKind {
+    CHANGE_UNSPECIFIED = 0;
+    PUSH               = 1;
+    REMOVE             = 2;
+    RECONFIGURE        = 3;
+  }
+  ChangeKind kind        = 1;
+  string     policy_name = 2;
+  string     config_json = 3;  // canonical JSON
+}
+
+message ModelRegisteredBody {
+  Id     model      = 1;
+  Hash   model_hash = 2;  // hash of the wrapped model artifact, if known
+  string registry   = 3;  // e.g. "internal-mlflow", "huggingface"
+  string note       = 4;
+}

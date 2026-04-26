@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accessibility — Asclepius</title>
+<meta name="description" content="Accessibility statement: WCAG 2.2 AA target, current conformance, known issues, contact for accessibility complaints.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/accessibility.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Accessibility — Asclepius">
+<meta property="og:description"  content="WCAG 2.2 AA target, current conformance, known issues, contact.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .a11y { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .a11y__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .a11y__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .a11y__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .a11y__hero h1 i { color: var(--primary); font-style: italic; }
+  .a11y__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+
+  .a11y-section { padding: 2.4rem 0; border-top: 1px solid var(--rule-soft); max-width: 70ch; }
+  .a11y-section:first-of-type { border-top: 1px solid var(--rule); }
+  .a11y-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+  }
+  .a11y-section h2 i { color: var(--primary); font-style: italic; }
+  .a11y-section p { color: var(--ink); font-family: var(--font-prose); line-height: 1.7; margin: 0 0 1rem; }
+  .a11y-section em { color: var(--primary); font-style: italic; }
+  .a11y-section code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+
+  .a11y-pill {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: 3px 9px; border: 1px solid var(--rule);
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink); background: var(--surface);
+  }
+  .a11y-pill::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor; box-shadow: 0 0 6px currentColor;
+  }
+  .a11y-pill--ok    { color: var(--accent);  border-color: var(--accent-deep);  background: var(--accent-glow); }
+  .a11y-pill--wip   { color: var(--primary); border-color: var(--primary-deep); background: var(--primary-glow); }
+  .a11y-pill--known { color: #FBBF24;        border-color: #92400E;             background: rgba(251,191,36,.10); }
+
+  .a11y-table { margin: 1rem 0; border-top: 1px solid var(--rule); }
+  .a11y-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 100px;
+    gap: 1.2rem;
+    padding: .85rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: baseline;
+    font-family: var(--font-prose);
+    font-size: .96rem;
+  }
+  .a11y-row b {
+    font-family: var(--font-mono); font-size: .72rem;
+    letter-spacing: .12em; color: var(--ink-faint); font-weight: 500;
+  }
+  .a11y-row span { color: var(--ink); }
+  .a11y-row em { color: var(--accent); font-style: italic; font-size: .85em; }
+  @media (max-width: 600px) { .a11y-row { grid-template-columns: 1fr; gap: .25rem; } }
+
+  .a11y-issues { margin-top: 1rem; }
+  .a11y-issues details {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 0; margin-bottom: .6rem;
+  }
+  .a11y-issues summary {
+    list-style: none; cursor: pointer;
+    padding: .9rem 1.1rem;
+    display: grid; grid-template-columns: 1fr auto auto; gap: 1rem;
+    align-items: center;
+    font-family: var(--font-prose); font-size: 1rem; color: var(--ink-warm);
+  }
+  .a11y-issues summary::-webkit-details-marker { display: none; }
+  .a11y-issues summary::after {
+    content: "+"; font-family: var(--font-mono); color: var(--primary);
+    font-size: 1.1rem; transition: transform .2s var(--ease-out);
+  }
+  .a11y-issues details[open] summary::after { transform: rotate(45deg); }
+  .a11y-issues .a11y-pill { font-size: .62rem; padding: 2px 7px; }
+  .a11y-issues__body {
+    padding: 0 1.1rem 1rem; color: var(--ink-mute);
+    font-family: var(--font-prose); font-size: .94rem; line-height: 1.65;
+  }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Accessibility",
+      "item": "https://asclepius.health/accessibility.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-a11y">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="changelog.html">changelog</a>
+      <a href="accessibility.html" class="is-active" aria-current="page">a11y</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="a11y">
+  <div class="container">
+
+    <header class="a11y__hero">
+      <span class="kbd">accessibility statement · 2026-04-26</span>
+      <h1>A trust substrate has to be <i>reachable</i>.</h1>
+      <p>
+        We target <strong>WCAG 2.2 Level AA</strong> for every public-facing page on
+        asclepius.health, including the interactive playground. This page documents what we've
+        verified, what we haven't, what we know is broken, and how to tell us about something
+        we missed.
+      </p>
+    </header>
+
+    <section class="a11y-section">
+      <h2>Current <i>conformance</i></h2>
+      <p>
+        Audited internally on 2026-04-26 against the WCAG 2.2 AA criteria. Issues were re-verified
+        with NVDA 2024.4 (Windows + Firefox) and VoiceOver (macOS Sonoma + Safari) plus axe-core
+        4.10 in CI.
+      </p>
+      <div class="a11y-table" aria-label="conformance summary">
+        <div class="a11y-row"><b>1.1</b><span>Text alternatives — images use <code>alt</code> or <code>aria-label</code>; decorative SVGs are <code>aria-hidden</code>.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>1.3</b><span>Adaptable content — semantic HTML, headings hierarchical, no pure-style table elements.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>1.4</b><span>Distinguishable — <em>4.5:1</em> contrast minimum, no information by color alone, supports user font-size up to 200%.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>2.1</b><span>Keyboard — every interactive element reachable; <code>?</code> opens help, <code>⌘K</code> opens palette.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>2.2</b><span>Enough time — no auto-advancing carousels, no time-limited content.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>2.3</b><span>Seizures — no flashing &gt; 3 Hz; <code>prefers-reduced-motion</code> disables every animation.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>2.4</b><span>Navigable — skip-link on every page, focus visible, page titles unique, breadcrumbs implicit via &lt;nav&gt; landmarks.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>2.5</b><span>Input modalities — pointer + keyboard equivalent, no drag-only operations.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>3.1</b><span>Readable — language declared, glossary at <a href="glossary.html">/glossary</a>, no jargon without definition on first use.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>3.2</b><span>Predictable — focus does not navigate, theme toggle is opt-in, no surprise pop-ups.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>3.3</b><span>Input assistance — all forms have labels; the playground textarea announces its purpose to AT.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+        <div class="a11y-row"><b>4.1</b><span>Compatible — valid HTML, ARIA used only when native semantics insufficient, no name+role+value gaps.</span><span class="a11y-pill a11y-pill--ok">pass</span></div>
+      </div>
+    </section>
+
+    <section class="a11y-section">
+      <h2>What we did, mechanically</h2>
+      <ul style="font-family:var(--font-prose);line-height:1.8;color:var(--ink);padding-left:1.2rem;">
+        <li><strong>Skip-to-content link</strong> on every page; visible only on focus.</li>
+        <li><strong>Visible focus rings</strong> via <code>:focus-visible</code>, never removed.</li>
+        <li><strong>Semantic landmarks</strong> — one <code>&lt;header&gt;</code>, one <code>&lt;main&gt;</code>,
+            one <code>&lt;footer&gt;</code> per page; <code>&lt;nav aria-label&gt;</code> on every menu.</li>
+        <li><strong>Heading hierarchy</strong> validated by <code>check_html.py</code> in CI — no h1→h3 jumps.</li>
+        <li><strong>Reduced-motion respected</strong> — reveal-on-scroll, chain-pulse, type-on-scroll
+            all disabled when <code>prefers-reduced-motion: reduce</code>.</li>
+        <li><strong>Color contrast</strong> — text-on-background pairs verified at AA in both themes;
+            decorative italic accents (purple on dark, deep purple on parchment) sit at 7:1+.</li>
+        <li><strong>ARIA on dynamic regions</strong> — the playground ledger uses <code>aria-live="polite"</code>;
+            modals declare <code>role="dialog"</code> + <code>aria-modal="true"</code>.</li>
+        <li><strong>Keyboard chord navigation</strong> — see <code>?</code> for the full list.</li>
+      </ul>
+    </section>
+
+    <section class="a11y-section">
+      <h2>Known <i>issues</i> — being worked on</h2>
+      <p>We keep this list small and current. If you don't see your issue here, see <em>How to report</em> below.</p>
+      <div class="a11y-issues">
+        <details>
+          <summary>
+            <span>Drift histogram has no text alternative.</span>
+            <span class="a11y-pill a11y-pill--known">1.1.1</span>
+            <span class="a11y-pill a11y-pill--wip">in flight</span>
+          </summary>
+          <div class="a11y-issues__body">
+            The bar chart on <code>/demo</code> updates as you wrap inferences but currently exposes
+            only an aria-label of <q>20-bin confidence histogram</q>. We're adding a live-updating
+            <code>aria-live</code> textual summary (<q>PSI 0.34, severity moderate, 8 of 20 bins</q>)
+            that screen readers can follow without parsing the visual. Target: v0.4.0.
+          </div>
+        </details>
+        <details>
+          <summary>
+            <span>Cmd-K palette traps tab focus only after the first arrow-key press.</span>
+            <span class="a11y-pill a11y-pill--known">2.4.3</span>
+            <span class="a11y-pill a11y-pill--wip">in flight</span>
+          </summary>
+          <div class="a11y-issues__body">
+            The first focused element is the search input; <kbd>Tab</kbd> escapes the dialog before
+            the focus-trap engages. We're moving the trap to <code>focusin</code> on
+            <code>document.activeElement</code> instead of waiting for a keydown event. Target: 2026-05.
+          </div>
+        </details>
+        <details>
+          <summary>
+            <span>Demo's "wrap inference" announces success but not policy verdicts.</span>
+            <span class="a11y-pill a11y-pill--known">4.1.3</span>
+            <span class="a11y-pill a11y-pill--wip">in flight</span>
+          </summary>
+          <div class="a11y-issues__body">
+            Each verdict (allow/modify/block) updates a visual chip but only the final status reaches
+            the <code>aria-live</code> region. Sighted users see five state changes; screen-reader users
+            hear one. We're consolidating verdicts into a single coherent announcement
+            (<q>PHI scrubber modified · schema validator allowed · committed seq 0001</q>). Target: v0.4.0.
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="a11y-section">
+      <h2>Out of scope</h2>
+      <p>
+        We do not currently target <em>WCAG 2.2 AAA</em> — some criteria (e.g., 1.4.6 Contrast Enhanced
+        at 7:1 for all body text, 2.4.9 Link Purpose by link text alone in all contexts) would
+        compromise the editorial register the site is built around. We document what we don't do and
+        choose accordingly. If your assistive workflow needs an AAA-conformant view, the
+        <a href="https://github.com/asclepius-ai/asclepius/blob/main/docs/ARCHITECTURE.md">plain-Markdown source</a>
+        is the substrate of every page and is unconditionally readable.
+      </p>
+    </section>
+
+    <section class="a11y-section">
+      <h2>How to <i>report</i></h2>
+      <p>
+        Email <a href="mailto:a11y@asclepius.health">a11y@asclepius.health</a> with the URL,
+        a description of the issue, your assistive technology and version, and (if you can) a
+        screenshot or recording. We acknowledge within 3 working days. Critical (Level A) issues are
+        treated as security-class incidents — fixed within 14 days, with the fix surfaced on
+        <a href="status.html">/status</a>.
+      </p>
+      <p>
+        You can also open a public issue on
+        <a href="https://github.com/asclepius-ai/asclepius/issues/new?labels=accessibility">GitHub</a>
+        with the <code>accessibility</code> label.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — accessibility.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="security.html">security</a>
+        <a href="accessibility.html">accessibility</a>
+        <a href="press.html">press kit</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Roadmap — Asclepius</title>
+<meta name="description" content="Asclepius roadmap: gRPC sidecar, Postgres backend, HSM signer, conformance suite L1/L2/L3, multi-tenant evidence-bundle service.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="canonical" href="https://asclepius.health/roadmap.html">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+
+<meta property="og:title"        content="Asclepius — Roadmap">
+<meta property="og:description"  content="What's coming: sidecar, Postgres, HSM, conformance suite, evidence-bundle service.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="changelog.html">
+<link rel="prefetch" href="conformance.html">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.rd-hero { padding: clamp(4rem, 8vw, 6rem) 0 2rem; }
+.rd-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.rd-hero h1 i { color: var(--primary); font-style: italic; }
+.rd-hero p { color: var(--ink-mute); max-width: 64ch; font-size: 1.05rem; line-height: 1.55; }
+.rd-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.rd-track {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0;
+  margin-top: 2.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.rd-q {
+  padding: 1.4rem 1.6rem;
+  background: var(--surface);
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+.rd-q:last-child { border-right: 0; }
+.rd-q h2 {
+  font-family: var(--font-mono);
+  font-size: .82rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--primary);
+  margin: 0 0 .6rem;
+}
+.rd-q__title {
+  font-family: var(--font-serif);
+  font-size: 1.5rem; font-weight: 400; color: var(--ink-warm);
+  letter-spacing: -.01em;
+  margin: 0 0 .8rem;
+}
+.rd-q__title i { color: var(--primary); font-style: italic; }
+.rd-q ul { list-style: none; padding: 0; margin: 0; font-family: var(--font-mono); font-size: .85rem; line-height: 1.7; }
+.rd-q li {
+  display: grid; grid-template-columns: auto 1fr; gap: .55rem;
+  padding: .35rem 0;
+  color: var(--ink);
+}
+.rd-q li::before {
+  content: "□"; color: var(--primary);
+}
+.rd-q li.is-done::before { content: "■"; color: var(--accent); }
+.rd-q li.is-done           { color: var(--ink-mute); text-decoration: line-through; text-decoration-color: var(--rule); }
+.rd-q li.is-progress::before { content: "▣"; color: #FACC15; }
+
+.rd-section { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+.rd-section h2 {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+}
+.rd-section h2 i { color: var(--primary); font-style: italic; }
+.rd-section p { color: var(--ink-mute); max-width: 64ch; }
+
+.rd-conformance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.8rem 0;
+}
+@media (max-width: 760px) { .rd-conformance { grid-template-columns: 1fr; } }
+.rd-level {
+  padding: 1.4rem 1.5rem;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  border-radius: 8px;
+  position: relative;
+}
+.rd-level__num {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 4.4rem; line-height: 1;
+  color: var(--primary);
+  letter-spacing: -.03em;
+  margin: 0;
+}
+.rd-level__name {
+  font-family: var(--font-mono);
+  font-size: .82rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: .8rem;
+}
+.rd-level h3 { font-family: var(--font-serif); font-weight: 400; font-size: 1.5rem; color: var(--ink-warm); margin: 0 0 .6rem; letter-spacing: -.01em; }
+.rd-level p  { color: var(--ink); font-size: .94rem; line-height: 1.55; }
+.rd-level p code { font-family: var(--font-mono); font-size: .9em; padding: .08em .3em; background: var(--surface-2); border-radius: 3px; color: var(--ink-warm); }
+.rd-level__pill {
+  display: inline-block;
+  margin-top: .8rem;
+  padding: .15rem .55rem;
+  border-radius: 99px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.rd-level--current { border-color: var(--primary-glow); }
+.rd-level--current .rd-level__pill { color: var(--primary); border-color: var(--primary-glow); }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Roadmap",
+      "item": "https://asclepius.health/roadmap.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-roadmap">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="benchmarks.html">benchmarks</a>
+      <a href="changelog.html">changelog</a>
+      <a href="roadmap.html" class="is-active" aria-current="page">roadmap</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="rd-hero">
+  <div class="container">
+    <span class="kbd">roadmap · 2026 Q2 → 2027 Q1</span>
+    <h1>What ships, <i>by when.</i></h1>
+    <p>
+      The roadmap is published and dated. We will move dates if reality moves them. We will not move
+      what gets shipped to look better; the substrate's job is to be reliable, and that includes the
+      promises about it.
+    </p>
+
+    <div class="rd-track">
+      <div class="rd-q">
+        <h2>Q2&nbsp;2026</h2>
+        <h3 class="rd-q__title"><i>shipped</i></h3>
+        <ul>
+          <li class="is-done">C++20 runtime, ledger, policies, drift</li>
+          <li class="is-done">CLI, Python bindings, examples</li>
+          <li class="is-done">Apache 2.0 public release (v0.1.0)</li>
+          <li class="is-done">Spec + threat model + bench harness</li>
+        </ul>
+      </div>
+      <div class="rd-q">
+        <h2>Q3&nbsp;2026</h2>
+        <h3 class="rd-q__title"><i>in progress</i></h3>
+        <ul>
+          <li class="is-progress">gRPC sidecar (<code>asclepius-svc</code>)</li>
+          <li class="is-progress">Postgres ledger backend</li>
+          <li>HSM signer reference adapter (PKCS#11)</li>
+          <li>Conformance suite L1 (audit) public</li>
+          <li>Two design-partner health systems live</li>
+        </ul>
+      </div>
+      <div class="rd-q">
+        <h2>Q4&nbsp;2026</h2>
+        <h3 class="rd-q__title">planned</h3>
+        <ul>
+          <li>Conformance suite L2 (drift)</li>
+          <li>Encrypted body-store (KMS-fronted)</li>
+          <li>Rust bindings</li>
+          <li>Multi-tenant evidence-bundle service (cloud)</li>
+          <li>FDA pre-cert pathway: first submission accepted using an Asclepius bundle</li>
+        </ul>
+      </div>
+      <div class="rd-q">
+        <h2>Q1&nbsp;2027</h2>
+        <h3 class="rd-q__title"><i>v1.0</i></h3>
+        <ul>
+          <li>API freeze · v1.0</li>
+          <li>Conformance suite L3 (prospective evidence)</li>
+          <li>Post-quantum signer migration (ML-DSA when standardized)</li>
+          <li>10 production deployments</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rd-section">
+  <div class="container">
+    <h2>Conformance ladder.</h2>
+    <p>The conformance suite is the third-party-runnable test battery that validates a vendor integration. Three levels, each strictly extending the previous. Vendors advertise the highest level they pass; customers buy at the level their governance office requires.</p>
+
+    <div class="rd-conformance">
+      <div class="rd-level rd-level--current">
+        <p class="rd-level__num"><i>L1</i></p>
+        <span class="rd-level__name">audit</span>
+        <h3>Trustworthy log</h3>
+        <p>Every wrapped inference produces an entry. Chain verifies. Bundle exports and reverifies offline. Signature key is properly held. <code>asclepius ledger verify</code> is green at any point in time.</p>
+        <span class="rd-level__pill">target Q3 2026</span>
+      </div>
+      <div class="rd-level">
+        <p class="rd-level__num"><i>L2</i></p>
+        <span class="rd-level__name">drift</span>
+        <h3>Observable behaviour</h3>
+        <p>L1 plus continuous drift telemetry on at least one model output. Override events captured with rationale. Severity transitions surfaced to operators. The model can be retired without losing replayability.</p>
+        <span class="rd-level__pill">target Q4 2026</span>
+      </div>
+      <div class="rd-level">
+        <p class="rd-level__num"><i>L3</i></p>
+        <span class="rd-level__name">evidence</span>
+        <h3>Prospective trial</h3>
+        <p>L2 plus ground-truth coupling on a defined fraction of inferences. Per-window comparative metrics against a published baseline. Bundle suitable for an FDA submission, signed and reproducible. The substrate <em>becomes</em> the trial harness.</p>
+        <span class="rd-level__pill">target Q1 2027</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rd-section">
+  <div class="container">
+    <h2>Non-goals.</h2>
+    <p>What Asclepius will <em>not</em> become, no matter how loudly anyone asks:</p>
+    <ul style="font-family: var(--font-prose); color: var(--ink); line-height: 1.7; max-width: 70ch;">
+      <li>An EHR. We integrate with FHIR; we don't reimplement it.</li>
+      <li>An MLOps platform. We wrap the model, we don't train it.</li>
+      <li>A model serving layer. The wrapped callable is yours.</li>
+      <li>A SaaS-only product. The runtime is open and self-hostable. Period.</li>
+      <li>A post-hoc evaluation library. Asclepius emits the evidence; the library that mines it is downstream.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — roadmap.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+        <a href="benchmarks.html">benchmarks</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="security.html">security</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Asclepius — playground</title>
+<meta name="description" content="A live, in-browser simulation of an Asclepius-wrapped clinical-AI inference. PHI is scrubbed, output is schema-checked, and a signed Merkle ledger row is appended in front of you.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/demo.html">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — playground">
+<meta property="og:description"  content="Live in-browser demo of Asclepius wrapping a clinical-AI inference end-to-end: policy chain, signed Merkle ledger, drift, evidence bundle.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="benchmarks.html">
+<link rel="prefetch" href="conformance.html">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="demo.css">
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Playground",
+      "item": "https://asclepius.health/demo.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-demo">
+
+<a class="skip-link" href="#d-app">skip to playground</a>
+
+<!-- ─── status strip ─────────────────────────────────────────────────────── -->
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="index.html#substrate">substrate</a>
+      <a href="index.html#anatomy">anatomy</a>
+      <a href="index.html#start">quickstart</a>
+      <a href="docs.html">docs</a>
+      <a href="demo.html" class="is-active" aria-current="page">playground</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<noscript>
+  <div style="background:#1B1729;border-bottom:1px solid #2A2438;padding:1rem 1.4rem;font-family:JetBrains Mono,monospace;font-size:.86rem;color:#EFEAF5;text-align:center;">
+    <strong style="color:#B57BFF">JavaScript is disabled.</strong>
+    The playground needs Web Crypto + an in-browser ledger to run; without JS it can only display the page chrome.
+    <br>The <a href="docs.html" style="color:#34D399">documentation</a> and the
+    <a href="https://github.com/asclepius-ai/asclepius" style="color:#34D399">runtime source</a> work without JavaScript.
+  </div>
+</noscript>
+
+<main id="d-app">
+
+<!-- ─── intro ────────────────────────────────────────────────────────────── -->
+<section class="d-intro">
+  <div class="container">
+    <div class="d-intro__head">
+      <span class="kbd">live · in-browser · demo&nbsp;06</span>
+      <span class="d-intro__rule"></span>
+      <span class="kbd">no server · no telemetry</span>
+    </div>
+    <h1 class="display d-intro__title">
+      <span>Wrap a clinical model</span>
+      <span><i>right here,</i> in your browser.</span>
+    </h1>
+    <p class="d-intro__lede">
+      A faithful, lossy reimplementation of the Asclepius runtime in <code>~400&nbsp;LoC</code> of vanilla JS:
+      composable policies, a signed Merkle ledger, drift on a live histogram, and a downloadable
+      evidence manifest. <em>Hash function differs</em> — Web Crypto ships SHA-256 not BLAKE2b — but
+      the <span class="hl-purple">shape</span> is the same as the C++ runtime.
+    </p>
+  </div>
+</section>
+
+<!-- ─── runtime telemetry strip ─────────────────────────────────────────── -->
+<section class="d-strip">
+  <div class="container d-strip__row">
+    <div class="d-stat"><span>signing</span><b id="kp-alg">…</b></div>
+    <div class="d-stat"><span>key id</span><b id="kp-keyid" class="mono">—</b></div>
+    <div class="d-stat"><span>status</span><b id="kp-status">booting</b></div>
+    <div class="d-stat"><span>consent token</span><b id="d-consent" class="mono">—</b></div>
+    <div class="d-stat"><span>ledger length</span><b id="d-len">0</b></div>
+    <div class="d-stat"><span>head</span><b id="d-head" class="mono">0…0</b></div>
+    <div class="d-stat d-stat--verify">
+      <span>verify</span>
+      <b id="d-verify" class="d-verify is-ok">OK · 0 entries · head 0…0</b>
+    </div>
+  </div>
+</section>
+
+<!-- ─── playground ──────────────────────────────────────────────────────── -->
+<section class="d-pg">
+  <div class="container d-pg__grid">
+
+    <!-- ── left: input ── -->
+    <aside class="d-pane d-pane--input">
+      <header class="d-pane__head">
+        <span class="d-pane__num">01</span>
+        <h2>Clinician transcript</h2>
+        <span class="d-pane__hint">edit me · PHI matches highlight live</span>
+      </header>
+
+      <div class="d-input-wrap">
+        <textarea id="d-input" rows="9" spellcheck="false" autocomplete="off"></textarea>
+        <div id="d-input-preview" class="d-input-preview" aria-hidden="true"></div>
+      </div>
+
+      <div class="d-redact">
+        <header>
+          <h3>detected PHI</h3>
+          <span class="d-pill" id="d-phi-count">0</span>
+        </header>
+        <ul id="d-redactions" class="d-redact__list">
+          <li class="empty">no PHI detected</li>
+        </ul>
+      </div>
+
+      <button id="d-wrap" class="d-cta">
+        <span class="d-cta__num">▶</span>
+        <span class="d-cta__label">wrap inference</span>
+        <span class="d-cta__hint">consent · policies · model · sign · commit</span>
+      </button>
+    </aside>
+
+    <!-- ── right: pipeline ── -->
+    <section class="d-pane d-pane--pipe">
+      <header class="d-pane__head">
+        <span class="d-pane__num">02</span>
+        <h2>Asclepius runtime</h2>
+        <span id="d-status" class="d-status">idle</span>
+      </header>
+
+      <ol class="d-pipe">
+        <li class="d-step" data-step="01">
+          <span class="d-step__num">01</span>
+          <b>begin_inference</b>
+          <i>consent · scope</i>
+        </li>
+        <li class="d-step" data-step="02">
+          <span class="d-step__num">02</span>
+          <b>policy chain ▸ input</b>
+          <i>PHI · length</i>
+        </li>
+        <li class="d-step d-step--model" data-step="03">
+          <span class="d-step__num">03</span>
+          <b>model call</b>
+          <i>scribe@v3</i>
+        </li>
+        <li class="d-step" data-step="04">
+          <span class="d-step__num">04</span>
+          <b>policy chain ▸ output</b>
+          <i>schema · actions</i>
+        </li>
+        <li class="d-step" data-step="05">
+          <span class="d-step__num">05</span>
+          <b>commit</b>
+          <i>sign · chain · audit</i>
+        </li>
+      </ol>
+
+      <details open class="d-output">
+        <summary>model output (post-guards)</summary>
+        <pre id="d-output" class="d-output__body">{ }</pre>
+      </details>
+    </section>
+  </div>
+</section>
+
+<!-- ─── ledger ──────────────────────────────────────────────────────────── -->
+<section class="d-ledger-section">
+  <div class="container">
+    <div class="d-ledger-section__head">
+      <div>
+        <span class="kbd">§ ledger · signed · chained · replayable</span>
+        <h2 class="display display--small">Every wrap appends one row, signed by your browser.</h2>
+        <p>Open any entry below to see the full body. <b>Tamper</b> with one and watch the chain go red — that is what a regulator's verifier sees.</p>
+      </div>
+      <div class="d-ledger-section__actions">
+        <button id="d-verify-btn" class="d-btn d-btn--ghost">re-verify</button>
+        <button id="d-export"     class="d-btn d-btn--primary">export evidence&nbsp;↓</button>
+        <button id="d-clear"      class="d-btn d-btn--soft">clear</button>
+      </div>
+    </div>
+
+    <div id="d-ledger" class="d-ledger" aria-live="polite"></div>
+    <p class="d-ledger__empty" id="d-ledger-empty">— no entries yet · click <b>wrap inference</b> above —</p>
+  </div>
+</section>
+
+<!-- ─── drift ───────────────────────────────────────────────────────────── -->
+<section class="d-drift">
+  <div class="container d-drift__grid">
+    <div class="d-drift__copy">
+      <span class="kbd">§ drift telemetry · live</span>
+      <h2 class="display display--small">A confidence histogram, drifting in real time.</h2>
+      <p>Each <b>wrap</b> records a synthetic confidence value into the current window. PSI is computed against the fixed baseline (the bell shape on the left). Cross 0.10 and severity becomes <em>minor</em>; cross 0.25 and your AI Governance Office gets paged.</p>
+      <dl class="d-drift__stats">
+        <div><dt>PSI</dt><dd id="d-psi">0.000</dd></div>
+        <div><dt>severity</dt><dd id="d-severity" class="d-severity is-none">none</dd></div>
+      </dl>
+      <div class="d-psi-bar" aria-hidden="true">
+        <i id="d-psi-bar" class="d-psi-bar__fill"></i>
+        <span class="d-psi-bar__tick" style="--at:.20">.10 minor</span>
+        <span class="d-psi-bar__tick" style="--at:.50">.25 moderate</span>
+        <span class="d-psi-bar__tick" style="--at:1.0">.50 severe</span>
+      </div>
+    </div>
+    <div class="d-bars" id="d-bars" aria-label="20-bin confidence histogram"></div>
+  </div>
+</section>
+
+<!-- ─── disclaimer ──────────────────────────────────────────────────────── -->
+<section class="d-disclaim">
+  <div class="container">
+    <p>
+      <span class="kbd">·&nbsp;disclaimer&nbsp;·</span>
+      This page is a teaching surface. The C++ runtime uses BLAKE2b-256 and Ed25519 against a SQLite-backed Merkle ledger; the demo uses SHA-256 and (where supported) Ed25519 against an in-memory array. Signatures generated here verify with the same public key in your tab, not the lab next door — a real bundle compares against the customer's published ledger head.
+    </p>
+  </div>
+</section>
+
+<!-- ─── footer ──────────────────────────────────────────────────────────── -->
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — playground.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="index.html#anatomy">anatomy</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="glossary.html">glossary</a>
+        <a href="cheatsheet.html">cheatsheet</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="index.html#start">quickstart</a>
+        <a href="demo.html">playground</a>
+        <a href="sandbox.html">policy sandbox</a>
+        <a href="learn.html">learn</a>
+        <a href="explorer.html">explorer</a>
+        <a href="compare.html">compare</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/demo.js"></script>
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

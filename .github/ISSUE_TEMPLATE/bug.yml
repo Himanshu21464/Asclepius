@@ -1,0 +1,67 @@
+name: Bug report
+description: Something is broken in the runtime, CLI, bindings, or site.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. **If this is a security-sensitive finding** —
+        a chain-forgery, signature bypass, PHI leak, etc. — please use
+        [security@asclepius.health](mailto:security@asclepius.health)
+        instead. See [SECURITY](https://asclepius.health/security.html).
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "0.1.0 / git sha"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - C++ runtime
+        - Python bindings
+        - CLI (`asclepius`)
+        - Sidecar (gRPC/HTTP)
+        - Site (asclepius.health)
+        - Build / CMake
+        - Docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Minimal steps. Include the command, the input, and the
+        expected vs. actual output. If the runtime produced an evidence
+        bundle that demonstrates the bug, attach it (or its hash).
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: |
+        OS:           Ubuntu 24.04
+        Compiler:     g++ 15.2
+        libsodium:    1.0.18
+        sqlite:       3.46
+      render: text
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and didn't find a duplicate
+          required: true
+        - label: This is not a security report (those go to security@asclepius.health)
+          required: true

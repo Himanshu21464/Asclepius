@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Integrations — Asclepius</title>
+<meta name="description" content="Copy-paste recipes for wrapping common clinical-AI tools in Asclepius. Ambient scribe, in-house model, agentic system, FHIR sidecar, batch evaluation. C++ and Python side-by-side, with the resulting ledger row.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/integrations.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Integrations">
+<meta property="og:description"  content="Copy-paste recipes — wrap any clinical-AI tool in twelve lines.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.in-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.in-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.in-hero h1 i { color: var(--primary); font-style: italic; }
+.in-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.in-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.in-toc { margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
+.in-toc__pill {
+    display: block;
+    padding: .6rem .9rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--ink-warm);
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    transition: border-color .15s, background .15s;
+}
+.in-toc__pill:hover { border-color: var(--primary); background: rgba(181,123,255,.05); }
+.in-toc__pill b { color: var(--primary); margin-right: .4rem; font-weight: 500; }
+
+.in-recipe {
+    margin: 4rem 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+}
+.in-recipe__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.in-recipe h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2rem, 4vw, 2.8rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .35rem 0 .6rem; }
+.in-recipe h2 i { color: var(--primary); font-style: italic; }
+.in-recipe__lede { font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.6; color: var(--ink); max-width: 64ch; margin: 0 0 1.6rem; }
+.in-recipe__lede em { color: var(--ink-warm); font-style: italic; }
+
+.in-tabs { display: flex; gap: 0; margin: 1.4rem 0 0; border-bottom: 1px solid var(--rule); }
+.in-tabs button {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-mute);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: .6rem 1rem;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+    margin-bottom: -1px;
+}
+.in-tabs button:hover { color: var(--ink-warm); }
+.in-tabs button.is-active { color: var(--primary); border-bottom-color: var(--primary); }
+
+.in-pane { display: none; }
+.in-pane.is-active { display: block; }
+
+.in-code {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+    padding: 1.2rem 1.3rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.65;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 4;
+    margin: 0;
+}
+.in-code .k { color: var(--primary); }      /* keyword */
+.in-code .s { color: #34D399; }             /* string */
+.in-code .n { color: #F4B860; }             /* number */
+.in-code .c { color: var(--ink-faint); font-style: italic; }
+.in-code .t { color: #7DD3FC; }             /* type */
+
+.in-result {
+    margin: 1.4rem 0 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--primary);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+}
+.in-result h3 {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 .6rem;
+}
+.in-result pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    line-height: 1.55;
+    color: var(--ink-warm);
+    white-space: pre;
+    overflow-x: auto;
+}
+
+.in-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.4rem; }
+@media (max-width: 760px) { .in-grid { grid-template-columns: 1fr; } }
+.in-callout {
+    margin: 1.4rem 0 0;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.in-callout b { color: var(--primary); }
+.in-callout em { color: var(--ink-warm); font-style: italic; }
+.in-callout code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.in-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.in-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.in-coda h2 i { color: var(--primary); font-style: italic; }
+.in-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.in-coda .in-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.in-coda .in-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.in-coda .in-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",         "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Integrations", "item": "https://asclepius.health/integrations.html" }
+  ]
+}
+</script>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Integrations",
+      "item": "https://asclepius.health/integrations.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-integrations">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="use-cases.html">use cases</a>
+      <a href="integrations.html" class="is-active" aria-current="page">integrations</a>
+      <a href="api.html">API</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="in-hero">
+  <div class="container">
+    <span class="kbd">§01 · five recipes · twelve lines each · vendor-neutral</span>
+    <h1>Wrap anything in <i>twelve lines.</i></h1>
+    <p>
+      Asclepius is deliberately not a model. It is the substrate that wraps one.
+      Below are five concrete recipes — an ambient-scribe vendor, an in-house imaging
+      model, a tool-using agent, a FHIR sidecar, and a batch evaluation harness —
+      with C++ and Python side-by-side, and the ledger row each one produces.
+      <em>Copy, swap the model, ship.</em>
+    </p>
+
+    <nav class="in-toc" aria-label="recipe index">
+      <a class="in-toc__pill" href="#scribe-vendor"><b>§01</b>ambient-scribe vendor</a>
+      <a class="in-toc__pill" href="#imaging"><b>§02</b>in-house imaging model</a>
+      <a class="in-toc__pill" href="#agent"><b>§03</b>tool-using agent</a>
+      <a class="in-toc__pill" href="#fhir"><b>§04</b>FHIR sidecar</a>
+      <a class="in-toc__pill" href="#batch"><b>§05</b>batch evaluation</a>
+    </nav>
+  </div>
+</section>
+
+<!-- ─────────────────── §01 ambient-scribe vendor ─────────────────── -->
+<section class="container in-recipe" id="scribe-vendor">
+  <span class="in-recipe__num">§01 · scribe vendor · 12 lines</span>
+  <h2>An ambient-scribe <i>vendor.</i></h2>
+  <p class="in-recipe__lede">
+    The vendor exposes <code>scribe.transcribe(audio) → SOAP</code>. You wrap it.
+    The vendor never sees identifiers; you never lose the audit trail. <em>The
+    vendor's API does not change a byte.</em>
+  </p>
+
+  <div class="in-tabs" role="tablist" data-tabs="r1">
+    <button role="tab" class="is-active" data-pane="r1-cpp">C++</button>
+    <button role="tab" data-pane="r1-py">Python</button>
+  </div>
+  <div class="in-pane is-active" id="r1-cpp" role="tabpanel">
+<pre class="in-code"><span class="c">// 12-line scribe wrap — input goes through phi+schema+length policies,</span>
+<span class="c">// output is signed and committed to the Merkle ledger.</span>
+<span class="k">#include</span> <span class="s">&lt;asclepius/asclepius.hpp&gt;</span>
+
+<span class="t">asc::Runtime</span> rt = asc::Runtime::open(<span class="s">"./asclepius.db"</span>).value();
+rt.policies().push(asc::policy::PhiScrub::v4());
+rt.policies().push(asc::policy::SchemaTranscript::v2());
+rt.policies().push(asc::policy::Length::v1(<span class="n">8192</span>));
+
+<span class="k">auto</span> inf = rt.begin_inference({.actor=<span class="s">"clin:np_marisol_h"</span>,
+                                .patient=patient_id,
+                                .model={<span class="s">"scribe-v3"</span>, weights_sha256},
+                                .purpose=asc::Purpose::Scribe});
+<span class="k">auto</span> safe_in  = inf.policy_chain(transcript);          <span class="c">// PHI-scrubbed</span>
+<span class="k">auto</span> soap     = vendor::scribe_transcribe(safe_in);     <span class="c">// the model boundary</span>
+inf.commit(soap);                                       <span class="c">// signs + appends + drift</span></pre>
+  </div>
+  <div class="in-pane" id="r1-py" role="tabpanel">
+<pre class="in-code"><span class="k">import</span> asclepius <span class="k">as</span> asc, vendor
+
+rt = asc.Runtime.open(<span class="s">"./asclepius.db"</span>)
+rt.policies.push(asc.policy.phi_scrub_v4())
+rt.policies.push(asc.policy.schema_transcript_v2())
+rt.policies.push(asc.policy.length_v1(<span class="n">8192</span>))
+
+<span class="k">with</span> rt.begin_inference(actor=<span class="s">"clin:np_marisol_h"</span>,
+                        patient=patient_id,
+                        model=(<span class="s">"scribe-v3"</span>, weights_sha256),
+                        purpose=asc.Purpose.Scribe) <span class="k">as</span> inf:
+    safe_in = inf.policy_chain(transcript)
+    soap    = vendor.scribe_transcribe(safe_in)
+    inf.commit(soap)</pre>
+  </div>
+
+  <div class="in-result">
+    <h3>resulting ledger row</h3>
+<pre>{ "seq": 874, "kind": "inference.completed",
+  "model": { "id": "scribe-v3", "weights_sha256": "6a0f…e2" },
+  "policies": ["phi.v4", "schema.transcript.v2", "length.v1"],
+  "input_hash":  "blake2b:9f31…", "output_hash": "blake2b:c8aa…",
+  "drift":       { "psi": 0.04, "window": "30d" },
+  "prev_hash":   "blake2b:1d2e…", "sig": "ed25519:0x9c…" }</pre>
+  </div>
+
+  <p class="in-callout">
+    <b>What you keep.</b> The vendor's IP. Their API. Their model. <em>What you gain</em>:
+    bit-identical input/output hashes the EHR can replay against, and a chain whose
+    root the operator publishes weekly. The audit is not parallel work — it is the
+    return path.
+  </p>
+</section>
+
+<!-- ─────────────────── §02 in-house imaging model ─────────────────── -->
+<section class="container in-recipe" id="imaging">
+  <span class="in-recipe__num">§02 · in-house imaging · 14 lines</span>
+  <h2>An in-house <i>imaging model.</i></h2>
+  <p class="in-recipe__lede">
+    Your team trained a chest-CT classifier. It runs in your Kubernetes cluster.
+    You want every suggestion testifiable. The substrate doesn't care that the model
+    is yours — <em>provenance is provenance</em>.
+  </p>
+
+  <div class="in-tabs" role="tablist" data-tabs="r2">
+    <button role="tab" class="is-active" data-pane="r2-cpp">C++</button>
+    <button role="tab" data-pane="r2-py">Python</button>
+  </div>
+  <div class="in-pane is-active" id="r2-cpp" role="tabpanel">
+<pre class="in-code"><span class="t">asc::Runtime</span> rt = asc::Runtime::open(<span class="s">"./asclepius.db"</span>).value();
+rt.policies().push(asc::policy::DicomStrip::v1());
+rt.policies().push(asc::policy::SchemaImaging::v1());
+rt.policies().push(asc::policy::ConfidenceFloor::v1(<span class="n">0.6</span>));
+rt.policies().push(asc::policy::ActionFilter::advisory_only());
+
+<span class="k">auto</span> inf = rt.begin_inference({.actor=<span class="s">"svc:imaging-fm"</span>,
+                                .patient=patient_id,
+                                .model={<span class="s">"chest-ct-v2"</span>, weights_sha256},
+                                .purpose=asc::Purpose::Diagnostic});
+<span class="k">auto</span> safe_dicom = inf.policy_chain(dicom_series);
+<span class="k">auto</span> finding    = our_model::infer(safe_dicom);            <span class="c">// {finding, conf, ROIs}</span>
+<span class="k">auto</span> [seq, sig] = inf.commit(finding);                     <span class="c">// signed, ledgered</span>
+publish_to_pacs(finding, seq, sig);                          <span class="c">// radiologist sees it</span></pre>
+  </div>
+  <div class="in-pane" id="r2-py" role="tabpanel">
+<pre class="in-code"><span class="k">import</span> asclepius <span class="k">as</span> asc, our_model
+
+rt = asc.Runtime.open(<span class="s">"./asclepius.db"</span>)
+rt.policies.push(asc.policy.dicom_strip_v1())
+rt.policies.push(asc.policy.schema_imaging_v1())
+rt.policies.push(asc.policy.confidence_floor_v1(<span class="n">0.6</span>))
+rt.policies.push(asc.policy.action_filter_advisory())
+
+<span class="k">with</span> rt.begin_inference(actor=<span class="s">"svc:imaging-fm"</span>,
+                        patient=patient_id,
+                        model=(<span class="s">"chest-ct-v2"</span>, weights_sha256),
+                        purpose=asc.Purpose.Diagnostic) <span class="k">as</span> inf:
+    safe = inf.policy_chain(dicom_series)
+    out  = our_model.infer(safe)
+    seq, sig = inf.commit(out)
+    publish_to_pacs(out, seq, sig)</pre>
+  </div>
+
+  <div class="in-result">
+    <h3>resulting ledger row</h3>
+<pre>{ "seq": 2014, "kind": "model.suggested",
+  "finding":    "pe.segmental.lll", "confidence": 0.87,
+  "roi_hash":   "blake2b:42b1…",
+  "model":      { "id": "chest-ct-v2", "weights_sha256": "a1d7…e3" },
+  "policies":   ["dicom.strip.v1", "schema.imaging.v1",
+                 "confidence.floor.v1", "action.filter.advisory"],
+  "sig":        "ed25519:0x4a…" }</pre>
+  </div>
+</section>
+
+<!-- ─────────────────── §03 tool-using agent ─────────────────── -->
+<section class="container in-recipe" id="agent">
+  <span class="in-recipe__num">§03 · tool-using agent · 16 lines</span>
+  <h2>A tool-using <i>agent.</i></h2>
+  <p class="in-recipe__lede">
+    The agent proposes a plan. The substrate enforces the gate: low-blast-radius
+    actions auto-commit; high-blast-radius actions stage and wait for a signed
+    sign-off. <em>Two keys, two rows, one chain.</em>
+  </p>
+
+  <div class="in-tabs" role="tablist" data-tabs="r3">
+    <button role="tab" class="is-active" data-pane="r3-cpp">C++</button>
+    <button role="tab" data-pane="r3-py">Python</button>
+  </div>
+  <div class="in-pane is-active" id="r3-cpp" role="tabpanel">
+<pre class="in-code"><span class="t">asc::Runtime</span> rt = asc::Runtime::open(<span class="s">"./asclepius.db"</span>).value();
+rt.policies().push(asc::policy::PhiScrub::v4());
+rt.policies().push(asc::policy::SchemaActions::v1());
+rt.policies().push(asc::policy::ActionFilter::from_yaml(<span class="s">"blast_radius.yml"</span>));
+
+<span class="k">auto</span> inf = rt.begin_inference({.actor=<span class="s">"agent:triage-1"</span>,
+                                .patient=patient_id,
+                                .model={<span class="s">"triage-agent-1"</span>, weights_sha256},
+                                .purpose=asc::Purpose::Agentic});
+<span class="k">auto</span> safe = inf.policy_chain(chart_context);
+<span class="k">auto</span> plan = agent::propose(safe);                          <span class="c">// vector&lt;Action&gt;</span>
+<span class="k">auto</span> verdict = inf.dispatch(plan);                         <span class="c">// staged or committed</span>
+
+<span class="k">for</span> (<span class="k">auto</span>&amp; staged : verdict.staged) {
+    <span class="k">auto</span> read_back = attending::confirm(staged);
+    rt.cosign(staged, read_back, <span class="s">"clin:dr_yamamoto"</span>);     <span class="c">// human key, second sig</span>
+}</pre>
+  </div>
+  <div class="in-pane" id="r3-py" role="tabpanel">
+<pre class="in-code">rt = asc.Runtime.open(<span class="s">"./asclepius.db"</span>)
+rt.policies.push(asc.policy.phi_scrub_v4())
+rt.policies.push(asc.policy.schema_actions_v1())
+rt.policies.push(asc.policy.action_filter_from_yaml(<span class="s">"blast_radius.yml"</span>))
+
+<span class="k">with</span> rt.begin_inference(actor=<span class="s">"agent:triage-1"</span>,
+                        patient=patient_id,
+                        model=(<span class="s">"triage-agent-1"</span>, weights_sha256),
+                        purpose=asc.Purpose.Agentic) <span class="k">as</span> inf:
+    safe    = inf.policy_chain(chart_context)
+    plan    = agent.propose(safe)
+    verdict = inf.dispatch(plan)
+
+    <span class="k">for</span> staged <span class="k">in</span> verdict.staged:
+        read_back = attending.confirm(staged)
+        rt.cosign(staged, read_back, signer=<span class="s">"clin:dr_yamamoto"</span>)</pre>
+  </div>
+
+  <div class="in-result">
+    <h3>two-row outcome (auto-commit + staged + co-signed)</h3>
+<pre>[ { "seq":3331, "kind":"agent.proposed",     "actions":["order.cxr","order.heparin.continuous"], … },
+  { "seq":3332, "kind":"action.committed",   "action":"order.cxr",                "refers_to":"seq:3331" },
+  { "seq":3333, "kind":"action.staged",      "action":"order.heparin.continuous", "awaiting":"clin:attending" },
+  { "seq":3340, "kind":"action.committed",   "action":"order.heparin.continuous", "signed_by":"clin:dr_yamamoto" } ]</pre>
+  </div>
+
+  <p class="in-callout">
+    <b>Why dispatch, not commit?</b> <code>dispatch</code> consults the action filter
+    and routes each action to its right gate. The agent never knows whether an action
+    auto-committed or staged — that is the operator's policy decision, not the model's.
+  </p>
+</section>
+
+<!-- ─────────────────── §04 FHIR sidecar ─────────────────── -->
+<section class="container in-recipe" id="fhir">
+  <span class="in-recipe__num">§04 · FHIR sidecar · 10 lines</span>
+  <h2>A FHIR <i>sidecar.</i></h2>
+  <p class="in-recipe__lede">
+    The EHR speaks FHIR. The model speaks tensors. The sidecar speaks both —
+    it accepts a <code>Bundle</code>, runs an inference through Asclepius,
+    and returns a <code>DocumentReference</code> whose <code>identifier.value</code>
+    is the ledger seq.
+  </p>
+
+  <div class="in-tabs" role="tablist" data-tabs="r4">
+    <button role="tab" class="is-active" data-pane="r4-cpp">C++ (HTTP)</button>
+    <button role="tab" data-pane="r4-py">Python (HTTP)</button>
+  </div>
+  <div class="in-pane is-active" id="r4-cpp" role="tabpanel">
+<pre class="in-code"><span class="c">// asclepius-svc handler — POST /v1/wrap</span>
+asc::svc::handle(<span class="s">"/v1/wrap"</span>, [&amp;](asc::svc::Request&amp; req) {
+    <span class="t">asc::interop::FhirBundle</span> b = asc::interop::parse(req.body());
+    <span class="k">auto</span> inf = rt.begin_inference(asc::interop::context_from(b));
+    <span class="k">auto</span> safe = inf.policy_chain(b.payload());
+    <span class="k">auto</span> out  = forward_to_model(safe);
+    <span class="k">auto</span> [seq, sig] = inf.commit(out);
+    <span class="k">return</span> asc::svc::ok(asc::interop::doc_ref(out, seq, sig));
+});</pre>
+  </div>
+  <div class="in-pane" id="r4-py" role="tabpanel">
+<pre class="in-code"><span class="k">from</span> asclepius.svc <span class="k">import</span> handle, ok
+<span class="k">from</span> asclepius.interop <span class="k">import</span> parse, context_from, doc_ref
+
+<span class="k">@handle</span>(<span class="s">"/v1/wrap"</span>)
+<span class="k">def</span> wrap(req):
+    bundle = parse(req.body)
+    <span class="k">with</span> rt.begin_inference(context_from(bundle)) <span class="k">as</span> inf:
+        out = forward_to_model(inf.policy_chain(bundle.payload))
+        seq, sig = inf.commit(out)
+        <span class="k">return</span> ok(doc_ref(out, seq, sig))</pre>
+  </div>
+
+  <p class="in-callout">
+    <b>What you write.</b> Five lines of glue. <em>What you get.</em> A FHIR-native
+    endpoint whose responses bind every clinical artefact to a verifiable ledger row.
+    The EHR does not need to know Asclepius exists; it sees a normal
+    <code>DocumentReference</code> with an <code>identifier</code> it can audit later.
+  </p>
+</section>
+
+<!-- ─────────────────── §05 batch evaluation ─────────────────── -->
+<section class="container in-recipe" id="batch">
+  <span class="in-recipe__num">§05 · batch evaluation · 11 lines</span>
+  <h2>A batch <i>evaluation harness.</i></h2>
+  <p class="in-recipe__lede">
+    Before a model goes live, you run it against a held-out evaluation set and
+    compute drift, calibration, and policy-violation rate. Every prediction is
+    ledgered with <code>purpose: qa</code> — so the eval is itself a signed
+    artefact you can hand to a regulator. <em>Validation is provenance.</em>
+  </p>
+
+  <div class="in-tabs" role="tablist" data-tabs="r5">
+    <button role="tab" class="is-active" data-pane="r5-cpp">C++</button>
+    <button role="tab" data-pane="r5-py">Python</button>
+  </div>
+  <div class="in-pane is-active" id="r5-cpp" role="tabpanel">
+<pre class="in-code"><span class="t">asc::EvaluationHarness</span> eval(rt, asc::Purpose::QA);
+
+<span class="k">for</span> (<span class="k">auto</span>&amp; sample : test_set) {
+    <span class="k">auto</span> inf  = eval.begin(sample.model_id, sample.weights_sha256);
+    <span class="k">auto</span> pred = our_model::infer(inf.policy_chain(sample.input));
+    eval.observe(inf, pred, sample.gold);                  <span class="c">// updates calibration + drift</span>
+}
+
+<span class="k">auto</span> report = eval.finalise();                              <span class="c">// signed report</span>
+asc::tar::write_bundle(<span class="s">"qa-2026-04-26.tar"</span>, report, eval.entries());</pre>
+  </div>
+  <div class="in-pane" id="r5-py" role="tabpanel">
+<pre class="in-code">eval = asc.EvaluationHarness(rt, purpose=asc.Purpose.QA)
+
+<span class="k">for</span> sample <span class="k">in</span> test_set:
+    <span class="k">with</span> eval.begin(sample.model_id, sample.weights_sha256) <span class="k">as</span> inf:
+        pred = our_model.infer(inf.policy_chain(sample.input))
+        eval.observe(inf, pred, sample.gold)
+
+report = eval.finalise()
+asc.tar.write_bundle(<span class="s">"qa-2026-04-26.tar"</span>, report, eval.entries())</pre>
+  </div>
+
+  <div class="in-result">
+    <h3>resulting bundle (USTAR tar — opens with stock <code>tar</code>)</h3>
+<pre>qa-2026-04-26.tar
+├── manifest.json           BLAKE2b of every file inside
+├── ledger.jsonl            every prediction as a signed entry
+├── drift.json              PSI/KS/EMD per feature, with thresholds
+├── calibration.json        reliability curve, ECE, MCE
+├── policy_violations.jsonl rows that failed any policy
+└── pubkey.ed25519          the verifier needs this only — nothing else</pre>
+  </div>
+</section>
+
+<!-- ─────────────────── coda ─────────────────── -->
+<section class="container">
+  <div class="in-coda">
+    <h2>The pattern is always the <i>same.</i></h2>
+    <p>
+      Push the policy chain. Open an inference handle. Run the chain on the input.
+      Hand the safe input to the model. Commit the output. The substrate handles
+      hashing, signing, drift, consent, and bundle export — none of which the model
+      ever sees, and none of which you implement.
+    </p>
+    <p>
+      Adding a new vendor or model is, by design, the boring part. The
+      interesting work — the cryptography, the ledger consistency, the drift
+      maths, the bundle format — is the substrate's job, not yours.
+    </p>
+    <div class="in-coda__links">
+      <a href="api.html">browse the API →</a>
+      <a href="schemas/audit-entry.v1.json">audit-entry schema</a>
+      <a href="use-cases.html">use cases</a>
+      <a href="docs.html">read the docs</a>
+      <a href="demo.html">try the playground</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="use-cases.html">use cases</a>
+        <a href="integrations.html">integrations</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">docs</a>
+        <a href="api.html">API reference</a>
+        <a href="spec.html">spec</a>
+        <a href="schemas/audit-entry.v1.json">audit-entry schema</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+    'use strict';
+    document.querySelectorAll('[data-tabs]').forEach((tabs) => {
+        tabs.querySelectorAll('button[data-pane]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.pane;
+                const recipe = btn.closest('.in-recipe');
+                recipe.querySelectorAll('.in-tabs button').forEach((b) => b.classList.remove('is-active'));
+                recipe.querySelectorAll('.in-pane').forEach((p) => p.classList.remove('is-active'));
+                btn.classList.add('is-active');
+                const pane = recipe.querySelector('#' + target);
+                if (pane) pane.classList.add('is-active');
+            });
+        });
+    });
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

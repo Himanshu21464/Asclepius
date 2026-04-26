@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Migrations — Asclepius</title>
+<meta name="description" content="Version-to-version upgrade guides for the Asclepius substrate. v0.0.x → v0.1, v0.1 → v0.2 (Postgres backend), v0.2 → v1.0 (ML-DSA dual-sign). Pre-flight, runbook, rollback, verification.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/migrations.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Migrations">
+<meta property="og:description"  content="Upgrade procedures. Pre-flight · runbook · rollback · verify.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.mg-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.mg-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.mg-hero h1 i { color: var(--primary); font-style: italic; }
+.mg-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.mg-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.mg-toc { margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .8rem; }
+.mg-toc__pill {
+    display: block; padding: .9rem 1.1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--primary);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--ink-warm);
+    transition: border-color .15s, transform .12s;
+}
+.mg-toc__pill:hover { border-color: var(--primary); transform: translateY(-1px); }
+.mg-toc__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.mg-toc__t { display: block; font-family: var(--font-prose); font-size: 1rem; margin-top: .25rem; line-height: 1.35; }
+.mg-toc__sub { display: block; font-family: var(--font-mono); font-size: .68rem; color: var(--ink-mute); margin-top: .35rem; }
+.mg-toc__bk {
+    display: inline-block;
+    margin-top: .5rem;
+    padding: .12rem .55rem;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: .62rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.mg-toc__bk.is-shipped  { background: rgba(52,211,153,.12);  color: #34D399; }
+.mg-toc__bk.is-planned  { background: rgba(244,184,96,.12);  color: #F4B860; }
+.mg-toc__bk.is-research { background: rgba(125,211,252,.12); color: #7DD3FC; }
+
+.mg-rec { margin: 4rem 0; padding-top: 2rem; border-top: 1px solid var(--rule); }
+.mg-rec__head {
+    display: flex; align-items: baseline; gap: .9rem; flex-wrap: wrap;
+    margin-bottom: .4rem;
+}
+.mg-rec__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.mg-rec__bk {
+    padding: .15rem .55rem;
+    font-family: var(--font-mono); font-size: .62rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    border-radius: 3px;
+}
+.mg-rec__bk.is-shipped  { background: rgba(52,211,153,.12);  color: #34D399; border: 1px solid rgba(52,211,153,.3); }
+.mg-rec__bk.is-planned  { background: rgba(244,184,96,.12);  color: #F4B860; border: 1px solid rgba(244,184,96,.3); }
+.mg-rec__bk.is-research { background: rgba(125,211,252,.12); color: #7DD3FC; border: 1px solid rgba(125,211,252,.3); }
+.mg-rec__date { margin-left: auto; font-family: var(--font-mono); font-size: .68rem; color: var(--ink-mute); }
+.mg-rec h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .25rem 0 .8rem; }
+.mg-rec h2 i { color: var(--primary); font-style: italic; }
+.mg-rec__lede { font-family: var(--font-prose); font-size: 1rem; line-height: 1.6; color: var(--ink); max-width: 64ch; margin: 0 0 1.4rem; }
+.mg-rec__lede em { color: var(--ink-warm); font-style: italic; }
+.mg-rec__lede code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.mg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0 1.4rem; }
+.mg-step {
+    padding: .9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+}
+.mg-step h3 {
+    margin: 0 0 .5rem;
+    font-family: var(--font-mono); font-weight: 500;
+    font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--primary);
+    display: flex; align-items: center; gap: .5rem;
+}
+.mg-step h3::before {
+    content: attr(data-step);
+    display: inline-block;
+    width: 1.4em; height: 1.4em; border-radius: 50%;
+    background: var(--primary); color: var(--bg);
+    text-align: center; line-height: 1.4em;
+    font-size: .68rem; font-weight: 600;
+}
+.mg-step ul, .mg-step ol { margin: 0; padding-left: 1.1rem; font-family: var(--font-prose); font-size: .92rem; line-height: 1.55; color: var(--ink); }
+.mg-step li { margin: .15em 0; }
+.mg-step code { font-family: var(--font-mono); font-size: .88em; padding: .06em .3em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.mg-cmd {
+    margin: .4rem 0 1rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .8rem 1rem;
+    font-family: var(--font-mono);
+    font-size: .82rem; line-height: 1.55;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+}
+.mg-cmd .c { color: var(--ink-faint); font-style: italic; }
+.mg-cmd .k { color: var(--primary); }
+.mg-cmd .s { color: #34D399; }
+
+.mg-callout {
+    margin: 1.2rem 0 0;
+    padding: .9rem 1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    font-size: .92rem; line-height: 1.55;
+}
+.mg-callout b { color: var(--primary); }
+.mg-callout em { color: var(--ink-warm); font-style: italic; }
+.mg-callout code { font-family: var(--font-mono); font-size: .88em; padding: .04em .3em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.mg-warn {
+    margin: 1.2rem 0 0;
+    padding: .9rem 1rem;
+    border-left: 2px solid #F4B860;
+    background: rgba(244,184,96,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    font-size: .92rem; line-height: 1.55;
+}
+.mg-warn b { color: #F4B860; }
+.mg-warn em { color: var(--ink-warm); font-style: italic; }
+
+.mg-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.mg-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.mg-coda h2 i { color: var(--primary); font-style: italic; }
+.mg-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.mg-coda .mg-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.mg-coda .mg-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.mg-coda .mg-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",       "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Migrations", "item": "https://asclepius.health/migrations.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-migrations">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="changelog.html">changelog</a>
+      <a href="migrations.html" class="is-active" aria-current="page">migrations</a>
+      <a href="roadmap.html">roadmap</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="mg-hero">
+  <div class="container">
+    <span class="kbd">§01 · pre-flight · runbook · rollback · verify</span>
+    <h1>Upgrading <i>without</i> breaking the chain.</h1>
+    <p>
+      The substrate is append-only by design — which makes upgrading
+      fundamentally different from upgrading a typical service. <em>Old
+      entries must remain verifiable forever.</em> Every migration on this
+      page is structured to honour that invariant: pre-flight, runbook,
+      rollback, verification.
+    </p>
+
+    <nav class="mg-toc" aria-label="migration index">
+      <a class="mg-toc__pill" href="#m-001">
+        <span class="mg-toc__num">M-001</span>
+        <span class="mg-toc__t">v0.0.x → v0.1 · initial GA</span>
+        <span class="mg-toc__sub">SQLite schema bump · genesis sealing</span>
+        <span class="mg-toc__bk is-shipped">shipped</span>
+      </a>
+      <a class="mg-toc__pill" href="#m-002">
+        <span class="mg-toc__num">M-002</span>
+        <span class="mg-toc__t">v0.1 → v0.2 · Postgres backend</span>
+        <span class="mg-toc__sub">pluggable backend · multi-writer</span>
+        <span class="mg-toc__bk is-planned">planned · 2026 Q3</span>
+      </a>
+      <a class="mg-toc__pill" href="#m-003">
+        <span class="mg-toc__num">M-003</span>
+        <span class="mg-toc__t">v0.2 → v0.3 · gRPC sidecar GA</span>
+        <span class="mg-toc__sub">stable wire format · multi-tenant</span>
+        <span class="mg-toc__bk is-planned">planned · 2026 Q4</span>
+      </a>
+      <a class="mg-toc__pill" href="#m-004">
+        <span class="mg-toc__num">M-004</span>
+        <span class="mg-toc__t">v0.3 → v1.0 · ML-DSA dual-sign</span>
+        <span class="mg-toc__sub">post-quantum migration window</span>
+        <span class="mg-toc__bk is-research">research · 2027</span>
+      </a>
+    </nav>
+  </div>
+</section>
+
+<!-- ─────────── M-001 ─────────── -->
+<section class="container mg-rec" id="m-001">
+  <div class="mg-rec__head">
+    <span class="mg-rec__num">M-001</span>
+    <span class="mg-rec__bk is-shipped">shipped · v0.1.0</span>
+    <span class="mg-rec__date">2026-04-19</span>
+  </div>
+  <h2>v0.0.x → v0.1 · <i>initial GA.</i></h2>
+  <p class="mg-rec__lede">
+    The first stable upgrade. The pre-GA on-disk format is replaced with the
+    canonical-JSON spec; the genesis row is re-signed with the GA key; the
+    keystore moves from on-disk to optional HSM-backed. Old chains are
+    re-anchored, not re-written — the original entries remain bit-identical.
+  </p>
+
+  <div class="mg-grid">
+    <div class="mg-step">
+      <h3 data-step="1">pre-flight</h3>
+      <ul>
+        <li>verify current chain · <code>asclepius ledger verify</code></li>
+        <li>snapshot SQLite WAL to cold storage</li>
+        <li>publish current Merkle root in changelog feed</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="2">migrate</h3>
+      <ul>
+        <li><code>asclepius migrate --to 0.1</code></li>
+        <li>tool re-anchors v0.0.x rows under the v0.1 schema header</li>
+        <li>writes a <code>schema.migrated</code> entry with old + new roots</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="3">verify</h3>
+      <ul>
+        <li>verify forward · <code>verify --range 0:tail</code></li>
+        <li>verify backwards from migration entry to genesis</li>
+        <li>publish new pubkey block in <code>humans.txt</code></li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="4">rollback</h3>
+      <ul>
+        <li>old binary still reads pre-migration rows (read-only)</li>
+        <li>restore SQLite snapshot · drop the post-migration entries</li>
+        <li>document the rollback as a <code>schema.rollback</code> event</li>
+      </ul>
+    </div>
+  </div>
+
+<pre class="mg-cmd"><span class="c"># pre-flight · verify · snapshot</span>
+asclepius ledger verify --strict
+asclepius ledger snapshot --out <span class="s">/var/asc/pre-0.1.db</span>
+
+<span class="c"># migrate</span>
+asclepius migrate --to <span class="s">0.1</span> --confirm
+
+<span class="c"># post-flight verify forward + back</span>
+asclepius ledger verify --range <span class="s">0:tail</span></pre>
+
+  <p class="mg-callout">
+    <b>Backwards compatibility.</b> The v0.1 binary can read v0.0.x WAL
+    files end-to-end without migration if the operator chooses to remain on
+    pre-GA semantics — the only forfeit is HSM support and the new schema's
+    <code>policies[]</code> field. Migration is recommended but not forced.
+  </p>
+</section>
+
+<!-- ─────────── M-002 ─────────── -->
+<section class="container mg-rec" id="m-002">
+  <div class="mg-rec__head">
+    <span class="mg-rec__num">M-002</span>
+    <span class="mg-rec__bk is-planned">planned · 2026 Q3</span>
+    <span class="mg-rec__date">target v0.2.0</span>
+  </div>
+  <h2>v0.1 → v0.2 · <i>Postgres</i> backend.</h2>
+  <p class="mg-rec__lede">
+    SQLite is the right default for single-tenant deployments. Multi-tenant
+    operators want a real database. v0.2 introduces a pluggable backend
+    interface; the SQLite implementation remains; a Postgres implementation
+    ships alongside. <em>The on-disk format does not change — only the
+    storage engine.</em>
+  </p>
+
+  <div class="mg-grid">
+    <div class="mg-step">
+      <h3 data-step="1">pre-flight</h3>
+      <ul>
+        <li>provision Postgres 15+ · enable WAL archiving</li>
+        <li>verify SQLite chain · snapshot to cold storage</li>
+        <li>capacity plan: 2× expected entry rate for migration window</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="2">copy-forward</h3>
+      <ul>
+        <li><code>asclepius backend export --from sqlite --to pg-stream</code></li>
+        <li>reads SQLite tail-forward, streams to Postgres in entry order</li>
+        <li>preserves seq, prev_hash, sig bit-identical</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="3">cutover</h3>
+      <ul>
+        <li>flip read/write target · <code>backend.primary=pg</code></li>
+        <li>SQLite remains read-only mirror for 30 days</li>
+        <li>verify both backends agree on tail Merkle root</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="4">rollback</h3>
+      <ul>
+        <li>flip <code>backend.primary=sqlite</code></li>
+        <li>SQLite mirror has every row up to cutover; no data loss</li>
+        <li>any post-cutover entries on PG can be re-streamed back</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="mg-warn">
+    <b>Single-writer invariant.</b> Even with Postgres as the backend, the
+    runtime preserves single-writer semantics per ledger. Postgres unlocks
+    multi-tenant <em>parallel</em> ledgers, not multi-writer per ledger. If
+    you genuinely need multi-writer-per-ledger, talk to us — that is its own
+    ADR.
+  </p>
+</section>
+
+<!-- ─────────── M-003 ─────────── -->
+<section class="container mg-rec" id="m-003">
+  <div class="mg-rec__head">
+    <span class="mg-rec__num">M-003</span>
+    <span class="mg-rec__bk is-planned">planned · 2026 Q4</span>
+    <span class="mg-rec__date">target v0.3.0</span>
+  </div>
+  <h2>v0.2 → v0.3 · <i>gRPC sidecar</i> GA.</h2>
+  <p class="mg-rec__lede">
+    The <code>asclepius-svc</code> sidecar exits beta. The wire format
+    (<code>proto/asclepius/v1/sidecar.proto</code>) is frozen at v1; future
+    additions must be backward-compatible. <em>The sidecar's protobuf
+    contract is now an additional public artefact alongside the C++ API.</em>
+  </p>
+
+  <div class="mg-grid">
+    <div class="mg-step">
+      <h3 data-step="1">pre-flight</h3>
+      <ul>
+        <li>review proto v1 surface for client-side compatibility</li>
+        <li>confirm TLS termination configured</li>
+        <li>plan rate limits per tenant</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="2">deploy</h3>
+      <ul>
+        <li>deploy sidecar alongside runtime · share ledger</li>
+        <li>direct net-new traffic to sidecar; native API stays available</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="3">verify</h3>
+      <ul>
+        <li>traffic via sidecar produces entries identical to native</li>
+        <li>compare exported bundle hashes for parity</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="4">rollback</h3>
+      <ul>
+        <li>sidecar is purely additive · stop traffic, redirect to native</li>
+        <li>no on-disk effects to undo</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────── M-004 ─────────── -->
+<section class="container mg-rec" id="m-004">
+  <div class="mg-rec__head">
+    <span class="mg-rec__num">M-004</span>
+    <span class="mg-rec__bk is-research">research · 2027</span>
+    <span class="mg-rec__date">target v1.0.0</span>
+  </div>
+  <h2>v0.3 → v1.0 · <i>ML-DSA</i> dual-sign window.</h2>
+  <p class="mg-rec__lede">
+    The post-quantum migration. ADR-010 (proposed) outlines the destination:
+    every entry signed with both Ed25519 and ML-DSA-65 during a multi-year
+    transition window, with verifiers accepting either. <em>Old entries
+    keep their original signatures; new entries gain a second one.</em>
+  </p>
+
+  <div class="mg-grid">
+    <div class="mg-step">
+      <h3 data-step="1">pre-flight</h3>
+      <ul>
+        <li>generate ML-DSA-65 key in HSM (per <a href="decisions.html#adr-010">ADR-010</a>)</li>
+        <li>countersign new pubkey with current Ed25519 key</li>
+        <li>publish to <code>humans.txt</code> + RFC 9116 well-known</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="2">activate dual-sign</h3>
+      <ul>
+        <li><code>keys add --scheme ml-dsa-65 --key-id PQ-1</code></li>
+        <li>future entries gain a second <code>sig.ml-dsa-65:</code> field</li>
+        <li>old entries are not touched · old sigs remain verifiable forever</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="3">extend verifier</h3>
+      <ul>
+        <li>publish updated verifier binary supporting both schemes</li>
+        <li>auditor tooling tested against synthetic dual-signed corpus</li>
+        <li>document acceptance: "either signature suffices to verify"</li>
+      </ul>
+    </div>
+    <div class="mg-step">
+      <h3 data-step="4">retire (much later)</h3>
+      <ul>
+        <li>once ecosystem PQ-ready, deprecate Ed25519 emission</li>
+        <li>old entries keep their Ed25519 sigs; verifier still accepts them</li>
+        <li>this step is years out and will be its own ADR</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="mg-warn">
+    <b>Why the long window.</b> Substrate-grade durability means a v0.1
+    bundle exported today should remain verifiable in 2046. Dual-signing
+    gives the world time to get PQ tooling into HSMs, OS distributions,
+    auditor binaries, and legal-discovery workflows — without anyone losing
+    the ability to verify the past.
+  </p>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="mg-coda">
+    <h2>The chain <i>survives</i> the substrate.</h2>
+    <p>
+      Migrations exist to evolve the runtime without invalidating the
+      record. Every upgrade above preserves the invariant that <em>any
+      entry committed by any prior version remains verifiable by any future
+      version.</em> If a proposed migration cannot meet that bar, it does
+      not ship. <em>That is the substrate's promise to the auditor.</em>
+    </p>
+    <div class="mg-coda__links">
+      <a href="changelog.html">changelog →</a>
+      <a href="roadmap.html">roadmap</a>
+      <a href="decisions.html">decisions</a>
+      <a href="playbooks.html">playbooks</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>release</b>
+        <a href="changelog.html">changelog</a>
+        <a href="migrations.html">migrations</a>
+        <a href="roadmap.html">roadmap</a>
+        <a href="status.html">status</a>
+      </div>
+      <div>
+        <b>operate</b>
+        <a href="deploy.html">deploy</a>
+        <a href="economics.html">economics</a>
+        <a href="playbooks.html">playbooks</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="api.html">API reference</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

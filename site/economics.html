@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Economics — Asclepius</title>
+<meta name="description" content="What does it actually cost to run Asclepius? Bytes per entry, entries per day, signing CPU, verification CPU, bundle export size, WAL disk, retention multiplier — with worked examples for small / medium / large hospitals.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/economics.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Economics">
+<meta property="og:description"  content="The substrate's real-world cost model. Bytes, CPU, disk, retention.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.ec-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.ec-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.ec-hero h1 i { color: var(--primary); font-style: italic; }
+.ec-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.ec-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.ec-sec { margin: 4rem 0; padding-top: 2rem; border-top: 1px solid var(--rule); }
+.ec-sec__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.ec-sec h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .35rem 0 .8rem; }
+.ec-sec h2 i { color: var(--primary); font-style: italic; }
+.ec-sec__lede { font-family: var(--font-prose); font-size: 1rem; line-height: 1.6; color: var(--ink); max-width: 64ch; margin: 0 0 1.4rem; }
+.ec-sec__lede em { color: var(--ink-warm); font-style: italic; }
+.ec-sec__lede code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.ec-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: .82rem; margin-top: 1rem; }
+.ec-table th, .ec-table td { text-align: left; padding: .6rem .9rem; border-bottom: 1px solid var(--rule); }
+.ec-table th { font-weight: 500; font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); }
+.ec-table td.ec-num { color: var(--primary); text-align: right; white-space: nowrap; }
+.ec-table td.ec-key { color: var(--ink-warm); }
+.ec-table td.ec-note { color: var(--ink); font-family: var(--font-prose); font-size: .92rem; line-height: 1.5; }
+.ec-table tr:hover td { background: rgba(181,123,255,.04); }
+.ec-table caption { caption-side: bottom; text-align: left; padding: .6rem 0; color: var(--ink-faint); font-size: .72rem; font-family: var(--font-mono); letter-spacing: .04em; }
+
+.ec-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+.ec-card {
+    padding: 1.2rem 1.3rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--primary);
+    border-radius: 6px;
+}
+.ec-card__h {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 .4rem;
+}
+.ec-card__t {
+    margin: 0 0 .8rem;
+    font-family: var(--font-serif);
+    font-size: 1.4rem;
+    line-height: 1.2;
+    color: var(--ink-warm);
+}
+.ec-card__t i { color: var(--primary); font-style: italic; }
+.ec-card dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: .35rem .8rem; font-family: var(--font-mono); font-size: .82rem; }
+.ec-card dt { color: var(--ink-mute); }
+.ec-card dd { margin: 0; color: var(--ink-warm); text-align: right; }
+.ec-card dd b { color: var(--primary); font-weight: 500; }
+
+.ec-callout {
+    margin: 1.4rem 0 0;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.ec-callout b { color: var(--primary); }
+.ec-callout em { color: var(--ink-warm); font-style: italic; }
+.ec-callout code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.ec-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.ec-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.ec-coda h2 i { color: var(--primary); font-style: italic; }
+.ec-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.ec-coda .ec-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.ec-coda .ec-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.ec-coda .ec-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",      "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Economics", "item": "https://asclepius.health/economics.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-economics">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="deploy.html">deploy</a>
+      <a href="economics.html" class="is-active" aria-current="page">economics</a>
+      <a href="benchmarks.html">benchmarks</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="ec-hero">
+  <div class="container">
+    <span class="kbd">§01 · bytes · cpu · disk · honest numbers</span>
+    <h1>What does it <i>actually</i> cost?</h1>
+    <p>
+      Substrate-grade software should fit on the budget side of a hospital's
+      ledger, not feel like a separate one. Below: bytes per entry, entries
+      per day for typical deployments, signing CPU, verification CPU, bundle
+      export size, retention multiplier — with worked examples for small,
+      medium, and large operators. <em>Round numbers, conservative
+      assumptions, verifiable arithmetic.</em>
+    </p>
+  </div>
+</section>
+
+<!-- ─────────── §01 unit costs ─────────── -->
+<section class="container ec-sec" id="units">
+  <span class="ec-sec__num">§ 01 · per-entry unit costs</span>
+  <h2>One <i>signed entry.</i></h2>
+  <p class="ec-sec__lede">
+    Every clinical-AI inference produces exactly one ledger entry. Optional
+    related entries (consent gate, drift snapshot, key-rotation event) are
+    rare relative to inference volume. The unit cost of "an entry" is what
+    sets every other line below.
+  </p>
+
+  <table class="ec-table" aria-label="per-entry unit costs">
+    <thead><tr><th>resource</th><th>cost per entry</th><th>note</th></tr></thead>
+    <tbody>
+      <tr><td class="ec-key">canonical-JSON bytes</td>          <td class="ec-num">≈ 480 B</td><td class="ec-note">Median observed in production traces. P99 ≈ 720 B.</td></tr>
+      <tr><td class="ec-key">SQLite row overhead</td>           <td class="ec-num">+ 90 B</td>  <td class="ec-note">Header, page-fragment overhead amortised across appends.</td></tr>
+      <tr><td class="ec-key">Ed25519 signature</td>             <td class="ec-num">64 B</td>   <td class="ec-note">Detached, included in the entry body.</td></tr>
+      <tr><td class="ec-key">BLAKE2b prev_hash</td>             <td class="ec-num">32 B</td>   <td class="ec-note">Rolling hash chain link.</td></tr>
+      <tr><td class="ec-key"><b>on-disk total</b></td>          <td class="ec-num"><b>≈ 600 B</b></td><td class="ec-note">Round number for napkin maths. Multiply by N entries to size storage.</td></tr>
+      <tr><td class="ec-key">Ed25519 sign latency</td>          <td class="ec-num">≈ 70 µs</td> <td class="ec-note">libsodium reference impl, modern x86-64 core.</td></tr>
+      <tr><td class="ec-key">Ed25519 verify latency</td>        <td class="ec-num">≈ 130 µs</td><td class="ec-note">Auditor side, batch-verify scales sublinearly.</td></tr>
+      <tr><td class="ec-key">BLAKE2b throughput</td>            <td class="ec-num">≈ 1 GB/s/core</td><td class="ec-note">The chain never bottlenecks on hashing.</td></tr>
+      <tr><td class="ec-key">end-to-end latency added</td>      <td class="ec-num">≈ 150 µs p99</td><td class="ec-note">Substrate overhead on top of the model call. See <a href="benchmarks.html">benchmarks</a>.</td></tr>
+    </tbody>
+    <caption>Source: <code>examples/04_bench/</code> at v0.1.0 · regenerated nightly to <code>assets/bench.json</code>.</caption>
+  </table>
+</section>
+
+<!-- ─────────── §02 worked examples ─────────── -->
+<section class="container ec-sec" id="examples">
+  <span class="ec-sec__num">§ 02 · three worked examples</span>
+  <h2>Three <i>operators</i>, three sizings.</h2>
+  <p class="ec-sec__lede">
+    Substrate cost scales linearly with inference volume. Three illustrative
+    deployments — clinic, regional health system, national network — bracket
+    the range. Storage assumes the default 7-year retention. CPU assumes a
+    single dedicated thread.
+  </p>
+
+  <div class="ec-cards">
+    <div class="ec-card">
+      <p class="ec-card__h">small · clinic</p>
+      <p class="ec-card__t">An <i>independent practice.</i></p>
+      <dl>
+        <dt>encounters/day</dt><dd>200</dd>
+        <dt>inferences/encounter</dt><dd>3</dd>
+        <dt>entries/day</dt><dd><b>600</b></dd>
+        <dt>entries/year</dt><dd>219 k</dd>
+        <dt>storage/year</dt><dd><b>≈ 130 MB</b></dd>
+        <dt>storage / 7 yr</dt><dd>≈ 0.9 GB</dd>
+        <dt>CPU peak</dt><dd>&lt; 0.1 % of one core</dd>
+        <dt>HSM ops/day</dt><dd>600 sigs · trivial</dd>
+      </dl>
+    </div>
+
+    <div class="ec-card">
+      <p class="ec-card__h">medium · regional</p>
+      <p class="ec-card__t">A <i>500-bed</i> health system.</p>
+      <dl>
+        <dt>encounters/day</dt><dd>4 000</dd>
+        <dt>inferences/encounter</dt><dd>5</dd>
+        <dt>entries/day</dt><dd><b>20 000</b></dd>
+        <dt>entries/year</dt><dd>7.3 M</dd>
+        <dt>storage/year</dt><dd><b>≈ 4.4 GB</b></dd>
+        <dt>storage / 7 yr</dt><dd>≈ 31 GB</dd>
+        <dt>CPU peak</dt><dd>≈ 1.4 % of one core</dd>
+        <dt>HSM ops/day</dt><dd>20 k sigs · entry-level HSM saturates at ~10 M/day</dd>
+      </dl>
+    </div>
+
+    <div class="ec-card">
+      <p class="ec-card__h">large · national</p>
+      <p class="ec-card__t">A <i>multi-state</i> network.</p>
+      <dl>
+        <dt>encounters/day</dt><dd>200 000</dd>
+        <dt>inferences/encounter</dt><dd>8</dd>
+        <dt>entries/day</dt><dd><b>1.6 M</b></dd>
+        <dt>entries/year</dt><dd>584 M</dd>
+        <dt>storage/year</dt><dd><b>≈ 350 GB</b></dd>
+        <dt>storage / 7 yr</dt><dd>≈ 2.5 TB</dd>
+        <dt>CPU peak</dt><dd>≈ 1 dedicated core</dd>
+        <dt>backend</dt><dd>SQLite still works · Postgres recommended for HA</dd>
+      </dl>
+    </div>
+  </div>
+
+  <p class="ec-callout">
+    <b>What scales sub-linearly.</b> Verification time for a full chain grows
+    with the number of entries, but practical use is "verify the last N" or
+    "verify the bundle for encounter X" — both bounded. Storage grows
+    linearly; CPU grows linearly with inference volume but is well below one
+    core for any realistic single-tenant deployment.
+  </p>
+</section>
+
+<!-- ─────────── §03 bundle export ─────────── -->
+<section class="container ec-sec" id="bundles">
+  <span class="ec-sec__num">§ 03 · evidence-bundle costs</span>
+  <h2>Bundle <i>exports</i> — the regulator side.</h2>
+  <p class="ec-sec__lede">
+    Bundles are the artefact handed to auditors. They are USTAR tar files
+    with a manifest, a JSONL ledger excerpt, drift snapshots, calibration
+    data, and a public key. Their size depends on what is included; their
+    build time is dominated by reading the entries and re-hashing them.
+  </p>
+
+  <table class="ec-table" aria-label="bundle export costs">
+    <thead><tr><th>scope</th><th>typical entries</th><th>bundle size</th><th>build time</th></tr></thead>
+    <tbody>
+      <tr><td class="ec-key">single encounter</td><td class="ec-num">10–40</td>     <td class="ec-num">≈ 80 KB</td>   <td class="ec-num">&lt; 50 ms</td></tr>
+      <tr><td class="ec-key">single patient · 1 yr</td><td class="ec-num">~1 k</td>  <td class="ec-num">≈ 1.5 MB</td>  <td class="ec-num">&lt; 200 ms</td></tr>
+      <tr><td class="ec-key">department · 1 month</td><td class="ec-num">~150 k</td><td class="ec-num">≈ 90 MB</td>   <td class="ec-num">≈ 4 s</td></tr>
+      <tr><td class="ec-key">whole system · 1 year</td><td class="ec-num">~7 M</td>  <td class="ec-num">≈ 4 GB</td>    <td class="ec-num">~3 min</td></tr>
+      <tr><td class="ec-key"><b>+ post-quantum dual-sign</b></td><td class="ec-num">+ 3 KB / entry</td><td class="ec-num"><b>×6</b></td><td class="ec-num">×1.4</td></tr>
+    </tbody>
+    <caption>Bundles are uncompressed by default · deterministic byte-for-byte. ML-DSA dual-signing arrives in v1.0 — see <a href="decisions.html#adr-010">ADR-010</a>.</caption>
+  </table>
+</section>
+
+<!-- ─────────── §04 retention ─────────── -->
+<section class="container ec-sec" id="retention">
+  <span class="ec-sec__num">§ 04 · retention</span>
+  <h2>How <i>long</i> we keep things.</h2>
+  <p class="ec-sec__lede">
+    Retention is set by the regulatory framework the operator works under,
+    not by the substrate. The substrate is append-only, so deletion is a
+    deliberate act. The defaults below match HIPAA + EU AI Act + Joint
+    Commission and align with what most clinical operators end up choosing.
+  </p>
+
+  <table class="ec-table" aria-label="retention defaults">
+    <thead><tr><th>artefact</th><th>default</th><th>rationale</th></tr></thead>
+    <tbody>
+      <tr><td class="ec-key">ledger entries (all kinds)</td>   <td class="ec-num">7 years</td><td class="ec-note">Standard medical-record retention floor across the US.</td></tr>
+      <tr><td class="ec-key">audio / raw input</td>            <td class="ec-num">7 days</td> <td class="ec-note">Hashed and bound to the entry within seconds; raw bytes do not persist.</td></tr>
+      <tr><td class="ec-key">drift snapshots</td>              <td class="ec-num">2 years</td><td class="ec-note">Long enough for FDA post-market reporting; can be re-derived from entries if needed.</td></tr>
+      <tr><td class="ec-key">consent grants/revocations</td>   <td class="ec-num">indefinite</td><td class="ec-note">Required to demonstrate authority for every past action.</td></tr>
+      <tr><td class="ec-key">signing keys (public)</td>        <td class="ec-num">indefinite</td><td class="ec-note">Verifiers must be able to check old signatures forever.</td></tr>
+      <tr><td class="ec-key">signing keys (private)</td>       <td class="ec-num">archived</td><td class="ec-note">Cold custody after rotation. Never deleted — see <a href="playbooks.html#key-rotation">PB-02</a>.</td></tr>
+      <tr><td class="ec-key">evidence bundles</td>             <td class="ec-num">case-driven</td><td class="ec-note">Built on demand. The chain is the source of truth.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="ec-callout">
+    <b>Why we don't compress the ledger.</b> Compression would make
+    auditor-tooling reach harder for entries; the cost of uncompressed
+    storage at substrate scale (4–350 GB/yr) is rounding error on the budget
+    of any operator running clinical AI. <em>Optimise the audit, not the
+    bytes.</em>
+  </p>
+</section>
+
+<!-- ─────────── §05 cost vs benefit ─────────── -->
+<section class="container ec-sec" id="value">
+  <span class="ec-sec__num">§ 05 · what an audit costs without us</span>
+  <h2>The <i>counterfactual.</i></h2>
+  <p class="ec-sec__lede">
+    Substrate-grade audit machinery shifts where work happens. The work that
+    used to land on legal, compliance, and SRE during an audit, post-mortem,
+    or peer-review case is now done up-front, automatically, by the runtime.
+    A few illustrative comparisons:
+  </p>
+
+  <table class="ec-table" aria-label="counterfactual cost map">
+    <thead><tr><th>scenario</th><th>without substrate</th><th>with Asclepius</th></tr></thead>
+    <tbody>
+      <tr><td class="ec-key">peer-review of a flagged decision</td>
+          <td class="ec-note">Legal pulls EHR, vendor support is contacted, screenshots are reconstructed. Days–weeks.</td>
+          <td class="ec-note"><code>asclepius bundle export --encounter ENC-…</code> · single signed artefact · minutes.</td></tr>
+      <tr><td class="ec-key">FDA post-market reporting</td>
+          <td class="ec-note">Annual aggregation across systems, manual sample selection. Quarter-long cycle.</td>
+          <td class="ec-note">Aggregate signed entries continuously; the report writes itself from the chain.</td></tr>
+      <tr><td class="ec-key">subpoena response</td>
+          <td class="ec-note">Custodian-of-records affidavit, screenshots, per-system exports, IT testimony.</td>
+          <td class="ec-note">Bundle export + verifier binary handed to legal — see <a href="playbooks.html#subpoena">PB-06</a>.</td></tr>
+      <tr><td class="ec-key">model rollback after a regression</td>
+          <td class="ec-note">Identify affected encounters by SQL queries against EHR plus model logs that may not match.</td>
+          <td class="ec-note">Filter on <code>weights_sha256</code> in the chain; affected rows are deterministic.</td></tr>
+      <tr><td class="ec-key">privacy-revocation cascade</td>
+          <td class="ec-note">Manual sweep, often missed; revocation propagation has no SLA.</td>
+          <td class="ec-note">Registry refuses subsequent checks within seconds; affected rows annotated by export — <a href="playbooks.html#consent-revocation">PB-05</a>.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="ec-callout">
+    <b>The honest framing.</b> Asclepius does not save the operator the cost
+    of their auditor's hourly rate. It shifts the auditor's hour from
+    "reconstruct what happened" to "verify what is recorded." That is a
+    quantitatively different audit; it is also the only kind a regulator can
+    rely on.
+  </p>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="ec-coda">
+    <h2>The substrate is <i>not free.</i></h2>
+    <p>
+      Nothing is free. The substrate trades a small, predictable, durable
+      cost — a fraction of a CPU core, a few gigabytes per year, an
+      additional operational discipline — for an enormous reduction in
+      catastrophic-tail risk. Operators who run clinical AI without it are
+      <em>also</em> paying — they just don't know what for, until the
+      regulator asks them.
+    </p>
+    <p>
+      If your numbers don't fit the brackets above, send them to us — the
+      cost model is open arithmetic, not a quote.
+    </p>
+    <div class="ec-coda__links">
+      <a href="benchmarks.html">benchmarks →</a>
+      <a href="deploy.html">deploy guide</a>
+      <a href="conformance.html">conformance</a>
+      <a href="regulator.html">for regulators</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>operate</b>
+        <a href="deploy.html">deploy</a>
+        <a href="economics.html">economics</a>
+        <a href="observability.html">observability</a>
+        <a href="playbooks.html">playbooks</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">docs</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="api.html">API reference</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

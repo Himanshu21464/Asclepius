@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>API reference — Asclepius</title>
+<meta name="description" content="Auto-generated reference of every public C++ symbol in include/asclepius/. Classes, methods, free functions, enums — direct from the source.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/api.html">
+
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Asclepius — API reference">
+<meta property="og:description"  content="Auto-generated from the C++ headers. Every public symbol.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.api-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.api-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.4rem, 5.5vw, 4rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.api-hero h1 i { color: var(--primary); font-style: italic; }
+.api-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; }
+.api-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+.api-hero p code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.api-toc {
+    margin: 2rem 0 2.4rem;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+}
+.api-toc ul { list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: .35rem .9rem;
+    font-family: var(--font-mono); font-size: .85rem;
+}
+.api-toc a { display: flex; justify-content: space-between; gap: .8rem; align-items: baseline;
+    color: var(--ink); padding: .35rem .6rem; border-radius: 4px;
+    text-decoration: none; transition: background .15s, color .15s;
+}
+.api-toc a:hover { background: var(--bg-2); color: var(--primary); }
+.api-toc em { color: var(--ink-faint); font-style: normal; font-size: .76rem; letter-spacing: .04em; }
+
+.api-hdr { padding: 2rem 0; border-top: 1px solid var(--rule); }
+.api-hdr:first-of-type { border-top: 0; padding-top: 0; }
+.api-hdr h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.8rem; color: var(--ink-warm);
+    letter-spacing: -.01em; margin: 0 0 1.2rem;
+}
+.api-hdr h2 code { font-family: var(--font-mono); font-size: .8em; color: var(--primary); background: transparent; border: 0; padding: 0; }
+.api-hdr h3 {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 1.6rem 0 .6rem;
+}
+
+.api-class {
+    margin: 0 0 2rem;
+    padding: 1.2rem 1.4rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+}
+.api-class h3 {
+    font-family: var(--font-serif);
+    font-size: 1.4rem; font-weight: 400;
+    color: var(--ink-warm);
+    text-transform: none;
+    letter-spacing: -.01em;
+    margin: 0 0 .8rem;
+}
+.api-class h3 code { font-family: var(--font-mono); font-size: .8em; color: var(--primary); background: transparent; border: 0; padding: 0; }
+.api-class > p { color: var(--ink); font-family: var(--font-prose); line-height: 1.65; margin: 0 0 1rem; }
+
+.api-list { display: grid; grid-template-columns: 12em minmax(0, 1fr); gap: .65rem 1.4rem; margin: 0; }
+.api-list dt { color: var(--primary); font-family: var(--font-mono); font-size: .82rem; font-weight: 500; padding-top: .15rem; }
+.api-list dt code { background: transparent; border: 0; padding: 0; color: inherit; }
+.api-list dd { margin: 0; }
+.api-list pre {
+    margin: 0; padding: .55rem .8rem;
+    background: var(--bg); border: 1px solid var(--rule-soft);
+    border-radius: 4px; font-family: var(--font-mono); font-size: .8rem;
+    color: var(--ink); overflow-x: auto;
+}
+.api-list dd p { margin: .55rem 0 0; color: var(--ink-mute); font-size: .88rem; line-height: 1.55; }
+
+@media (max-width: 760px) {
+    .api-list { grid-template-columns: 1fr; }
+    .api-list dt { padding-top: 0; }
+}
+
+.api-meta {
+    margin: 2rem 0 4rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule-soft);
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .04em;
+    line-height: 1.7;
+}
+.api-meta a { color: var(--primary); }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "API reference",
+      "item": "https://asclepius.health/api.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-api">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="api.html" class="is-active" aria-current="page">api</a>
+      <a href="cheatsheet.html">cheatsheet</a>
+      <a href="glossary.html">glossary</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="api-hero">
+  <div class="container">
+    <span class="kbd">api · auto-generated · 2026-04-26</span>
+    <h1>Every public symbol, <i>from the source.</i></h1>
+    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 139 public symbols. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
+  </div>
+</section>
+
+<section class="container">
+<section class="api-toc">
+  <ul>
+    <li><a href="#hdr-asclepius-hpp"><code>asclepius.hpp</code> <em>0 symbols</em></a></li>
+    <li><a href="#hdr-audit-hpp"><code>audit.hpp</code> <em>23 symbols</em></a></li>
+    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>9 symbols</em></a></li>
+    <li><a href="#hdr-core-hpp"><code>core.hpp</code> <em>19 symbols</em></a></li>
+    <li><a href="#hdr-evaluation-hpp"><code>evaluation.hpp</code> <em>6 symbols</em></a></li>
+    <li><a href="#hdr-hashing-hpp"><code>hashing.hpp</code> <em>11 symbols</em></a></li>
+    <li><a href="#hdr-identity-hpp"><code>identity.hpp</code> <em>14 symbols</em></a></li>
+    <li><a href="#hdr-fhir-hpp"><code>interop/fhir.hpp</code> <em>5 symbols</em></a></li>
+    <li><a href="#hdr-policy-hpp"><code>policy.hpp</code> <em>12 symbols</em></a></li>
+    <li><a href="#hdr-runtime-hpp"><code>runtime.hpp</code> <em>19 symbols</em></a></li>
+    <li><a href="#hdr-telemetry-hpp"><code>telemetry.hpp</code> <em>19 symbols</em></a></li>
+    <li><a href="#hdr-version-hpp"><code>version.hpp</code> <em>2 symbols</em></a></li>
+  </ul>
+</section>
+<section class="api-hdr" id="hdr-asclepius-hpp">
+  <h2><code>asclepius.hpp</code></h2>
+</section>
+<section class="api-hdr" id="hdr-audit-hpp">
+  <h2><code>audit.hpp</code></h2>
+  <article class="api-class">
+    <h3><code>KeyStore</code></h3>
+    <p>---- KeyStore ------------------------------------------------------------ An Ed25519 signing keypair. Keys are 32-byte public, 64-byte secret. The secret is held in locked memory where the platform supports it.</p>
+    <dl class="api-list">
+      <dt><code>generate</code></dt>
+      <dd><pre>static KeyStore generate()</pre><p>Generate a fresh keypair from a CSPRNG.</p></dd>
+      <dt><code>from_seed</code></dt>
+      <dd><pre>static Result&lt;KeyStore&gt; from_seed(std::span&lt;const std::uint8_t, 32&gt; seed)</pre><p>Reconstruct from a 32-byte seed. The seed must be high-entropy.</p></dd>
+      <dt><code>deserialize</code></dt>
+      <dd><pre>static Result&lt;KeyStore&gt; deserialize(std::string_view encoded)</pre><p>Load from a PEM-style serialized form produced by serialize().</p></dd>
+      <dt><code>serialize</code></dt>
+      <dd><pre>std::string serialize()</pre></dd>
+      <dt><code>key_id</code></dt>
+      <dd><pre>std::string key_id()</pre><p>The key id is the hex of the public key truncated to 16 hex chars.</p></dd>
+      <dt><code>public_key</code></dt>
+      <dd><pre>std::array&lt;std::uint8_t, pk_bytes&gt; public_key()</pre></dd>
+      <dt><code>sign</code></dt>
+      <dd><pre>std::array&lt;std::uint8_t, sig_bytes&gt; sign(Bytes message)</pre></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>LedgerEntryHeader</code></h3>
+    <p>---- Ledger entry --------------------------------------------------------</p>
+  </article>
+  <article class="api-class">
+    <h3><code>LedgerEntry</code></h3>
+    <dl class="api-list">
+      <dt><code>entry_hash</code></dt>
+      <dd><pre>Hash entry_hash()</pre></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Ledger</code></h3>
+    <p>---- Ledger -------------------------------------------------------------- An append-only, Merkle-chained, Ed25519-signed event log persisted to a SQLite database. The chain head can be checkpointed externally for off-system attestation.</p>
+    <dl class="api-list">
+      <dt><code>open</code></dt>
+      <dd><pre>static Result&lt;Ledger&gt; open(std::filesystem::path path)</pre><p>Open or create a SQLite-backed ledger at the given path. If a key is not provided one is generated and stored alongside (file-permissions 0600).</p></dd>
+      <dt><code>open</code></dt>
+      <dd><pre>static Result&lt;Ledger&gt; open(std::filesystem::path path, KeyStore key)</pre></dd>
+      <dt><code>at</code></dt>
+      <dd><pre>Result&lt;LedgerEntry&gt; at(std::uint64_t seq)</pre><p>Read an entry by sequence number.</p></dd>
+      <dt><code>tail</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; tail(std::size_t n)</pre><p>Read the last n entries (most recent first).</p></dd>
+      <dt><code>range</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range(std::uint64_t start, std::uint64_t end)</pre><p>Read entries within [start, end) seq range.</p></dd>
+      <dt><code>verify</code></dt>
+      <dd><pre>Result&lt;void&gt; verify()</pre><p>Verify the entire chain: each entry&#x27;s prev_hash matches the previous, each signature matches the registered public key, payload_hash matches.</p></dd>
+      <dt><code>head</code></dt>
+      <dd><pre>Hash head()</pre><p>Current chain head (hash of the most recent entry, or zero if empty).</p></dd>
+      <dt><code>length</code></dt>
+      <dd><pre>std::uint64_t length()</pre></dd>
+      <dt><code>public_key</code></dt>
+      <dd><pre>std::array&lt;std::uint8_t, KeyStore::pk_bytes&gt; public_key()</pre><p>Public verification key bytes for this ledger&#x27;s signer.</p></dd>
+      <dt><code>key_id</code></dt>
+      <dd><pre>std::string key_id()</pre></dd>
+      <dt><code>sign_attestation</code></dt>
+      <dd><pre>std::array&lt;std::uint8_t, KeyStore::sig_bytes&gt; sign_attestation(Bytes message)</pre><p>Sign an arbitrary attestation (e.g., an evidence-bundle manifest) with the same key that signs ledger entries. The signature can be verified against public_key() with KeyStore::verify. This is intentionally narrow: forging a ledger entry would still require matching seq, prev_hash, and the canonical entry encoding, none of which this method generates.</p></dd>
+    </dl>
+  </article>
+</section>
+<section class="api-hdr" id="hdr-consent-hpp">
+  <h2><code>consent.hpp</code></h2>
+  <h3>enums</h3>
+  <dl class="api-list">
+    <dt><code>Purpose</code></dt>
+    <dd><pre>enum class Purpose : std::uint8_t</pre><p>Allowed purposes for AI use on a patient&#x27;s data. Codified deliberately: adding a new purpose is a governance event, not a string change.</p></dd>
+  </dl>
+  <article class="api-class">
+    <h3><code>ConsentToken</code></h3>
+    <p>A consent token grants a set of purposes for a patient until expiry.</p>
+  </article>
+  <article class="api-class">
+    <h3><code>ConsentRegistry</code></h3>
+    <p>---- Registry ------------------------------------------------------------ Tracks which patient has consented to which purposes. The registry is authoritative for runtime checks but does not persist by itself — the Runtime mirrors grants and revocations to the audit ledger so consent history is reconstructable from the chain alone.</p>
+    <dl class="api-list">
+      <dt><code>revoke</code></dt>
+      <dd><pre>Result&lt;void&gt; revoke(std::string_view token_id)</pre></dd>
+      <dt><code>permits</code></dt>
+      <dd><pre>Result&lt;bool&gt; permits(const PatientId&amp; patient, Purpose purpose)</pre></dd>
+      <dt><code>get</code></dt>
+      <dd><pre>Result&lt;ConsentToken&gt; get(std::string_view token_id)</pre></dd>
+      <dt><code>snapshot</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; snapshot()</pre><p>Snapshot for serialization / replay.</p></dd>
+    </dl>
+  </article>
+  <h3>free functions</h3>
+  <dl class="api-list">
+    <dt><code>to_string</code></dt>
+    <dd><pre>const char* to_string(Purpose)</pre></dd>
+    <dt><code>purpose_from_string</code></dt>
+    <dd><pre>Result&lt;Purpose&gt; purpose_from_string(std::string_view)</pre></dd>
+  </dl>
+</section>
+<section class="api-hdr" id="hdr-core-hpp">
+  <h2><code>core.hpp</code></h2>
+  <h3>enums</h3>
+  <dl class="api-list">
+    <dt><code>ErrorCode</code></dt>
+    <dd><pre>enum class ErrorCode : std::uint16_t</pre><p>---- Error ---------------------------------------------------------------</p></dd>
+  </dl>
+  <article class="api-class">
+    <h3><code>Error</code></h3>
+    <dl class="api-list">
+      <dt><code>invalid</code></dt>
+      <dd><pre>static Error invalid(std::string m)</pre></dd>
+      <dt><code>not_found</code></dt>
+      <dd><pre>static Error not_found(std::string m)</pre></dd>
+      <dt><code>denied</code></dt>
+      <dd><pre>static Error denied(std::string m)</pre></dd>
+      <dt><code>policy</code></dt>
+      <dd><pre>static Error policy(std::string m)</pre></dd>
+      <dt><code>schema</code></dt>
+      <dd><pre>static Error schema(std::string m)</pre></dd>
+      <dt><code>integrity</code></dt>
+      <dd><pre>static Error integrity(std::string m)</pre></dd>
+      <dt><code>backend</code></dt>
+      <dd><pre>static Error backend(std::string m)</pre></dd>
+      <dt><code>internal</code></dt>
+      <dd><pre>static Error internal(std::string m)</pre></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Time</code></h3>
+    <p>---- Time --------------------------------------------------------------- A nanosecond-resolution wall-clock timestamp expressed as nanos since the Unix epoch. Stored as int64 to make the on-disk representation portable.</p>
+    <dl class="api-list">
+      <dt><code>now</code></dt>
+      <dd><pre>static Time now()</pre></dd>
+      <dt><code>from_iso8601</code></dt>
+      <dd><pre>static Time from_iso8601(std::string_view)</pre></dd>
+      <dt><code>iso8601</code></dt>
+      <dd><pre>std::string iso8601()</pre></dd>
+    </dl>
+  </article>
+  <h3>free functions</h3>
+  <dl class="api-list">
+    <dt><code>to_string</code></dt>
+    <dd><pre>const char* to_string(ErrorCode)</pre></dd>
+    <dt><code>ensure_value</code></dt>
+    <dd><pre>void ensure_value()</pre></dd>
+    <dt><code>ensure_error</code></dt>
+    <dd><pre>void ensure_error()</pre></dd>
+    <dt><code>error</code></dt>
+    <dd><pre>const Error&amp; error()</pre></dd>
+    <dt><code>ok</code></dt>
+    <dd><pre>static Result&lt;void&gt; ok()</pre></dd>
+  </dl>
+</section>
+<section class="api-hdr" id="hdr-evaluation-hpp">
+  <h2><code>evaluation.hpp</code></h2>
+  <article class="api-class">
+    <h3><code>Ledger</code></h3>
+  </article>
+  <article class="api-class">
+    <h3><code>EvaluationHarness</code></h3>
+    <dl class="api-list">
+      <dt><code>EvaluationHarness</code></dt>
+      <dd><pre>explicit EvaluationHarness(Ledger&amp; ledger, DriftMonitor&amp; drift)</pre></dd>
+      <dt><code>attach_ground_truth</code></dt>
+      <dd><pre>Result&lt;void&gt; attach_ground_truth(GroundTruth truth)</pre></dd>
+      <dt><code>capture_override</code></dt>
+      <dd><pre>Result&lt;void&gt; capture_override(OverrideEvent override_event)</pre></dd>
+      <dt><code>metrics</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;ModelMetrics&gt;&gt; metrics(EvaluationWindow window)</pre><p>Compute per-model metrics for the window.</p></dd>
+      <dt><code>verify_bundle</code></dt>
+      <dd><pre>static Result&lt;bool&gt; verify_bundle(std::filesystem::path bundle_path)</pre><p>Verify a bundle file produced by export_bundle. Pure function: returns true iff the manifest signature matches and contained hashes resolve.</p></dd>
+    </dl>
+  </article>
+</section>
+<section class="api-hdr" id="hdr-hashing-hpp">
+  <h2><code>hashing.hpp</code></h2>
+  <article class="api-class">
+    <h3><code>Hash</code></h3>
+    <p>32-byte digest. We use BLAKE2b-256 throughout; chosen for speed, security margin, and first-class libsodium support. The digest is content-addressed: equal Hash values mean byte-equal inputs.</p>
+    <dl class="api-list">
+      <dt><code>hex</code></dt>
+      <dd><pre>std::string hex()</pre></dd>
+      <dt><code>from_hex</code></dt>
+      <dd><pre>static Result&lt;Hash&gt; from_hex(std::string_view)</pre></dd>
+      <dt><code>zero</code></dt>
+      <dd><pre>static Hash zero()</pre></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Hasher</code></h3>
+    <p>Streaming hasher. Construct, feed bytes via update(), finalize() once. Each instance is one-shot.</p>
+    <dl class="api-list">
+      <dt><code>update</code></dt>
+      <dd><pre>Hasher&amp; update(Bytes data)</pre></dd>
+      <dt><code>update</code></dt>
+      <dd><pre>Hasher&amp; update(std::string_view sv)</pre></dd>
+      <dt><code>finalize</code></dt>
+      <dd><pre>Hash finalize()</pre></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>HashHasher</code></h3>
+    <p>Standard library hash specialization for use in unordered containers.</p>
+  </article>
+  <h3>free functions</h3>
+  <dl class="api-list">
+    <dt><code>hash</code></dt>
+    <dd><pre>Hash hash(Bytes data)</pre><p>Convenience one-shots.</p></dd>
+    <dt><code>hash</code></dt>
+    <dd><pre>Hash hash(std::string_view sv)</pre></dd>
+  </dl>
+</section>
+<section class="api-hdr" id="hdr-identity-hpp">
+  <h2><code>identity.hpp</code></h2>
+  <article class="api-class">
+    <h3><code>StrongId</code></h3>
+  </article>
+  <article class="api-class">
+    <h3><code>ActorId</code></h3>
+    <p>---- Actor ---------------------------------------------------------------</p>
+    <dl class="api-list">
+      <dt><code>clinician</code></dt>
+      <dd><pre>static ActorId clinician(std::string id)</pre></dd>
+      <dt><code>service</code></dt>
+      <dd><pre>static ActorId service(std::string id)</pre></dd>
+      <dt><code>system</code></dt>
+      <dd><pre>static ActorId system(std::string id)</pre></dd>
+      <dt><code>patient</code></dt>
+      <dd><pre>static ActorId patient(std::string id)</pre></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>PatientId</code></h3>
+    <p>---- Patient -------------------------------------------------------------</p>
+    <dl class="api-list">
+      <dt><code>pseudonymous</code></dt>
+      <dd><pre>static PatientId pseudonymous(std::string token)</pre><p>Pseudonymous: a token derived from the MRN by a one-way function on the EHR side. Asclepius itself never holds the mapping.</p></dd>
+      <dt><code>fhir</code></dt>
+      <dd><pre>static PatientId fhir(std::string id)</pre><p>FHIR Patient/&lt;id&gt; reference.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>EncounterId</code></h3>
+    <p>---- Encounter -----------------------------------------------------------</p>
+    <dl class="api-list">
+      <dt><code>make</code></dt>
+      <dd><pre>static EncounterId make()</pre><p>Generates a fresh time-sortable encounter id (ULID-shaped).</p></dd>
+      <dt><code>fhir</code></dt>
+      <dd><pre>static EncounterId fhir(std::string id)</pre></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>ModelId</code></h3>
+    <p>---- Model ---------------------------------------------------------------</p>
+  </article>
+  <article class="api-class">
+    <h3><code>TenantId</code></h3>
+    <p>---- Tenant --------------------------------------------------------------</p>
+  </article>
+</section>
+<section class="api-hdr" id="hdr-fhir-hpp">
+  <h2><code>interop/fhir.hpp</code></h2>
+  <article class="api-class">
+    <h3><code>ResourceRef</code></h3>
+    <p>Asclepius does not ingest, validate, or normalize FHIR resources. It is FHIR-aware in the narrow sense that it can extract the few fields needed to scope an inference: Patient/&lt;id&gt;, Encounter/&lt;id&gt;, Practitioner/&lt;id&gt;, and a coded Purpose-of-use. This keeps the substrate vendor-neutral and avoids becoming a half-baked FHIR server. Real FHIR validation belongs in HAPI/Pathling/Aidbox.</p>
+  </article>
+  <article class="api-class">
+    <h3><code>EncounterScope</code></h3>
+    <p>Extract Patient and Encounter references from a FHIR Bundle JSON, if present. Returns nullopt for either if not found.</p>
+  </article>
+  <h3>free functions</h3>
+  <dl class="api-list">
+    <dt><code>parse_reference</code></dt>
+    <dd><pre>Result&lt;ResourceRef&gt; parse_reference(std::string_view ref)</pre></dd>
+    <dt><code>extract_scope</code></dt>
+    <dd><pre>Result&lt;EncounterScope&gt; extract_scope(const nlohmann::json&amp; bundle)</pre></dd>
+    <dt><code>purpose_from_v3_code</code></dt>
+    <dd><pre>Result&lt;asclepius::Purpose&gt; purpose_from_v3_code(std::string_view code)</pre><p>Map a US Core / IPS coded purpose-of-use to an Asclepius Purpose. &quot;TREAT&quot;     -&gt; ambient_documentation (closest treatment-of-care fit) &quot;DIAGNOST&quot;  -&gt; diagnostic_suggestion &quot;TRIAGE&quot;    -&gt; triage &quot;RXMG&quot;      -&gt; medication_review &quot;HRESCH&quot;    -&gt; research &quot;QI&quot;        -&gt; quality_improvement</p></dd>
+  </dl>
+</section>
+<section class="api-hdr" id="hdr-policy-hpp">
+  <h2><code>policy.hpp</code></h2>
+  <article class="api-class">
+    <h3><code>InferenceContext</code></h3>
+    <dl class="api-list">
+      <dt><code>make_phi_scrubber</code></dt>
+      <dd><pre>std::shared_ptr&lt;IPolicy&gt; make_phi_scrubber()</pre><p>---- Built-in policies -------------------------------------------------- Detects and replaces obvious PHI in free text: names, MRNs, SSNs, phone numbers, addresses, dates of birth. Conservative — favors false positives. Decision is MODIFY (replaces detected PHI with [REDACTED]).</p></dd>
+      <dt><code>make_schema_validator</code></dt>
+      <dd><pre>std::shared_ptr&lt;IPolicy&gt; make_schema_validator(std::string schema_json)</pre><p>Validates a JSON payload against a JSON Schema (subset: type, required, properties, enum, minimum, maximum, minLength, maxLength). Decision is BLOCK on violation.</p></dd>
+      <dt><code>make_clinical_action_filter</code></dt>
+      <dd><pre>std::shared_ptr&lt;IPolicy&gt; make_clinical_action_filter(std::vector&lt;std::string&gt; allowed_action_codes)</pre><p>Restricts allowed clinical actions in an output. Used when wrapping agentic tools that emit orders, prescriptions, or messages. Decision is BLOCK if the output contains a non-allowlisted action.</p></dd>
+      <dt><code>make_length_limit</code></dt>
+      <dd><pre>std::shared_ptr&lt;IPolicy&gt; make_length_limit(std::size_t input_max, std::size_t output_max)</pre><p>Maximum input/output length. Cheap, guards against runaway model output.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>IPolicy</code></h3>
+    <dl class="api-list">
+      <dt><code>evaluate_input</code></dt>
+      <dd><pre>virtual PolicyVerdict evaluate_input(const InferenceContext&amp;, std::string_view /*payload*/)</pre></dd>
+      <dt><code>evaluate_output</code></dt>
+      <dd><pre>virtual PolicyVerdict evaluate_output(const InferenceContext&amp;, std::string_view /*payload*/)</pre></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>PolicyChain</code></h3>
+    <dl class="api-list">
+      <dt><code>push</code></dt>
+      <dd><pre>void push(std::shared_ptr&lt;IPolicy&gt; policy)</pre></dd>
+      <dt><code>names</code></dt>
+      <dd><pre>std::vector&lt;std::string&gt; names()</pre><p>Names of registered policies, in order.</p></dd>
+      <dt><code>evaluate_input</code></dt>
+      <dd><pre>Result&lt;std::string&gt; evaluate_input(const InferenceContext&amp; ctx, std::string payload)</pre><p>Evaluate against input. Returns the (possibly modified) payload, or the first blocker&#x27;s Error.</p></dd>
+      <dt><code>evaluate_output</code></dt>
+      <dd><pre>Result&lt;std::string&gt; evaluate_output(const InferenceContext&amp; ctx, std::string payload)</pre><p>Same for output.</p></dd>
+    </dl>
+  </article>
+</section>
+<section class="api-hdr" id="hdr-runtime-hpp">
+  <h2><code>runtime.hpp</code></h2>
+  <article class="api-class">
+    <h3><code>InferenceContext</code></h3>
+    <p>---- InferenceContext --------------------------------------------------- Read-only descriptor of an in-flight inference. Passed to policies so they can make purpose-aware decisions without being tightly coupled to Runtime.</p>
+  </article>
+  <article class="api-class">
+    <h3><code>InferenceSpec</code></h3>
+    <p>---- InferenceSpec ------------------------------------------------------ Caller-supplied request parameters for begin_inference().</p>
+  </article>
+  <article class="api-class">
+    <h3><code>Inference</code></h3>
+    <dl class="api-list">
+      <dt><code>run</code></dt>
+      <dd><pre>Result&lt;std::string&gt; run(std::string input, const ModelCallback&amp; model_call)</pre><p>Run input through the input policy chain, invoke model_call with the resulting payload, run output through the output policy chain, append the inference event to the ledger. Returns the (possibly modified) model output, or an error if any policy blocked or the model failed.</p></dd>
+      <dt><code>commit</code></dt>
+      <dd><pre>Result&lt;void&gt; commit()</pre><p>Commit the inference to the ledger. Idempotent. After commit, drift observations are flushed and ground-truth/override hooks remain valid.</p></dd>
+      <dt><code>capture_override</code></dt>
+      <dd><pre>Result&lt;void&gt; capture_override(std::string rationale, nlohmann::json corrected)</pre><p>Capture a clinician override of the model&#x27;s output. Stored with the inference id so prospective evaluation can join later.</p></dd>
+      <dt><code>observe_drift</code></dt>
+      <dd><pre>Result&lt;void&gt; observe_drift(std::string_view feature, double value)</pre><p>Attach a numeric drift observation under a registered feature.</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>Runtime</code></h3>
+    <p>---- Runtime ----------------------------------------------------------- Top-level handle. Owns the ledger, policy chain, drift monitor, consent registry, and evaluation harness. Thread-safe — multiple threads may call begin_inference concurrently. Component sub-objects each manage their own internal locking.</p>
+    <dl class="api-list">
+      <dt><code>open</code></dt>
+      <dd><pre>static Result&lt;Runtime&gt; open(std::filesystem::path db_path)</pre><p>Open or create a runtime backed by a SQLite file. The runtime generates a fresh signing key on first open and persists it next to the database with 0600 permissions.</p></dd>
+      <dt><code>open</code></dt>
+      <dd><pre>static Result&lt;Runtime&gt; open(std::filesystem::path db_path, KeyStore key)</pre></dd>
+      <dt><code>begin_inference</code></dt>
+      <dd><pre>Result&lt;Inference&gt; begin_inference(InferenceSpec spec)</pre><p>Begin an inference. Performs consent and scope checks before returning the handle. The returned Inference must be commit()ed to persist; otherwise it is treated as aborted.</p></dd>
+      <dt><code>policies</code></dt>
+      <dd><pre>PolicyChain&amp; policies()</pre><p>Component access.</p></dd>
+      <dt><code>ledger</code></dt>
+      <dd><pre>Ledger&amp; ledger()</pre></dd>
+      <dt><code>drift</code></dt>
+      <dd><pre>DriftMonitor&amp; drift()</pre></dd>
+      <dt><code>consent</code></dt>
+      <dd><pre>ConsentRegistry&amp; consent()</pre></dd>
+      <dt><code>evaluation</code></dt>
+      <dd><pre>EvaluationHarness&amp; evaluation()</pre></dd>
+      <dt><code>metrics</code></dt>
+      <dd><pre>MetricRegistry&amp; metrics()</pre></dd>
+      <dt><code>policies</code></dt>
+      <dd><pre>const PolicyChain&amp; policies()</pre></dd>
+      <dt><code>ledger</code></dt>
+      <dd><pre>const Ledger&amp; ledger()</pre></dd>
+    </dl>
+  </article>
+</section>
+<section class="api-hdr" id="hdr-telemetry-hpp">
+  <h2><code>telemetry.hpp</code></h2>
+  <h3>enums</h3>
+  <dl class="api-list">
+    <dt><code>DriftSeverity</code></dt>
+    <dd><pre>enum class DriftSeverity : std::uint8_t</pre><p>---- DriftReport / Severity --------------------------------------------</p></dd>
+  </dl>
+  <article class="api-class">
+    <h3><code>Histogram</code></h3>
+    <p>---- Histogram ---------------------------------------------------------- A binned distribution. Bins are uniform on [lo, hi]; values outside are clamped into the edge bins. Thread-safe.</p>
+    <dl class="api-list">
+      <dt><code>observe</code></dt>
+      <dd><pre>void observe(double value)</pre></dd>
+      <dt><code>normalized</code></dt>
+      <dd><pre>std::vector&lt;double&gt; normalized()</pre></dd>
+      <dt><code>psi</code></dt>
+      <dd><pre>static double psi(const Histogram&amp; reference, const Histogram&amp; current)</pre><p>Population Stability Index: sum_i (p_i - q_i) * ln(p_i / q_i). Conventionally interpreted as &lt;0.10 stable, 0.10–0.25 minor drift, &gt;0.25 significant drift.</p></dd>
+      <dt><code>ks</code></dt>
+      <dd><pre>static double ks(const Histogram&amp; reference, const Histogram&amp; current)</pre><p>Two-sample Kolmogorov-Smirnov statistic on the empirical CDFs.</p></dd>
+      <dt><code>emd</code></dt>
+      <dd><pre>static double emd(const Histogram&amp; reference, const Histogram&amp; current)</pre><p>Earth Mover&#x27;s Distance (1D).</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>DriftReport</code></h3>
+  </article>
+  <article class="api-class">
+    <h3><code>DriftMonitor</code></h3>
+    <p>---- DriftMonitor ------------------------------------------------------- Maintains per-feature reference + current histograms and computes drift metrics on demand. Use register_feature() once at startup with baseline values (held-out validation set, or the prior production window).</p>
+    <dl class="api-list">
+      <dt><code>observe</code></dt>
+      <dd><pre>Result&lt;void&gt; observe(std::string_view feature, double value)</pre><p>Record an observation against a registered feature.</p></dd>
+      <dt><code>report</code></dt>
+      <dd><pre>std::vector&lt;DriftReport&gt; report()</pre><p>Compute drift reports for all registered features at the current moment.</p></dd>
+      <dt><code>rotate</code></dt>
+      <dd><pre>void rotate()</pre><p>Reset the current window — typically called daily or on alert.</p></dd>
+      <dt><code>classify</code></dt>
+      <dd><pre>static DriftSeverity classify(double psi)</pre><p>Severity classification thresholds (exposed for tests/calibration).</p></dd>
+    </dl>
+  </article>
+  <article class="api-class">
+    <h3><code>MetricRegistry</code></h3>
+    <p>---- Generic counters / histograms registry ----------------------------</p>
+    <dl class="api-list">
+      <dt><code>inc</code></dt>
+      <dd><pre>void inc(std::string_view name, std::uint64_t delta = 1)</pre></dd>
+      <dt><code>observe</code></dt>
+      <dd><pre>void observe(std::string_view name, double value)</pre></dd>
+      <dt><code>count</code></dt>
+      <dd><pre>std::uint64_t count(std::string_view name)</pre></dd>
+      <dt><code>snapshot_json</code></dt>
+      <dd><pre>std::string snapshot_json()</pre><p>JSON-shaped snapshot for export (Prometheus exposition format planned).</p></dd>
+    </dl>
+  </article>
+  <h3>free functions</h3>
+  <dl class="api-list">
+    <dt><code>to_string</code></dt>
+    <dd><pre>const char* to_string(DriftSeverity)</pre></dd>
+  </dl>
+</section>
+<section class="api-hdr" id="hdr-version-hpp">
+  <h2><code>version.hpp</code></h2>
+  <article class="api-class">
+    <h3><code>Version</code></h3>
+  </article>
+  <h3>free functions</h3>
+  <dl class="api-list">
+    <dt><code>version</code></dt>
+    <dd><pre>inline constexpr Version version()</pre></dd>
+  </dl>
+</section>
+  <p class="api-meta">
+    generated from 12 public headers · run <code>python3 build_api.py</code> from <code>site/</code> to refresh ·
+    canonical source: <a href="https://github.com/asclepius-ai/asclepius/tree/main/include/asclepius">include/asclepius/</a>
+  </p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — API reference.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+        <a href="cheatsheet.html">cheatsheet</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="deploy.html">deploy</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

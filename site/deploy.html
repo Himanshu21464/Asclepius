@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Deploy — Asclepius</title>
+<meta name="description" content="Production deployment recipes for Asclepius: docker-compose, Postgres backend, sidecar, key custody, retention, multi-tenant. The page the production-ops engineer reads first.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/deploy.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Deploy">
+<meta property="og:description"  content="Docker compose, Postgres, sidecar, key custody, retention.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.dp-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.dp-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.dp-hero h1 i { color: var(--primary); font-style: italic; }
+.dp-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.dp-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.dp-body {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 3rem;
+    align-items: start;
+}
+@media (max-width: 880px) { .dp-body { grid-template-columns: 1fr; gap: 1.5rem; } }
+
+.dp-toc {
+    position: sticky; top: 80px;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.9;
+}
+.dp-toc b {
+    display: block; text-transform: uppercase; letter-spacing: .14em;
+    font-size: .68rem; color: var(--ink-faint); margin: 0 0 .4rem;
+    font-weight: 500;
+}
+.dp-toc a {
+    display: block; color: var(--ink-mute);
+    border-left: 2px solid transparent;
+    padding-left: .7rem;
+    transition: color .15s, border-color .15s;
+}
+.dp-toc a:hover { color: var(--ink); border-left-color: var(--primary); }
+
+.dp-content { font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7; color: var(--ink); max-width: 72ch; }
+.dp-content h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 2rem; color: var(--ink-warm); letter-spacing: -.01em;
+    margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--rule-soft);
+    line-height: 1.1;
+}
+.dp-content h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.dp-content h2 i { color: var(--primary); font-style: italic; }
+.dp-content h3 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.4rem; color: var(--ink-warm); margin: 2rem 0 .4rem;
+}
+.dp-content p { margin: 0 0 1.1rem; }
+.dp-content code {
+    font-family: var(--font-mono); font-size: .9em;
+    padding: .08em .35em; background: var(--surface-2);
+    border: 1px solid var(--rule-soft); border-radius: 3px;
+    color: var(--ink-warm);
+}
+.dp-content pre {
+    background: var(--bg); border: 1px solid var(--rule);
+    border-radius: 6px; padding: 1rem 1.1rem;
+    font-family: var(--font-mono); font-size: .82rem; line-height: 1.55;
+    color: var(--ink); overflow-x: auto;
+    margin: 1rem 0;
+}
+.dp-content pre code { background: transparent; border: 0; padding: 0; font-size: inherit; }
+.dp-content ul, .dp-content ol { padding-left: 1.4rem; margin: 0 0 1.1rem; }
+.dp-content li { margin: .25em 0; }
+.dp-callout {
+    margin: 1.4rem 0; padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink); line-height: 1.65; font-size: .95rem;
+}
+.dp-callout b { color: var(--primary); }
+.dp-callout.warn { border-left-color: #FACC15; background: rgba(250,204,21,.05); }
+.dp-callout.warn b { color: #FACC15; }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Deploy",
+      "item": "https://asclepius.health/deploy.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-deploy">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="deploy.html" class="is-active" aria-current="page">deploy</a>
+      <a href="security.html">security</a>
+      <a href="conformance.html">conformance</a>
+      <a href="learn.html" class="status__nav-cta">learn&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="dp-hero">
+  <div class="container">
+    <span class="kbd">production deploy · 2026 Q2</span>
+    <h1>Stand it up. <i>Honestly.</i></h1>
+    <p>
+      The page the production-ops engineer reads first. Docker-compose for development,
+      Postgres for the ledger backend in production, key-custody patterns,
+      retention policy, multi-tenant isolation. Use these as a starting point
+      and adapt to your existing stack.
+    </p>
+  </div>
+</section>
+
+<section class="container dp-body">
+  <aside class="dp-toc">
+    <b>contents</b>
+    <a href="#dev">development</a>
+    <a href="#prod">production</a>
+    <a href="#sidecar">sidecar (gRPC)</a>
+    <a href="#keys">key custody</a>
+    <a href="#retention">retention</a>
+    <a href="#multitenant">multi-tenant</a>
+    <a href="#monitoring">monitoring</a>
+    <a href="#bundles">scheduled bundles</a>
+    <a href="#k8s">kubernetes</a>
+    <b style="margin-top: 1.6rem;">also see</b>
+    <a href="security.html">security policy</a>
+    <a href="threat-model.html">threat model</a>
+    <a href="conformance.html">conformance</a>
+  </aside>
+
+  <article class="dp-content">
+
+<h2 id="dev">Development.</h2>
+<p>One command. SQLite-backed ledger, fresh signing key generated on first run, key written to a sidecar file with mode <code>0600</code>.</p>
+
+<pre><code>git clone https://github.com/asclepius-ai/asclepius
+cd asclepius
+
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build build -j
+
+./build/examples/01_wrap_scribe/example_wrap_scribe \
+    /tmp/asclepius.db</code></pre>
+
+<p>To run against your own model, replace <code>fake_scribe</code> in <code>examples/01_wrap_scribe/main.cpp</code> with a callable that hits your real inference endpoint. The ledger structure does not change.</p>
+
+<h2 id="prod">Production.</h2>
+<p>Two pieces: the runtime (linked into your service), and a Postgres-backed ledger. Below is a docker-compose that wires both together with the gRPC sidecar for non-C++ hosts.</p>
+
+<pre><code class="lang-yaml"># docker-compose.production.yml
+version: '3.8'
+services:
+  asclepius-svc:
+    image: asclepius/sidecar:0.1.0
+    restart: unless-stopped
+    environment:
+      ASCLEPIUS_LEDGER_BACKEND: postgres
+      ASCLEPIUS_LEDGER_DSN:     postgresql://asclepius:${PG_PASS}@db/asclepius
+      ASCLEPIUS_KEY_PATH:       /var/lib/asclepius/keys/signing.key
+      ASCLEPIUS_TENANT:         ${TENANT_ID}
+    volumes:
+      - keys:/var/lib/asclepius/keys:ro
+      - bundles:/var/lib/asclepius/bundles
+    ports:
+      - "9090:9090"
+    depends_on: [db]
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     asclepius
+      POSTGRES_DB:       asclepius
+      POSTGRES_PASSWORD: ${PG_PASS}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'asclepius']
+      interval: 10s
+
+volumes:
+  pgdata:
+  keys:
+  bundles:
+</code></pre>
+
+<div class="dp-callout">
+<b>Why Postgres.</b> SQLite WAL is fine for single-node deployments and small ledgers (&lt; 10M rows). Postgres lets you fan out reads, replicate to a second region for compliance, and run point-in-time recovery — all of which a regulator will eventually ask about. The ledger schema is identical; only the backend pointer changes.
+</div>
+
+<h2 id="sidecar">Sidecar (gRPC).</h2>
+<p>Hosts that don't link <code>libasclepius</code> directly — Java, Go, .NET, internal-language apps — talk to the sidecar via gRPC. The wire format is in <a href="https://github.com/asclepius-ai/asclepius/blob/main/proto/asclepius/v1/sidecar.proto"><code>proto/asclepius/v1/sidecar.proto</code></a>.</p>
+
+<pre><code class="lang-go">// Go example, using the generated stub
+import (
+    "context"
+    pb "github.com/asclepius-ai/asclepius-go/v1"
+    "google.golang.org/grpc"
+)
+
+conn, _ := grpc.Dial("asclepius-svc:9090", grpc.WithInsecure())
+client := pb.NewAsclepiusClient(conn)
+
+resp, err := client.Run(ctx, &amp;pb.RunRequest{
+    Spec: &amp;pb.InferenceSpec{
+        ModelId:        "scribe@v3",
+        Actor:          "clinician:dr.smith",
+        Patient:        "pat:9f1a",
+        Encounter:      "enc:01KQ…",
+        Purpose:        "ambient_documentation",
+        ConsentTokenId: tokenID,
+    },
+    Input: transcript,
+})
+if err != nil { return err }
+soap := resp.Output  // already PHI-scrubbed, schema-validated, signed-and-committed
+</code></pre>
+
+<p>The sidecar emits identical ledger entries to the in-process runtime. A bundle exported from a sidecar deployment verifies against the same public key as one exported from in-process.</p>
+
+<h2 id="keys">Key custody.</h2>
+<p>The Ed25519 signing key is the trust anchor. Three options, in increasing order of operational security:</p>
+
+<ol>
+<li><b>File-mode 0600</b>. The default. Acceptable for a private VM that only the runtime user can read. Lose the file, lose your ability to verify past entries.</li>
+<li><b>Cloud KMS</b>. Encrypt the key at rest with a KMS-issued envelope key (AWS KMS, GCP KMS, Azure Key Vault). The runtime decrypts on startup; key bytes never touch disk. Compromise the IAM role, compromise the key — same blast radius as the file approach.</li>
+<li><b>HSM (PKCS#11)</b>. The key never leaves the HSM. The runtime calls the HSM to sign each entry. ~5-10× slower per signature but unaffected by host compromise. Required for FedRAMP-High and most large IDN procurement.</li>
+</ol>
+
+<div class="dp-callout warn">
+<b>Key rotation.</b> Asclepius supports multiple <code>key_id</code>s in the same chain. Rotate by writing the new public key to the meta table and signing new entries with the new key. Verifiers learn the rotation point from the chain itself; old entries continue to verify against the old public key.
+</div>
+
+<h2 id="retention">Retention.</h2>
+<p>The ledger is append-only by design. Two operational levers:</p>
+
+<ul>
+<li><b>Off-site checkpointing</b>. Pin the chain head to an external service on a regular cadence — a notary, a transparency log, a board-attested checkpointer. Asclepius does not implement this; it produces the artifacts (chain head + signature) that make external notarization cheap.</li>
+<li><b>Cold-archive</b>. Roll the ledger into a new database every quarter; archive the prior database alongside its public-key file. Each archive is independently verifiable.</li>
+</ul>
+
+<p>If your jurisdiction requires deletion (GDPR right-to-erasure for non-clinical data), use a separate erasure-store for the actual content; the ledger holds only hashes by default, so erasing the content does not break the chain.</p>
+
+<h2 id="multitenant">Multi-tenant.</h2>
+<p>One sidecar, one Postgres database, many tenants. Each ledger row carries a <code>tenant</code> field; the harness's <code>export_bundle</code> filters by tenant when producing per-tenant bundles. The signing key may be shared (cheap, one trust anchor for the whole platform) or per-tenant (expensive but more defensible if a tenant later leaves).</p>
+
+<pre><code>asclepius evidence bundle ./asclepius.db \
+    --tenant kp-northwest \
+    --window 30d \
+    --out  evidence-kp-2026-04.tar
+</code></pre>
+
+<h2 id="monitoring">Monitoring.</h2>
+<p>The runtime emits Prometheus-shaped metrics on its admin port. Critical signals:</p>
+
+<ul>
+<li><code>asclepius_inference_total{status,model}</code> — wraps per second, by status (ok / blocked.input / blocked.output / model_error)</li>
+<li><code>asclepius_inference_latency_seconds</code> — histogram, target p99 &lt; 1 ms</li>
+<li><code>asclepius_drift_psi{feature,model}</code> — current PSI; alert at &gt; 0.25</li>
+<li><code>asclepius_ledger_verify_seconds</code> — verify duration on the most recent <em>scheduled</em> verify</li>
+<li><code>asclepius_consent_denied_total</code> — should be near-zero in steady state</li>
+</ul>
+
+<p>Run a scheduled <code>asclepius ledger verify</code> every hour and alert on non-zero exit. A single mismatch is a paging-grade incident.</p>
+
+<h2 id="bundles">Scheduled evidence bundles.</h2>
+<p>The customer's compliance office wants a bundle on a schedule. A single cron line:</p>
+
+<pre><code># /etc/cron.d/asclepius-bundles
+0 2 * * 0  asclepius  asclepius evidence bundle /var/lib/asclepius/asclepius.db \
+              --window 7d --out /var/lib/asclepius/bundles/$(date +\%F).tar \
+              &amp;&amp; sha256sum /var/lib/asclepius/bundles/$(date +\%F).tar \
+                 &gt; /var/lib/asclepius/bundles/$(date +\%F).tar.sha256
+</code></pre>
+
+<p>Mount that directory read-only into your cold-archive store; the SHA-256 file is the canonical artifact for a board-attestation memo.</p>
+
+<h2 id="k8s">Kubernetes.</h2>
+<p>For larger deployments, run the sidecar as a per-namespace Deployment with a Postgres StatefulSet (or external managed Postgres):</p>
+
+<pre><code class="lang-yaml"># asclepius-sidecar.yaml — Deployment + Service + ConfigMap
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: asclepius-svc, namespace: clinical-ai }
+spec:
+  replicas: 3                # stateless; horizontal scale freely
+  selector: { matchLabels: { app: asclepius-svc } }
+  template:
+    metadata: { labels: { app: asclepius-svc } }
+    spec:
+      serviceAccountName: asclepius
+      containers:
+      - name: svc
+        image: asclepius/sidecar:0.1.0
+        ports: [ { containerPort: 9090 } ]
+        env:
+        - { name: ASCLEPIUS_LEDGER_BACKEND, value: postgres }
+        - { name: ASCLEPIUS_LEDGER_DSN, valueFrom: { secretKeyRef: { name: asclepius-pg, key: dsn } } }
+        - { name: ASCLEPIUS_KEY_PATH,   value: /run/asclepius/key }
+        volumeMounts:
+        - { name: signing-key, mountPath: /run/asclepius, readOnly: true }
+        readinessProbe:
+          grpc: { port: 9090 }
+          initialDelaySeconds: 5
+        resources:
+          requests: { cpu: '200m', memory: '256Mi' }
+          limits:   { cpu: '1',    memory: '1Gi'   }
+      volumes:
+      - name: signing-key
+        secret:
+          secretName: asclepius-signing-key   # mounts as 0400 by default
+</code></pre>
+
+<div class="dp-callout">
+<b>Sidecar pattern.</b> One Deployment per <em>tenant boundary</em>, not per app. All wrapped models in the same tenant share one ledger and one signing key. Cross-tenant mixing is a procurement red flag — the bundle for tenant A should never include rows from tenant B.
+</div>
+
+<h2>What's next.</h2>
+<p>Read the <a href="threat-model.html">threat model</a> before you scale this past one team. Skim the <a href="conformance.html">conformance suite</a> to see which level of evidence you'll need for your regulator. Open a <a href="https://github.com/asclepius-ai/asclepius/discussions">discussion</a> if your stack doesn't fit any of the patterns above; we'd rather extend the recipe than have you hand-roll.</p>
+
+  </article>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — deploy.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>ops</b>
+        <a href="deploy.html">deploy</a>
+        <a href="security.html">security</a>
+        <a href="conformance.html">conformance</a>
+        <a href="threat-model.html">threat model</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="demo.html">playground</a>
+        <a href="sandbox.html">policy sandbox</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

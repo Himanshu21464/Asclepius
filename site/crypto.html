@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Crypto toolbox — Asclepius</title>
+<meta name="description" content="In-browser cryptographic playground: hash visualizer (SHA-256 / SHA-384 / SHA-512), Ed25519 keypair generation and signing, chain-forge demonstration. All Web Crypto, no network.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/crypto.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Crypto toolbox">
+<meta property="og:description"  content="Hash visualizer, Ed25519 sign/verify, chain forge. In-browser, Web Crypto, no telemetry.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.cr-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.cr-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+.cr-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.cr-hero h1 i { color: var(--primary); font-style: italic; }
+.cr-hero p { color: var(--ink-mute); max-width: 64ch; font-size: 1.05rem; line-height: 1.55; }
+.cr-hero p code { font-family: var(--font-mono); font-size: .9em; padding: .08em .4em; background: var(--surface-2); border: 1px solid var(--rule); border-radius: 3px; color: var(--ink-warm); }
+
+.cr-section { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+.cr-section h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.4rem); color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 .8rem; }
+.cr-section h2 i { color: var(--primary); font-style: italic; }
+.cr-section > .container > p { color: var(--ink-mute); max-width: 64ch; line-height: 1.6; margin: 0 0 1.4rem; }
+.cr-section > .container > p code { font-family: var(--font-mono); font-size: .9em; padding: .08em .4em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.cr-num { display: inline-block; font-family: var(--font-mono); font-size: .68rem; letter-spacing: .18em; text-transform: uppercase; color: var(--primary); margin: 0 0 .4rem; }
+
+.cr-pane { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 1.4rem 1.6rem; }
+.cr-pane label { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); display: block; margin-bottom: .4rem; }
+.cr-input { width: 100%; box-sizing: border-box; padding: .9rem 1rem; background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; color: var(--ink); font-family: var(--font-mono); font-size: .92rem; resize: vertical; caret-color: var(--primary); outline: none; }
+.cr-input:focus { border-color: var(--primary); }
+
+.cr-hash-grid { margin-top: 1rem; display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.cr-hash-row { display: grid; grid-template-columns: 7em 1fr auto; gap: 1rem; padding: .85rem 1.1rem; background: var(--surface); align-items: baseline; font-family: var(--font-mono); font-size: .82rem; }
+.cr-hash-row b { color: var(--primary); font-weight: 500; }
+.cr-hash-row code { color: var(--accent); word-break: break-all; font-family: var(--font-mono); }
+.cr-hash-row .cr-bytes { color: var(--ink-faint); font-size: .72rem; text-align: right; white-space: nowrap; }
+
+.cr-key-row { display: grid; grid-template-columns: 7em 1fr; gap: 1rem; padding: .85rem 1.1rem; border-bottom: 1px solid var(--rule-soft); font-family: var(--font-mono); font-size: .82rem; align-items: baseline; }
+.cr-key-row:last-of-type { border-bottom: 0; }
+.cr-key-row b { color: var(--primary); font-weight: 500; }
+.cr-key-row code { color: var(--accent); word-break: break-all; }
+.cr-key-row.is-secret code { color: #FACC15; filter: blur(4px); transition: filter .2s; }
+.cr-key-row.is-secret:hover code,
+.cr-key-row.is-secret:focus-within code { filter: blur(0); }
+
+.cr-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+.cr-btn { font-family: var(--font-mono); font-size: .8rem; letter-spacing: .04em; padding: .6rem 1.1rem; background: var(--surface-2); color: var(--ink); border: 1px solid var(--rule); border-radius: 5px; cursor: pointer; transition: background .15s, color .15s, border-color .15s, transform .12s; }
+.cr-btn:hover { background: var(--surface-3); transform: translateY(-1px); }
+.cr-btn--primary { background: var(--primary); border-color: var(--primary); color: var(--bg); }
+.cr-btn--primary:hover { background: #C28EFF; }
+
+.cr-result { margin-top: 1.2rem; padding: 1rem 1.2rem; border: 1px dashed var(--rule); border-radius: 6px; font-family: var(--font-mono); font-size: .82rem; color: var(--ink-mute); }
+.cr-result.is-ok  { border-color: rgba(52,211,153,.55); background: rgba(52,211,153,.04); color: var(--accent); }
+.cr-result.is-bad { border-color: rgba(248,113,113,.55); background: rgba(248,113,113,.06); color: var(--danger); }
+
+.cr-callout { margin-top: 1.4rem; padding: 1.1rem 1.3rem; border-left: 3px solid var(--primary); background: rgba(181,123,255,.05); font-family: var(--font-prose); color: var(--ink); font-size: .95rem; line-height: 1.6; }
+.cr-callout b { color: var(--primary); display: block; font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; margin-bottom: .3rem; }
+.cr-callout em { color: var(--ink-warm); font-style: italic; }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Crypto toolbox",
+      "item": "https://asclepius.health/crypto.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-crypto">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="conformance.html">conformance</a>
+      <a href="status.html">status</a>
+      <a href="crypto.html" class="is-active" aria-current="page">crypto</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="cr-hero">
+  <div class="container">
+    <span class="kbd">crypto toolbox · interactive · in-browser</span>
+    <h1>The same primitives, <i>in your tab.</i></h1>
+    <p>
+      Three small tools for building intuition about the cryptography Asclepius runs on.
+      Everything below executes locally in your browser using Web Crypto — no network calls,
+      no telemetry, nothing leaves the page. The C++ runtime uses
+      <code>BLAKE2b-256</code> + <code>Ed25519</code> via libsodium; this page demonstrates the
+      <em>shape</em> of those operations on data you supply.
+    </p>
+  </div>
+</section>
+
+<section class="cr-section" id="hash">
+  <div class="container">
+    <span class="cr-num">§ 01 · hash visualizer</span>
+    <h2>Same input, <i>three fingerprints.</i></h2>
+    <p>Hash any text and watch SHA-256 / SHA-384 / SHA-512 update live as you type. Web Crypto exposes all three; the runtime's BLAKE2b-256 isn't shown because Web Crypto doesn't ship it — for that, the CLI: <code>echo -n "x" | asclepius hash</code>.</p>
+
+    <div class="cr-pane">
+      <label for="cr-hash-in">input · UTF-8</label>
+      <textarea id="cr-hash-in" class="cr-input" rows="3" spellcheck="false">Patient reports chest pain on exertion. BP 132/84.</textarea>
+      <div class="cr-hash-grid" id="cr-hash-grid">
+        <div class="cr-hash-row"><b>SHA-256</b><code id="cr-h256">—</code><span class="cr-bytes">32 bytes</span></div>
+        <div class="cr-hash-row"><b>SHA-384</b><code id="cr-h384">—</code><span class="cr-bytes">48 bytes</span></div>
+        <div class="cr-hash-row"><b>SHA-512</b><code id="cr-h512">—</code><span class="cr-bytes">64 bytes</span></div>
+      </div>
+      <div class="cr-callout">
+        <b>why three?</b>
+        Asclepius ledgers store fixed-length payload + entry hashes. The hash is content-addressed: <em>two equal-shaped bodies produce byte-equal digests</em> across machines, runtimes, and decades. Change one bit of the input — watch every digest change.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cr-section" id="sign">
+  <div class="container">
+    <span class="cr-num">§ 02 · ed25519 sign &amp; verify</span>
+    <h2>One keypair, <i>one signature, irrefutable.</i></h2>
+    <p>Generate a fresh Ed25519 keypair (or ECDSA-P256 fallback on browsers without Ed25519), sign a message, verify it. Then mutate one byte and watch verification fail.</p>
+
+    <div class="cr-pane">
+      <div class="cr-actions" style="margin-top:0">
+        <button id="cr-keygen" class="cr-btn cr-btn--primary">generate keypair</button>
+        <span id="cr-key-alg" style="font-family:var(--font-mono);font-size:.82rem;color:var(--ink-mute);align-self:center">no key yet</span>
+      </div>
+
+      <div id="cr-key-display" style="display:none;margin-top:1rem;border:1px solid var(--rule);border-radius:6px">
+        <div class="cr-key-row"><b>algorithm</b><code id="cr-alg-display">—</code></div>
+        <div class="cr-key-row"><b>key id</b><code id="cr-keyid">—</code></div>
+        <div class="cr-key-row"><b>public key</b><code id="cr-pk">—</code></div>
+        <div class="cr-key-row is-secret"><b>secret · hover</b><code id="cr-sk">—</code></div>
+      </div>
+
+      <div style="margin-top:1.4rem">
+        <label for="cr-sign-msg">message to sign</label>
+        <textarea id="cr-sign-msg" class="cr-input" rows="3" spellcheck="false">{"event":"inference.committed","seq":42,"actor":"clinician:dr.smith"}</textarea>
+      </div>
+
+      <div class="cr-actions">
+        <button id="cr-sign-btn"   class="cr-btn">sign</button>
+        <button id="cr-verify-btn" class="cr-btn">verify</button>
+        <button id="cr-tamper-btn" class="cr-btn">mutate one byte</button>
+      </div>
+
+      <div class="cr-key-row" style="margin-top:1rem;border:1px solid var(--rule);border-radius:6px"><b>signature</b><code id="cr-sig">—</code></div>
+      <div id="cr-verify-out" class="cr-result">click <b>sign</b>, then <b>verify</b></div>
+
+      <div class="cr-callout">
+        <b>what just happened</b>
+        The signature is 64 bytes (Ed25519) or ~70 (ECDSA-P256), and it covers the exact bytes of your message. <em>Mutate one character</em> — verify fails. The C++ runtime carries the same shape: every entry's signature is over <code>seq | ts | prev | payload | actor | event | tenant | body</code>, so flipping any of those reduces verification to "no".
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cr-section" id="forge">
+  <div class="container">
+    <span class="cr-num">§ 03 · chain-forge demo</span>
+    <h2>An attacker without the secret key <i>cannot succeed.</i></h2>
+    <p>Build a 5-row chain (each row's <code>prev_hash</code> equals the previous row's hash). Click <b>forge</b> to attempt an attack: modify row 3's body. Without the original signing key, the signature no longer covers the new bytes — verify catches it at exactly that row.</p>
+
+    <div class="cr-pane">
+      <div class="cr-actions" style="margin-top:0">
+        <button id="cr-build"   class="cr-btn cr-btn--primary">build a 5-row chain</button>
+        <button id="cr-forge"   class="cr-btn">forge row 3</button>
+        <button id="cr-cverify" class="cr-btn">verify chain</button>
+      </div>
+      <div id="cr-chain"  style="margin-top:1rem"></div>
+      <div id="cr-cverify-out" class="cr-result">build a chain to begin</div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — crypto toolbox.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>verify</b>
+        <a href="conformance.html">conformance</a>
+        <a href="status.html">status</a>
+        <a href="security.html">security</a>
+        <a href="crypto.html">crypto</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="demo.html">playground</a>
+        <a href="learn.html">learn</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+  const $   = (s) => document.querySelector(s);
+  const enc = new TextEncoder();
+  const HEX = (buf) => Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+
+  // ─── 01. hash visualizer ───────────────────────────────────────────
+  async function refreshHashes() {
+    const v = $('#cr-hash-in').value;
+    const data = enc.encode(v);
+    const [h256, h384, h512] = await Promise.all([
+      crypto.subtle.digest('SHA-256', data),
+      crypto.subtle.digest('SHA-384', data),
+      crypto.subtle.digest('SHA-512', data),
+    ]);
+    $('#cr-h256').textContent = HEX(h256);
+    $('#cr-h384').textContent = HEX(h384);
+    $('#cr-h512').textContent = HEX(h512);
+  }
+  $('#cr-hash-in').addEventListener('input', refreshHashes);
+  refreshHashes();
+
+  // ─── 02. Ed25519 sign / verify ─────────────────────────────────────
+  let kp = null, alg = 'Ed25519', signature = null;
+  async function genKey() {
+    kp = null; signature = null;
+    $('#cr-key-display').style.display = 'none';
+    $('#cr-sig').textContent = '—';
+    $('#cr-verify-out').textContent = 'click sign, then verify';
+    $('#cr-verify-out').className = 'cr-result';
+    try {
+      kp = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+      alg = 'Ed25519';
+    } catch (e) {
+      kp = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+      alg = 'ECDSA-P256';
+    }
+    let pkBytes, skBytes;
+    try { pkBytes = new Uint8Array(await crypto.subtle.exportKey('raw',  kp.publicKey)); }
+    catch (e) { pkBytes = new Uint8Array(await crypto.subtle.exportKey('spki', kp.publicKey)); }
+    skBytes = new Uint8Array(await crypto.subtle.exportKey('pkcs8', kp.privateKey));
+    const pkHex = HEX(pkBytes);
+    $('#cr-alg-display').textContent = alg;
+    $('#cr-keyid').textContent       = pkHex.slice(0, 16);
+    $('#cr-pk').textContent          = pkHex;
+    $('#cr-sk').textContent          = HEX(skBytes);
+    $('#cr-key-display').style.display = '';
+    $('#cr-key-alg').textContent     = `${alg} · key ready`;
+  }
+  $('#cr-keygen').addEventListener('click', genKey);
+
+  $('#cr-sign-btn').addEventListener('click', async () => {
+    if (!kp) { alert('generate a keypair first'); return; }
+    const msg  = enc.encode($('#cr-sign-msg').value);
+    const algo = alg === 'Ed25519' ? { name: 'Ed25519' } : { name: 'ECDSA', hash: 'SHA-256' };
+    signature  = new Uint8Array(await crypto.subtle.sign(algo, kp.privateKey, msg));
+    $('#cr-sig').textContent = HEX(signature);
+    $('#cr-verify-out').textContent = 'signed · click verify to check';
+    $('#cr-verify-out').className = 'cr-result';
+  });
+
+  $('#cr-verify-btn').addEventListener('click', async () => {
+    if (!kp || !signature) { alert('sign a message first'); return; }
+    const msg = enc.encode($('#cr-sign-msg').value);
+    const algo = alg === 'Ed25519' ? { name: 'Ed25519' } : { name: 'ECDSA', hash: 'SHA-256' };
+    const ok  = await crypto.subtle.verify(algo, kp.publicKey, signature, msg);
+    const out = $('#cr-verify-out');
+    if (ok) {
+      out.textContent = `verified · ${alg} · ${signature.length} bytes`;
+      out.className   = 'cr-result is-ok';
+    } else {
+      out.textContent = 'INVALID · message bytes do not match the signed bytes';
+      out.className   = 'cr-result is-bad';
+    }
+  });
+
+  $('#cr-tamper-btn').addEventListener('click', () => {
+    const ta = $('#cr-sign-msg');
+    const v  = ta.value;
+    if (!v.length) return;
+    const i = Math.floor(Math.random() * v.length);
+    const c = v.charCodeAt(i);
+    ta.value = v.slice(0, i) + String.fromCharCode(c ^ 1) + v.slice(i + 1);
+    $('#cr-verify-out').textContent = `mutated 1 byte at index ${i} · click verify to see what happens`;
+    $('#cr-verify-out').className = 'cr-result';
+  });
+
+  // ─── 03. chain forge ───────────────────────────────────────────────
+  let chain = [];
+  let chainKp = null;
+  let chainAlg = 'Ed25519';
+
+  async function buildChain() {
+    try { chainKp = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']); chainAlg = 'Ed25519'; }
+    catch (e) { chainKp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']); chainAlg = 'ECDSA-P256'; }
+    chain = [];
+    let prev = '0'.repeat(64);
+    for (let i = 1; i <= 5; i++) {
+      const body = JSON.stringify({ seq: i, actor: 'clinician:bench', payload: `entry ${i}` });
+      const payloadHash = HEX(await crypto.subtle.digest('SHA-256', enc.encode(body)));
+      const signInput   = enc.encode(`${i}|${prev}|${payloadHash}|${body}`);
+      const algo = chainAlg === 'Ed25519' ? { name: 'Ed25519' } : { name: 'ECDSA', hash: 'SHA-256' };
+      const sig = HEX(new Uint8Array(await crypto.subtle.sign(algo, chainKp.privateKey, signInput)));
+      const entryHash = HEX(await crypto.subtle.digest('SHA-256',
+        enc.encode(`${i}|${prev}|${payloadHash}|${body}|${sig}`)));
+      chain.push({ seq: i, prev, body, payloadHash, sig, entryHash });
+      prev = entryHash;
+    }
+    renderChain();
+    $('#cr-cverify-out').textContent = 'fresh chain built · 5 rows · click verify';
+    $('#cr-cverify-out').className = 'cr-result';
+  }
+
+  function renderChain() {
+    $('#cr-chain').innerHTML = chain.map((e) => `
+        <div class="cr-key-row" style="border:1px solid var(--rule-soft);margin-bottom:.4rem;border-radius:5px">
+          <b>seq ${String(e.seq).padStart(2,'0')}</b>
+          <code><span style="color:var(--ink-mute)">prev</span> ${e.prev.slice(0,12)}…
+                · <span style="color:var(--ink-mute)">body</span> ${e.body}
+                <br><span style="color:var(--ink-mute)">hash</span> ${e.entryHash.slice(0,16)}…
+                · <span style="color:var(--ink-mute)">sig</span>  ${e.sig.slice(0,16)}…</code>
+        </div>`).join('');
+  }
+
+  $('#cr-build').addEventListener('click', buildChain);
+
+  $('#cr-forge').addEventListener('click', () => {
+    if (!chain.length) { alert('build a chain first'); return; }
+    chain[2].body = JSON.stringify({ seq: 3, actor: 'attacker', payload: 'tampered!' });
+    renderChain();
+    $('#cr-cverify-out').textContent =
+      'row 3 body modified · the original signature still covers the OLD bytes — verify will catch it';
+    $('#cr-cverify-out').className = 'cr-result';
+  });
+
+  $('#cr-cverify').addEventListener('click', async () => {
+    if (!chain.length) { alert('build a chain first'); return; }
+    const out = $('#cr-cverify-out');
+    let prev = '0'.repeat(64);
+    for (const e of chain) {
+      if (e.prev !== prev) {
+        out.textContent = `INVALID · chain break at seq ${e.seq}`;
+        out.className   = 'cr-result is-bad';
+        return;
+      }
+      const recomputedPayload = HEX(await crypto.subtle.digest('SHA-256', enc.encode(e.body)));
+      if (recomputedPayload !== e.payloadHash) {
+        out.textContent = `INVALID · payload hash mismatch at seq ${e.seq}`;
+        out.className   = 'cr-result is-bad';
+        return;
+      }
+      const recomputedEntry = HEX(await crypto.subtle.digest('SHA-256',
+        enc.encode(`${e.seq}|${e.prev}|${e.payloadHash}|${e.body}|${e.sig}`)));
+      prev = recomputedEntry;
+    }
+    out.textContent = `OK · 5 entries · all hashes match · all signatures hold`;
+    out.className   = 'cr-result is-ok';
+  });
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Use cases — Asclepius</title>
+<meta name="description" content="Three concrete clinical-AI deployments wrapped by Asclepius: ambient scribe, diagnostic suggestion, agentic action. Each shows the policy chain, model boundary, consent flow, and audit-bundle schema.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/use-cases.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Use cases">
+<meta property="og:description"  content="Ambient scribe, diagnostic suggestion, agentic action — wrapped at the substrate.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.uc-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.uc-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.uc-hero h1 i { color: var(--primary); font-style: italic; }
+.uc-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.uc-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.uc-toc {
+    margin: 2rem 0 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+@media (max-width: 880px) { .uc-toc { grid-template-columns: 1fr; } }
+.uc-toc__card {
+    display: block;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1.1rem 1.2rem;
+    text-decoration: none;
+    color: inherit;
+    background: var(--surface);
+    transition: border-color .15s, transform .12s;
+}
+.uc-toc__card:hover { border-color: var(--primary); transform: translateY(-2px); }
+.uc-toc__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.uc-toc__title { display: block; font-family: var(--font-serif); font-size: 1.5rem; line-height: 1.15; margin: .35rem 0 .4rem; color: var(--ink-warm); }
+.uc-toc__title i { color: var(--primary); font-style: italic; }
+.uc-toc__hint { font-family: var(--font-prose); font-size: .92rem; line-height: 1.5; color: var(--ink-mute); }
+
+.uc-case {
+    margin: 4rem 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+}
+.uc-case__lede { display: grid; grid-template-columns: 1.4fr 1fr; gap: 2rem; align-items: start; }
+@media (max-width: 880px) { .uc-case__lede { grid-template-columns: 1fr; } }
+.uc-case__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.uc-case h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .35rem 0 1rem; }
+.uc-case h2 i { color: var(--primary); font-style: italic; }
+.uc-case__story { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); }
+.uc-case__story p { margin: 0 0 1em; }
+.uc-case__story em { color: var(--ink-warm); font-style: italic; }
+
+.uc-card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1.2rem 1.3rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.6;
+}
+.uc-card b { color: var(--primary); font-weight: 500; letter-spacing: .04em; text-transform: uppercase; font-size: .68rem; }
+.uc-card dl { margin: .6rem 0 0; display: grid; grid-template-columns: max-content 1fr; gap: .35rem .9rem; }
+.uc-card dt { color: var(--ink-mute); white-space: nowrap; }
+.uc-card dd { margin: 0; color: var(--ink-warm); }
+
+.uc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.6rem 0; }
+@media (max-width: 760px) { .uc-grid { grid-template-columns: 1fr; } }
+.uc-panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--primary);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+}
+.uc-panel h3 {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 .6rem;
+}
+.uc-panel ol, .uc-panel ul { margin: 0; padding-left: 1.2rem; font-family: var(--font-prose); line-height: 1.6; color: var(--ink); }
+.uc-panel li { margin: .2em 0; }
+.uc-panel code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.uc-chain {
+    display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0 .4rem;
+}
+.uc-chain__step {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: .35rem .8rem .35rem .55rem;
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    color: var(--ink-warm);
+}
+.uc-chain__step::before {
+    content: attr(data-step);
+    display: inline-block;
+    width: 1.2em; height: 1.2em;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--bg);
+    text-align: center;
+    line-height: 1.2em;
+    font-size: .68rem;
+    font-weight: 600;
+}
+.uc-chain__step.is-boundary {
+    background: rgba(181,123,255,.1);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.uc-chain__step.is-boundary::before { background: var(--ink-warm); color: var(--bg); }
+.uc-chain__caption {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin: .2rem 0 0;
+}
+
+.uc-bundle {
+    margin: 1.6rem 0 0;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    line-height: 1.6;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+}
+.uc-bundle .k { color: var(--primary); }
+.uc-bundle .s { color: #34D399; }
+.uc-bundle .n { color: #F4B860; }
+.uc-bundle .c { color: var(--ink-faint); font-style: italic; }
+
+.uc-callout {
+    margin: 1.4rem 0 0;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.uc-callout b { color: var(--primary); }
+.uc-callout em { color: var(--ink-warm); font-style: italic; }
+
+.uc-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.uc-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.uc-coda h2 i { color: var(--primary); font-style: italic; }
+.uc-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.uc-coda .uc-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.uc-coda .uc-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.uc-coda .uc-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Use cases",
+      "item": "https://asclepius.health/use-cases.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-use-cases">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="use-cases.html" class="is-active" aria-current="page">use cases</a>
+      <a href="explorer.html">explorer</a>
+      <a href="verify-bundle.html">verify a bundle</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="uc-hero">
+  <div class="container">
+    <span class="kbd">§01 · scribe · diagnostic · agentic</span>
+    <h1>I would integrate this <i>for…</i></h1>
+    <p>
+      Asclepius is a substrate, not a product — so the question is never <em>does it work</em>,
+      it is <em>what does it look like once you have wrapped your model in it</em>. Three
+      concrete deployments, each with the policy chain that runs, the boundary the model
+      sees, the consent flow that gates it, and the bundle a regulator gets back.
+    </p>
+
+    <div class="uc-toc" role="navigation" aria-label="case index">
+      <a class="uc-toc__card" href="#scribe">
+        <span class="uc-toc__num">§01</span>
+        <span class="uc-toc__title">an ambient <i>scribe</i></span>
+        <span class="uc-toc__hint">microphone in the room → SOAP note in the EHR. The dictation is PHI; the note is a clinical artefact. Where exactly does the audit live?</span>
+      </a>
+      <a class="uc-toc__card" href="#diagnostic">
+        <span class="uc-toc__num">§02</span>
+        <span class="uc-toc__title">a diagnostic <i>second-read</i></span>
+        <span class="uc-toc__hint">CT chest comes back; an LLM-assisted system flags possible PE. What does the radiologist see, and what does the trail look like six months later when the case goes to peer review?</span>
+      </a>
+      <a class="uc-toc__card" href="#agentic">
+        <span class="uc-toc__num">§03</span>
+        <span class="uc-toc__title">an agentic <i>action</i></span>
+        <span class="uc-toc__hint">a triage agent that drafts orders. The model proposes, the substrate disposes — every consent boundary and every action is enforceable, not advisory.</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── §01 — ambient scribe ─────────────────────── -->
+<section class="container uc-case" id="scribe">
+  <span class="uc-case__num">§01 · clinic encounter · 19 minutes · two participants</span>
+  <h2>An ambient <i>scribe</i>.</h2>
+
+  <div class="uc-case__lede">
+    <div class="uc-case__story">
+      <p>
+        A family-medicine clinician sees a patient for shortness of breath. A microphone
+        in the corner streams the conversation to a hosted scribe model, which returns a
+        structured SOAP note that lands in the EHR. <em>This is the most common
+        clinical-AI deployment in the world right now.</em>
+      </p>
+      <p>
+        It is also the deployment where the substrate matters most quietly. The model
+        never sees identifiers — it sees a transcript scrubbed of names, MRNs, dates of
+        birth, and addresses. The note that lands in the EHR is verifiable: every
+        sentence the model generated is signed and bound to the audio span it was derived
+        from. If a billing dispute arises in 2027, the operator does not <em>argue</em>
+        about what the model wrote — they replay the bundle.
+      </p>
+    </div>
+    <aside class="uc-card" aria-label="deployment shape">
+      <b>shape</b>
+      <dl>
+        <dt>actor</dt><dd>family-med clinician</dd>
+        <dt>model</dt><dd>any scribe LLM (vendor-neutral)</dd>
+        <dt>input</dt><dd>diarised transcript</dd>
+        <dt>output</dt><dd>SOAP-formatted note</dd>
+        <dt>egress</dt><dd>FHIR <code>DocumentReference</code></dd>
+        <dt>consent</dt><dd>posted notice + verbal opt-out</dd>
+        <dt>retention</dt><dd>audio purged at 7 days · note 7 years</dd>
+      </dl>
+    </aside>
+  </div>
+
+  <div class="uc-grid">
+    <div class="uc-panel">
+      <h3>policy chain</h3>
+      <div class="uc-chain" aria-label="ordered policy chain for the scribe deployment">
+        <span class="uc-chain__step" data-step="1">consent gate</span>
+        <span class="uc-chain__step" data-step="2">PHI scrub</span>
+        <span class="uc-chain__step" data-step="3">schema (transcript)</span>
+        <span class="uc-chain__step is-boundary" data-step="4">model · scribe-v3</span>
+        <span class="uc-chain__step" data-step="5">schema (SOAP)</span>
+        <span class="uc-chain__step" data-step="6">length / hallucination guard</span>
+        <span class="uc-chain__step" data-step="7">drift snapshot</span>
+        <span class="uc-chain__step" data-step="8">ledger append</span>
+      </div>
+      <p class="uc-chain__caption">7 deterministic stages around 1 inferential one</p>
+    </div>
+    <div class="uc-panel">
+      <h3>consent flow</h3>
+      <ol>
+        <li>posted notice in waiting room: <em>"this room may use an AI scribe"</em></li>
+        <li>verbal check-in at start of visit; opt-out flips <code>scope = none</code></li>
+        <li><code>ConsentRegistry::record(patient, Purpose::Scribe, expires_at)</code></li>
+        <li>every inference revalidates scope at runtime — <em>no caching</em></li>
+        <li>revoke: bundle-side metadata flags affected entries within 24 h</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3 class="uc-chain__caption" style="margin-top:1.4rem">audit-bundle excerpt</h3>
+  <pre class="uc-bundle" aria-label="example ledger entry for an ambient-scribe inference">{
+  <span class="k">"seq"</span>: <span class="n">874</span>,
+  <span class="k">"ts"</span>:  <span class="s">"2026-04-26T14:21:08Z"</span>,
+  <span class="k">"kind"</span>: <span class="s">"inference.completed"</span>,
+  <span class="k">"actor"</span>:    <span class="s">"clin:np_marisol_h"</span>,
+  <span class="k">"patient"</span>:  <span class="s">"pt:7f3c…b21"</span>,            <span class="c">// pseudonymous, salted</span>
+  <span class="k">"encounter"</span>: <span class="s">"enc:2026-04-26-r3"</span>,
+  <span class="k">"model"</span>:    { <span class="k">"id"</span>: <span class="s">"scribe-v3"</span>, <span class="k">"weights_sha256"</span>: <span class="s">"6a0f…e2"</span> },
+  <span class="k">"consent"</span>:  { <span class="k">"purpose"</span>: <span class="s">"scribe"</span>, <span class="k">"granted_at"</span>: <span class="s">"2026-04-26T14:02Z"</span> },
+  <span class="k">"input_hash"</span>:  <span class="s">"blake2b:9f31…"</span>,           <span class="c">// transcript bytes</span>
+  <span class="k">"output_hash"</span>: <span class="s">"blake2b:c8aa…"</span>,           <span class="c">// rendered SOAP note</span>
+  <span class="k">"policies"</span>:  [<span class="s">"phi.v4"</span>, <span class="s">"schema.transcript.v2"</span>, <span class="s">"length.v1"</span>],
+  <span class="k">"drift"</span>:     { <span class="k">"psi"</span>: <span class="n">0.04</span>, <span class="k">"window"</span>: <span class="s">"30d"</span> },
+  <span class="k">"prev_hash"</span>: <span class="s">"blake2b:1d2e…"</span>,
+  <span class="k">"sig"</span>:       <span class="s">"ed25519:0x9c…"</span>
+}</pre>
+
+  <p class="uc-callout">
+    <b>What this buys you.</b> The note in the EHR is not a black box. It is one signed
+    row in a chain whose root the operator publishes weekly. A clinician can show a
+    patient <em>exactly what the model heard</em> and <em>exactly what it wrote</em>;
+    a regulator can replay any encounter; a peer reviewer can diff the SOAP against
+    the transcript without ever asking the vendor. <em>Asclepius did not write the
+    note — it made the note testifiable.</em>
+  </p>
+</section>
+
+<!-- ─────────────────────── §02 — diagnostic second-read ─────────────────────── -->
+<section class="container uc-case" id="diagnostic">
+  <span class="uc-case__num">§02 · radiology · CT chest · 1.2 s decision window</span>
+  <h2>A diagnostic <i>second-read</i>.</h2>
+
+  <div class="uc-case__lede">
+    <div class="uc-case__story">
+      <p>
+        A radiologist reads a CT pulmonary angiogram. An LLM-assisted system reviews the
+        same scan and produces a structured suggestion: <em>"high probability segmental
+        PE, left lower lobe, 87% confidence, four supporting ROIs."</em> The
+        radiologist concurs, dissents, or asks a follow-up. Six months later, the case
+        goes to peer review.
+      </p>
+      <p>
+        The substrate question is not <em>was the model right</em>. It is <em>can we
+        prove what the model said, what the radiologist saw, and when</em>. Asclepius
+        signs the suggestion, signs the radiologist's decision, signs the order they
+        placed (or did not), and binds the three together with a Merkle root the
+        operator publishes nightly. <em>The chain is the testimony.</em>
+      </p>
+    </div>
+    <aside class="uc-card" aria-label="deployment shape">
+      <b>shape</b>
+      <dl>
+        <dt>actor</dt><dd>radiologist</dd>
+        <dt>model</dt><dd>any imaging foundation model</dd>
+        <dt>input</dt><dd>DICOM series · structured prior</dd>
+        <dt>output</dt><dd>finding · ROI · confidence</dd>
+        <dt>egress</dt><dd>radiology report (signed)</dd>
+        <dt>consent</dt><dd>blanket clinical-care purpose</dd>
+        <dt>retention</dt><dd>indefinite · record of care</dd>
+      </dl>
+    </aside>
+  </div>
+
+  <div class="uc-grid">
+    <div class="uc-panel">
+      <h3>policy chain</h3>
+      <div class="uc-chain" aria-label="ordered policy chain for diagnostic suggestion">
+        <span class="uc-chain__step" data-step="1">consent gate</span>
+        <span class="uc-chain__step" data-step="2">DICOM strip (PHI tags)</span>
+        <span class="uc-chain__step" data-step="3">schema (input)</span>
+        <span class="uc-chain__step is-boundary" data-step="4">model · imaging-fm</span>
+        <span class="uc-chain__step" data-step="5">schema (finding+ROI)</span>
+        <span class="uc-chain__step" data-step="6">confidence floor</span>
+        <span class="uc-chain__step" data-step="7">action filter (advisory only)</span>
+        <span class="uc-chain__step" data-step="8">drift snapshot</span>
+        <span class="uc-chain__step" data-step="9">ledger append</span>
+      </div>
+      <p class="uc-chain__caption">advisory boundary — no orders, no auto-resulting</p>
+    </div>
+    <div class="uc-panel">
+      <h3>peer-review replay (six months later)</h3>
+      <ol>
+        <li>auditor exports the encounter — <code>asclepius bundle export enc:…</code></li>
+        <li>verifier rebuilds the Merkle root locally — <code>verify_bundle()</code> → ✓</li>
+        <li>three rows: model finding · radiologist read · order placed</li>
+        <li>the model's <code>weights_sha256</code> resolves to the build that ran that day</li>
+        <li>drift histogram shows the case lay <em>inside</em> the calibrated distribution</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3 class="uc-chain__caption" style="margin-top:1.4rem">audit-bundle excerpt — three linked rows</h3>
+  <pre class="uc-bundle" aria-label="three ledger rows for a diagnostic case">[
+  { <span class="k">"seq"</span>: <span class="n">2014</span>, <span class="k">"kind"</span>: <span class="s">"model.suggested"</span>,
+    <span class="k">"finding"</span>: <span class="s">"pe.segmental.lll"</span>,
+    <span class="k">"confidence"</span>: <span class="n">0.87</span>,
+    <span class="k">"roi_hash"</span>: <span class="s">"blake2b:42b1…"</span>,
+    <span class="k">"model"</span>: { <span class="k">"id"</span>: <span class="s">"imaging-fm-2"</span>, <span class="k">"weights_sha256"</span>: <span class="s">"a1d7…e3"</span> },
+    <span class="k">"sig"</span>: <span class="s">"ed25519:0x4a…"</span> },
+
+  { <span class="k">"seq"</span>: <span class="n">2015</span>, <span class="k">"kind"</span>: <span class="s">"clinician.read"</span>,
+    <span class="k">"actor"</span>: <span class="s">"clin:rad_dr_okeefe"</span>,
+    <span class="k">"decision"</span>: <span class="s">"concur"</span>,
+    <span class="k">"refers_to"</span>: <span class="s">"seq:2014"</span>,            <span class="c">// binds rows together</span>
+    <span class="k">"latency_ms"</span>: <span class="n">42</span>,
+    <span class="k">"sig"</span>: <span class="s">"ed25519:0xb7…"</span> },
+
+  { <span class="k">"seq"</span>: <span class="n">2016</span>, <span class="k">"kind"</span>: <span class="s">"order.placed"</span>,
+    <span class="k">"order"</span>: <span class="s">"heparin.continuous"</span>,
+    <span class="k">"refers_to"</span>: [<span class="s">"seq:2014"</span>, <span class="s">"seq:2015"</span>],
+    <span class="k">"sig"</span>: <span class="s">"ed25519:0xb7…"</span> }
+]</pre>
+
+  <p class="uc-callout">
+    <b>What this buys you.</b> When the case goes to peer review, the question
+    "would a reasonable radiologist have ordered heparin?" becomes answerable from the
+    chain alone — not from screenshots, not from EHR reconstruction, not from a vendor's
+    word. <em>The model is a participant whose contribution is recorded, not a deus
+    ex machina whose reasoning evaporates.</em>
+  </p>
+</section>
+
+<!-- ─────────────────────── §03 — agentic action ─────────────────────── -->
+<section class="container uc-case" id="agentic">
+  <span class="uc-case__num">§03 · ED triage · agent draft · attending sign-off</span>
+  <h2>An agentic <i>action</i>.</h2>
+
+  <div class="uc-case__lede">
+    <div class="uc-case__story">
+      <p>
+        The hardest case. An ED triage agent ingests the chief complaint, vitals, and
+        chart context, and proposes <em>actions</em>: a chest x-ray, a troponin, a
+        12-lead, a low-acuity room. Three of the four are routine; one of them is a
+        decision the attending needs to ratify. <em>The model is no longer suggesting —
+        it is acting through a delegate.</em>
+      </p>
+      <p>
+        The substrate is no longer optional. Every proposed action runs through an
+        <code>ActionFilter</code> that lookups the action in a blast-radius table; any
+        action above the configured threshold is staged, not committed, and held until
+        an attending signs. The signature, the staging, the commit, and the underlying
+        model output are <em>four separate signed rows</em> — and the system refuses to
+        commit if any one of them is missing.
+      </p>
+    </div>
+    <aside class="uc-card" aria-label="deployment shape">
+      <b>shape</b>
+      <dl>
+        <dt>actor</dt><dd>triage agent · attending</dd>
+        <dt>model</dt><dd>tool-using agent + planner</dd>
+        <dt>input</dt><dd>chief complaint · vitals · chart</dd>
+        <dt>output</dt><dd>ordered action set</dd>
+        <dt>egress</dt><dd>EHR orders (gated)</dd>
+        <dt>consent</dt><dd>per-action scope · revocable</dd>
+        <dt>retention</dt><dd>indefinite · record of care</dd>
+      </dl>
+    </aside>
+  </div>
+
+  <div class="uc-grid">
+    <div class="uc-panel">
+      <h3>policy chain</h3>
+      <div class="uc-chain" aria-label="ordered policy chain for agentic action">
+        <span class="uc-chain__step" data-step="1">consent gate (per action)</span>
+        <span class="uc-chain__step" data-step="2">PHI scrub</span>
+        <span class="uc-chain__step is-boundary" data-step="3">model · triage-agent-1</span>
+        <span class="uc-chain__step" data-step="4">schema (action set)</span>
+        <span class="uc-chain__step" data-step="5">action filter (allowlist + blast radius)</span>
+        <span class="uc-chain__step" data-step="6">human sign-off (where required)</span>
+        <span class="uc-chain__step" data-step="7">drift snapshot</span>
+        <span class="uc-chain__step" data-step="8">ledger append</span>
+        <span class="uc-chain__step" data-step="9">commit · or · stage</span>
+      </div>
+      <p class="uc-chain__caption">two-hop signature chain — model proposes, human disposes, both signed</p>
+    </div>
+    <div class="uc-panel">
+      <h3>blast-radius table (excerpt)</h3>
+      <ul>
+        <li><code>order.cxr</code> — auto-commit · low blast radius</li>
+        <li><code>order.troponin</code> — auto-commit · low</li>
+        <li><code>order.heparin.continuous</code> — <em>requires attending</em></li>
+        <li><code>order.discharge</code> — <em>requires attending + nursing read-back</em></li>
+        <li><code>contact.next-of-kin</code> — never agentic; human-only</li>
+        <li><code>scope.escalate</code> — never agentic; explicit policy change</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="uc-chain__caption" style="margin-top:1.4rem">audit-bundle excerpt — staged action awaiting sign-off</h3>
+  <pre class="uc-bundle" aria-label="ledger rows showing a staged-then-committed action">[
+  { <span class="k">"seq"</span>: <span class="n">3331</span>, <span class="k">"kind"</span>: <span class="s">"agent.proposed"</span>,
+    <span class="k">"actions"</span>: [<span class="s">"order.cxr"</span>, <span class="s">"order.troponin"</span>, <span class="s">"order.heparin.continuous"</span>],
+    <span class="k">"plan_hash"</span>: <span class="s">"blake2b:7e9c…"</span>,
+    <span class="k">"model"</span>: { <span class="k">"id"</span>: <span class="s">"triage-agent-1"</span>, <span class="k">"weights_sha256"</span>: <span class="s">"d4a2…91"</span> },
+    <span class="k">"sig"</span>: <span class="s">"ed25519:0x12…"</span> },
+
+  { <span class="k">"seq"</span>: <span class="n">3332</span>, <span class="k">"kind"</span>: <span class="s">"action.committed"</span>,
+    <span class="k">"action"</span>: <span class="s">"order.cxr"</span>,
+    <span class="k">"refers_to"</span>: <span class="s">"seq:3331"</span>,
+    <span class="k">"sig"</span>: <span class="s">"ed25519:0x12…"</span> },           <span class="c">// auto-commit, agent key</span>
+
+  { <span class="k">"seq"</span>: <span class="n">3333</span>, <span class="k">"kind"</span>: <span class="s">"action.staged"</span>,
+    <span class="k">"action"</span>: <span class="s">"order.heparin.continuous"</span>,
+    <span class="k">"refers_to"</span>: <span class="s">"seq:3331"</span>,
+    <span class="k">"awaiting"</span>: <span class="s">"clin:attending"</span> },     <span class="c">// not committed yet</span>
+
+  { <span class="k">"seq"</span>: <span class="n">3340</span>, <span class="k">"kind"</span>: <span class="s">"action.committed"</span>,
+    <span class="k">"action"</span>: <span class="s">"order.heparin.continuous"</span>,
+    <span class="k">"refers_to"</span>: [<span class="s">"seq:3331"</span>, <span class="s">"seq:3333"</span>],
+    <span class="k">"signed_by"</span>: <span class="s">"clin:dr_yamamoto"</span>,
+    <span class="k">"sig"</span>: <span class="s">"ed25519:0x88…"</span> }            <span class="c">// human key, after read-back</span>
+]</pre>
+
+  <p class="uc-callout">
+    <b>What this buys you.</b> Agentic systems are normally accountability black holes:
+    "the model did it" is not a defense in court, but neither is "the human approved
+    something they did not understand." The substrate forces every action to be
+    <em>either</em> auto-commit-with-low-blast-radius <em>or</em>
+    human-signed-after-read-back, and refuses to honour anything in between. The chain
+    is what makes the difference enforceable. <em>The agent is fast. The substrate is
+    answerable.</em>
+  </p>
+</section>
+
+<!-- ─────────────────────── coda ─────────────────────── -->
+<section class="container">
+  <div class="uc-coda">
+    <h2>None of these are <i>features</i>.</h2>
+    <p>
+      The same Merkle ledger, the same policy-chain primitive, the same consent registry,
+      the same drift monitor, the same evidence-bundle export — applied to three
+      different shapes of clinical-AI deployment. Asclepius is not a scribe, not a
+      diagnostic aid, not an agent. It is the layer that makes any of those <em>a thing
+      a hospital can defend</em>.
+    </p>
+    <p>
+      If your deployment does not look like one of these three, it almost certainly
+      decomposes into a combination. Read the spec; bring the substrate up against your
+      shape; tell us where it bends.
+    </p>
+    <div class="uc-coda__links">
+      <a href="docs.html">read the docs →</a>
+      <a href="spec.html">spec</a>
+      <a href="architecture.html">architecture</a>
+      <a href="threat-model.html">threat model</a>
+      <a href="api.html">API reference</a>
+      <a href="demo.html">try the playground</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="use-cases.html">use cases</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">docs</a>
+        <a href="api.html">API reference</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

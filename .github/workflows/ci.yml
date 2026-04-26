@@ -1,0 +1,124 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build + test (${{ matrix.os }} · ${{ matrix.cxx }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os:  ubuntu-24.04
+            cxx: g++-13
+          - os:  ubuntu-24.04
+            cxx: clang++-18
+          - os:  macos-14
+            cxx: clang++
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev libsqlite3-dev ninja-build
+          if [[ "${{ matrix.cxx }}" == clang++-18 ]]; then
+            sudo apt-get install -y clang-18
+          fi
+
+      - name: Install system deps (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libsodium sqlite ninja
+
+      - name: Configure
+        env:
+          CXX: ${{ matrix.cxx }}
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DASCLEPIUS_BUILD_TESTS=ON \
+            -DASCLEPIUS_BUILD_EXAMPLES=ON \
+            -DASCLEPIUS_BUILD_CLI=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ./build/tests/asclepius_tests
+
+      - name: Smoke — wrap_scribe example
+        run: ./build/examples/01_wrap_scribe/example_wrap_scribe /tmp/asc_ci.db
+
+      - name: Smoke — bench (small N)
+        run: ./build/examples/04_bench/example_bench --n 1000
+
+  site-lint:
+    name: site lint (HTML / JS / hashes)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: JS syntax check
+        working-directory: site
+        run: |
+          for f in js/*.js sw.js; do
+            node --check "$f"
+          done
+
+      - name: JS unit tests
+        run: node site/tests/run.mjs --verbose
+
+      - name: HTML lint (duplicate ids, missing alt)
+        working-directory: site
+        run: |
+          set -e
+          err=0
+          for f in *.html; do
+            n=$(grep -oE 'id="[^"]+"' "$f" | sort | uniq -d | wc -l)
+            if [ "$n" -gt 0 ]; then
+              echo "::error file=$f::$n duplicate ids"
+              err=$((err+1))
+            fi
+            bad=$(grep -oE '<img[^>]*>' "$f" | grep -v 'alt=' | wc -l || true)
+            if [ "$bad" -gt 0 ]; then
+              echo "::error file=$f::$bad img without alt"
+              err=$((err+1))
+            fi
+          done
+          [ "$err" = 0 ] || exit 1
+
+      - name: Verify asset-manifest matches actual bytes
+        working-directory: site
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, sys
+          m = json.load(open("asset-manifest.json"))
+          fail = []
+          for path, meta in m["files"].items():
+              with open(path, "rb") as f:
+                  got = hashlib.sha256(f.read()).hexdigest()
+              if got != meta["sha256"]:
+                  fail.append(path)
+          if fail:
+              print("::error::manifest mismatch for:", *fail)
+              sys.exit(1)
+          print(f"all {len(m['files'])} files match")
+          PY

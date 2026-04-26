@@ -1,0 +1,4 @@
+add_executable(example_drift_demo main.cpp)
+target_link_libraries(example_drift_demo PRIVATE asclepius::asclepius)
+asclepius_target_warnings(example_drift_demo)
+asclepius_target_sanitizers(example_drift_demo)

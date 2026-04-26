@@ -1,0 +1,32 @@
+# Asclepius — Netlify / Cloudflare Pages redirect rules.
+# `code 200!` = rewrite (no URL change), `code 301` = permanent redirect.
+
+# Friendly aliases that should not 404
+/security        /security.html        301
+/contributing    /contributing.html    301
+/changelog       /changelog.html       301
+/roadmap         /roadmap.html         301
+/docs            /docs.html            301
+/playground      /demo.html            301
+/api             /api.html             301
+/cheatsheet      /cheatsheet.html      301
+/governance      /governance.html      301
+/cookies         /cookies.html         301
+/licenses        /licenses.html        301
+/accessibility   /accessibility.html   301
+/press           /press.html           301
+/sitemap         /sitemap.html         301
+/labs            /labs.html            301
+/glossary        /glossary.html        301
+/conformance     /conformance.html     301
+/status          /status.html          301
+/crypto          /crypto.html          301
+
+# Convention: /security.txt → the well-known location
+/security.txt    /.well-known/security.txt    301
+
+# Old path that briefly existed in early v0 — keep alive forever
+/runtime         /docs.html#component-map     301
+
+# 404 fallback
+/*               /404.html             404

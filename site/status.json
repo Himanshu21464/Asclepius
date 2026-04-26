@@ -1,0 +1,35 @@
+{
+  "ok": true,
+  "version": "0.1.0",
+  "current_release": "v0.3.0",
+  "released_at": "2026-04-25",
+  "site_built_at": "2026-04-26T06:53:14Z",
+  "pages": 45,
+  "files_attested": 85,
+  "ledger_head": "8e510bf4…21b04a",
+  "key_id": "a1f2…74e6",
+  "key_alg": "Ed25519",
+  "hash_alg": "BLAKE2b-256",
+  "conformance": [
+    "L1",
+    "L2",
+    "L3"
+  ],
+  "feeds": {
+    "rss": "https://asclepius.health/feed.xml",
+    "atom": "https://asclepius.health/atom.xml",
+    "json": "https://asclepius.health/feed.json"
+  },
+  "well_known": {
+    "security": "https://asclepius.health/.well-known/security.txt",
+    "dnt_policy": "https://asclepius.health/.well-known/dnt-policy.txt"
+  },
+  "endpoints": {
+    "manifest": "https://asclepius.health/asset-manifest.json",
+    "search_index": "https://asclepius.health/search-index.json",
+    "bench": "https://asclepius.health/assets/bench.json",
+    "pgp": "https://asclepius.health/assets/pgp.asc",
+    "up": "https://asclepius.health/up.txt",
+    "status": "https://asclepius.health/status.json"
+  }
+}

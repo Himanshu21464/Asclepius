@@ -1,0 +1,50 @@
+Asclepius — Do Not Track policy
+================================
+
+This statement complies with the EFF Do Not Track Compliance Policy
+(<https://www.eff.org/dnt-policy>) and reflects how asclepius.health treats
+visitor activity.
+
+asclepius.health does not track its visitors.
+
+We do not log IP addresses for analytics. We do not set cookies. We do not
+embed third-party trackers, A/B testing frameworks, fingerprinting
+libraries, or marketing pixels. We do not load any external JavaScript at
+runtime. The only third-party request the site issues is to fonts.googleapis.com
+to fetch the typefaces it is set in; that request is not subject to our control
+but is documented at /cookies.html. If you set the Do Not Track header, the
+site behaves identically to the way it behaves when you don't — there is
+nothing for us to disable, because there is nothing we collect.
+
+The site does store two preferences in your own browser's localStorage —
+your chosen color theme and the in-progress state of the in-browser
+playground. Neither is transmitted anywhere. You can clear both at any
+time from your browser's site-data panel.
+
+What we keep:
+  * standard server access logs as required for security and abuse handling,
+    rotated within 14 days, never used for advertising or behavioral
+    profiling.
+  * exception traces from the build pipeline, never tied to visitor IPs.
+
+What we do not keep:
+  * any record of which page a visitor viewed
+  * any record of how long a visitor spent on the site
+  * any record of which pages link to which other pages they visited
+  * any record of a visitor's user-agent for any purpose other than 14-day
+    abuse handling
+
+What we will never start doing without a release tag:
+  * adding analytics SDKs, marketing pixels, or third-party scripts
+  * sharing aggregate or individual data with any third party
+  * setting cookies for any purpose other than first-party preference
+
+If a future release ever changes this, the change will appear in the
+public changelog (https://asclepius.health/changelog.html) under a
+"deprecation of privacy posture" notice with at least 30 days' lead time.
+
+Effective date:    2026-04-26
+Maintained by:     Asclepius Security <security@asclepius.health>
+Canonical:         https://asclepius.health/.well-known/dnt-policy.txt
+Companion page:    https://asclepius.health/cookies.html
+PGP fingerprint:   A1F2 9C4E B8D1 74E6  2A55 0CCB 7F12 BB37 5E4A C9D0

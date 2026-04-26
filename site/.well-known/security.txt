@@ -1,0 +1,13 @@
+# Asclepius — security contact (RFC 9116)
+Contact: mailto:security@asclepius.health
+Contact: https://github.com/asclepius-ai/asclepius/security/advisories
+Expires: 2027-04-25T00:00:00Z
+Encryption: https://asclepius.health/assets/pgp.asc
+Preferred-Languages: en
+Canonical: https://asclepius.health/.well-known/security.txt
+Policy: https://asclepius.health/security.html
+Hiring: https://asclepius.health/contributing.html
+Acknowledgments: https://asclepius.health/security.html#response
+
+# Project signing key fingerprint (Ed25519):
+# A1F2 9C4E B8D1 74E6 · 2A55 0CCB 7F12 BB37 5E4A C9D0

@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Principles — Asclepius</title>
+<meta name="description" content="The seven design tenets that drive Asclepius decisions. Each is opinionated, and the trade-offs we accept are stated explicitly.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/principles.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Principles — Asclepius">
+<meta property="og:description"  content="Seven design tenets. Each one names a trade-off we accept.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .pn { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .pn__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .pn__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .pn__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.6rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .pn__hero h1 i { color: var(--primary); font-style: italic; }
+  .pn__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+
+  .pn-list {
+    counter-reset: tenet;
+    list-style: none;
+    padding: 0;
+    margin: 2rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  .pn-tenet {
+    counter-increment: tenet;
+    padding: 2.4rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 2rem;
+    max-width: 80ch;
+  }
+  @media (max-width: 760px) { .pn-tenet { grid-template-columns: 1fr; gap: .8rem; } }
+
+  .pn-tenet__num::before {
+    content: "0" counter(tenet);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: clamp(2.4rem, 5vw, 3.4rem);
+    color: var(--primary);
+    line-height: 1;
+    letter-spacing: -.02em;
+    display: block;
+  }
+
+  .pn-tenet h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.5rem, 2.6vw, 2rem);
+    color: var(--ink-warm); letter-spacing: -.01em;
+    margin: 0 0 .8rem; line-height: 1.2;
+  }
+  .pn-tenet h2 i { color: var(--primary); font-style: italic; }
+  .pn-tenet p {
+    font-family: var(--font-prose); font-size: 1rem; line-height: 1.7;
+    color: var(--ink); margin: 0 0 1rem;
+  }
+  .pn-tenet em { color: var(--primary); font-style: italic; }
+  .pn-tenet code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+
+  .pn-tradeoff {
+    margin-top: 1rem;
+    padding: 0.9rem 1.2rem;
+    background: var(--surface);
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.6;
+    color: var(--ink-mute);
+  }
+  .pn-tradeoff b {
+    color: var(--accent);
+    font-weight: 500;
+    margin-right: .6rem;
+    letter-spacing: .04em;
+  }
+  .pn-tradeoff em { color: var(--ink); font-style: italic; }
+
+  .pn-coda {
+    margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--rule);
+    max-width: 70ch;
+    font-family: var(--font-prose); color: var(--ink-mute);
+    font-size: 1rem; line-height: 1.7;
+  }
+  .pn-coda em { color: var(--primary); }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",       "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Principles", "item": "https://asclepius.health/principles.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-principles">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="principles.html" class="is-active" aria-current="page">principles</a>
+      <a href="governance.html">governance</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="pn">
+  <div class="container">
+
+    <header class="pn__hero">
+      <span class="kbd">design tenets · seven · the why</span>
+      <h1>What we will <i>not</i> trade away.</h1>
+      <p>
+        <a href="governance.html">/governance</a> describes <em>how</em> decisions get made.
+        This page describes <em>why</em> they go a particular way. Each tenet below names a
+        trade-off we accept. We make decisions by asking which tenet a change strengthens
+        and which one it would weaken.
+      </p>
+    </header>
+
+    <ol class="pn-list">
+
+      <li class="pn-tenet">
+        <span class="pn-tenet__num"></span>
+        <div>
+          <h2>Cryptographic provenance, <i>not</i> "trust us."</h2>
+          <p>
+            Every byte we ask a hospital to act on must be verifiable offline by a third
+            party. <em>If the audit story requires that we trust your servers, we don't trust
+            your audit.</em> This is the substrate's reason to exist; if a feature would
+            require shipping a trust assertion the customer cannot independently re-derive
+            from bytes plus a public key, we don't ship it.
+          </p>
+          <p class="pn-tradeoff">
+            <b>trade-off</b>
+            <em>We give up the convenience of opaque server-side aggregations. A regulator
+            re-running our verifier on a laptop is the SLA we hold to.</em>
+          </p>
+        </div>
+      </li>
+
+      <li class="pn-tenet">
+        <span class="pn-tenet__num"></span>
+        <div>
+          <h2>Vendor-neutral, by <i>structure</i>.</h2>
+          <p>
+            The runtime accepts any callable as the wrapped model: an Epic plug-in, an in-house
+            CNN, a remote GPT-class API, a rule engine. Identifiers are opaque strings; the
+            runtime never holds the patient/MRN mapping; the audit format is one canonical-JSON
+            shape regardless of who's on either side. <em>Lock-in is not a feature.</em>
+          </p>
+          <p class="pn-tradeoff">
+            <b>trade-off</b>
+            <em>We give up the fast path of "deeply integrated with one EHR." We accept that
+            our tightest customer integrations will be slower to ship.</em>
+          </p>
+        </div>
+      </li>
+
+      <li class="pn-tenet">
+        <span class="pn-tenet__num"></span>
+        <div>
+          <h2>Audit-grade <i>or it does not ship</i>.</h2>
+          <p>
+            Every public method either appends to the ledger, contributes to a verifiable
+            metric, or is intentionally outside the audit boundary (and documented as such).
+            A feature that produces a clinical decision but no audit trail is a worse-than-nothing
+            feature: it lets the appearance of safety substitute for the real thing. We refuse to
+            ship one.
+          </p>
+          <p class="pn-tradeoff">
+            <b>trade-off</b>
+            <em>Some convenient features stay unbuilt because we cannot make them auditable
+            without ugly compromises. We accept that the runtime is smaller as a result.</em>
+          </p>
+        </div>
+      </li>
+
+      <li class="pn-tenet">
+        <span class="pn-tenet__num"></span>
+        <div>
+          <h2>One canonical encoding, <i>forever</i>.</h2>
+          <p>
+            Canonical JSON for ledger bodies. BLAKE2b-256 for hashes. Ed25519 for signatures.
+            USTAR for evidence bundles. We pick once, document the choice, and version-bump
+            only when we have a stronger primitive widely available. <em>Replay must reproduce
+            byte-equal artifacts across machines and across years.</em>
+          </p>
+          <p class="pn-tradeoff">
+            <b>trade-off</b>
+            <em>We give up the option of "let's switch to BLAKE3 because it's faster" mid-line.
+            Performance gains we can capture without changing the format are welcome; format
+            churn never is.</em>
+          </p>
+        </div>
+      </li>
+
+      <li class="pn-tenet">
+        <span class="pn-tenet__num"></span>
+        <div>
+          <h2>Substrate, <i>not</i> SaaS.</h2>
+          <p>
+            The runtime runs entirely inside the customer's trust boundary. There is no call
+            home, no anonymous telemetry, no opt-out behavior — there is no opt-in either,
+            because the code does not contain network egress for analytics. The site that markets
+            it holds itself to the same posture: <a href="cookies.html">/cookies</a>,
+            <a href=".well-known/dnt-policy.txt">DNT-policy</a>, and the
+            <a href="colophon.html">/colophon</a> document the discipline.
+          </p>
+          <p class="pn-tradeoff">
+            <b>trade-off</b>
+            <em>We give up the visibility into customer deployments that a SaaS gives. We accept
+            that we will learn about issues later, from explicit reports rather than implicit
+            metrics.</em>
+          </p>
+        </div>
+      </li>
+
+      <li class="pn-tenet">
+        <span class="pn-tenet__num"></span>
+        <div>
+          <h2>Specific over <i>clever</i>.</h2>
+          <p>
+            We pick boring, specific tools where one will do: SQLite WAL for the ledger
+            backend, libsodium for the primitives, doctest for testing, vanilla JS for the
+            site. Every layer of cleverness is a layer of attack surface and a layer that
+            new contributors must understand before they can ship a fix. <em>Three similar
+            lines beats one premature abstraction.</em>
+          </p>
+          <p class="pn-tradeoff">
+            <b>trade-off</b>
+            <em>We give up the elegance of frameworks. We accept that the codebase has more
+            small, repetitive places than it would have under a clever DSL.</em>
+          </p>
+        </div>
+      </li>
+
+      <li class="pn-tenet">
+        <span class="pn-tenet__num"></span>
+        <div>
+          <h2>Patients, <i>not</i> dashboards.</h2>
+          <p>
+            Everything Asclepius does eventually runs next to a clinician, eventually runs
+            next to a patient. We design defaults for the patient, not the dashboard.
+            <em>If a feature would make a governance committee happier but a patient
+            worse off, we don't ship it.</em> The clinical-action filter denies by default.
+            Consent is required by default. PHI is hashed by default. Bundles are signed
+            by default. Convenience is opt-in.
+          </p>
+          <p class="pn-tradeoff">
+            <b>trade-off</b>
+            <em>We give up the fast onboarding curve of "opt in to safety later." We accept
+            slower onboarding for stronger defaults.</em>
+          </p>
+        </div>
+      </li>
+
+    </ol>
+
+    <p class="pn-coda">
+      <em>These principles fit on one page on purpose.</em> A principles document longer than
+      its codebase principles nothing. When a tenet starts to lie about how we actually behave,
+      we update the tenet — not the behavior. The git log of this page is the canonical
+      history; if a maintainer cannot point to a recent commit demonstrating one of the
+      principles above, that's a flag for the next contributor sync.
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — principles.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>about</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="principles.html">principles</a>
+        <a href="governance.html">governance</a>
+        <a href="colophon.html">colophon</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/floating.js" defer></script>
+</body>
+</html>

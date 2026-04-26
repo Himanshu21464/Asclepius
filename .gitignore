@@ -1,0 +1,32 @@
+build/
+build-*/
+.cache/
+.vscode/
+.idea/
+*.user
+compile_commands.json
+.clangd/
+
+# Claude Code local session state
+.claude/
+
+# LaTeX intermediates
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+# (we do commit Asclepius.pdf as an artifact)
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+
+# Asclepius runtime artifacts
+asclepius.db
+asclepius.db-*
+*.evidence.tar

@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Docs — Asclepius</title>
+<meta name="description" content="Architecture, on-disk + on-wire spec, threat model, and an in-browser playground for the Asclepius clinical-AI trust substrate.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/docs.html">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Docs">
+<meta property="og:description"  content="Architecture, spec, threat model, and a live in-browser playground.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="architecture.html">
+<link rel="prefetch" href="spec.html">
+<link rel="prefetch" href="threat-model.html">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.docs-hub { padding: clamp(4rem, 8vw, 6rem) 0 4rem; }
+.docs-hub__head { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; }
+.docs-hub__head .kbd { display: inline-block; margin-bottom: 1rem; }
+.docs-hub__head h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(3rem, 7vw, 5rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0; }
+.docs-hub__head h1 i { color: var(--primary); font-style: italic; }
+.docs-hub__head p { color: var(--ink-mute); max-width: 64ch; margin: 1rem 0 0; font-size: 1.05rem; }
+
+.docs-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.docs-card {
+    display: block;
+    padding: 1.6rem 1.6rem 1.4rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color .2s var(--ease-out), background .2s, transform .2s;
+    position: relative;
+    overflow: hidden;
+}
+.docs-card::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(420px 200px at 100% 0, rgba(181,123,255,.08), transparent 60%);
+    opacity: 0; transition: opacity .25s var(--ease-out);
+}
+.docs-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+.docs-card:hover::after { opacity: 1; }
+.docs-card__num {
+    font-family: var(--font-mono); font-size: .68rem; letter-spacing: .18em;
+    color: var(--primary); display: block; margin-bottom: .8rem;
+}
+.docs-card h2 {
+    font-family: var(--font-serif); font-weight: 400; font-size: 1.6rem;
+    color: var(--ink-warm); margin: 0 0 .35rem;
+}
+.docs-card p { color: var(--ink-mute); margin: 0 0 .9rem; font-size: .95rem; line-height: 1.6; }
+.docs-card__meta {
+    font-family: var(--font-mono); font-size: .7rem;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint);
+    display: flex; gap: .7rem; align-items: center;
+}
+.docs-card__meta .arrow { color: var(--primary); margin-left: auto; }
+
+.docs-section {
+    padding: 3rem 0;
+    border-top: 1px solid var(--rule-soft);
+}
+.docs-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+}
+.docs-section p { color: var(--ink-mute); max-width: 64ch; }
+.docs-list {
+    list-style: none; padding: 0; margin: 1.2rem 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .6rem;
+    font-family: var(--font-mono); font-size: .82rem;
+}
+.docs-list li {
+    display: grid; grid-template-columns: auto 1fr; gap: .8rem;
+    padding: .8rem 1rem; border: 1px solid var(--rule); border-radius: 6px;
+    background: var(--surface-2);
+}
+.docs-list li b { color: var(--primary); }
+.docs-list li span { color: var(--ink); }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Documentation",
+      "item": "https://asclepius.health/docs.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-docs">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="index.html#substrate">substrate</a>
+      <a href="index.html#anatomy">anatomy</a>
+      <a href="index.html#start">quickstart</a>
+      <a href="docs.html" class="is-active" aria-current="page">docs</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+  <section class="docs-hub">
+    <div class="container">
+      <header class="docs-hub__head">
+        <span class="kbd">documentation · v0.1.0</span>
+        <h1>Read it all. <i>Verify</i> none of it.</h1>
+        <p>The substrate is open. The wire format is open. The audit format is open. Every byte the runtime emits has a documented shape, a deterministic encoding, and a regulator-grade verifier you can run on your laptop.</p>
+      </header>
+
+      <div class="docs-cards">
+        <a class="docs-card" href="architecture.html">
+          <span class="docs-card__num">§ 01 · ARCHITECTURE</span>
+          <h2>Architecture</h2>
+          <p>Component map, single-inference data flow, and the rationale behind every layer — from the policy chain to the Merkle ledger to the evidence-bundle exporter.</p>
+          <div class="docs-card__meta">
+            <span>~&nbsp;7&nbsp;min read</span>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="docs-card" href="spec.html">
+          <span class="docs-card__num">§ 02 · SPEC</span>
+          <h2>Specification</h2>
+          <p>BLAKE2b-256 + Ed25519. SQLite WAL schema. Canonical-JSON entry encoding. Standard event types. USTAR evidence-bundle layout. Versioning policy.</p>
+          <div class="docs-card__meta">
+            <span>~&nbsp;6&nbsp;min read</span>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="docs-card" href="threat-model.html">
+          <span class="docs-card__num">§ 03 · THREAT MODEL</span>
+          <h2>Threat model</h2>
+          <p>A1–A6 adversaries: log tampering, malicious model output, replay, bundle forgery, side-channel PHI leakage, undetected drift. Mitigations and residual risk for each.</p>
+          <div class="docs-card__meta">
+            <span>~&nbsp;5&nbsp;min read</span>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="docs-card" href="api.html">
+          <span class="docs-card__num">§ 04 · API</span>
+          <h2>API reference</h2>
+          <p>Auto-generated from <code>include/asclepius/*.hpp</code> — every public class, method, and free function in the C++20 substrate. Cross-linked symbols, grouped by header.</p>
+          <div class="docs-card__meta">
+            <span>~&nbsp;reference</span>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="docs-card" href="use-cases.html">
+          <span class="docs-card__num">§ 05 · USE CASES</span>
+          <h2>Use cases</h2>
+          <p>Three concrete deployments — ambient scribe, diagnostic second-read, agentic action — each with its policy chain, model boundary, consent flow, and audit-bundle excerpt. The "I would integrate this for X" page.</p>
+          <div class="docs-card__meta">
+            <span>~&nbsp;8&nbsp;min read</span>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="docs-card" href="integrations.html">
+          <span class="docs-card__num">§ 06 · INTEGRATIONS</span>
+          <h2>Integrations</h2>
+          <p>Five copy-paste recipes — ambient-scribe vendor, in-house imaging model, tool-using agent, FHIR sidecar, batch evaluation. C++ and Python side-by-side, with the resulting ledger row. Twelve lines per wrap.</p>
+          <div class="docs-card__meta">
+            <span>~&nbsp;copy · paste</span>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="docs-card" href="demo.html">
+          <span class="docs-card__num">§ 07 · PLAYGROUND</span>
+          <h2>Playground&nbsp;↗</h2>
+          <p>An in-browser simulation of the runtime. Type a transcript, watch PHI scrub, see a signed entry append to a Merkle ledger, tamper with it, watch the chain go red. Verify offline.</p>
+          <div class="docs-card__meta">
+            <span>live · interactive</span>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <section class="docs-section">
+        <h2>Other surfaces</h2>
+        <p>Asclepius ships several entry points; pick the one that matches how you ship clinical AI today.</p>
+        <ul class="docs-list">
+          <li><b>C++20 API</b><span>include/asclepius/asclepius.hpp</span></li>
+          <li><b>Python</b><span>import asclepius — pybind11 wheels</span></li>
+          <li><b>CLI</b><span>asclepius ledger / evidence / drift / policy</span></li>
+          <li><b>gRPC sidecar</b><span>proto/asclepius/v1/sidecar.proto</span></li>
+          <li><b>Conformance suite</b><span>L1 audit · L2 drift · L3 prospective evidence</span></li>
+          <li><b>HSM signer</b><span>plug your own KeyStore implementation</span></li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Cryptographic primitives at a glance</h2>
+        <ul class="docs-list">
+          <li><b>BLAKE2b-256</b><span>32-byte payload + entry hashes. libsodium <code>crypto_generichash</code>.</span></li>
+          <li><b>Ed25519</b><span>64-byte detached signatures over the canonical sign-input.</span></li>
+          <li><b>Canonical JSON</b><span>UTF-8, sorted keys, no whitespace. Bit-equal across hosts.</span></li>
+          <li><b>SQLite WAL</b><span>single-writer, many-reader; sidecar friendly.</span></li>
+          <li><b>USTAR tar</b><span>evidence bundles open with <code>tar xf</code>, <code>jq</code>, <code>openssl</code>.</span></li>
+        </ul>
+      </section>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — docs.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="index.html#anatomy">anatomy</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="api.html">API reference</a>
+        <a href="use-cases.html">use cases</a>
+        <a href="integrations.html">integrations</a>
+        <a href="decisions.html">decisions (ADRs)</a>
+        <a href="playbooks.html">playbooks</a>
+        <a href="observability.html">observability</a>
+        <a href="regulator.html">for regulators</a>
+        <a href="research.html">research</a>
+        <a href="economics.html">economics</a>
+        <a href="migrations.html">migrations</a>
+        <a href="validate.html">validate an entry</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="glossary.html">glossary</a>
+        <a href="cheatsheet.html">cheatsheet</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="index.html#start">quickstart</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+        <a href="sandbox.html">policy sandbox</a>
+        <a href="learn.html">learn</a>
+        <a href="explorer.html">explorer</a>
+        <a href="compare.html">compare</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

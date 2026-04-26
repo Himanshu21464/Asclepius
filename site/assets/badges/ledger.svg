@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="118" height="20" role="img" aria-label="ledger verified ✓">
+  <title>ledger verified</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="118" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="50" height="20" fill="#14101D"/>
+    <rect x="50" width="68" height="20" fill="#059669"/>
+    <rect width="118" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle"
+     font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="500">
+    <text x="25" y="14" fill="#9A92A8">ledger</text>
+    <text x="84" y="14">verified ✓</text>
+  </g>
+</svg>

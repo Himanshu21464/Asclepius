@@ -1,0 +1,99 @@
+# Asclepius — HTTP headers for Netlify / Cloudflare Pages / Vercel.
+#
+# These complement the `<meta http-equiv>` tags inside every HTML page;
+# real HTTP headers are stronger (CSP enforcement applies to all responses,
+# not just navigations) and are honored by every modern browser.
+#
+# Test with: curl -I https://asclepius.health/
+
+/*
+  # Strict transport — matches the upgrade-insecure-requests in our CSP.
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+  # Identical CSP to the meta tag, kept in sync.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
+  # Defenses you can't set with meta http-equiv.
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  X-Robots-Tag: index, follow
+
+# ── HTML pages: SWR (the service worker also handles this client-side) ──
+/*.html
+  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+
+# ── CSS / JS / fonts: long-cached, content-hashed by SW ─────────────────
+/styles.css
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+/demo.css
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+/js/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+# ── Assets ─────────────────────────────────────────────────────────────
+/assets/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+# ── Feeds: revalidate quickly, allow CORS so feed readers can fetch ────
+/feed.xml
+  Cache-Control: public, max-age=900, stale-while-revalidate=86400
+  Access-Control-Allow-Origin: *
+  Content-Type: application/rss+xml; charset=utf-8
+/feed.json
+  Cache-Control: public, max-age=900, stale-while-revalidate=86400
+  Access-Control-Allow-Origin: *
+  Content-Type: application/feed+json; charset=utf-8
+/atom.xml
+  Cache-Control: public, max-age=900, stale-while-revalidate=86400
+  Access-Control-Allow-Origin: *
+  Content-Type: application/atom+xml; charset=utf-8
+
+# ── Sitemap + robots: spider-friendly ──────────────────────────────────
+/sitemap.xml
+  Cache-Control: public, max-age=3600
+  Content-Type: application/xml; charset=utf-8
+/robots.txt
+  Cache-Control: public, max-age=86400
+  Content-Type: text/plain; charset=utf-8
+
+# ── Healthcheck ────────────────────────────────────────────────────────
+/up.txt
+  Cache-Control: no-store
+  Content-Type: text/plain; charset=utf-8
+  X-Robots-Tag: noindex
+
+# ── Service worker MUST NOT be cached aggressively ─────────────────────
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+# ── Manifest + opensearch ──────────────────────────────────────────────
+/manifest.json
+  Cache-Control: public, max-age=3600
+  Content-Type: application/manifest+json; charset=utf-8
+/opensearch.xml
+  Cache-Control: public, max-age=86400
+  Content-Type: application/opensearchdescription+xml; charset=utf-8
+
+# ── Well-known URIs (RFC 5785) — never indexed, never cached long ──────
+/.well-known/security.txt
+  Cache-Control: public, max-age=3600
+  Content-Type: text/plain; charset=utf-8
+/.well-known/dnt-policy.txt
+  Cache-Control: public, max-age=3600
+  Content-Type: text/plain; charset=utf-8
+
+# ── PGP key — long cache, signed-blob ──────────────────────────────────
+/assets/pgp.asc
+  Cache-Control: public, max-age=86400
+  Content-Type: application/pgp-keys; charset=us-ascii
+
+/status.json
+  Cache-Control: no-store
+  Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *
+  X-Robots-Tag: noindex

@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Glossary — Asclepius</title>
+<meta name="description" content="Every clinical and cryptographic term Asclepius uses, defined in one place. Other pages deep-link here.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/glossary.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Glossary">
+<meta property="og:description"  content="Every clinical + cryptographic term defined in one place.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.gl-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.gl-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.gl-hero h1 i { color: var(--primary); font-style: italic; }
+.gl-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; }
+.gl-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.gl-toolbar {
+    position: sticky; top: 64px; z-index: 50;
+    display: flex; align-items: center; gap: .9rem;
+    padding: .8rem 1rem; margin: 1.6rem 0 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.gl-search {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: .92rem;
+    outline: none;
+}
+.gl-search::placeholder { color: var(--ink-faint); }
+.gl-toolbar kbd {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    padding: .15rem .55rem;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    color: var(--ink-mute);
+}
+
+.gl-letters {
+    display: flex; flex-wrap: wrap; gap: .25rem;
+    margin: 0 0 1.4rem;
+}
+.gl-letters a {
+    width: 1.8rem; height: 1.8rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ink-mute);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    font-family: var(--font-mono); font-size: .76rem;
+    text-decoration: none;
+    transition: color .15s, border-color .15s;
+}
+.gl-letters a:hover { color: var(--primary); border-color: var(--primary-glow); }
+.gl-letters a.is-empty { opacity: .35; pointer-events: none; }
+
+.gl-list {
+    display: grid;
+    gap: 1rem;
+}
+.gl-letter {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.5rem;
+}
+.gl-letter h2 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: 2.6rem; line-height: 1;
+    color: var(--primary);
+    letter-spacing: -.02em;
+    margin: 0 0 1rem;
+}
+.gl-entry {
+    display: grid;
+    grid-template-columns: 11em 1fr;
+    gap: 2rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+}
+.gl-entry:last-child { border-bottom: 0; }
+.gl-entry dt {
+    font-family: var(--font-mono);
+    font-size: .9rem;
+    color: var(--ink-warm);
+    font-weight: 500;
+    line-height: 1.4;
+}
+.gl-entry dt small {
+    display: block;
+    margin-top: .25em;
+    color: var(--ink-faint);
+    font-size: .7rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.gl-entry dd {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-prose);
+    line-height: 1.65;
+}
+.gl-entry dd code {
+    font-family: var(--font-mono);
+    font-size: .9em;
+    background: var(--surface-2);
+    border: 1px solid var(--rule-soft);
+    padding: .08em .35em;
+    border-radius: 3px;
+    color: var(--ink-warm);
+}
+.gl-entry dd a { color: var(--primary); }
+.gl-entry.is-hidden { display: none; }
+.gl-entry mark {
+    background: rgba(181,123,255,.22);
+    color: var(--ink-warm);
+    padding: 0 2px; border-radius: 2px;
+}
+
+@media (max-width: 760px) {
+    .gl-entry { grid-template-columns: 1fr; gap: .35rem; }
+    .gl-toolbar { top: 56px; }
+}
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Documentation",
+      "item": "https://asclepius.health/docs.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Glossary",
+      "item": "https://asclepius.health/glossary.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-glossary">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="glossary.html" class="is-active" aria-current="page">glossary</a>
+      <a href="conformance.html">conformance</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="gl-hero">
+  <div class="container">
+    <span class="kbd">glossary · v0.1.0</span>
+    <h1>Every term, <i>defined once.</i></h1>
+    <p>This is the canonical source. Other pages link <em>here</em> rather than redefine. Press <kbd>/</kbd> or use the search to filter; deep-link any term by appending its anchor (e.g. <code>#blake2b-256</code>).</p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="gl-toolbar">
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+      <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    <input id="gl-q" class="gl-search" type="search" placeholder="filter — try 'merkle' or 'phi' or 'consent'" autocomplete="off" spellcheck="false">
+    <kbd>/</kbd>
+  </div>
+
+  <nav class="gl-letters" id="gl-letters" aria-label="jump to letter"></nav>
+
+  <div class="gl-list" id="gl-list">
+
+<section class="gl-letter" data-l="A">
+  <h2>A</h2>
+  <dl>
+    <div class="gl-entry" id="ambient-documentation">
+      <dt>ambient documentation<small>purpose</small></dt>
+      <dd>The clinical-AI category that records and structures a patient encounter automatically — voice-to-SOAP. One of the eight <a href="#purpose">Purpose</a>s the runtime enforces consent against.</dd>
+    </div>
+    <div class="gl-entry" id="attestation">
+      <dt>attestation<small>process</small></dt>
+      <dd>The act of vouching for a byte sequence with a cryptographic signature. Every Asclepius ledger entry is an attestation by the operator's signing key over the entry's canonical encoding.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="B">
+  <h2>B</h2>
+  <dl>
+    <div class="gl-entry" id="blake2b-256">
+      <dt>BLAKE2b-256<small>hash</small></dt>
+      <dd>A 256-bit cryptographic hash, optimised for software. <code>libsodium</code>'s <code>crypto_generichash</code> with default parameters. Used for every payload and entry hash in the runtime; ~633 MB/s on a single core (see <a href="benchmarks.html">benchmarks</a>).</dd>
+    </div>
+    <div class="gl-entry" id="baa">
+      <dt>BAA<small>contract</small></dt>
+      <dd>Business Associate Agreement. Required by HIPAA whenever a vendor handles PHI on a covered entity's behalf. Asclepius is intentionally deployable inside the customer's HIPAA boundary so the project itself does not need a BAA with each customer.</dd>
+    </div>
+    <div class="gl-entry" id="bundle">
+      <dt>evidence bundle<small>artifact</small></dt>
+      <dd>A USTAR <code>.tar</code> containing manifest + ledger excerpt + metrics + drift snapshot + override stream + ground-truth stream + the public key + an Ed25519 signature over the manifest. Verifiable offline with <code>openssl</code> + <code>jq</code> + <code>sha256sum</code> alone.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="C">
+  <h2>C</h2>
+  <dl>
+    <div class="gl-entry" id="canonical-json">
+      <dt>canonical JSON<small>encoding</small></dt>
+      <dd>UTF-8, sorted keys, no insignificant whitespace. Two canonical encodings are byte-equal iff the underlying values are JSON-equal. Used by every payload <a href="#hash">hash</a> so re-running the same encoding on different machines years apart yields the same bytes.</dd>
+    </div>
+    <div class="gl-entry" id="cdss">
+      <dt>CDSS<small>acronym</small></dt>
+      <dd>Clinical Decision Support System. A class of clinical software that surfaces evidence-based guidance to clinicians. Asclepius wraps CDSS the same way it wraps any other model — the policy chain doesn't care.</dd>
+    </div>
+    <div class="gl-entry" id="conformance">
+      <dt>conformance suite<small>L1 / L2 / L3</small></dt>
+      <dd>The third-party-runnable test battery that validates a vendor integration. <a href="conformance.html">L1</a> = audit, L2 = drift, L3 = prospective-evidence. Each level strictly extends the previous.</dd>
+    </div>
+    <div class="gl-entry" id="consent-token">
+      <dt>consent token<small>type</small></dt>
+      <dd>An opaque identifier issued by <code>ConsentRegistry::grant()</code> that pairs a <a href="#patient-id">PatientId</a> with one or more <a href="#purpose">Purpose</a>s and a TTL. Required by <code>begin_inference</code> before any model is called.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="D">
+  <h2>D</h2>
+  <dl>
+    <div class="gl-entry" id="drift">
+      <dt>drift<small>concept</small></dt>
+      <dd>The slow, often invisible shift in input distribution that causes a deployed model's accuracy to decay over time. Asclepius computes <a href="#psi">PSI</a>, <a href="#ks">KS</a>, and <a href="#emd">EMD</a> against a frozen baseline so slow drift accumulates rather than averaging out.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="E">
+  <h2>E</h2>
+  <dl>
+    <div class="gl-entry" id="ed25519">
+      <dt>Ed25519<small>signature</small></dt>
+      <dd>An EdDSA signature scheme over Curve25519. 32-byte public key, 64-byte signature, deterministic, fast, side-channel resistant. The default Asclepius signer; chosen over ECDSA because RNG failures during signing don't leak the secret key.</dd>
+    </div>
+    <div class="gl-entry" id="encounter-id">
+      <dt>EncounterId<small>type</small></dt>
+      <dd>A strong-typed identifier for a clinical encounter. Wraps an opaque string body — accepts FHIR <code>Encounter/&lt;id&gt;</code> references, internal numeric ids, or a fresh ULID-shaped id from <code>EncounterId::make()</code>.</dd>
+    </div>
+    <div class="gl-entry" id="emd">
+      <dt>EMD<small>statistic</small></dt>
+      <dd>Earth Mover's Distance — for 1D distributions, the cumulative absolute difference between two CDFs. Reported alongside <a href="#psi">PSI</a> and <a href="#ks">KS</a> by <code>DriftMonitor::report()</code> for triangulation.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="F">
+  <h2>F</h2>
+  <dl>
+    <div class="gl-entry" id="fhir">
+      <dt>FHIR<small>standard</small></dt>
+      <dd>Fast Healthcare Interoperability Resources. The HL7 RESTful health-data exchange standard. Asclepius is FHIR-aware in the narrow sense that it can extract Patient/Encounter/Practitioner references and Purpose-of-use codes from a Bundle — but it is not a FHIR server. Use HAPI/Aidbox for that.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="G">
+  <h2>G</h2>
+  <dl>
+    <div class="gl-entry" id="ground-truth">
+      <dt>ground truth<small>signal</small></dt>
+      <dd>The "what actually happened" label that arrives sometime <em>after</em> a model's prediction. Asclepius's <code>EvaluationHarness::attach_ground_truth</code> ingests these and joins them by inference id so the L3 conformance can compare.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="H">
+  <h2>H</h2>
+  <dl>
+    <div class="gl-entry" id="hash">
+      <dt>hash<small>function</small></dt>
+      <dd>A deterministic function from arbitrary bytes to a fixed-size digest. Asclepius uses BLAKE2b-256 specifically; the in-tab demo uses SHA-256 because Web Crypto doesn't ship BLAKE2b. See <a href="crypto.html">the crypto toolbox</a>.</dd>
+    </div>
+    <div class="gl-entry" id="hipaa">
+      <dt>HIPAA<small>law</small></dt>
+      <dd>The US federal Health Insurance Portability and Accountability Act, including its Privacy Rule (1996) and Security Rule (2003). Sets the floor for how PHI is handled. Asclepius is designed to deploy <em>inside</em> the customer's HIPAA boundary; the project itself never touches PHI.</dd>
+    </div>
+    <div class="gl-entry" id="hsm">
+      <dt>HSM<small>hardware</small></dt>
+      <dd>Hardware Security Module. A tamper-resistant device that holds signing keys and performs operations without exposing them. Asclepius's <code>KeyStore</code> is an interface; an HSM-backed implementation (PKCS#11 reference adapter) is on the <a href="roadmap.html">roadmap</a>.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="K">
+  <h2>K</h2>
+  <dl>
+    <div class="gl-entry" id="ks">
+      <dt>KS<small>statistic</small></dt>
+      <dd>Kolmogorov–Smirnov statistic. The maximum absolute difference between two empirical CDFs. Reported alongside <a href="#psi">PSI</a> by Asclepius's drift monitor.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="L">
+  <h2>L</h2>
+  <dl>
+    <div class="gl-entry" id="ledger">
+      <dt>ledger<small>core artefact</small></dt>
+      <dd>The append-only, Merkle-chained, Ed25519-signed event log that Asclepius writes to. Persisted to SQLite WAL by default. <code>asclepius ledger verify</code> walks the chain in O(n).</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="M">
+  <h2>M</h2>
+  <dl>
+    <div class="gl-entry" id="merkle">
+      <dt>Merkle chain<small>structure</small></dt>
+      <dd>A linked list where each node includes a hash of the previous node. Mutating any past entry breaks the chain that follows. Asclepius's ledger is a <em>chain</em>, not a tree — a tree would batch entries and need root-recompute semantics; an append-only log doesn't.</dd>
+    </div>
+    <div class="gl-entry" id="mrn">
+      <dt>MRN<small>identifier</small></dt>
+      <dd>Medical Record Number. A patient's identifier inside one health system. Asclepius does not hold the MRN; the EHR maps MRN → pseudonymous <a href="#patient-id">PatientId</a> on its side.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="O">
+  <h2>O</h2>
+  <dl>
+    <div class="gl-entry" id="override">
+      <dt>override<small>event</small></dt>
+      <dd>A clinician's structured rejection or revision of a model's output. Captured with rationale by <code>Inference::capture_override</code>. The override rate is a leading indicator of model fitness.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="P">
+  <h2>P</h2>
+  <dl>
+    <div class="gl-entry" id="patient-id">
+      <dt>PatientId<small>type</small></dt>
+      <dd>A strong-typed pseudonymous identifier. Constructors include <code>PatientId::pseudonymous</code> and <code>PatientId::fhir</code>. Asclepius never sees the patient's MRN; the EHR maps the MRN to a token before passing it to the runtime.</dd>
+    </div>
+    <div class="gl-entry" id="phi">
+      <dt>PHI<small>regulated data</small></dt>
+      <dd>Protected Health Information. Any information about an identifiable patient's health that a covered entity holds. Asclepius's PHI scrubber redacts obvious patterns (SSN, MRN, phone, email, dates of birth) before the model sees them; production hosts compose this with a model-based scrubber for richer coverage.</dd>
+    </div>
+    <div class="gl-entry" id="psi">
+      <dt>PSI<small>statistic</small></dt>
+      <dd>Population Stability Index. <code>Σ (p_i − q_i) · ln(p_i / q_i)</code>. Conventional severity bands: &lt;0.10 stable, 0.10–0.25 minor, 0.25–0.50 moderate, ≥0.50 severe. Asclepius computes PSI against a frozen baseline so slow drift accumulates.</dd>
+    </div>
+    <div class="gl-entry" id="purpose">
+      <dt>Purpose<small>enum</small></dt>
+      <dd>One of eight codified clinical purposes — <code>ambient_documentation</code>, <code>diagnostic_suggestion</code>, <code>triage</code>, <code>medication_review</code>, <code>risk_stratification</code>, <code>quality_improvement</code>, <code>research</code>, <code>operations</code>. Adding a new one is a governance event, not a string change.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="R">
+  <h2>R</h2>
+  <dl>
+    <div class="gl-entry" id="result">
+      <dt>Result&lt;T, Error&gt;<small>type</small></dt>
+      <dd>Asclepius's success-or-error return type. No exceptions in the hot path; callers either get the value or a structured <code>Error</code> with a code from <code>ErrorCode</code>.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="S">
+  <h2>S</h2>
+  <dl>
+    <div class="gl-entry" id="soap">
+      <dt>SOAP note<small>format</small></dt>
+      <dd>Subjective, Objective, Assessment, Plan — the canonical structured clinical-encounter note. The Asclepius playground's fake scribe emits SOAP-shaped JSON; the schema validator policy gates that shape on output.</dd>
+    </div>
+    <div class="gl-entry" id="sqlite-wal">
+      <dt>SQLite WAL<small>mode</small></dt>
+      <dd>Write-Ahead Log mode — single-writer, many-reader, durable, no daemon. Asclepius's default ledger backend; the same shape as the planned Postgres backend.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="T">
+  <h2>T</h2>
+  <dl>
+    <div class="gl-entry" id="tampered">
+      <dt>tampered<small>state</small></dt>
+      <dd>An entry whose body has been altered after it was signed. Detected by <code>Ledger::verify()</code>: the recomputed payload hash no longer matches the one signed in the entry header.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="U">
+  <h2>U</h2>
+  <dl>
+    <div class="gl-entry" id="ulid">
+      <dt>ULID<small>identifier</small></dt>
+      <dd>Universally Unique Lexicographically Sortable Identifier. Encodes a 48-bit timestamp + 80 bits of randomness in 26 chars of Crockford base32. <code>EncounterId::make()</code> uses the ULID shape for time-orderable encounter ids.</dd>
+    </div>
+    <div class="gl-entry" id="ustar">
+      <dt>USTAR tar<small>format</small></dt>
+      <dd>Unix Standard Tar (POSIX 1003.1). The lowest-common-denominator archive format. Asclepius evidence bundles are USTAR so they can be opened with the system <code>tar</code> from any UNIX of the past 30 years.</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="gl-letter" data-l="V">
+  <h2>V</h2>
+  <dl>
+    <div class="gl-entry" id="verify">
+      <dt>verify()<small>function</small></dt>
+      <dd>The chain-walking integrity check. <code>Ledger::verify()</code> returns Ok iff every entry's seq is monotonic, every prev_hash matches the previous entry's entry_hash, every payload_hash is a correct re-hash of the body, and every signature verifies against the ledger's public key.</dd>
+    </div>
+  </dl>
+</section>
+
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — glossary.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="conformance.html">conformance</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Filter glossary entries as the user types
+(() => {
+    'use strict';
+    const $q = document.getElementById('gl-q');
+    const list = document.getElementById('gl-list');
+    const letters = document.getElementById('gl-letters');
+    const allEntries = Array.from(list.querySelectorAll('.gl-entry'));
+    const allLetterSections = Array.from(list.querySelectorAll('.gl-letter'));
+
+    // Build the alphabet jump-bar from sections that exist
+    const have = new Set(allLetterSections.map((s) => s.dataset.l));
+    let html = '';
+    for (let c = 0; c < 26; c++) {
+        const L = String.fromCharCode(65 + c);
+        if (have.has(L)) html += `<a href="#letter-${L}">${L}</a>`;
+        else             html += `<a class="is-empty" tabindex="-1" aria-hidden="true">${L}</a>`;
+    }
+    letters.innerHTML = html;
+    allLetterSections.forEach((s) => (s.id = `letter-${s.dataset.l}`));
+
+    // / focuses the search
+    document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && document.activeElement !== $q &&
+            !document.body.classList.contains('cmd-open')) {
+            const tgt = e.target;
+            if (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA') return;
+            e.preventDefault();
+            $q.focus();
+            $q.select();
+        }
+    });
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // cache original innerHTML for each entry so we can restore highlights
+    allEntries.forEach((e) => { e.dataset.orig = e.innerHTML; });
+
+    function update() {
+        const q = $q.value.trim().toLowerCase();
+        let visible = 0;
+        for (const e of allEntries) {
+            const haystack = e.textContent.toLowerCase();
+            const match = !q || haystack.includes(q);
+            e.classList.toggle('is-hidden', !match);
+            if (match && q) {
+                // wrap matches in <mark>
+                const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+                e.innerHTML = e.dataset.orig.replace(/(>)([^<]+)(?=<)/g, (m, lt, txt) => {
+                    return lt + txt.replace(re, '<mark>$1</mark>');
+                });
+                visible++;
+            } else if (match) {
+                e.innerHTML = e.dataset.orig;
+                visible++;
+            }
+        }
+        // hide empty letter sections
+        for (const s of allLetterSections) {
+            const any = !!s.querySelector('.gl-entry:not(.is-hidden)');
+            s.style.display = any ? '' : 'none';
+        }
+    }
+
+    $q.addEventListener('input', update);
+    update();
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Status — Asclepius</title>
+<meta name="description" content="What an Asclepius-deployed health system sees in production: live ledger throughput, drift alerts, recent bundle exports, last attestation.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/status.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Status">
+<meta property="og:description"  content="Synthetic-but-plausible production dashboard: ledger throughput, drift alerts, bundle exports, attestations.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="changelog.html">
+<link rel="prefetch" href="conformance.html">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.st-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.st-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+.st-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.st-hero h1 i { color: var(--primary); font-style: italic; }
+.st-hero p { color: var(--ink-mute); max-width: 64ch; font-size: 1.05rem; line-height: 1.55; }
+.st-hero p code { font-family: var(--font-mono); font-size: .9em; padding: .08em .4em; background: var(--surface-2); border: 1px solid var(--rule); border-radius: 3px; color: var(--ink-warm); }
+
+.st-banner {
+  display: flex; gap: .9rem; align-items: center;
+  padding: .9rem 1.1rem;
+  margin: 2rem 0;
+  background: rgba(52,211,153,.06);
+  border: 1px solid rgba(52,211,153,.4);
+  border-radius: 6px;
+  font-family: var(--font-mono); font-size: .85rem;
+  color: var(--ink);
+}
+.st-banner__dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(52,211,153,.16);
+  animation: live-pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes live-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,.6); }
+  50%     { box-shadow: 0 0 0 8px rgba(52,211,153,0); }
+}
+
+.st-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.st-card {
+  background: var(--surface);
+  padding: 1.4rem 1.5rem;
+  display: flex; flex-direction: column; gap: .35rem;
+  position: relative;
+}
+.st-card__label {
+  font-family: var(--font-mono);
+  font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.st-card__num {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: clamp(2rem, 4vw, 3rem); line-height: 1; letter-spacing: -.02em;
+  color: var(--ink-warm);
+  display: flex; align-items: baseline; gap: .25rem;
+}
+.st-card__num em { color: var(--primary); font-style: italic; }
+.st-card__num.is-good em { color: var(--accent); }
+.st-card__num.is-warn em { color: #FACC15; }
+.st-card__num.is-bad  em { color: var(--danger); }
+.st-card__sub {
+  font-family: var(--font-mono); font-size: .76rem;
+  color: var(--ink-mute);
+}
+.st-card__spark {
+  height: 24px;
+  margin-top: .5rem;
+  background: var(--bg-2);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.st-card__spark svg { width: 100%; height: 100%; display: block; }
+
+.st-section { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+.st-section h2 {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+}
+.st-section h2 i { color: var(--primary); font-style: italic; }
+.st-section p { color: var(--ink-mute); max-width: 60ch; }
+
+.st-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  margin-top: 1rem;
+}
+.st-table th, .st-table td {
+  text-align: left;
+  padding: .7rem 1rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.st-table th {
+  color: var(--primary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: .68rem;
+  border-bottom-color: var(--rule);
+}
+.st-table tr:last-child td { border-bottom: 0; }
+.st-table td .ok { color: var(--accent); }
+.st-table td .warn { color: #FACC15; }
+.st-table td .bad { color: var(--danger); }
+.st-table td .mono-mute { color: var(--ink-mute); }
+
+.st-attestation {
+  margin-top: 1.4rem;
+  padding: 1.2rem 1.4rem;
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  line-height: 1.6;
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: 7em 1fr;
+  gap: .7rem 1.2rem;
+  align-items: baseline;
+}
+.st-attestation b {
+  color: var(--ink-faint);
+  font-size: .68rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.st-attestation span { color: var(--accent); word-break: break-all; }
+
+.st-ledger-strip {
+  margin-top: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.st-led-row {
+  display: grid;
+  grid-template-columns: 6em 1fr 9em 9em 4em;
+  gap: 1.2rem;
+  padding: .65rem 1rem;
+  border-bottom: 1px solid var(--rule-soft);
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  background: var(--surface);
+  animation: row-in .35s var(--ease-out) both;
+}
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.st-led-row:last-child { border-bottom: 0; }
+.st-led-row__seq { color: var(--primary); }
+.st-led-row__type { color: var(--ink-warm); }
+.st-led-row__hash { color: var(--accent); }
+.st-led-row__time { color: var(--ink-faint); }
+.st-led-row__sig { color: var(--accent); text-align: right; }
+
+.st-disclaim {
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  color: var(--ink-faint);
+  letter-spacing: .04em;
+  line-height: 1.7;
+  max-width: 76ch;
+  padding: 2.4rem 0 4rem;
+}
+.st-disclaim .kbd { color: var(--primary); margin-right: .4rem; }
+
+@media (max-width: 760px) {
+  .st-led-row { grid-template-columns: auto 1fr auto; gap: .8rem; }
+  .st-led-row__hash, .st-led-row__time { display: none; }
+}
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Status",
+      "item": "https://asclepius.health/status.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-status">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="benchmarks.html">benchmarks</a>
+      <a href="conformance.html">conformance</a>
+      <a href="status.html" class="is-active" aria-current="page">status</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="st-hero">
+  <div class="container">
+    <span class="kbd">production-shape dashboard · synthetic data</span>
+    <h1>What it <i>looks like</i> at scale.</h1>
+    <p>
+      Below is a synthetic-but-plausible status page for a large multi-tenant Asclepius deployment.
+      Every customer's <em>real</em> dashboard is self-hosted; the project does not see your numbers.
+      This page exists so you know what to expect when you stand the substrate up against
+      production traffic.
+    </p>
+
+    <div class="st-banner">
+      <span class="st-banner__dot"></span>
+      <span><b>All systems nominal.</b>&nbsp;&nbsp;Chain integrity green across all tenants. Last verify <span id="st-last-verify">a moment ago</span>.</span>
+    </div>
+  </div>
+</section>
+
+<section class="st-section">
+  <div class="container">
+    <h2>Live <i>throughput.</i></h2>
+
+    <div class="st-grid">
+      <div class="st-card">
+        <span class="st-card__label">Inferences wrapped · live</span>
+        <span class="st-card__num is-good"><em id="st-tps">—</em></span>
+        <span class="st-card__sub">/ second · across 3 tenants</span>
+        <div class="st-card__spark"><svg id="st-spark-tps" preserveAspectRatio="none" viewBox="0 0 100 24"></svg></div>
+      </div>
+      <div class="st-card">
+        <span class="st-card__label">Ledger entries · today</span>
+        <span class="st-card__num"><em id="st-entries">—</em></span>
+        <span class="st-card__sub">all signed · all chained</span>
+      </div>
+      <div class="st-card">
+        <span class="st-card__label">Verify success rate</span>
+        <span class="st-card__num is-good"><em id="st-verify-rate">100.000%</em></span>
+        <span class="st-card__sub">last 30 days · 2.4&nbsp;M attestations</span>
+      </div>
+      <div class="st-card">
+        <span class="st-card__label">Drift alerts · open</span>
+        <span class="st-card__num is-warn"><em id="st-drift">2</em></span>
+        <span class="st-card__sub">moderate · Auto-paged @&nbsp;0.30 PSI</span>
+      </div>
+      <div class="st-card">
+        <span class="st-card__label">Policy blocks · 24h</span>
+        <span class="st-card__num"><em id="st-blocks">—</em></span>
+        <span class="st-card__sub">PHI scrubber · schema · length</span>
+      </div>
+      <div class="st-card">
+        <span class="st-card__label">Bundles exported · today</span>
+        <span class="st-card__num"><em id="st-bundles">37</em></span>
+        <span class="st-card__sub">all reverify locally · 0&nbsp;regressions</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="st-section">
+  <div class="container">
+    <h2>Recent attestation.</h2>
+    <p>The chain head, the public key it was signed with, and where it was last externally checkpointed. A regulator's verifier needs only the public key and the latest head to reverify any past entry.</p>
+    <div class="st-attestation">
+      <b>head</b><span id="st-head">—</span>
+      <b>seq</b><span id="st-seq">—</span>
+      <b>at</b><span id="st-attest-time">—</span>
+      <b>signed by</b><span>ed25519 · key_id <code>a1f2 9c4e b8d1 74e6</code></span>
+      <b>checkpoint</b><span>tlog.asclepius.health · sig <code>9b21…6f4a</code></span>
+    </div>
+  </div>
+</section>
+
+<section class="st-section">
+  <div class="container">
+    <h2>Latest entries · <i>streaming.</i></h2>
+    <p>The five most recent committed entries across all tenants in this synthetic deployment. Each row updates as wraps come in.</p>
+    <div class="st-ledger-strip" id="st-ledger" aria-live="polite"></div>
+  </div>
+</section>
+
+<section class="st-section">
+  <div class="container">
+    <h2>Tenant matrix.</h2>
+    <table class="st-table">
+      <thead>
+        <tr><th>tenant</th><th>l1</th><th>l2</th><th>l3</th><th>last bundle</th><th>head (tail)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>kp-northwest</td>
+          <td><span class="ok">pass</span></td>
+          <td><span class="ok">pass</span></td>
+          <td><span class="warn">partial</span></td>
+          <td>2026-04-25 · 4&nbsp;h ago</td>
+          <td><span class="mono-mute">8e510bf4…21b04a</span></td>
+        </tr>
+        <tr>
+          <td>sharp-mercy</td>
+          <td><span class="ok">pass</span></td>
+          <td><span class="ok">pass</span></td>
+          <td><span class="ok">pass</span></td>
+          <td>2026-04-25 · 1&nbsp;h ago</td>
+          <td><span class="mono-mute">3f9c1ad8…0e7d21</span></td>
+        </tr>
+        <tr>
+          <td>columbia-research</td>
+          <td><span class="ok">pass</span></td>
+          <td><span class="warn">partial</span></td>
+          <td><span class="bad">—</span></td>
+          <td>2026-04-24 · 18&nbsp;h ago</td>
+          <td><span class="mono-mute">22b91d04…f0a4c8</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="container">
+  <p class="st-disclaim">
+    <span class="kbd">·&nbsp;synthetic data&nbsp;·</span>
+    The numbers, tenants, and key id on this page are illustrative. Every Asclepius deployment is self-hosted; we do not operate a SaaS that sees customer ledgers. Use the JS console (<code>window.asc</code>) to inspect the timeseries used to render this dashboard if you want to know exactly what is fake and what is shape-faithful.
+  </p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — status.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="roadmap.html">roadmap</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>verify</b>
+        <a href="conformance.html">conformance</a>
+        <a href="status.html">status</a>
+        <a href="security.html">security</a>
+        <a href="labs.html">labs</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// status dashboard — synthetic but realistic-looking timeseries.
+(() => {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const fmt = (n, d = 0) => n.toLocaleString('en-US', { maximumFractionDigits: d });
+  const HEX = '0123456789abcdef';
+  const fakeHash = (n = 14) => Array.from({ length: n }, () => HEX[Math.floor(Math.random()*16)]).join('');
+  const tail = (h) => h.slice(0,8) + '…' + h.slice(-6);
+
+  // base TPS scaled gently by time-of-day
+  function baseTps() {
+    const h = new Date().getHours();
+    return 220 + Math.sin((h - 9) * Math.PI / 12) * 80;
+  }
+
+  // running totals
+  const startEntriesToday = 142_318;
+  const startBlocks24h    = 1_044;
+
+  let tpsHistory = Array.from({ length: 40 }, () => baseTps() + (Math.random()-0.5)*40);
+  let entriesToday = startEntriesToday;
+  let blocks24h    = startBlocks24h;
+  let lastSeq      = 1_482_306;
+
+  const ledger = $('#st-ledger');
+  const types = [
+    'inference.committed', 'inference.committed', 'inference.committed',
+    'inference.committed', 'inference.committed',
+    'evaluation.override', 'evaluation.ground_truth', 'consent.granted'
+  ];
+  const tenants = ['kp-northwest', 'sharp-mercy', 'columbia-research'];
+
+  function pushRow() {
+    lastSeq += 1;
+    const t = types[Math.floor(Math.random()*types.length)];
+    const tenant = tenants[Math.floor(Math.random()*tenants.length)];
+    const row = document.createElement('div');
+    row.className = 'st-led-row';
+    row.innerHTML = `
+        <span class="st-led-row__seq">${lastSeq.toString(16).padStart(8,'0').toUpperCase()}</span>
+        <span class="st-led-row__type">${t}</span>
+        <span class="st-led-row__hash">${tail(fakeHash(40))}</span>
+        <span class="st-led-row__time">${tenant}</span>
+        <span class="st-led-row__sig">✓</span>`;
+    ledger.prepend(row);
+    while (ledger.children.length > 6) ledger.removeChild(ledger.lastChild);
+  }
+  // seed
+  for (let i = 0; i < 5; i++) pushRow();
+
+  function paintSpark() {
+    const svg = $('#st-spark-tps');
+    const w = 100, h = 24;
+    const min = Math.min(...tpsHistory);
+    const max = Math.max(...tpsHistory);
+    const range = max - min || 1;
+    const step = w / (tpsHistory.length - 1);
+    const pts = tpsHistory.map((v, i) =>
+        `${(i*step).toFixed(2)},${(h - ((v - min) / range) * (h - 4) - 2).toFixed(2)}`
+    ).join(' ');
+    svg.innerHTML = `
+        <polyline fill="none" stroke="var(--primary)" stroke-width="1.5" points="${pts}"/>
+        <polyline fill="rgba(181,123,255,.08)" stroke="none" points="${pts} ${w},${h} 0,${h}"/>`;
+  }
+
+  function update() {
+    const tps = Math.round(baseTps() + (Math.random()-0.5)*40);
+    tpsHistory.push(tps); if (tpsHistory.length > 40) tpsHistory.shift();
+
+    entriesToday += tps;
+    blocks24h    += Math.random() < 0.18 ? 1 : 0;
+
+    $('#st-tps').textContent     = fmt(tps);
+    $('#st-entries').textContent = fmt(entriesToday);
+    $('#st-blocks').textContent  = fmt(blocks24h);
+    $('#st-bundles').textContent = String(37 + Math.floor((Date.now() / 90_000) % 13));
+
+    // chain head moves with each batch
+    const head = fakeHash(64);
+    $('#st-head').textContent       = head;
+    $('#st-seq').textContent        = fmt(lastSeq);
+    $('#st-attest-time').textContent= new Date().toISOString().slice(0,19) + 'Z';
+    $('#st-last-verify').textContent= 'a moment ago · ok';
+
+    paintSpark();
+
+    if (Math.random() < 0.55) pushRow();
+  }
+  update();
+  setInterval(update, 2200);
+
+  // expose for console inspection
+  window.asc = { tpsHistory, get: () => ({ entriesToday, blocks24h, lastSeq, tps: tpsHistory.at(-1) }) };
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

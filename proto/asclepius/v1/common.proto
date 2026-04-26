@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Asclepius Contributors
+//
+// Common message types used across the Asclepius wire schemas.
+// Stable as of v1; additive changes only within v1.
+
+syntax = "proto3";
+
+package asclepius.v1;
+
+option cc_enable_arenas = true;
+option go_package        = "asclepius.health/proto/asclepius/v1;asclepiusv1";
+option java_package      = "health.asclepius.proto.v1";
+option java_multiple_files = true;
+
+// 32-byte BLAKE2b-256 digest. Always exactly 32 bytes; smaller or larger
+// payloads are a protocol error.
+message Hash {
+  bytes bytes = 1;  // len = 32
+}
+
+// Wall-clock nanoseconds since the Unix epoch. Stored signed for symmetry
+// with the on-disk representation (negative values are pre-1970 and never
+// produced by the runtime).
+message Time {
+  sint64 nanos_since_epoch = 1;
+}
+
+// Ed25519 signature (64 bytes) and the key id (16 hex chars) of the signer.
+// `key_id` is the first 16 lowercase hex chars of the public key.
+message Signature {
+  bytes  bytes  = 1;  // len = 64
+  string key_id = 2;  // len = 16
+}
+
+// Strong identifier wrapper. The `kind` is informational; downstream code
+// reads only `value`. The wire form mirrors `asclepius::detail::StrongId`.
+message Id {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    ACTOR            = 1;
+    PATIENT          = 2;
+    ENCOUNTER        = 3;
+    MODEL            = 4;
+    TENANT           = 5;
+  }
+  Kind   kind  = 1;
+  string value = 2;
+}
+
+// Allowed purposes for AI use on patient data. Adding a member is an
+// API-minor event; removing one is a major break.
+enum Purpose {
+  PURPOSE_UNSPECIFIED   = 0;
+  AMBIENT_DOCUMENTATION = 1;
+  DIAGNOSTIC_SUGGESTION = 2;
+  TRIAGE                = 3;
+  MEDICATION_REVIEW     = 4;
+  RISK_STRATIFICATION   = 5;
+  QUALITY_IMPROVEMENT   = 6;
+  RESEARCH              = 7;
+  OPERATIONS            = 8;
+}
+
+// Status for an inference outcome. Mirrors the fields written to a
+// `inference.committed` ledger body.
+enum InferenceStatus {
+  INFERENCE_STATUS_UNSPECIFIED = 0;
+  OK                           = 1;
+  POLICY_BLOCKED               = 2;
+  CONSENT_DENIED               = 3;
+  MODEL_ERROR                  = 4;
+  RATE_LIMITED                 = 5;
+  ABORTED                      = 6;
+}
+
+// Severity classes for drift reports. Thresholds are calibration-dependent
+// (see DriftMonitor::classify) — these are advisory.
+enum DriftSeverity {
+  DRIFT_SEVERITY_UNSPECIFIED = 0;
+  NONE                       = 1;
+  MINOR                      = 2;
+  MODERATE                   = 3;
+  SEVERE                     = 4;
+}

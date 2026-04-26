@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governance — Asclepius</title>
+<meta name="description" content="How decisions get made in the Asclepius project: lazy consensus for routine PRs, RFCs for shape changes, public voting for breaking changes, no BDFL.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/governance.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Governance — Asclepius">
+<meta property="og:description"  content="Decision-making model — lazy consensus, RFCs, breaking-change votes, no BDFL.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .gv { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .gv__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .gv__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .gv__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .gv__hero h1 i { color: var(--primary); font-style: italic; }
+  .gv__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+
+  .gv-section { padding: 2.4rem 0; border-top: 1px solid var(--rule-soft); max-width: 70ch; }
+  .gv-section:first-of-type { border-top: 1px solid var(--rule); }
+  .gv-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+  }
+  .gv-section h2 i { color: var(--primary); font-style: italic; }
+  .gv-section p { color: var(--ink); font-family: var(--font-prose); line-height: 1.7; margin: 0 0 1rem; }
+  .gv-section em { color: var(--primary); font-style: italic; }
+  .gv-section code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+
+  .gv-tier {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+    margin: 2rem 0;
+  }
+  @media (max-width: 760px) { .gv-tier { grid-template-columns: 1fr; } }
+  .gv-tier__cell {
+    padding: 1.4rem 1.2rem;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    display: flex; flex-direction: column; gap: .5rem;
+  }
+  .gv-tier__num {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .18em; color: var(--primary);
+  }
+  .gv-tier__cell h3 {
+    font-family: var(--font-serif); font-weight: 400; font-size: 1.3rem;
+    color: var(--ink-warm); margin: 0; letter-spacing: -.01em;
+  }
+  .gv-tier__cell h3 i { color: var(--primary); font-style: italic; }
+  .gv-tier__cell p {
+    color: var(--ink-mute); font-family: var(--font-prose);
+    font-size: .92rem; line-height: 1.6; margin: 0;
+  }
+
+  .gv-roles {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 1.4rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: baseline;
+  }
+  .gv-roles:first-of-type { border-top: 1px solid var(--rule); padding-top: 1rem; }
+  .gv-roles b {
+    font-family: var(--font-mono); font-size: .82rem;
+    letter-spacing: .04em; color: var(--primary); font-weight: 500;
+  }
+  .gv-roles span { color: var(--ink); font-family: var(--font-prose); font-size: .94rem; line-height: 1.6; }
+  @media (max-width: 600px) { .gv-roles { grid-template-columns: 1fr; gap: .25rem; } }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",       "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Governance", "item": "https://asclepius.health/governance.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-governance">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="contributing.html">contributing</a>
+      <a href="governance.html" class="is-active" aria-current="page">governance</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="gv">
+  <div class="container">
+
+    <header class="gv__hero">
+      <span class="kbd">governance · v0.1.0 line · open</span>
+      <h1>How <i>decisions</i> get made.</h1>
+      <p>
+        Asclepius is open-source under Apache 2.0. There is no benevolent dictator;
+        decisions about what merges, what ships, and what breaks are made by maintainers
+        through a small, predictable set of rules. This page is the contract.
+      </p>
+    </header>
+
+    <section class="gv-section">
+      <h2>Three <i>tiers</i> of change</h2>
+      <p>Every contribution falls into one of three tiers, with a different bar for merging.</p>
+    </section>
+
+    <div class="gv-tier" aria-label="three tiers of change">
+      <div class="gv-tier__cell">
+        <span class="gv-tier__num">tier 01</span>
+        <h3>Routine</h3>
+        <p>Bug fixes with regression tests, doc improvements, performance work that doesn't change behavior.
+          <em>Lazy consensus</em>: any maintainer can merge after 24 hours without an objection. CI must pass.</p>
+      </div>
+      <div class="gv-tier__cell">
+        <span class="gv-tier__num">tier 02</span>
+        <h3>Shape changes</h3>
+        <p>New event types, new policy interfaces, new bundle fields, public-API additions.
+          Require an <em>RFC</em> in <code>rfc/NNNN-title.md</code>, a 7-day comment window,
+          and approval from <em>two maintainers</em>.</p>
+      </div>
+      <div class="gv-tier__cell">
+        <span class="gv-tier__num">tier 03</span>
+        <h3>Breaking changes</h3>
+        <p>Anything that requires <code>asclepius migrate</code>. Require an RFC, a 14-day comment window,
+          a public vote on the mailing list, and a supermajority of active maintainers (≥ 2/3).</p>
+      </div>
+    </div>
+
+    <section class="gv-section">
+      <h2>Roles</h2>
+      <p>The role definitions are deliberately thin; we add roles only when a tension forces it.</p>
+      <div>
+        <div class="gv-roles">
+          <b>contributor</b>
+          <span>Anyone who has opened a PR, an issue, an RFC, or a bug report. No barriers; no approval needed.</span>
+        </div>
+        <div class="gv-roles">
+          <b>committer</b>
+          <span>Has merge rights to <code>main</code>. Earned by 5+ merged substantive PRs and a maintainer's nomination.
+            Held by <em>~7 people</em> at any given time.</span>
+        </div>
+        <div class="gv-roles">
+          <b>maintainer</b>
+          <span>Committer who has been active for ≥ 6 months and is responsible for one of: runtime, bindings, site, conformance battery.
+            Sets policy in their domain. <em>~3 people.</em></span>
+        </div>
+        <div class="gv-roles">
+          <b>security responder</b>
+          <span>Maintainer who handles <code>security@asclepius.health</code>. At least 2 at any given time. Rotates monthly.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="gv-section">
+      <h2>RFC process</h2>
+      <p>
+        An RFC is a Markdown file in <code>rfc/NNNN-title.md</code>. The next available <code>NNNN</code> is
+        whatever's next; collisions resolve by re-numbering at merge time. Required sections:
+      </p>
+      <ul style="font-family:var(--font-prose);line-height:1.8;color:var(--ink);padding-left:1.2rem;">
+        <li><strong>Problem</strong> — what is broken without this</li>
+        <li><strong>Non-goals</strong> — what this RFC will <em>not</em> address</li>
+        <li><strong>Design</strong> — the proposed change, in enough detail to implement</li>
+        <li><strong>Compatibility</strong> — does this break v1.x; if so, why is the break worth it</li>
+        <li><strong>Drawbacks</strong> — honest accounting of what gets worse</li>
+        <li><strong>Alternatives</strong> — at least two; explain why the chosen path won</li>
+        <li><strong>Open questions</strong> — what we still don't know</li>
+      </ul>
+      <p>
+        RFCs merge when two maintainers approve. Merging an RFC commits us to <em>discuss</em>;
+        the implementation PR carries the RFC number in its subject line (<code>rfc/0042</code>).
+        An RFC may be withdrawn by its author at any point before implementation lands.
+      </p>
+    </section>
+
+    <section class="gv-section">
+      <h2>Disagreement</h2>
+      <p>
+        If reasonable contributors disagree and lazy consensus stalls, the path is:
+      </p>
+      <ul style="font-family:var(--font-prose);line-height:1.8;color:var(--ink);padding-left:1.2rem;">
+        <li>One week of focused discussion in the PR thread.</li>
+        <li>If unresolved: a maintainer call (asynchronous, in the PR), 5 working days.</li>
+        <li>If still unresolved: a vote on the public mailing list, simple majority of active maintainers.</li>
+        <li>Anything that survives a vote ships, with a written summary in the PR explaining the trade-off.</li>
+      </ul>
+      <p>
+        We have not yet had to escalate past step one. We document the rule because we want to
+        keep that record clean.
+      </p>
+    </section>
+
+    <section class="gv-section">
+      <h2>Releases</h2>
+      <p>
+        Releases happen on a <em>readiness basis</em>, not on a calendar. The release manager
+        rotates monthly among the maintainers; their job is to cut the tag, write the changelog
+        entry, and run the conformance battery against the release candidate. A release fails CI
+        if the conformance battery fails on any supported platform — full stop.
+      </p>
+      <p>
+        Patch releases (<code>0.x.y</code>) need 1 maintainer approval. Minor releases need 2.
+        Major releases need 2 + an RFC describing the migration path.
+      </p>
+    </section>
+
+    <section class="gv-section">
+      <h2>Trademarks &amp; the brand</h2>
+      <p>
+        The name "Asclepius" and the seal/chain-head mark are <em>not</em> covered by Apache 2.0.
+        Use the press kit at <a href="press.html">/press</a> for what's permitted; everything not covered
+        there should ask <a href="mailto:hello@asclepius.health">hello@asclepius.health</a> first.
+        The substrate code itself can be vendored, forked, and rebranded under Apache 2.0 with no permission needed.
+      </p>
+    </section>
+
+    <section class="gv-section">
+      <h2>Code of conduct</h2>
+      <p>
+        Adapted from the Contributor Covenant and lightly opinionated. The summary: <em>assume good
+        faith, prefer precise critique over personal critique, remember that everything that happens
+        in this project will run next to a patient.</em> Detailed policy + reporting flow in
+        <a href="contributing.html#code-of-conduct">/contributing</a>.
+      </p>
+    </section>
+
+    <section class="gv-section">
+      <h2>Why this is short</h2>
+      <p>
+        A governance document that is longer than the codebase governs nothing. The above fits on one
+        printed page. If a situation arises that this page does not cover, we will write down what we
+        decided to do and add it here. The git log of this file is the canonical history.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — governance.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="governance.html">governance</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+      </div>
+      <div>
+        <b>policies</b>
+        <a href="accessibility.html">accessibility</a>
+        <a href="cookies.html">cookies</a>
+        <a href="licenses.html">licenses</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/floating.js" defer></script>
+</body>
+</html>

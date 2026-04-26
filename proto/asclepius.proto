@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Asclepius Contributors
+//
+// Wire schema for the (planned) HTTP/gRPC sidecar. Reserving message
+// shapes now so the C++ runtime and the sidecar agree from day one.
+
+syntax = "proto3";
+
+package asclepius.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Hash {
+    bytes bytes = 1;  // exactly 32 bytes (BLAKE2b-256)
+}
+
+message LedgerEntry {
+    uint64 seq                   = 1;
+    google.protobuf.Timestamp ts = 2;
+    Hash prev_hash               = 3;
+    Hash payload_hash            = 4;
+    string actor                 = 5;
+    string event_type            = 6;
+    string tenant                = 7;
+    string body_canonical_json   = 8;
+    bytes  signature             = 9;   // 64 bytes (Ed25519)
+    string key_id                = 10;
+}
+
+message InferenceSpec {
+    string model_id              = 1;
+    string actor                 = 2;
+    string patient               = 3;
+    string encounter             = 4;
+    string purpose               = 5;
+    string tenant                = 6;
+    string consent_token_id      = 7;
+}
+
+message RunRequest {
+    InferenceSpec spec           = 1;
+    string        input          = 2;
+}
+
+message RunResponse {
+    string        output         = 1;
+    LedgerEntry   committed      = 2;
+}
+
+message DriftReport {
+    string feature               = 1;
+    double psi                   = 2;
+    double ks_statistic          = 3;
+    double emd                   = 4;
+    string severity              = 5;
+    uint64 reference_n           = 6;
+    uint64 current_n             = 7;
+    google.protobuf.Timestamp computed_at = 8;
+}
+
+message EvidenceBundleSpec {
+    google.protobuf.Timestamp window_start = 1;
+    google.protobuf.Timestamp window_end   = 2;
+    string                    out_path     = 3;
+}
+
+service AsclepiusService {
+    rpc Run(RunRequest)             returns (RunResponse);
+    rpc Verify(.google.protobuf.Empty) returns (.google.protobuf.Empty);
+    rpc DriftReportRpc(.google.protobuf.Empty) returns (stream DriftReport);
+    rpc ExportBundle(EvidenceBundleSpec) returns (.google.protobuf.Empty);
+}

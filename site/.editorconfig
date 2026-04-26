@@ -1,0 +1,37 @@
+# Asclepius — site .editorconfig
+# https://editorconfig.org/
+#
+# Project-wide cross-editor settings. Keep this file small and tolerable
+# of every editor we have ever heard of.
+
+root = true
+
+[*]
+charset                  = utf-8
+end_of_line              = lf
+insert_final_newline     = true
+trim_trailing_whitespace = true
+indent_style             = space
+
+# HTML, CSS, JSON, MD: 2-space indents (matches the styles.css cascade
+# and how nlohmann/json prints itself).
+[*.{html,css,js,json,xml,svg,md}]
+indent_size              = 2
+
+# Python build helpers: 4-space (PEP 8).
+[*.py]
+indent_size              = 4
+
+# Keep manifest + feed JSON exactly as authored — preserve the alignment.
+[{manifest.json,feed.json,asset-manifest.json,search-index.json,sitemap.xml,atom.xml,opensearch.xml}]
+trim_trailing_whitespace = false
+
+# Plain text files: never reformat.
+[*.txt]
+trim_trailing_whitespace = false
+insert_final_newline     = false
+
+# The PGP block has its own format, do not touch.
+[*.asc]
+trim_trailing_whitespace = false
+insert_final_newline     = false

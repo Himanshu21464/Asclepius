@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Press kit — Asclepius</title>
+<meta name="description" content="Wordmark, mark, color tokens, fact sheet, downloadable brand assets, sample copy. For journalists, partners, and the AI Governance Office.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="canonical" href="https://asclepius.health/press.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Press kit — Asclepius">
+<meta property="og:description"  content="Wordmark, mark, palette, fact sheet, downloadable brand assets, sample copy.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="index.html">
+<link rel="prefetch" href="contributing.html">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .pr { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .pr__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .pr__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .pr__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .pr__hero h1 i { color: var(--primary); font-style: italic; }
+  .pr__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+
+  /* identity strip — wordmark + mark */
+  .pr-identity {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+    margin-bottom: 3rem;
+  }
+  @media (max-width: 800px) { .pr-identity { grid-template-columns: 1fr; } }
+  .pr-id-cell {
+    padding: clamp(2rem, 4vw, 3rem) 1.6rem;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    display: flex; flex-direction: column; gap: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .pr-id-cell--mark {
+    background:
+      radial-gradient(360px 200px at 100% 0%, var(--primary-glow), transparent 70%),
+      var(--surface);
+    align-items: center; justify-content: center; text-align: center;
+  }
+  .pr-id__cap {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .pr-wordmark {
+    font-family: var(--font-serif);
+    font-size: clamp(3.2rem, 8vw, 6rem);
+    line-height: .9;
+    color: var(--ink-warm);
+    letter-spacing: -.03em;
+  }
+  .pr-wordmark i { color: var(--primary); font-style: italic; }
+  .pr-mark {
+    width: 200px; height: 200px;
+    display: grid; place-items: center;
+  }
+  .pr-mark svg { width: 100%; height: 100%; }
+  .pr-id__detail {
+    font-family: var(--font-mono); font-size: .82rem;
+    color: var(--ink-mute); margin: 0;
+  }
+  .pr-id__detail code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .9em; color: var(--accent);
+  }
+
+  /* palette strip */
+  .pr-palette {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+    border: 1px solid var(--rule);
+    margin: 0 0 3rem;
+  }
+  @media (max-width: 880px) { .pr-palette { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 480px) { .pr-palette { grid-template-columns: repeat(2, 1fr); } }
+  .pr-color {
+    aspect-ratio: 1.4 / 1;
+    padding: 1rem 1rem;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    gap: .25rem;
+    border-right: 1px solid var(--rule);
+    font-family: var(--font-mono); font-size: .72rem;
+    position: relative;
+  }
+  .pr-color:last-child { border-right: 0; }
+  .pr-color b { display: block; font-size: .76rem; font-weight: 500; }
+  .pr-color span { color: rgba(255,255,255,.7); font-size: .68rem; }
+  .pr-color--ink           { background: #0A0710; color: #EFEAF5; }
+  .pr-color--surface       { background: #14101D; color: #EFEAF5; }
+  .pr-color--primary       { background: #6B21A8; color: #fff; }
+  .pr-color--primary-light { background: #B57BFF; color: #1B1426; }
+  .pr-color--accent        { background: #059669; color: #fff; }
+  .pr-color--accent-light  { background: #34D399; color: #1B1426; }
+  .pr-color--primary-light span,
+  .pr-color--accent-light  span { color: rgba(0,0,0,.6); }
+
+  /* fact sheet */
+  .pr-section { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+  .pr-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+  }
+  .pr-section h2 i { color: var(--primary); font-style: italic; }
+  .pr-section p { color: var(--ink); max-width: 70ch; line-height: 1.7; margin: 0 0 1rem; }
+  .pr-section em { color: var(--primary); font-style: italic; }
+
+  .pr-facts { margin: 1.4rem 0; border-top: 1px solid var(--rule); }
+  .pr-fact {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 1.4rem; padding: .9rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--font-mono); font-size: .92rem;
+    align-items: baseline;
+  }
+  .pr-fact b { color: var(--primary); font-weight: 500; letter-spacing: .04em; }
+  .pr-fact span { color: var(--ink); }
+  @media (max-width: 600px) { .pr-fact { grid-template-columns: 1fr; gap: .2rem; } }
+
+  /* downloads */
+  .pr-downloads {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px;
+    border: 1px solid var(--rule);
+    background: var(--rule);
+    margin-top: 1.2rem;
+  }
+  .pr-dl {
+    background: var(--surface);
+    padding: 1rem 1.1rem;
+    text-decoration: none;
+    color: var(--ink);
+    display: flex; flex-direction: column; gap: .35rem;
+    transition: background .2s, color .2s;
+  }
+  .pr-dl:hover { background: var(--surface-2); color: var(--primary); }
+  .pr-dl__name {
+    font-family: var(--font-mono); font-size: .82rem; color: var(--ink-warm);
+  }
+  .pr-dl__hint {
+    font-family: var(--font-mono); font-size: .68rem;
+    color: var(--ink-faint); letter-spacing: .08em;
+  }
+
+  /* sample copy */
+  .pr-quote {
+    border-left: 2px solid var(--primary);
+    padding-left: 1.4rem;
+    font-family: var(--font-serif);
+    font-size: clamp(1.2rem, 2.4vw, 1.6rem);
+    color: var(--ink-warm);
+    line-height: 1.45;
+    font-style: italic;
+    margin: 1.6rem 0;
+    max-width: 70ch;
+  }
+  .pr-quote--short { font-size: clamp(1rem, 2vw, 1.3rem); border-color: var(--accent); }
+
+  /* contact */
+  .pr-contact {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem; margin-top: 1.4rem;
+  }
+  .pr-contact-card {
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    display: flex; flex-direction: column; gap: .35rem;
+  }
+  .pr-contact-card b {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--primary);
+  }
+  .pr-contact-card a {
+    font-family: var(--font-mono); font-size: .92rem; color: var(--ink-warm);
+    text-decoration: none;
+  }
+  .pr-contact-card a:hover { color: var(--primary); }
+  .pr-contact-card span { font-size: .82rem; color: var(--ink-mute); }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Press kit",
+      "item": "https://asclepius.health/press.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-press">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="changelog.html">changelog</a>
+      <a href="press.html" class="is-active" aria-current="page">press</a>
+      <a href="contributing.html">contributing</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="pr">
+  <div class="container">
+
+    <header class="pr__hero">
+      <span class="kbd">press kit · asclepius v0.1.0</span>
+      <h1>For journalists, partners, and <i>regulators</i>.</h1>
+      <p>
+        Everything below is licensed under Apache&nbsp;2.0 alongside the runtime; reuse it,
+        embed it, quote from it. We ask only that you describe the substrate accurately.
+        If something on this page is wrong, that is a bug — please email
+        <a href="mailto:hello@asclepius.health">hello@asclepius.health</a>.
+      </p>
+    </header>
+
+    <!-- ─── identity strip ─────────────────────────────────────────────── -->
+    <section class="pr-identity" aria-label="identity">
+      <div class="pr-id-cell">
+        <span class="pr-id__cap">wordmark · italic Instrument Serif</span>
+        <span class="pr-wordmark"><i>asclepius</i></span>
+        <p class="pr-id__detail">
+          Wordmark in <code>Instrument Serif</code> italic. Always lowercase. Italic is structural,
+          not decorative — do not roman-set it. Acceptable colors: ink-warm on dark surfaces,
+          deep purple on light parchment.
+        </p>
+      </div>
+      <div class="pr-id-cell pr-id-cell--mark">
+        <span class="pr-id__cap">mark · seal + chain head</span>
+        <div class="pr-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32">
+            <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#14101D" stroke="#2A2438"/>
+            <circle cx="16" cy="16" r="11" fill="rgba(181,123,255,0.25)"/>
+            <g transform="translate(16 16)">
+              <path d="M 9 0 A 9 9 0 1 0 -2.5 8.6"
+                    fill="none" stroke="#B57BFF" stroke-width="1.7" stroke-linecap="round"/>
+              <circle cx="9" cy="0" r="2.4" fill="#B57BFF"/>
+              <circle cx="-3" cy="-3" r="1.1" fill="#34D399"/>
+            </g>
+          </svg>
+        </div>
+        <p class="pr-id__detail">tamper-evident seal · purple anchor (chain head) · green sentinel</p>
+      </div>
+    </section>
+
+    <!-- ─── palette ────────────────────────────────────────────────────── -->
+    <section class="pr-section">
+      <h2>Palette</h2>
+      <p>
+        The portfolio palette lifted for legibility on dark surfaces. <em>Primary</em> is purple
+        for tamper-evident; <em>accent</em> is surgical green for verification states.
+        Ink and surface are deep, near-black, slightly purple-tinted — never pure <code>#000</code>.
+      </p>
+    </section>
+    <div class="pr-palette" aria-label="brand colors">
+      <div class="pr-color pr-color--ink">           <b>ink</b>           <span>#0A0710</span></div>
+      <div class="pr-color pr-color--surface">       <b>surface</b>       <span>#14101D</span></div>
+      <div class="pr-color pr-color--primary">       <b>primary</b>       <span>#6B21A8</span></div>
+      <div class="pr-color pr-color--primary-light"> <b>primary lift</b>  <span>#B57BFF</span></div>
+      <div class="pr-color pr-color--accent">        <b>accent</b>        <span>#059669</span></div>
+      <div class="pr-color pr-color--accent-light">  <b>accent lift</b>   <span>#34D399</span></div>
+    </div>
+
+    <!-- ─── fact sheet ─────────────────────────────────────────────────── -->
+    <section class="pr-section">
+      <h2>Fact sheet</h2>
+      <div class="pr-facts">
+        <div class="pr-fact"><b>Project</b><span>Asclepius — a trust substrate for clinical AI</span></div>
+        <div class="pr-fact"><b>Tagline</b><span>The Linux kernel for clinical AI.</span></div>
+        <div class="pr-fact"><b>License</b><span>Apache 2.0</span></div>
+        <div class="pr-fact"><b>First public release</b><span>v0.1.0 — 2026-02-04</span></div>
+        <div class="pr-fact"><b>Current</b><span>v0.3.0 — 2026-04-25</span></div>
+        <div class="pr-fact"><b>Format freeze</b><span>v1.0.0 (target: 2026 Q4)</span></div>
+        <div class="pr-fact"><b>Language / build</b><span>C++20 · CMake 3.24+ · libsodium · SQLite</span></div>
+        <div class="pr-fact"><b>Bindings</b><span>Python (pybind11) · Rust (cxx, planned) · gRPC sidecar</span></div>
+        <div class="pr-fact"><b>Cryptographic primitives</b><span>BLAKE2b-256 · Ed25519</span></div>
+        <div class="pr-fact"><b>Lines of code</b><span>≈ 12k SLOC C++ · ≈ 2k SLOC Python · ≈ 1.5k SLOC JS (playground)</span></div>
+        <div class="pr-fact"><b>p99 wrap latency</b><span>62 µs (single-core M3 Pro, excludes model call)</span></div>
+        <div class="pr-fact"><b>Conformance levels</b><span>L1 audit · L2 drift · L3 prospective evidence</span></div>
+        <div class="pr-fact"><b>Governance</b><span>open-source, RFC + PR + DCO</span></div>
+        <div class="pr-fact"><b>Repository</b><span><a href="https://github.com/asclepius-ai/asclepius">github.com/asclepius-ai/asclepius</a></span></div>
+      </div>
+    </section>
+
+    <!-- ─── elevator pitches ───────────────────────────────────────────── -->
+    <section class="pr-section">
+      <h2>Sample copy — pick your length</h2>
+      <p>Approved phrasings. Use as-is or paraphrase; the only thing we ask is that you preserve the substantive claims. None of the below has been spun.</p>
+
+      <p style="font-family: var(--font-mono); font-size: .68rem; color: var(--accent); letter-spacing:.14em; text-transform:uppercase; margin-top:1.5rem;">8 words</p>
+      <p class="pr-quote pr-quote--short">An open audit substrate for clinical&nbsp;AI.</p>
+
+      <p style="font-family: var(--font-mono); font-size: .68rem; color: var(--accent); letter-spacing:.14em; text-transform:uppercase; margin-top:1rem;">25 words</p>
+      <p class="pr-quote pr-quote--short">Asclepius is an open, vendor-neutral C++ runtime that wraps any clinical-AI tool with a signed Merkle ledger, composable guardrails, drift detection, and regulator-grade evidence bundles.</p>
+
+      <p style="font-family: var(--font-mono); font-size: .68rem; color: var(--accent); letter-spacing:.14em; text-transform:uppercase; margin-top:1rem;">paragraph</p>
+      <p class="pr-quote">
+        The 2026 health system runs dozens of AI models in production and hand-rolls audit, drift, consent,
+        and evidence pipelines for every one of them. Asclepius is the substrate underneath: an open,
+        vendor-neutral C++ runtime that wraps any clinical-AI tool with cryptographic auditability and
+        regulator-grade evidence bundles a third party can verify offline. <em>The trust layer cannot
+        be a SaaS.</em>
+      </p>
+    </section>
+
+    <!-- ─── downloads ──────────────────────────────────────────────────── -->
+    <section class="pr-section">
+      <h2>Downloads</h2>
+      <p>SVGs are authoritative; PNGs are convenience. The full kit (zip, ~2 MB) bundles the same files plus a typography sample.</p>
+      <div class="pr-downloads">
+        <a class="pr-dl" href="assets/favicon.svg"          download>
+          <span class="pr-dl__name">mark · color SVG</span>
+          <span class="pr-dl__hint">32×32 viewBox · Apache 2.0</span>
+        </a>
+        <a class="pr-dl" href="assets/favicon-mono.svg"     download>
+          <span class="pr-dl__name">mark · monochrome SVG</span>
+          <span class="pr-dl__hint">recolorable · Apache 2.0</span>
+        </a>
+        <a class="pr-dl" href="assets/og-card.svg"          download>
+          <span class="pr-dl__name">OG card · 1200×630 SVG</span>
+          <span class="pr-dl__hint">vector source</span>
+        </a>
+        <a class="pr-dl" href="assets/og-card.png"          download>
+          <span class="pr-dl__name">OG card · 1200×630 PNG</span>
+          <span class="pr-dl__hint">rasterized at 2× density</span>
+        </a>
+        <a class="pr-dl" href="assets/apple-touch-icon.png" download>
+          <span class="pr-dl__name">apple-touch-icon · 180×180</span>
+          <span class="pr-dl__hint">iOS home-screen</span>
+        </a>
+        <a class="pr-dl" href="https://github.com/asclepius-ai/asclepius/raw/main/Asclepius.pdf">
+          <span class="pr-dl__name">brief · PDF</span>
+          <span class="pr-dl__hint">the original Future Project Brief</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ─── tone ───────────────────────────────────────────────────────── -->
+    <section class="pr-section">
+      <h2>Tone</h2>
+      <p>
+        Editorial and clinical. <em>Calm</em>, not breathless. We do not call ourselves "revolutionary",
+        do not promise "transformation", do not claim "first" without a footnote.
+        Specific numbers preferred over adjectives. Active voice; <em>verbs do work, adjectives don't</em>.
+      </p>
+      <p>
+        Phrases we will not use: <code>game-changer</code>, <code>AI-powered</code>,
+        <code>next-generation</code>, <code>cutting-edge</code>, <code>seamlessly</code>,
+        <code>industry-leading</code>, <code>disruptive</code>. They are filler and
+        readers know it.
+      </p>
+    </section>
+
+    <!-- ─── contact ────────────────────────────────────────────────────── -->
+    <section class="pr-section">
+      <h2>Contact</h2>
+      <div class="pr-contact">
+        <div class="pr-contact-card">
+          <b>press</b>
+          <a href="mailto:press@asclepius.health">press@asclepius.health</a>
+          <span>quotes, interviews, embargoed reviews</span>
+        </div>
+        <div class="pr-contact-card">
+          <b>partnerships</b>
+          <a href="mailto:labs@asclepius.health">labs@asclepius.health</a>
+          <span>design partners, conformance sites</span>
+        </div>
+        <div class="pr-contact-card">
+          <b>security</b>
+          <a href="mailto:security@asclepius.health">security@asclepius.health</a>
+          <span>vulnerability reports — see <a href="security.html">/security</a></span>
+        </div>
+        <div class="pr-contact-card">
+          <b>general</b>
+          <a href="mailto:hello@asclepius.health">hello@asclepius.health</a>
+          <span>everything else</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — press kit.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+    <div class="foot__sig">
+      <span>no cookies · no analytics · no telemetry</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/help.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Asclepius Contributors
+#ifndef ASCLEPIUS_TELEMETRY_HPP
+#define ASCLEPIUS_TELEMETRY_HPP
+
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
+#include "asclepius/core.hpp"
+
+namespace asclepius {
+
+// ---- Histogram ----------------------------------------------------------
+//
+// A binned distribution. Bins are uniform on [lo, hi]; values outside are
+// clamped into the edge bins. Thread-safe.
+
+class Histogram {
+public:
+    Histogram(double lo, double hi, std::size_t bins);
+
+    void observe(double value);
+
+    std::size_t        bin_count() const noexcept;
+    std::vector<double> normalized() const;
+    std::uint64_t      total() const noexcept;
+    double             lo() const noexcept;
+    double             hi() const noexcept;
+
+    // Population Stability Index: sum_i (p_i - q_i) * ln(p_i / q_i).
+    // Conventionally interpreted as <0.10 stable, 0.10–0.25 minor drift,
+    // >0.25 significant drift.
+    static double psi(const Histogram& reference, const Histogram& current);
+
+    // Two-sample Kolmogorov-Smirnov statistic on the empirical CDFs.
+    static double ks(const Histogram& reference, const Histogram& current);
+
+    // Earth Mover's Distance (1D).
+    static double emd(const Histogram& reference, const Histogram& current);
+
+private:
+    double                     lo_;
+    double                     hi_;
+    std::vector<std::uint64_t> counts_;
+    mutable std::mutex         mu_;
+    std::uint64_t              total_ = 0;
+};
+
+// ---- DriftReport / Severity --------------------------------------------
+
+enum class DriftSeverity : std::uint8_t {
+    none   = 0,
+    minor  = 1,
+    moder  = 2,
+    severe = 3,
+};
+
+const char* to_string(DriftSeverity) noexcept;
+
+struct DriftReport {
+    std::string   feature;
+    double        psi          = 0.0;
+    double        ks_statistic = 0.0;
+    double        emd          = 0.0;
+    DriftSeverity severity     = DriftSeverity::none;
+    std::uint64_t reference_n  = 0;
+    std::uint64_t current_n    = 0;
+    Time          computed_at;
+};
+
+// ---- DriftMonitor -------------------------------------------------------
+//
+// Maintains per-feature reference + current histograms and computes drift
+// metrics on demand. Use register_feature() once at startup with baseline
+// values (held-out validation set, or the prior production window).
+
+class DriftMonitor {
+public:
+    DriftMonitor();
+    ~DriftMonitor();
+    DriftMonitor(const DriftMonitor&)            = delete;
+    DriftMonitor& operator=(const DriftMonitor&) = delete;
+
+    // Register a feature with its baseline distribution. lo/hi/bins
+    // configure the histogram resolution.
+    Result<void> register_feature(std::string         name,
+                                  std::vector<double> baseline,
+                                  double              lo   = 0.0,
+                                  double              hi   = 1.0,
+                                  std::size_t         bins = 20);
+
+    // Record an observation against a registered feature.
+    Result<void> observe(std::string_view feature, double value);
+
+    // Compute drift reports for all registered features at the current moment.
+    std::vector<DriftReport> report() const;
+
+    // Reset the current window — typically called daily or on alert.
+    void rotate();
+
+    // Severity classification thresholds (exposed for tests/calibration).
+    static DriftSeverity classify(double psi) noexcept;
+
+private:
+    struct FeatureState;
+    std::unordered_map<std::string, std::unique_ptr<FeatureState>> features_;
+    mutable std::mutex                                             mu_;
+};
+
+// ---- Generic counters / histograms registry ----------------------------
+
+class MetricRegistry {
+public:
+    void  inc(std::string_view name, std::uint64_t delta = 1);
+    void  observe(std::string_view name, double value);
+    std::uint64_t count(std::string_view name) const;
+
+    // JSON-shaped snapshot for export (Prometheus exposition format planned).
+    std::string snapshot_json() const;
+
+private:
+    mutable std::mutex                          mu_;
+    std::unordered_map<std::string, std::uint64_t> counters_;
+};
+
+}  // namespace asclepius
+
+#endif  // ASCLEPIUS_TELEMETRY_HPP

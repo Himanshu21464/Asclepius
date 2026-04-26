@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Architecture — Asclepius</title>
+<meta name="description" content="Component map, data flow, and the rationale behind every layer of the runtime.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/architecture.html">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Architecture — Asclepius">
+<meta property="og:description"  content="Component map, data flow, and the rationale behind every layer of the runtime.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="spec.html">
+<link rel="prefetch" href="demo.html">
+<link rel="stylesheet" href="styles.css">
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Documentation",
+      "item": "https://asclepius.health/docs.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Architecture",
+      "item": "https://asclepius.health/architecture.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-docs">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="index.html#substrate">substrate</a>
+      <a href="index.html#anatomy">anatomy</a>
+      <a href="index.html#start">quickstart</a>
+      <a href="docs.html" class="is-active" aria-current="page">docs</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+  <div class="container">
+    <header class="docs-header">
+      <span class="kbd">docs · 01</span>
+      <h1>Architecture</h1>
+      <p>Component map, data flow, and the rationale behind every layer of the runtime.</p>
+    </header>
+
+    <div class="docs-grid">
+      <aside class="docs-toc" aria-label="on this page">
+        <b>contents</b>
+        <a href="#component-map" class="toc-l1">Component map</a>
+<a href="#data-flow-for-a-single-inference" class="toc-l1">Data flow for a single inference</a>
+<a href="#why-a-merkle-chained-signed-ledger" class="toc-l1">Why a Merkle-chained signed ledger</a>
+<a href="#why-sqlite--for-now" class="toc-l1">Why SQLite (for now)</a>
+<a href="#why-ed25519---blake2b" class="toc-l1">Why Ed25519 + BLAKE2b</a>
+<a href="#why-c--20" class="toc-l1">Why C++20</a>
+<a href="#storage-model" class="toc-l1">Storage model</a>
+<a href="#evidence-bundles" class="toc-l1">Evidence bundles</a>
+<a href="#threading-model" class="toc-l1">Threading model</a>
+<a href="#what-is-not-in-the-runtime" class="toc-l1">What is NOT in the runtime</a>
+<a href="#future-work" class="toc-l1">Future work</a>
+        <b style="margin-top: 1.6rem;">other docs</b>
+        <a href="architecture.html" class="is-active">Architecture</a>
+        <a href="spec.html"         class="">Spec</a>
+        <a href="threat-model.html" class="">Threat model</a>
+        <a href="demo.html">Playground&nbsp;↗</a>
+      </aside>
+
+      <article class="docs-content">
+        <p>This document describes the runtime topology, the data flow for a single
+clinical-AI inference, and the rationale behind each component.</p>
+<h2 id="component-map">Component map</h2>
+
+<figure class="arch-diagram" aria-label="Asclepius runtime component map">
+  <svg viewBox="0 0 880 540" xmlns="http://www.w3.org/2000/svg" role="img">
+    <defs>
+      <linearGradient id="ag-fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="rgba(181,123,255,.10)"/>
+        <stop offset="1" stop-color="rgba(181,123,255,.02)"/>
+      </linearGradient>
+      <marker id="ag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--primary)"/>
+      </marker>
+    </defs>
+
+    <!-- caller -->
+    <g class="arch-node" data-step="0">
+      <rect x="320" y="20" width="240" height="56" rx="8" fill="url(#ag-fill)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="440" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="var(--ink-faint)">CALLER</text>
+      <text x="440" y="64" text-anchor="middle" font-family="Newsreader, serif" font-size="15" fill="var(--ink-warm)">EHR · scribe daemon · PACS plugin</text>
+    </g>
+
+    <!-- runtime -->
+    <g class="arch-node" data-step="1">
+      <rect x="200" y="120" width="480" height="120" rx="10" fill="url(#ag-fill)" stroke="var(--primary)" stroke-width="1.5"/>
+      <text x="220" y="146" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--primary)" letter-spacing="2">ASCLEPIUS RUNTIME</text>
+      <g font-family="JetBrains Mono, monospace" font-size="13" fill="var(--ink-warm)">
+        <text x="220" y="174">begin_inference()  </text>
+        <text x="420" y="174">policies()          </text>
+        <text x="600" y="174">drift()</text>
+        <text x="220" y="200">consent()         </text>
+        <text x="420" y="200">evaluation()        </text>
+        <text x="600" y="200">metrics()</text>
+      </g>
+      <text x="220" y="224" font-family="Newsreader, serif" font-size="13" font-style="italic" fill="var(--ink-mute)">consent → policy in → model → policy out → commit</text>
+    </g>
+
+    <!-- policy chain -->
+    <g class="arch-node" data-step="2">
+      <rect x="40" y="290" width="240" height="86" rx="8" fill="url(#ag-fill)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="60" y="316" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--accent)" letter-spacing="2">POLICY CHAIN</text>
+      <text x="60" y="338" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">PHI · schema · length</text>
+      <text x="60" y="358" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">action allow-list</text>
+    </g>
+
+    <!-- drift / metrics -->
+    <g class="arch-node" data-step="3">
+      <rect x="320" y="290" width="240" height="86" rx="8" fill="url(#ag-fill)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="340" y="316" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--accent)" letter-spacing="2">DRIFT MONITOR</text>
+      <text x="340" y="338" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">PSI · KS · EMD</text>
+      <text x="340" y="358" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">override telemetry</text>
+    </g>
+
+    <!-- consent registry -->
+    <g class="arch-node" data-step="4">
+      <rect x="600" y="290" width="240" height="86" rx="8" fill="url(#ag-fill)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="620" y="316" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--accent)" letter-spacing="2">CONSENT REGISTRY</text>
+      <text x="620" y="338" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">tokens · purposes</text>
+      <text x="620" y="358" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">scope check before model</text>
+    </g>
+
+    <!-- ledger -->
+    <g class="arch-node" data-step="5">
+      <rect x="200" y="416" width="480" height="92" rx="10" fill="url(#ag-fill)" stroke="var(--primary)" stroke-width="1.5"/>
+      <text x="220" y="442" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--primary)" letter-spacing="2">SIGNED MERKLE LEDGER (SQLite WAL)</text>
+      <text x="220" y="466" font-family="Newsreader, serif" font-size="14" fill="var(--ink-warm)">BLAKE2b-256 payload + entry hashes · Ed25519 detached signatures</text>
+      <text x="220" y="490" font-family="Newsreader, serif" font-size="13" fill="var(--ink-mute)" font-style="italic">verify() walks the chain in O(n) · evidence bundle exports a signed tar</text>
+    </g>
+
+    <!-- arrows -->
+    <g class="arch-edge" data-step="6" fill="none" stroke="var(--primary)" stroke-width="1.6" marker-end="url(#ag-arrow)" stroke-dasharray="600 600" stroke-dashoffset="600">
+      <path d="M 440 76 L 440 116"/>
+      <path d="M 280 240 L 160 286"/>
+      <path d="M 440 240 L 440 286"/>
+      <path d="M 600 240 L 720 286"/>
+      <path d="M 160 376 L 280 412"/>
+      <path d="M 440 376 L 440 412"/>
+      <path d="M 720 376 L 600 412"/>
+    </g>
+  </svg>
+  <figcaption>Six layers, one append. The ledger is below; everything else flows toward it.</figcaption>
+</figure>
+
+<details class="arch-ascii">
+  <summary>plain-text version</summary>
+<pre data-no-copy="1"><code>                       +----------------------+
+                       |  Caller (your tool)  |
+                       +-----------+----------+
+                                   |
+                                   v
+                       +----------------------+
+                       |  Runtime             |
+                       |  - begin_inference   |
+                       |  - policies()        |
+                       |  - drift()           |
+                       |  - consent()         |
+                       |  - evaluation()      |
+                       |  - metrics()         |
+                       +----+-----+-----+-----+
+              consent check | run | commit
+                            v     v     v
+            +-----------+--+----+--+----+-----------+
+            | PolicyChain|        |    | Ledger    |
+            | input/out  |        |    | (Merkle,  |
+            | guards     |        |    | signed)   |
+            +-----+------+        |    +-----------+
+                  |               v          ^
+                  v        +-----------+     |
+            (model call)   | Drift     |-----+
+                           | Monitor   | (drift events appended on rotate)
+                           +-----------+
+                                |
+                                v
+                       +-----------------+
+                       | EvaluationHarness
+                       | - ground truth  |
+                       | - overrides     |
+                       | - bundle export |
+                       +-----------------+
+</code></pre>
+</details>
+<p>The layers are deliberately decoupled: PolicyChain knows nothing about
+Ledger, Ledger knows nothing about Drift. The Runtime is the only object
+that wires them, and it does so through narrow interfaces. Callers can
+swap any layer (e.g. a Postgres-backed Ledger) without touching the rest.</p>
+<h2 id="data-flow-for-a-single-inference">Data flow for a single inference</h2>
+<ol>
+<li><strong>Caller</strong> prepares an <code>InferenceSpec</code> (model, actor, patient, encounter,
+   purpose, optional consent token).</li>
+<li><strong>Runtime::begin_inference</strong> validates consent. The check is either
+   token-scoped (caller supplied a <code>consent_token_id</code>) or registry-wide
+   (<code>permits(patient, purpose)</code> returns true).</li>
+<li>The runtime mints an <code>inference_id</code> (time-sortable + counter), stamps
+   <code>started_at</code>, and returns an <code>Inference</code> RAII handle.</li>
+<li><strong>Inference::run(input, model_call)</strong>:
+   a. The input is fed through <code>PolicyChain::evaluate_input</code>. Each policy
+      may <code>allow</code>, <code>modify</code> (rewrite the payload), or <code>block</code>. The first
+      <code>block</code> short-circuits with a <code>policy_violation</code> error.
+   b. The (possibly rewritten) input is hashed; only the hash is recorded
+      to the ledger by default. PHI never enters the ledger unless the
+      caller explicitly opts in.
+   c. The model callback is invoked synchronously. Errors propagate as
+      <code>ErrorCode::internal</code> and are recorded.
+   d. The model output is fed through <code>PolicyChain::evaluate_output</code>. Same
+      semantics as input.
+   e. The output hash, latency, and status are added to a deferred
+      <code>ledger_body</code> JSON blob.</li>
+<li><strong>Inference::commit()</strong> appends a single <code>inference.committed</code> entry to
+   the ledger. The append is atomic: the new entry's <code>prev_hash</code> is the
+   chain head, the body is canonical-JSON, an Ed25519 signature covers the
+   header + body, and the SQLite row is written within a transaction.</li>
+<li><strong>Inference::~Inference</strong>: if the inference completed but was never
+   committed, an <code>inference.aborted</code> entry is appended best-effort.</li>
+</ol>
+<h2 id="why-a-merkle-chained-signed-ledger">Why a Merkle-chained signed ledger</h2>
+<p>A linear, append-only log signed by a single key is enough to detect
+tampering by any party who lacks the secret key. The Merkle chain (each
+entry includes the previous entry's hash) makes detection cheap: verifying
+the chain is O(n), and pinning the head out-of-band gives external proof
+of state at a point in time.</p>
+<p>We did not use a blockchain. There is no decentralized trust to bootstrap;
+the trust anchor is the operator's public key. A blockchain would buy us
+nothing and cost us latency and complexity.</p>
+<h2 id="why-sqlite--for-now">Why SQLite (for now)</h2>
+<p>SQLite's WAL mode gives durable, single-writer-many-reader semantics with
+no daemon. This is ideal for single-node sidecar deployment. The Postgres
+backend (planned) shares the same <code>Ledger</code> interface; the choice is a
+build option.</p>
+<h2 id="why-ed25519---blake2b">Why Ed25519 + BLAKE2b</h2>
+<ul>
+<li><strong>BLAKE2b-256</strong> for hashing: faster than SHA-256, stronger margin,
+  first-class libsodium support, 32-byte digest is unwieldy enough to
+  prevent accidental collisions.</li>
+<li><strong>Ed25519</strong> for signatures: 32-byte public key, 64-byte signature,
+  deterministic, fast verification, side-channel resistant, no parameter
+  decisions to get wrong.</li>
+</ul>
+<p>We did not use ECDSA P-256 or RSA. ECDSA leaks the private key on RNG
+failures during signing; RSA is slower and bigger. Ed25519 is the right
+default in 2026.</p>
+<h2 id="why-c--20">Why C++20</h2>
+<ul>
+<li><strong>Inline latency.</strong> Pre/post guards run on every inference. We need
+  microseconds, not milliseconds.</li>
+<li><strong>Cryptographic throughput.</strong> Hashing and signing across millions of
+  daily inferences requires native crypto without a GIL.</li>
+<li><strong>Determinism.</strong> Replay must reproduce byte-equal artifacts. C++ with
+  canonical JSON serialization gives that.</li>
+<li><strong>Long-lived ABI.</strong> The C ABI exposed by the library is stable; passes
+  evolve underneath.</li>
+</ul>
+<p>The Python and (planned) Rust bindings are convenience shells over the
+same core.</p>
+<h2 id="storage-model">Storage model</h2>
+<p>The SQLite schema has two tables:</p>
+<pre><code>asclepius_meta(key TEXT PRIMARY KEY, val BLOB)
+asclepius_ledger(
+  seq          INTEGER PRIMARY KEY,
+  ts_ns        INTEGER NOT NULL,
+  prev_hash    BLOB    NOT NULL,
+  payload_hash BLOB    NOT NULL,
+  actor        TEXT    NOT NULL,
+  event_type   TEXT    NOT NULL,
+  tenant       TEXT    NOT NULL DEFAULT '',
+  body         TEXT    NOT NULL,    -- canonical JSON
+  signature    BLOB    NOT NULL,
+  key_id       TEXT    NOT NULL,
+  entry_hash   BLOB    NOT NULL
+)
+</code></pre>
+<p><code>payload_hash</code> is <code>BLAKE2b256(event_type || RS || canonical_json(body))</code>.
+<code>entry_hash</code> is <code>BLAKE2b256(seq | ts | prev | payload | actor | event_type | tenant | body | signature | key_id)</code>.
+The signature covers (seq, ts, prev, payload, actor, event_type, tenant, body),
+not the entry_hash itself.</p>
+<h2 id="evidence-bundles">Evidence bundles</h2>
+<p>A bundle is a USTAR tar containing:</p>
+<pre><code>manifest.json         hashes of every other file, key id, window, version
+ledger_excerpt.jsonl  the in-window subset of ledger entries
+metrics.json          per-model rates (overrides, blocks, accuracy if known)
+drift.json            DriftMonitor report at window close
+overrides.jsonl       captured override events
+ground_truth.jsonl    captured ground-truth events
+public_key            32 bytes; the ledger's signer
+manifest.sig          64 bytes; Ed25519 signature over manifest.json
+</code></pre>
+<p>Verification is offline: confirm <code>manifest.sig</code> against the contained
+<code>public_key</code>, then re-hash each named file and confirm against the
+manifest. No network access required.</p>
+<h2 id="threading-model">Threading model</h2>
+<ul>
+<li><code>Ledger::append</code> takes a per-ledger mutex — single-writer.</li>
+<li><code>Ledger::at</code>, <code>tail</code>, <code>range</code>, <code>verify</code> use SQLite's connection-internal
+  locking and are safe to call from any thread holding a reference to the
+  Ledger.</li>
+<li><code>PolicyChain::evaluate_*</code> is read-only on the chain; pushing policies
+  is not safe to do concurrently with evaluation. Configure the chain
+  before starting traffic.</li>
+<li><code>DriftMonitor</code> is fully thread-safe.</li>
+<li><code>Runtime::begin_inference</code> is thread-safe; concurrent inferences are the
+  expected case.</li>
+</ul>
+<h2 id="what-is-not-in-the-runtime">What is NOT in the runtime</h2>
+<ul>
+<li><strong>PHI storage.</strong> The ledger holds hashes by default. Customers who need
+  to inspect PHI use the encrypted-at-rest body-store (planned).</li>
+<li><strong>Model serving.</strong> Asclepius wraps a model callback; it doesn't load
+  weights, route requests, or speak to vLLM. That's the customer's job.</li>
+<li><strong>A FHIR server.</strong> Asclepius is FHIR-aware (parse references, extract
+  scope from a bundle), not FHIR-implementing. Use HAPI or Aidbox for
+  full FHIR.</li>
+<li><strong>An identity provider.</strong> Actors are opaque strings; they come from
+  whatever IdP the customer already runs.</li>
+</ul>
+<h2 id="future-work">Future work</h2>
+<ul>
+<li><strong>Postgres backend.</strong> Multi-node ledger replication.</li>
+<li><strong>Object-store body archive.</strong> Encrypted-at-rest storage of full inputs
+  and outputs for customers that need replay-with-content.</li>
+<li><strong>HTTP/gRPC sidecar (<code>asclepius-svc</code>).</strong> For non-C++ tools.</li>
+<li><strong>Policy DSL.</strong> Today policies are C++ classes. A YAML/JSON DSL with a
+  linter (<code>asclepius policy lint</code>) is on the roadmap.</li>
+<li><strong>Conformance suite.</strong> Levels L1 (audit), L2 (drift), L3 (prospective
+  evidence) with a third-party-runnable test battery.</li>
+</ul>
+
+        <hr>
+        <p class="docs-pager" style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:.82rem;color:var(--ink-mute);">
+          <a href="docs.html">← Docs</a>
+          <a href="spec.html">Spec →</a>
+        </p>
+      </article>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — docs.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="index.html#anatomy">anatomy</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="index.html#start">quickstart</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

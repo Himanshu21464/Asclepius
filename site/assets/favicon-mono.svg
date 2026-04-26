@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- monochrome variant for Safari pinned-tab and dark-mode masks -->
+  <g transform="translate(16 16)" fill="black">
+    <path d="M 9 0 A 9 9 0 1 0 -2.5 8.6"
+          fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="9" cy="0" r="2.6"/>
+    <circle cx="-3" cy="-3" r="1.2"/>
+  </g>
+</svg>

@@ -1,0 +1,55 @@
+cff-version: 1.2.0
+title: "Asclepius — A Trust Substrate for Clinical AI"
+abstract: >
+  An open, vendor-neutral C++20 runtime that wraps any clinical AI tool with
+  audit-grade safety: cryptographically signed Merkle ledger, composable
+  policy chain, drift detection, consent-and-scope enforcement, and an
+  evidence pipeline that emits regulator-verifiable bundles.
+type: software
+license: Apache-2.0
+version: 0.1.0
+date-released: 2026-04-25
+url: "https://asclepius.health/"
+repository-code: "https://github.com/asclepius-ai/asclepius"
+keywords:
+  - "clinical AI"
+  - "trust substrate"
+  - "audit trail"
+  - "merkle ledger"
+  - "ed25519"
+  - "blake2b"
+  - "FHIR"
+  - "HIPAA"
+  - "evidence bundle"
+  - "drift detection"
+  - "regulatory compliance"
+authors:
+  - name: "Asclepius Contributors"
+    affiliation: "Asclepius Project"
+    website: "https://asclepius.health"
+    email: "hello@asclepius.health"
+preferred-citation:
+  type: software
+  title: "Asclepius — A Trust Substrate for Clinical AI"
+  year: 2026
+  version: 0.1.0
+  authors:
+    - name: "Asclepius Contributors"
+  url: "https://asclepius.health/"
+identifiers:
+  - type: url
+    value: "https://asclepius.health/"
+    description: "Project home"
+  - type: url
+    value: "https://github.com/asclepius-ai/asclepius"
+    description: "Source repository"
+references:
+  - type: report
+    title: "Spec — On-disk and on-wire formats"
+    url: "https://asclepius.health/spec.html"
+  - type: report
+    title: "Threat model"
+    url: "https://asclepius.health/threat-model.html"
+  - type: report
+    title: "Architecture"
+    url: "https://asclepius.health/architecture.html"

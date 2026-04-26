@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Spec — Asclepius</title>
+<meta name="description" content="On-disk and on-wire formats. The bytes a verifier sees, in lexicographic order.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/spec.html">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Spec — Asclepius">
+<meta property="og:description"  content="On-disk and on-wire formats. The bytes a verifier sees, in lexicographic order.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="threat-model.html">
+<link rel="prefetch" href="demo.html">
+<link rel="stylesheet" href="styles.css">
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Documentation",
+      "item": "https://asclepius.health/docs.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Specification",
+      "item": "https://asclepius.health/spec.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-docs">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="index.html#substrate">substrate</a>
+      <a href="index.html#anatomy">anatomy</a>
+      <a href="index.html#start">quickstart</a>
+      <a href="docs.html" class="is-active" aria-current="page">docs</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+  <div class="container">
+    <header class="docs-header">
+      <span class="kbd">docs · 02</span>
+      <h1>Specification</h1>
+      <p>On-disk and on-wire formats. The bytes a verifier sees, in lexicographic order.</p>
+    </header>
+
+    <div class="docs-grid">
+      <aside class="docs-toc" aria-label="on this page">
+        <b>contents</b>
+        <a href="#hash-function" class="toc-l1">Hash function</a>
+<a href="#signature-scheme" class="toc-l1">Signature scheme</a>
+<a href="#time" class="toc-l1">Time</a>
+<a href="#canonical-json" class="toc-l1">Canonical JSON</a>
+<a href="#ledger-entry" class="toc-l1">Ledger entry</a>
+<a href="#sqlite-schema" class="toc-l1">SQLite schema</a>
+<a href="#standard-event-types" class="toc-l1">Standard event types</a>
+<a href="#evidence-bundle-ustar-tar" class="toc-l1">Evidence bundle (USTAR tar)</a>
+<a href="#versioning-policy" class="toc-l1">Versioning policy</a>
+        <b style="margin-top: 1.6rem;">other docs</b>
+        <a href="architecture.html" class="">Architecture</a>
+        <a href="spec.html"         class="is-active">Spec</a>
+        <a href="threat-model.html" class="">Threat model</a>
+        <a href="demo.html">Playground&nbsp;↗</a>
+      </aside>
+
+      <article class="docs-content">
+        <p>Version 0.1.0 — 2026-04. This is a living document; until 1.0 the formats
+may break compatibility but breakage will be called out in CHANGELOG.</p>
+<h2 id="hash-function">Hash function</h2>
+<ul>
+<li><code>BLAKE2b-256</code> (libsodium <code>crypto_generichash</code> with default key, 32-byte
+  output). Length is <strong>32 bytes / 64 hex chars</strong>.</li>
+</ul>
+<h2 id="signature-scheme">Signature scheme</h2>
+<ul>
+<li><code>Ed25519</code> (libsodium <code>crypto_sign_detached</code>).</li>
+<li>Public key:    32 bytes.</li>
+<li>Secret key:    64 bytes (libsodium representation).</li>
+<li>Signature:     64 bytes.</li>
+<li>Key id:        first 16 lowercase hex chars of the public key.</li>
+</ul>
+<h2 id="time">Time</h2>
+<ul>
+<li>Wall-clock nanoseconds since the Unix epoch as a 64-bit signed integer.</li>
+<li>ISO-8601 string form: <code>YYYY-MM-DDTHH:MM:SS.fffffffffZ</code>.</li>
+</ul>
+<h2 id="canonical-json">Canonical JSON</h2>
+<p>All ledger bodies and bundle artifacts are serialized with:</p>
+<ul>
+<li>UTF-8 encoding,</li>
+<li>Object keys sorted lexicographically (nlohmann::json <code>dump(-1)</code> produces
+  the indentation-free form; key sorting is the default in dump),</li>
+<li>No insignificant whitespace.</li>
+</ul>
+<p>Two canonical encodings are byte-equal iff the underlying values are
+JSON-equal.</p>
+<h2 id="ledger-entry">Ledger entry</h2>
+<p>Logical structure:</p>
+<pre><code>LedgerEntry := {
+  seq:          u64,
+  ts:           Time,
+  prev_hash:    Hash,
+  payload_hash: Hash,
+  actor:        utf8,
+  event_type:   utf8,
+  tenant:       utf8,
+  body:         CanonicalJSON,
+  signature:    Sig64,
+  key_id:       utf8 (16 hex)
+}
+</code></pre>
+<p>Derived fields:</p>
+<pre><code>payload_hash = BLAKE2b256(event_type || 0x1E || canonical_json(body))
+sign_input   = u64_le(seq) || u64_le(ts_ns) ||
+               prev_hash || payload_hash ||
+               actor || ',' || event_type || ',' || tenant || ',' || body
+signature    = Ed25519_sign(sk, sign_input)
+entry_hash   = BLAKE2b256(
+                  seq_dec || '|' || ts_ns_dec || '|' ||
+                  prev_hash || '|' || payload_hash || '|' ||
+                  actor || '|' || event_type || '|' || tenant || '|' ||
+                  body || '|' || signature || '|' || key_id
+               )
+</code></pre>
+<p>The chain invariant is: for entry at <code>seq = N</code>, <code>prev_hash = entry_hash(N-1)</code>.
+The first entry has <code>prev_hash = 0x00...00</code> and <code>seq = 1</code>.</p>
+<h2 id="sqlite-schema">SQLite schema</h2>
+<pre><code class="language-sql">PRAGMA journal_mode = WAL;
+PRAGMA synchronous  = NORMAL;
+
+CREATE TABLE asclepius_meta (
+  key TEXT PRIMARY KEY,
+  val BLOB
+);
+
+CREATE TABLE asclepius_ledger (
+  seq          INTEGER PRIMARY KEY,
+  ts_ns        INTEGER NOT NULL,
+  prev_hash    BLOB    NOT NULL,
+  payload_hash BLOB    NOT NULL,
+  actor        TEXT    NOT NULL,
+  event_type   TEXT    NOT NULL,
+  tenant       TEXT    NOT NULL DEFAULT '',
+  body         TEXT    NOT NULL,
+  signature    BLOB    NOT NULL,
+  key_id       TEXT    NOT NULL,
+  entry_hash   BLOB    NOT NULL
+);
+
+CREATE INDEX idx_ledger_ts ON asclepius_ledger(ts_ns);
+</code></pre>
+<p>The signing key is stored in a sidecar file <code>&lt;db&gt;.key</code> with mode 0600
+containing <code>ASCLEPIUS-KEY-v1:&lt;pk_hex&gt;:&lt;sk_hex&gt;</code>. Production deployments
+should override the sidecar with a HSM-fronted KeyStore.</p>
+<h2 id="standard-event-types">Standard event types</h2>
+<table>
+<thead>
+<tr>
+<th>event_type</th>
+<th>source</th>
+<th>semantics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>inference.committed</code></td>
+<td><code>Inference::commit</code></td>
+<td>one row per successful inference (or one with <code>status</code> != <code>ok</code>)</td>
+</tr>
+<tr>
+<td><code>inference.aborted</code></td>
+<td><code>~Inference</code></td>
+<td>inference ran but was never committed</td>
+</tr>
+<tr>
+<td><code>evaluation.ground_truth</code></td>
+<td><code>EvaluationHarness</code></td>
+<td>ground truth attached for an inference</td>
+</tr>
+<tr>
+<td><code>evaluation.override</code></td>
+<td><code>EvaluationHarness</code></td>
+<td>clinician overrode the model output</td>
+</tr>
+<tr>
+<td><code>consent.granted</code></td>
+<td><code>ConsentRegistry</code> (planned)</td>
+<td>a consent token was issued</td>
+</tr>
+<tr>
+<td><code>consent.revoked</code></td>
+<td><code>ConsentRegistry</code> (planned)</td>
+<td>a consent token was revoked</td>
+</tr>
+<tr>
+<td><code>policy.config_change</code></td>
+<td>runtime config (planned)</td>
+<td>a policy was added, removed, or reconfigured</td>
+</tr>
+<tr>
+<td><code>model.registered</code></td>
+<td>governance (planned)</td>
+<td>a model id+version was registered for use</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>body</code> shape per event_type is fixed; future versions will publish a
+JSON-Schema for each.</p>
+<h2 id="evidence-bundle-ustar-tar">Evidence bundle (USTAR tar)</h2>
+<pre><code>manifest.json
+ledger_excerpt.jsonl
+metrics.json
+drift.json
+overrides.jsonl
+ground_truth.jsonl
+public_key            (32 raw bytes)
+manifest.sig          (64 raw bytes)
+</code></pre>
+<p><code>manifest.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;asclepius_version&quot;: &quot;0.1.0&quot;,
+  &quot;window&quot;:  { &quot;start&quot;: &quot;...&quot;, &quot;end&quot;: &quot;...&quot; },
+  &quot;files&quot;:   {
+    &quot;ledger_excerpt.jsonl&quot;: &quot;&lt;hex32&gt;&quot;,
+    &quot;metrics.json&quot;:         &quot;&lt;hex32&gt;&quot;,
+    &quot;drift.json&quot;:           &quot;&lt;hex32&gt;&quot;,
+    &quot;overrides.jsonl&quot;:      &quot;&lt;hex32&gt;&quot;,
+    &quot;ground_truth.jsonl&quot;:   &quot;&lt;hex32&gt;&quot;
+  },
+  &quot;ledger_head&quot;: &quot;&lt;hex32&gt;&quot;,
+  &quot;key_id&quot;:      &quot;&lt;16 hex&gt;&quot;,
+  &quot;exported_at&quot;: &quot;ISO8601&quot;
+}
+</code></pre>
+<p><code>manifest.sig</code> = Ed25519 signature over the bytes of <code>manifest.json</code> using
+the ledger's signer.</p>
+<p>A verifier needs only <code>manifest.json</code>, <code>manifest.sig</code>, and <code>public_key</code>
+to authenticate the bundle, then re-hashes the named files to confirm
+their integrity.</p>
+<h2 id="versioning-policy">Versioning policy</h2>
+<ul>
+<li>Patch (<code>0.1.x</code>): bug fixes; binary-compatible.</li>
+<li>Minor (<code>0.x.0</code>): backward-compatible additions; new event types,
+  optional fields. Old verifiers ignore unknown fields.</li>
+<li>Major (<code>x.0.0</code>): incompatible changes. A migration script ships with
+  every major bump. Bundles emitted by version <code>N</code> continue to verify
+  with the same major version forever.</li>
+</ul>
+
+        <hr>
+        <p class="docs-pager" style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:.82rem;color:var(--ink-mute);">
+          <a href="architecture.html">← Architecture</a>
+          <a href="threat-model.html">Threat model →</a>
+        </p>
+      </article>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — docs.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="index.html#anatomy">anatomy</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="index.html#start">quickstart</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+  <title>Asclepius — changelog</title>
+  <subtitle>Versioned release log for the Asclepius clinical-AI trust substrate.</subtitle>
+  <link rel="self"      href="https://asclepius.health/atom.xml" type="application/atom+xml"/>
+  <link rel="alternate" href="https://asclepius.health/changelog.html" type="text/html"/>
+  <id>https://asclepius.health/atom.xml</id>
+  <updated>2026-04-26T00:00:00Z</updated>
+  <author>
+    <name>Asclepius contributors</name>
+    <uri>https://asclepius.health/</uri>
+  </author>
+  <icon>https://asclepius.health/assets/favicon.svg</icon>
+  <logo>https://asclepius.health/assets/og-card.png</logo>
+  <rights>Apache-2.0</rights>
+  <generator uri="https://asclepius.health/">asclepius-site</generator>
+
+  <entry>
+    <id>asclepius:release:v0.3.0</id>
+    <title>v0.3.0 — consent on the chain, evidence harness GA</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v030"/>
+    <published>2026-04-25T00:00:00Z</published>
+    <updated>2026-04-25T00:00:00Z</updated>
+    <category term="release"/>
+    <category term="minor"/>
+    <summary>Consent flows through the ledger; evidence harness ships ground-truth ingest; CLI + Python bindings + public website land.</summary>
+    <content type="html"><![CDATA[
+      <ul>
+        <li>Consent grants/revocations now append <code>consent.granted</code> + <code>consent.revoked</code> ledger entries.</li>
+        <li><code>EvaluationHarness::attach_ground_truth()</code> + signed evidence-bundle export.</li>
+        <li>Drift monitor: PSI, KS, EMD on per-feature histograms with <code>DriftSeverity::classify</code>.</li>
+        <li><code>asclepius</code> CLI: <code>ledger verify</code>, <code>ledger inspect</code>, <code>evidence bundle</code>, <code>evidence verify</code>.</li>
+        <li>Python bindings (pybind11). Wheels for cp310-cp312.</li>
+        <li>Public website + in-browser playground.</li>
+      </ul>
+    ]]></content>
+  </entry>
+
+  <entry>
+    <id>asclepius:release:v0.2.0</id>
+    <title>v0.2.0 — policy chain solidified</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v020"/>
+    <published>2026-03-12T00:00:00Z</published>
+    <updated>2026-03-12T00:00:00Z</updated>
+    <category term="release"/>
+    <category term="minor"/>
+    <summary>Composable PolicyChain with allow/modify/block verdicts; built-in policies; USTAR evidence bundles.</summary>
+    <content type="html"><![CDATA[
+      <ul>
+        <li>Composable <code>PolicyChain</code> with <code>allow</code> / <code>modify</code> / <code>block</code> verdicts.</li>
+        <li>Built-in policies: <code>phi_scrubber</code>, <code>schema_validator</code>, <code>length_limit</code>, <code>clinical_action_filter</code>.</li>
+        <li>Evidence bundles: USTAR tar with manifest, ledger excerpt, metrics, drift, overrides, ground-truth.</li>
+        <li>Renamed <code>InferenceEvent</code> → <code>InferenceCommittedBody</code>.</li>
+      </ul>
+    ]]></content>
+  </entry>
+
+  <entry>
+    <id>asclepius:release:v0.1.0</id>
+    <title>v0.1.0 — first public preview</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v010"/>
+    <published>2026-02-04T00:00:00Z</published>
+    <updated>2026-02-04T00:00:00Z</updated>
+    <category term="release"/>
+    <category term="preview"/>
+    <summary>The minimum viable trust substrate: append, sign, chain, verify.</summary>
+    <content type="html"><![CDATA[
+      <ul>
+        <li>SQLite-backed Merkle ledger with BLAKE2b-256 + Ed25519.</li>
+        <li><code>Runtime::open</code>, <code>begin_inference</code>, <code>commit</code>, <code>Ledger::verify</code>.</li>
+        <li>Strong identifier types (<code>ActorId</code>, <code>PatientId</code>, <code>EncounterId</code>, <code>ModelId</code>).</li>
+      </ul>
+    ]]></content>
+  </entry>
+
+</feed>

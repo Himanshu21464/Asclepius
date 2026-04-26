@@ -1,0 +1,19 @@
+# Asclepius — code owners.
+# Each region of the project has a primary owner who must approve PRs.
+
+# Default
+*                       @asclepius-ai/maintainers
+
+# Cryptographic core — extra eyes
+src/audit/              @asclepius-ai/maintainers @asclepius-ai/crypto
+include/asclepius/audit.hpp @asclepius-ai/maintainers @asclepius-ai/crypto
+docs/SPEC.md            @asclepius-ai/maintainers @asclepius-ai/crypto
+docs/THREAT_MODEL.md    @asclepius-ai/maintainers @asclepius-ai/crypto
+
+# Site
+site/                   @asclepius-ai/site
+
+# Build
+CMakeLists.txt          @asclepius-ai/maintainers
+cmake/                  @asclepius-ai/maintainers
+.github/                @asclepius-ai/maintainers

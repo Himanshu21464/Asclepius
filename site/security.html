@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Security — Asclepius</title>
+<meta name="description" content="Asclepius security policy: vulnerability disclosure, supported versions, signing keys, and how to report a finding.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="canonical" href="https://asclepius.health/security.html">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+
+<meta property="og:title"        content="Asclepius — Security">
+<meta property="og:description"  content="Vulnerability disclosure, supported versions, signing keys.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="contributing.html">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.sec-hero { padding: clamp(4rem, 8vw, 6rem) 0 2rem; }
+.sec-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.sec-hero h1 i { color: var(--primary); font-style: italic; }
+.sec-hero p { color: var(--ink-mute); max-width: 60ch; line-height: 1.55; }
+.sec-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.sec-section { padding: 2.4rem 0; border-top: 1px solid var(--rule-soft); }
+.sec-section h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.5rem, 2.6vw, 2.1rem); color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem; }
+.sec-section h2 i { color: var(--primary); font-style: italic; }
+.sec-section p { color: var(--ink); font-family: var(--font-prose); line-height: 1.7; max-width: 70ch; margin: 0 0 1rem; }
+.sec-section p code, .sec-section li code { font-family: var(--font-mono); font-size: .9em; padding: .08em .3em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+.sec-section ul { color: var(--ink); padding-left: 1.4rem; line-height: 1.7; }
+.sec-section li { margin: .25em 0; }
+
+.sec-key {
+  margin-top: 1rem;
+  padding: 1.2rem 1.4rem;
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  line-height: 1.7;
+  color: var(--ink);
+  word-break: break-all;
+}
+.sec-key b { color: var(--primary); display: block; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; margin-bottom: .4rem; }
+.sec-key__hash { color: var(--accent); }
+
+.sec-table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: .88rem;
+}
+.sec-table th, .sec-table td {
+  text-align: left;
+  padding: .6rem .9rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.sec-table th { color: var(--primary); font-weight: 500; text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; border-bottom-color: var(--rule); }
+.sec-table tr:last-child td { border-bottom: 0; }
+.sec-table .yes { color: var(--accent); }
+.sec-table .no  { color: var(--ink-faint); }
+
+.sec-cta {
+  margin-top: 1.2rem;
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .85rem 1.3rem;
+  background: var(--primary);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  letter-spacing: .04em;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background .15s, transform .12s;
+}
+.sec-cta:hover { background: #C28EFF; transform: translateY(-1px); }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Security",
+      "item": "https://asclepius.health/security.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-security">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="threat-model.html">threat model</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="glossary.html">glossary</a>
+        <a href="cheatsheet.html">cheatsheet</a>
+      <a href="security.html" class="is-active" aria-current="page">security</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="sec-hero">
+  <div class="container">
+    <span class="kbd">security policy</span>
+    <h1>Disclose <i>before</i> publishing.</h1>
+    <p>
+      Asclepius is a trust substrate. A vulnerability in this code is a vulnerability in every
+      clinical-AI deployment that uses it. We treat reports the way the project asks others to:
+      with cryptographic care, written promptly, fixed at the root.
+    </p>
+  </div>
+</section>
+
+<section class="sec-section" id="report">
+  <div class="container">
+    <h2>How to report.</h2>
+    <p>Send the report to <a href="mailto:security@asclepius.health"><code>security@asclepius.health</code></a>. Encrypt with the PGP key below if the finding involves an active exploit. Include reproduction steps, affected versions, and any artifacts (a tampered ledger, a malformed bundle, a regex bypass corpus, etc.).</p>
+    <p>If you are not sure whether something is in scope, send it anyway — we'd rather triage a non-issue than miss one.</p>
+    <a class="sec-cta" href="mailto:security@asclepius.health">security@asclepius.health&nbsp;→</a>
+  </div>
+</section>
+
+<section class="sec-section" id="scope">
+  <div class="container">
+    <h2>Scope.</h2>
+    <p><strong>In scope:</strong></p>
+    <ul>
+      <li>Cryptographic flaws: chain forgery, signature bypass, hash collisions, key-derivation issues.</li>
+      <li>Memory safety: buffer overflow, use-after-free, double-free in the C++ core.</li>
+      <li>Injection: SQL injection in <code>asclepius-cli</code>, prompt-injection that escapes the policy chain.</li>
+      <li>Verification bypass: a tampered bundle that <code>verify_bundle()</code> accepts.</li>
+      <li>Consent / scope bypass: an inference that reaches the model despite missing or revoked consent.</li>
+      <li>Side channels: PHI leakage through ledger metadata, drift histograms, or evidence bundles.</li>
+    </ul>
+    <p><strong>Out of scope:</strong></p>
+    <ul>
+      <li>The wrapped model's outputs (that is what the policy chain is for; report a missing policy as an enhancement).</li>
+      <li>Operational misconfigurations on a customer deployment (unless the project documentation explicitly recommended the misconfiguration).</li>
+      <li>DOS via legitimate ledger growth — write a benchmark, not a CVE.</li>
+      <li>Theoretical post-quantum risk (we know; v1.0 ships ML-DSA migration).</li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec-section" id="versions">
+  <div class="container">
+    <h2>Supported versions.</h2>
+    <p>We patch the latest minor and the immediately previous minor. Earlier versions get advisories but no backports.</p>
+    <table class="sec-table">
+      <thead>
+        <tr><th>version</th><th>status</th><th>support window</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0.1.x</td><td class="yes">supported</td><td>through Q4 2026</td></tr>
+        <tr><td>0.0.x</td><td class="no">advisories only</td><td>no patches</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec-section" id="key">
+  <div class="container">
+    <h2>Project signing keys.</h2>
+    <p>Released artifacts are signed by the project's release key. Evidence bundles emitted by individual deployments are signed by <em>their own</em> ledger keys; the project does not co-sign customer bundles.</p>
+
+    <div class="sec-key">
+      <b>release key — pgp</b>
+      <span class="sec-key__hash">A1F2 9C4E B8D1 74E6 · 2A55 0CCB 7F12 BB37 5E4A C9D0</span>
+    </div>
+
+    <div class="sec-key" style="margin-top: 1rem;">
+      <b>build provenance · v0.1.0</b>
+      libasclepius-0.1.0.tar.gz · sha256 <span class="sec-key__hash">c4a11ee3742d8a915d0bd9ea80c7edc0e21fa3b78a1c9e60d4c6f72a5bb09c12</span>
+    </div>
+  </div>
+</section>
+
+<section class="sec-section" id="response">
+  <div class="container">
+    <h2>What to expect.</h2>
+    <ul>
+      <li><strong>Acknowledgement</strong> within 48 business hours.</li>
+      <li><strong>Triage</strong> within 5 business days. We assign a severity (informational / low / medium / high / critical) and an estimated fix window.</li>
+      <li><strong>Fix</strong> shipped to <code>main</code> + a patch release. Critical issues ship within 14 days.</li>
+      <li><strong>Coordinated disclosure</strong>: 90 days from triage, or 7 days after the patch release — whichever is sooner. We will work with you to extend the window if there is responsible reason to.</li>
+      <li><strong>Credit</strong>: with your permission, in the changelog and the release advisory. Anonymous reports are honoured.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — security.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="threat-model.html">threat model</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="glossary.html">glossary</a>
+        <a href="cheatsheet.html">cheatsheet</a>
+        <a href="spec.html">spec</a>
+        <a href="benchmarks.html">benchmarks</a>
+      </div>
+      <div>
+        <b>contact</b>
+        <a href="mailto:security@asclepius.health">security@asclepius.health</a>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

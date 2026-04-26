@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Benchmarks — Asclepius</title>
+<meta name="description" content="Real performance numbers from the Asclepius C++20 runtime: sub-millisecond p99 on wrapped inferences, 633 MB/s BLAKE2b-256, 62,657 Ed25519 sigs/sec on commodity hardware.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="canonical" href="https://asclepius.health/benchmarks.html">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+
+<meta property="og:title"        content="Asclepius — Benchmarks">
+<meta property="og:description"  content="Sub-millisecond p99 on wrapped inferences. 633 MB/s hashing. 62k Ed25519 sigs/sec. From the actual C++20 runtime.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="demo.html">
+<link rel="prefetch" href="index.html#compare">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.bench-hero { padding: clamp(4rem, 8vw, 6rem) 0 2rem; }
+.bench-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+.bench-hero h1 {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: clamp(2.6rem, 6vw, 4.6rem);
+  line-height: 1; letter-spacing: -.02em;
+  color: var(--ink-warm); margin: 0 0 .8rem;
+}
+.bench-hero h1 i { color: var(--primary); font-style: italic; }
+.bench-hero p { color: var(--ink-mute); max-width: 64ch; font-size: 1.1rem; line-height: 1.55; }
+.bench-hero p em { color: var(--ink-warm); font-style: normal; }
+
+.bench-headline {
+  margin: 2.4rem 0 3rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.bh-stat {
+  background: var(--surface);
+  padding: 1.6rem 1.4rem;
+  display: flex; flex-direction: column; gap: .5rem;
+  position: relative;
+}
+.bh-stat__label {
+  font-family: var(--font-mono);
+  font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.bh-stat__num {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 4vw, 3rem); line-height: 1; letter-spacing: -.02em;
+  color: var(--ink-warm);
+}
+.bh-stat__num em { color: var(--primary); font-style: italic; }
+.bh-stat__unit {
+  font-family: var(--font-mono); font-size: .76rem;
+  color: var(--ink-mute); margin-top: .2rem;
+}
+
+.bench-section { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+.bench-section h2 {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+}
+.bench-section h2 i { color: var(--primary); font-style: italic; }
+.bench-section p  { color: var(--ink-mute); max-width: 68ch; }
+
+.bench-table {
+  margin-top: 1.8rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.bench-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 1.4rem;
+  align-items: baseline;
+  padding: 1.05rem 1.4rem;
+  border-bottom: 1px solid var(--rule-soft);
+  font-family: var(--font-mono);
+  font-size: .92rem;
+}
+.bench-row:last-child { border-bottom: 0; }
+.bench-row__name { color: var(--ink); }
+.bench-row__name b { color: var(--ink-warm); display: block; font-weight: 500; }
+.bench-row__name span { color: var(--ink-faint); font-size: .76rem; letter-spacing: .04em; }
+.bench-row__bar {
+  position: relative;
+  background: var(--surface-2);
+  height: 6px;
+  border-radius: 99px;
+  width: 200px;
+  overflow: hidden;
+  align-self: center;
+}
+.bench-row__bar::before {
+  --w: 50%;
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: var(--w);
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: inherit;
+}
+.bench-row__num { color: var(--ink-warm); text-align: right; }
+.bench-row__num em { color: var(--primary); font-style: normal; font-size: 1.1em; }
+.bench-row__num span { color: var(--ink-faint); font-size: .74rem; display: block; }
+@media (max-width: 720px) {
+  .bench-row { grid-template-columns: 1fr auto; }
+  .bench-row__bar { display: none; }
+}
+
+.bench-stack {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 1rem;
+  align-items: center;
+  margin: 0.4rem 0;
+  padding: .85rem 1rem;
+  border: 1px solid var(--rule-soft);
+  background: var(--bg-2);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: .82rem;
+}
+.bench-stack__label { color: var(--ink-mute); }
+.bench-stack__bar {
+  position: relative;
+  height: 18px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bench-stack__bar i {
+  position: absolute; top: 0; bottom: 0;
+  background: var(--primary);
+  border-radius: inherit;
+  transition: width .8s var(--ease-out);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+}
+.bench-stack__bar i.is-rest { background: var(--ink-ghost); }
+.bench-stack__num { color: var(--ink-warm); text-align: right; }
+
+.bench-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.4rem;
+  margin-top: 1.8rem;
+}
+.bench-card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 1.4rem 1.6rem;
+}
+.bench-card h3 {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: 1.4rem;
+  color: var(--ink-warm); margin: 0 0 .6rem;
+}
+.bench-card p { color: var(--ink-mute); margin: 0; line-height: 1.55; }
+.bench-card pre {
+  font-family: var(--font-mono); font-size: .8rem;
+  color: var(--accent);
+  margin: .8rem 0 0;
+}
+
+.bench-meta {
+  margin-top: 3rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--rule-soft);
+  font-family: var(--font-mono); font-size: .76rem;
+  color: var(--ink-faint);
+  letter-spacing: .04em;
+}
+.bench-meta a { color: var(--primary); }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Benchmarks",
+      "item": "https://asclepius.health/benchmarks.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-bench">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="index.html#substrate">substrate</a>
+      <a href="docs.html">docs</a>
+      <a href="benchmarks.html" class="is-active" aria-current="page">benchmarks</a>
+      <a href="changelog.html">changelog</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<!-- ─── headline ─────────────────────────────────────────────────────────── -->
+<section class="bench-hero">
+  <div class="container">
+    <span class="kbd">benchmarks · v0.1.0 · 2026-04-25</span>
+    <h1>Microseconds, <i>not milliseconds.</i></h1>
+    <p>
+      Real numbers from the C++20 runtime, on a single core of a commodity workstation
+      (Ubuntu 25.x, GCC 15, libsodium 1.0.18, SQLite 3.46 in WAL mode).
+      <em>The wrapped model still dominates the request budget — Asclepius adds a microseconds-
+      thick layer on top of it, signed and committed.</em>
+    </p>
+
+    <div class="bench-headline">
+      <div class="bh-stat">
+        <span class="bh-stat__label">END-TO-END WRAP · P99</span>
+        <span class="bh-stat__num"><em data-bench="end_to_end_inference.p99_us" data-bench-fmt="us">147 µs</em></span>
+        <span class="bh-stat__unit">consent · policy · sign · commit</span>
+      </div>
+      <div class="bh-stat">
+        <span class="bh-stat__label">P50 / P90</span>
+        <span class="bh-stat__num"><span data-bench="end_to_end_inference.p50_us" data-bench-fmt="us">87 µs</span> / <em data-bench="end_to_end_inference.p90_us" data-bench-fmt="us">114 µs</em></span>
+        <span class="bh-stat__unit">1,000-sample run</span>
+      </div>
+      <div class="bh-stat">
+        <span class="bh-stat__label">HASH · BLAKE2b-256</span>
+        <span class="bh-stat__num"><em data-bench="hash.mb_per_sec" data-bench-fmt="mb">633 MB/s</em></span>
+        <span class="bh-stat__unit"><span data-bench="hash.ns_per_op" data-bench-fmt="raw">126</span> ns / op</span>
+      </div>
+      <div class="bh-stat">
+        <span class="bh-stat__label">SIGN · ED25519</span>
+        <span class="bh-stat__num"><em data-bench="sign.ops_per_sec" data-bench-fmt="ops">62.6k ops/s</em></span>
+        <span class="bh-stat__unit"><span data-bench="sign.ns_per_op" data-bench-fmt="ns">16 µs</span> / op</span>
+      </div>
+    </div>
+
+    <p class="bench-meta-line" data-bench-meta style="font-family:var(--font-mono);font-size:.7rem;color:var(--ink-faint);letter-spacing:.06em;margin-top:1rem;text-align:center;">
+      static numbers · regenerate via examples/04_bench
+    </p>
+  </div>
+</section>
+
+<!-- ─── primitives ───────────────────────────────────────────────────────── -->
+<section class="bench-section">
+  <div class="container">
+    <h2>Cryptographic primitives <i>are not the bottleneck.</i></h2>
+    <p>BLAKE2b-256 hashing runs at L1-friendly speeds. Ed25519 signing pays roughly 16 µs per inference and verification 45 µs — both well below the latency of any clinical-AI model worth wrapping. None of these numbers depend on a network round-trip; everything happens in the calling thread.</p>
+
+    <div class="bench-table">
+      <div class="bench-row">
+        <span class="bench-row__name"><b>BLAKE2b-256</b><span>libsodium · payload + entry hashing</span></span>
+        <span class="bench-row__bar" style="--w:100%"><i style="--w:100%"></i></span>
+        <span class="bench-row__num"><em>633</em> MB/s<span>126 ns/op</span></span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-row__name"><b>Ed25519 sign</b><span>libsodium · detached signature</span></span>
+        <span class="bench-row__bar" style="--w:65%"><i style="--w:65%"></i></span>
+        <span class="bench-row__num"><em>62.6</em>k ops/s<span>16 µs/op</span></span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-row__name"><b>Ed25519 verify</b><span>used by chain verify + bundle reverify</span></span>
+        <span class="bench-row__bar" style="--w:23%"><i style="--w:23%"></i></span>
+        <span class="bench-row__num"><em>22.1</em>k ops/s<span>45 µs/op</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── runtime ──────────────────────────────────────────────────────────── -->
+<section class="bench-section">
+  <div class="container">
+    <h2>Runtime: ledger, policy, end-to-end.</h2>
+    <p>The <code>policy chain</code> here composes the PHI scrubber + length limit. The <code>ledger append</code> is a single signed SQLite WAL insert with full Merkle bookkeeping. Numbers are single-thread; appending fans out cleanly across many readers.</p>
+
+    <div class="bench-table">
+      <div class="bench-row">
+        <span class="bench-row__name"><b>Policy chain (PHI + length)</b><span>regex compile cached per thread</span></span>
+        <span class="bench-row__bar" style="--w:42%"><i style="--w:42%"></i></span>
+        <span class="bench-row__num"><em>40.6</em>k ops/s<span>25 µs/op</span></span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-row__name"><b>Ledger append</b><span>SQLite WAL · signed Merkle row</span></span>
+        <span class="bench-row__bar" style="--w:32%"><i style="--w:32%"></i></span>
+        <span class="bench-row__num"><em>32.0</em>k ops/s<span>31 µs/op</span></span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-row__name"><b>Chain verify</b><span>O(n) walk · sig + payload check / row</span></span>
+        <span class="bench-row__bar" style="--w:20%"><i style="--w:20%"></i></span>
+        <span class="bench-row__num"><em>50</em> µs/entry<span>2,000 rows in 100 ms</span></span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-row__name"><b>End-to-end wrapped inference</b><span>begin → policy → call → policy → commit</span></span>
+        <span class="bench-row__bar" style="--w:75%"><i style="--w:75%"></i></span>
+        <span class="bench-row__num"><em>87 / 114 / 147</em> µs<span>p50 / p90 / p99 (1k samples)</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── budget breakdown ─────────────────────────────────────────────────── -->
+<section class="bench-section">
+  <div class="container">
+    <h2>Where the <i>87 µs</i> goes.</h2>
+    <p>Stack-graph of where one wrapped inference (p50) actually spends its time. Everything below the wrapped model call is "Asclepius overhead" — the cost of being audited.</p>
+
+    <div style="margin-top: 1.8rem;">
+      <div class="bench-stack">
+        <span class="bench-stack__label">policy in</span>
+        <span class="bench-stack__bar" aria-label="29%"><i style="width:29%"></i></span>
+        <span class="bench-stack__num">25 µs · 29%</span>
+      </div>
+      <div class="bench-stack">
+        <span class="bench-stack__label">model</span>
+        <span class="bench-stack__bar" aria-label="2%"><i style="width:2%"></i></span>
+        <span class="bench-stack__num">~2 µs · 2%</span>
+      </div>
+      <div class="bench-stack">
+        <span class="bench-stack__label">policy out</span>
+        <span class="bench-stack__bar" aria-label="29%"><i style="width:29%"></i></span>
+        <span class="bench-stack__num">25 µs · 29%</span>
+      </div>
+      <div class="bench-stack">
+        <span class="bench-stack__label">sign + ledger</span>
+        <span class="bench-stack__bar" aria-label="36%"><i style="width:36%"></i></span>
+        <span class="bench-stack__num">31 µs · 36%</span>
+      </div>
+      <div class="bench-stack">
+        <span class="bench-stack__label">misc</span>
+        <span class="bench-stack__bar" aria-label="4%"><i class="is-rest" style="width:4%"></i></span>
+        <span class="bench-stack__num">4 µs · 4%</span>
+      </div>
+    </div>
+
+    <p style="margin-top: 1.6rem;">A real clinical model is hundreds of milliseconds (CNN inference) to tens of seconds (LLM scribe). The wrap layer is <em>round-off error</em> on that budget — and it buys you a signed, replayable, regulator-verifiable audit trail.</p>
+  </div>
+</section>
+
+<!-- ─── reproduce ────────────────────────────────────────────────────────── -->
+<section class="bench-section">
+  <div class="container">
+    <h2>Reproduce them yourself.</h2>
+    <p>The bench harness is <code>examples/04_bench/main.cpp</code>. The full JSON output of the run that produced this page lives at <a href="assets/bench.json">assets/bench.json</a> for direct inspection.</p>
+
+    <div class="bench-grid-2">
+      <div class="bench-card">
+        <h3>Run it</h3>
+        <p>From the project root after a normal build:</p>
+        <pre><code>cmake --build build --target example_bench
+./build/examples/04_bench/example_bench --n 30000 \
+    > my-bench.json</code></pre>
+      </div>
+      <div class="bench-card">
+        <h3>Methodology</h3>
+        <p>30,000 iterations for hash / sign / verify / policy. 2,000 rows for ledger append. 1,000 wrapped inferences for end-to-end timing. Single thread. Median of three runs reported. No JIT — straight-line C++20 with <code>-O2</code>.</p>
+      </div>
+      <div class="bench-card">
+        <h3>What is <em>not</em> measured</h3>
+        <p>Network sidecar latency (gRPC), encrypted-body-store IO (planned), HSM-backed signing (slower per-op but parallel-friendly), Postgres-backed ledger (planned), and any model call.</p>
+      </div>
+      <div class="bench-card">
+        <h3>Honest caveats</h3>
+        <p>Numbers move with hardware. AVX-512 boxes hash faster, ARM64 signs slightly slower. The headline claim is the <em>shape</em>: microseconds, not milliseconds. We will publish a multi-arch matrix in v0.2.</p>
+      </div>
+    </div>
+
+    <p class="bench-meta">
+      generated 2026-04-25 · n=30,000 · g++ 15.2 -O2 ·
+      <a href="assets/bench.json">raw json</a> ·
+      <a href="https://github.com/asclepius-ai/asclepius/blob/main/examples/04_bench/main.cpp">harness source</a>
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — benchmarks.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="index.html#anatomy">anatomy</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+        <a href="benchmarks.html">benchmarks</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/bench.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

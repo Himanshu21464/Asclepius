@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Cheatsheet — Asclepius</title>
+<meta name="description" content="The fewest-words version. Every common pattern, every CLI invocation, every verification ritual on one dense page. Print it, pin it, paste from it.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/cheatsheet.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Cheatsheet">
+<meta property="og:description"  content="One dense page. Every pattern. Print it.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.ch-hero { padding: clamp(3rem, 6vw, 4.6rem) 0 1rem; }
+.ch-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.4rem, 5.5vw, 4rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .6rem; }
+.ch-hero h1 i { color: var(--primary); font-style: italic; }
+.ch-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.5; font-size: 1rem; }
+.ch-hero .kbd { display: inline-block; margin-bottom: .8rem; }
+
+.ch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+}
+.ch-card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1.1rem 1.2rem 1rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+.ch-card h2 {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 .8rem;
+    display: flex; justify-content: space-between; align-items: baseline;
+}
+.ch-card h2 small {
+    font-family: var(--font-mono);
+    text-transform: lowercase;
+    letter-spacing: .04em;
+    color: var(--ink-faint);
+    font-weight: 400;
+}
+.ch-card pre {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: .65rem .8rem;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    line-height: 1.65;
+    color: var(--ink);
+    overflow-x: auto;
+    white-space: pre;
+}
+.ch-card pre + pre { margin-top: .5rem; }
+.ch-card pre code { background: transparent; }
+.ch-card pre .c  { color: var(--ink-faint); }
+.ch-card pre .k  { color: var(--primary); }
+.ch-card pre .s  { color: var(--accent); }
+.ch-card pre .n  { color: var(--ink-warm); }
+.ch-card pre .ok { color: var(--accent); }
+
+.ch-card p {
+    color: var(--ink); font-family: var(--font-prose); line-height: 1.6;
+    margin: 0 0 .55rem; font-size: .92rem;
+}
+.ch-card p code, .ch-card li code {
+    font-family: var(--font-mono); font-size: .9em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    padding: .08em .35em; border-radius: 3px; color: var(--ink-warm);
+}
+.ch-card ul {
+    padding-left: 1.2rem; margin: .2rem 0 .35rem;
+    color: var(--ink); line-height: 1.55; font-size: .88rem;
+}
+.ch-card li { margin: .15em 0; }
+.ch-card .pair {
+    display: grid; grid-template-columns: minmax(0, auto) 1fr;
+    gap: .35rem .8rem;
+    font-family: var(--font-mono); font-size: .82rem;
+    align-items: baseline;
+}
+.ch-card .pair dt { color: var(--ink-faint); }
+.ch-card .pair dd { margin: 0; color: var(--ink-warm); }
+.ch-card .pair dd code { font-size: inherit; }
+
+.ch-meta {
+    margin: 2.4rem 0 4rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule-soft);
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    line-height: 1.7;
+}
+.ch-meta a { color: var(--primary); }
+
+@media print {
+    .ch-grid { grid-template-columns: repeat(2, 1fr); gap: .5rem; }
+    .ch-card { box-shadow: none; }
+}
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Cheatsheet",
+      "item": "https://asclepius.health/cheatsheet.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-cheatsheet">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="learn.html">learn</a>
+      <a href="cheatsheet.html" class="is-active" aria-current="page">cheatsheet</a>
+      <a href="glossary.html">glossary</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="ch-hero">
+  <div class="container">
+    <span class="kbd">one page · pin it · cmd-p prints clean</span>
+    <h1>The whole substrate, <i>on one page.</i></h1>
+    <p>Every pattern most integrations actually use. Optimised for printing — <kbd>⌘P</kbd> produces a two-column reference card you can pin above the desk.</p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="ch-grid">
+
+    <article class="ch-card">
+      <h2>Wrap an inference <small>C++20</small></h2>
+<pre><code><span class="k">#include</span> <span class="s">"asclepius/asclepius.hpp"</span>
+<span class="k">using namespace</span> <span class="n">asclepius</span>;
+
+<span class="k">auto</span> rt = Runtime::open(<span class="s">"./asclepius.db"</span>).value();
+rt.policies().push(make_phi_scrubber());
+rt.policies().push(make_schema_validator(R<span class="s">"({"required":["soap"]})"</span>));
+
+<span class="k">auto</span> inf = rt.begin_inference({
+  .model     = ModelId{<span class="s">"scribe"</span>, <span class="s">"v3"</span>},
+  .actor     = ActorId::clinician(<span class="s">"dr.smith"</span>),
+  .patient   = PatientId::pseudonymous(<span class="s">"p_9f1a"</span>),
+  .encounter = EncounterId::make(),
+  .purpose   = Purpose::ambient_documentation,
+}).value();
+
+<span class="k">auto</span> out = inf.run(transcript, my_scribe).value();
+inf.commit();</code></pre>
+    </article>
+
+    <article class="ch-card">
+      <h2>Wrap an inference <small>Python</small></h2>
+<pre><code><span class="k">import</span> asclepius <span class="k">as</span> ax
+
+rt = ax.Runtime(<span class="s">"./asclepius.db"</span>)
+rt.policies.push(ax.policies.phi_scrubber())
+rt.policies.push(ax.policies.schema_validator({<span class="s">"required"</span>: [<span class="s">"soap"</span>]}))
+
+<span class="k">with</span> rt.begin_inference(
+    model     = ax.Model(<span class="s">"scribe"</span>, <span class="s">"v3"</span>),
+    actor     = ax.Actor.clinician(<span class="s">"dr.smith"</span>),
+    patient   = ax.Patient.pseudonymous(<span class="s">"p_9f1a"</span>),
+    encounter = ax.Encounter.new(),
+    purpose   = ax.Purpose.AMBIENT_DOCUMENTATION,
+) <span class="k">as</span> inf:
+    soap = inf.run(transcript, my_scribe)
+    inf.observe_drift(<span class="s">"confidence"</span>, <span class="n">0.74</span>)</code></pre>
+    </article>
+
+    <article class="ch-card">
+      <h2>Build &amp; test <small>cmake</small></h2>
+<pre><code><span class="c"># required system packages on debian/ubuntu</span>
+sudo apt install build-essential cmake ninja-build \
+    libsodium-dev libsqlite3-dev
+
+<span class="c"># configure</span>
+cmake -S . -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+<span class="c"># build, test, bench</span>
+cmake --build build -j
+build/tests/asclepius_tests
+build/examples/04_bench/example_bench --n 30000</code></pre>
+    </article>
+
+    <article class="ch-card">
+      <h2>CLI <small>asclepius</small></h2>
+<pre><code><span class="c"># integrity check the whole chain</span>
+asclepius ledger verify  ./asclepius.db
+<span class="ok">OK: 18,402 entries, head=8e510bf4...</span>
+
+<span class="c"># dump the last 50 entries as JSON</span>
+asclepius ledger inspect ./asclepius.db --tail 50
+
+<span class="c"># export a 30-day evidence bundle</span>
+asclepius evidence bundle ./asclepius.db \
+    --window 30d --out evidence.tar
+<span class="ok">wrote evidence.tar, root_hash=22b91d…f0a4</span>
+
+<span class="c"># reverify offline (anyone can run this)</span>
+asclepius evidence verify evidence.tar
+<span class="ok">OK</span></code></pre>
+    </article>
+
+    <article class="ch-card">
+      <h2>Verify a bundle <small>without our binary</small></h2>
+<pre><code><span class="c"># 1. extract</span>
+tar xf evidence.tar
+
+<span class="c"># 2. authenticate the manifest</span>
+{ printf '\x30\x2a\x30\x05\x06\x03\x2b\x65\x70\x03\x21\x00';
+  cat public_key; } | openssl base64 \
+  | sed -e '1i-----BEGIN PUBLIC KEY-----' \
+        -e '$a-----END PUBLIC KEY-----' &gt; pk.pem
+
+openssl pkeyutl -verify -pubin -inkey pk.pem \
+    -sigfile manifest.sig -in manifest.json
+<span class="ok">Signature Verified Successfully</span>
+
+<span class="c"># 3. confirm every file's hash</span>
+jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
+    manifest.json | sha256sum -c</code></pre>
+    </article>
+
+    <article class="ch-card">
+      <h2>Built-in policies <small>composable</small></h2>
+      <ul>
+        <li><code>make_phi_scrubber()</code> — SSN, phone, email, MRN, dates → <em>modify</em>.</li>
+        <li><code>make_schema_validator(schema)</code> — JSON-Schema subset on output → <em>block</em> on violation.</li>
+        <li><code>make_clinical_action_filter(allowlist)</code> — rejects non-allowlisted action codes.</li>
+        <li><code>make_length_limit(in, out)</code> — bounded payload size.</li>
+      </ul>
+      <p>Verdicts compose left-to-right: <em>allow → modify → block</em>. The first <code>block</code> short-circuits with a structured rationale.</p>
+    </article>
+
+    <article class="ch-card">
+      <h2>Ledger entry <small>spec.md</small></h2>
+<pre><code>{
+  <span class="n">"seq"</span>: <span class="s">1234</span>,
+  <span class="n">"ts"</span>: <span class="s">"2026-04-25T17:22:25Z"</span>,
+  <span class="n">"actor"</span>: <span class="s">"clinician:dr.smith"</span>,
+  <span class="n">"event_type"</span>: <span class="s">"inference.committed"</span>,
+  <span class="n">"tenant"</span>: <span class="s">"kp-northwest"</span>,
+  <span class="n">"prev_hash"</span>: <span class="s">"<32 bytes hex>"</span>,
+  <span class="n">"payload_hash"</span>: <span class="s">"<32 bytes hex>"</span>,
+  <span class="n">"body"</span>: { <span class="c">/* canonical-JSON event payload */</span> },
+  <span class="n">"signature"</span>: <span class="s">"<64 bytes hex>"</span>,
+  <span class="n">"key_id"</span>: <span class="s">"<16 hex>"</span>
+}</code></pre>
+      <p>Hash: <code>BLAKE2b-256(event_type || 0x1E || canonical_json(body))</code>. Signature: Ed25519 over <code>seq|ts|prev|payload|actor|event_type|tenant|body</code>.</p>
+    </article>
+
+    <article class="ch-card">
+      <h2>Standard event types</h2>
+      <dl class="pair">
+        <dt><code>inference.committed</code></dt><dd>one wrapped inference, OK or blocked</dd>
+        <dt><code>inference.aborted</code></dt><dd>ran but never committed</dd>
+        <dt><code>evaluation.override</code></dt><dd>clinician override w/ rationale</dd>
+        <dt><code>evaluation.ground_truth</code></dt><dd>truth attached for an inference</dd>
+        <dt><code>consent.granted</code></dt><dd>token issued (planned)</dd>
+        <dt><code>consent.revoked</code></dt><dd>token withdrawn (planned)</dd>
+        <dt><code>policy.config_change</code></dt><dd>chain mutation (planned)</dd>
+        <dt><code>model.registered</code></dt><dd>id+version added (planned)</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
+      <h2>Eight purposes <small>codified</small></h2>
+      <ul>
+        <li><code>ambient_documentation</code></li>
+        <li><code>diagnostic_suggestion</code></li>
+        <li><code>triage</code></li>
+        <li><code>medication_review</code></li>
+        <li><code>risk_stratification</code></li>
+        <li><code>quality_improvement</code></li>
+        <li><code>research</code></li>
+        <li><code>operations</code></li>
+      </ul>
+      <p>Adding a new one is a <em>governance event</em>, not a string change. Consent is keyed by purpose; an inference for a non-granted purpose blocks before the model is called.</p>
+    </article>
+
+    <article class="ch-card">
+      <h2>Drift bands <small>PSI</small></h2>
+      <dl class="pair">
+        <dt><code>&lt; 0.10</code></dt><dd><span style="color: var(--accent);">none</span> · stable</dd>
+        <dt><code>0.10 – 0.25</code></dt><dd><span style="color: #FACC15;">minor</span> · monitor</dd>
+        <dt><code>0.25 – 0.50</code></dt><dd><span style="color: #FB923C;">moderate</span> · alert</dd>
+        <dt><code>≥ 0.50</code></dt><dd><span style="color: var(--danger);">severe</span> · investigate</dd>
+      </dl>
+      <p>Computed against a <em>fixed baseline</em>, not the previous window — slow drift accumulates rather than being averaged out.</p>
+    </article>
+
+    <article class="ch-card">
+      <h2>Performance budget <small>real numbers</small></h2>
+      <dl class="pair">
+        <dt>e2e wrap, p99</dt><dd>147 µs</dd>
+        <dt>e2e wrap, p50</dt><dd>87 µs</dd>
+        <dt>BLAKE2b-256</dt><dd>633 MB/s · 126 ns/op</dd>
+        <dt>Ed25519 sign</dt><dd>62.6k ops/s · 16 µs/op</dd>
+        <dt>Ed25519 verify</dt><dd>22.1k ops/s · 45 µs/op</dd>
+        <dt>policy chain</dt><dd>40.6k ops/s · 25 µs/op</dd>
+        <dt>ledger append</dt><dd>32.0k ops/s · 31 µs/op</dd>
+        <dt>chain verify</dt><dd>50 µs / entry</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
+      <h2>Key custody <small>three options</small></h2>
+      <ul>
+        <li><b>file 0600</b> — default, fine for a private VM</li>
+        <li><b>cloud KMS</b> — encrypted-at-rest, IAM-gated</li>
+        <li><b>HSM (PKCS#11)</b> — key never leaves device, ~5–10× slower per signature, required for FedRAMP-High</li>
+      </ul>
+      <p>Rotate by writing the new public key to the meta table; new entries sign with the new <code>key_id</code>; old entries continue to verify against the old key.</p>
+    </article>
+
+    <article class="ch-card">
+      <h2>Threat model <small>TL;DR</small></h2>
+      <dl class="pair">
+        <dt>A1</dt><dd>internal log tampering → chain detects</dd>
+        <dt>A2</dt><dd>malicious model output → policy chain</dd>
+        <dt>A3</dt><dd>replay → seq monotonicity</dd>
+        <dt>A4</dt><dd>bundle forgery → manifest sig</dd>
+        <dt>A5</dt><dd>PHI side-channel → hashes only by default</dd>
+        <dt>A6</dt><dd>undetected drift → frozen baseline</dd>
+      </dl>
+      <p>Out of scope: signing key compromise, host root, insider with both DB write + key access, post-quantum, bundle exfiltration.</p>
+    </article>
+
+    <article class="ch-card">
+      <h2>What <em>not</em> to expect</h2>
+      <ul>
+        <li>Asclepius is not an AI scribe.</li>
+        <li>Asclepius is not an MLOps platform.</li>
+        <li>Asclepius is not an EHR.</li>
+        <li>Asclepius is not a cloud service. <em>Self-hostable, period.</em></li>
+        <li>Asclepius does not reach the model — you call it; we wrap it.</li>
+      </ul>
+    </article>
+
+    <article class="ch-card">
+      <h2>Site keyboard shortcuts</h2>
+      <dl class="pair">
+        <dt><code>⌘K · Ctrl-K · /</code></dt><dd>command palette</dd>
+        <dt><code>?</code></dt><dd>this help</dd>
+        <dt><code>g h</code></dt><dd>home</dd>
+        <dt><code>g d</code></dt><dd>docs</dd>
+        <dt><code>g p</code></dt><dd>playground</dd>
+        <dt><code>g c</code></dt><dd>changelog</dd>
+        <dt><code>g s</code></dt><dd>status</dd>
+        <dt><code>g r</code></dt><dd>roadmap</dd>
+        <dt><code>g b</code></dt><dd>benchmarks</dd>
+        <dt><code>g k</code></dt><dd>crypto toolbox</dd>
+        <dt><code>g l</code></dt><dd>conformance</dd>
+        <dt><code>t</code></dt><dd>scroll to top</dd>
+        <dt><code>Esc</code></dt><dd>close any modal</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
+      <h2>Where things live</h2>
+      <dl class="pair">
+        <dt>headers</dt><dd><code>include/asclepius/*.hpp</code></dd>
+        <dt>impl</dt><dd><code>src/{audit,policy,...}/*.cpp</code></dd>
+        <dt>cli</dt><dd><code>apps/cli/main.cpp</code></dd>
+        <dt>bench</dt><dd><code>examples/04_bench/main.cpp</code></dd>
+        <dt>tests</dt><dd><code>tests/test_*.cpp</code></dd>
+        <dt>spec</dt><dd><code>docs/SPEC.md</code></dd>
+        <dt>threat model</dt><dd><code>docs/THREAT_MODEL.md</code></dd>
+        <dt>brief</dt><dd><code>Asclepius.tex</code></dd>
+        <dt>site</dt><dd><code>site/*</code></dd>
+      </dl>
+    </article>
+
+  </div>
+
+  <p class="ch-meta">
+    pinned for printing · run <code>cmake --build build &amp;&amp; ./build/examples/04_bench/example_bench --n 30000</code> to refresh the perf numbers ·
+    bench JSON: <a href="assets/bench.json">assets/bench.json</a> ·
+    full <a href="docs.html">docs hub</a> ·
+    canonical source: <a href="https://github.com/asclepius-ai/asclepius">github.com/asclepius-ai/asclepius</a>
+  </p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — cheatsheet.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="deploy.html">deploy</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

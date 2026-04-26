@@ -1,0 +1,39 @@
+# Asclepius — site .gitignore
+#
+# We commit everything that's served. We don't commit transient files,
+# editor caches, OS metadata, or local server logs.
+
+# Python build helpers
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local serve / experiment artifacts
+*.log
+.local/
+.tmp/
+
+# Playwright / test artifacts (live in tests/, not at root)
+.playwright-mcp/
+playwright-report/
+test-results/
+
+# Note: we DO commit:
+#   * asset-manifest.json — published manifest, content-hashed
+#   * search-index.json   — published, used by sitegraph
+#   * status.json         — published liveness
+#   * sw.js               — published service worker
+#   * _headers, _redirects, .editorconfig — published config

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel>
+  <title>Asclepius — changelog</title>
+  <link>https://asclepius.health/changelog.html</link>
+  <atom:link href="https://asclepius.health/feed.xml" rel="self" type="application/rss+xml"/>
+  <description>Cryptographically chained release history for the Asclepius clinical-AI trust substrate. Each entry references the previous hash; the changelog is itself a Merkle log.</description>
+  <language>en</language>
+  <pubDate>Fri, 25 Apr 2026 00:00:00 GMT</pubDate>
+  <lastBuildDate>Fri, 25 Apr 2026 00:00:00 GMT</lastBuildDate>
+  <generator>Asclepius hand-rolled feed</generator>
+  <ttl>1440</ttl>
+
+  <item>
+    <title>v0.1.0 — The substrate, open-sourced.</title>
+    <link>https://asclepius.health/changelog.html#v0-1-0</link>
+    <guid isPermaLink="false">asclepius:v0.1.0</guid>
+    <pubDate>Fri, 25 Apr 2026 00:00:00 GMT</pubDate>
+    <category>technology preview</category>
+    <description>First public release. C++20 runtime with signed Merkle ledger, composable policy chain, drift detection, consent registry, and offline-verifiable evidence bundles. CLI, Python bindings, three worked examples. 52 doctest cases passing. Apache 2.0.</description>
+  </item>
+
+  <item>
+    <title>v0.0.9 — Conformance: L1 audit suite green.</title>
+    <link>https://asclepius.health/changelog.html#v0-0-9</link>
+    <guid isPermaLink="false">asclepius:v0.0.9</guid>
+    <pubDate>Sun, 12 Apr 2026 00:00:00 GMT</pubDate>
+    <category>internal</category>
+    <description>Pinned the on-disk ledger format (spec.md v1) and ran the L1 conformance suite end-to-end against three reference workloads. Sign-input layout fixed. Drift severity bands tuned against published clinical-AI deployment data.</description>
+  </item>
+
+  <item>
+    <title>v0.0.7 — Evidence bundles ship.</title>
+    <link>https://asclepius.health/changelog.html#v0-0-7</link>
+    <guid isPermaLink="false">asclepius:v0.0.7</guid>
+    <pubDate>Thu, 19 Mar 2026 00:00:00 GMT</pubDate>
+    <category>internal</category>
+    <description>USTAR tar emit + offline-verify. Bundle's manifest signed by the same key as the ledger.</description>
+  </item>
+
+  <item>
+    <title>v0.0.5 — Drift on the ground floor.</title>
+    <link>https://asclepius.health/changelog.html#v0-0-5</link>
+    <guid isPermaLink="false">asclepius:v0.0.5</guid>
+    <pubDate>Sat, 28 Feb 2026 00:00:00 GMT</pubDate>
+    <category>internal</category>
+    <description>DriftMonitor with PSI / KS / EMD on per-feature reference vs. current histograms. Severity bands match industry conventional thresholds.</description>
+  </item>
+
+  <item>
+    <title>v0.0.3 — Policy chain composed.</title>
+    <link>https://asclepius.health/changelog.html#v0-0-3</link>
+    <guid isPermaLink="false">asclepius:v0.0.3</guid>
+    <pubDate>Wed, 04 Feb 2026 00:00:00 GMT</pubDate>
+    <category>internal</category>
+    <description>First version of the PolicyChain with allow/modify/block verdicts. PHI scrubber + JSON-Schema-subset validator.</description>
+  </item>
+
+  <item>
+    <title>v0.0.1 — Genesis. The Merkle ledger compiles.</title>
+    <link>https://asclepius.health/changelog.html#v0-0-1</link>
+    <guid isPermaLink="false">asclepius:v0.0.1</guid>
+    <pubDate>Thu, 08 Jan 2026 00:00:00 GMT</pubDate>
+    <category>internal</category>
+    <description>First commit. Append-only signed log over SQLite. verify() walks the chain. No policies, no consent, no drift — just the substrate's spine.</description>
+  </item>
+</channel>
+</rss>

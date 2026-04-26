@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Observability — Asclepius</title>
+<meta name="description" content="Every metric, trace span, and structured log line the substrate emits. Prometheus shape, OpenTelemetry semantic conventions, JSON Lines logs, with example dashboards and alert rules.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/observability.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Observability">
+<meta property="og:description"  content="Metrics · traces · logs. The runbook companion.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.ob-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.ob-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.ob-hero h1 i { color: var(--primary); font-style: italic; }
+.ob-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.ob-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.ob-toc { margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
+.ob-toc__pill {
+    display: block; padding: .9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--ink-warm);
+    transition: border-color .15s, transform .12s;
+}
+.ob-toc__pill:hover { border-color: var(--primary); transform: translateY(-1px); }
+.ob-toc__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.ob-toc__t { display: block; font-family: var(--font-prose); font-size: 1rem; margin-top: .25rem; line-height: 1.35; }
+.ob-toc__sub { display: block; font-family: var(--font-mono); font-size: .68rem; color: var(--ink-mute); margin-top: .35rem; }
+
+.ob-sec { margin: 4rem 0; padding-top: 2rem; border-top: 1px solid var(--rule); }
+.ob-sec__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.ob-sec h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .35rem 0 .8rem; }
+.ob-sec h2 i { color: var(--primary); font-style: italic; }
+.ob-sec__lede { font-family: var(--font-prose); font-size: 1rem; line-height: 1.6; color: var(--ink); max-width: 64ch; margin: 0 0 1.4rem; }
+.ob-sec__lede em { color: var(--ink-warm); font-style: italic; }
+.ob-sec__lede code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.ob-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: .82rem; margin-top: 1rem; }
+.ob-table th, .ob-table td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.ob-table th { font-weight: 500; font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); }
+.ob-table td.ob-table__name { color: var(--primary); white-space: nowrap; }
+.ob-table td.ob-table__type { color: var(--ink-warm); white-space: nowrap; font-size: .76rem; }
+.ob-table td.ob-table__desc { color: var(--ink); font-family: var(--font-prose); font-size: .92rem; line-height: 1.5; }
+.ob-table tr:hover td { background: rgba(181,123,255,.04); }
+
+.ob-tag {
+    display: inline-block;
+    padding: .1rem .5rem;
+    font-size: .62rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    border-radius: 3px;
+    background: var(--surface-2);
+    color: var(--ink-mute);
+}
+.ob-tag.is-counter   { background: rgba(125,211,252,.12); color: #7DD3FC; }
+.ob-tag.is-gauge     { background: rgba(244,184,96,.12);  color: #F4B860; }
+.ob-tag.is-histogram { background: rgba(181,123,255,.12); color: var(--primary); }
+.ob-tag.is-summary   { background: rgba(52,211,153,.12);  color: #34D399; }
+
+.ob-pre {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.6;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+    margin: 1rem 0;
+}
+.ob-pre .k { color: var(--primary); }
+.ob-pre .s { color: #34D399; }
+.ob-pre .n { color: #F4B860; }
+.ob-pre .c { color: var(--ink-faint); font-style: italic; }
+
+.ob-callout {
+    margin: 1.4rem 0 0;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.ob-callout b { color: var(--primary); }
+.ob-callout em { color: var(--ink-warm); font-style: italic; }
+.ob-callout code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.ob-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.ob-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.ob-coda h2 i { color: var(--primary); font-style: italic; }
+.ob-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.ob-coda .ob-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.ob-coda .ob-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.ob-coda .ob-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",          "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Observability", "item": "https://asclepius.health/observability.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-observability">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="deploy.html">deploy</a>
+      <a href="observability.html" class="is-active" aria-current="page">observability</a>
+      <a href="playbooks.html">playbooks</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="ob-hero">
+  <div class="container">
+    <span class="kbd">§01 · metrics · traces · logs · alerts</span>
+    <h1>What an operator should <i>watch.</i></h1>
+    <p>
+      Asclepius emits Prometheus-shaped metrics, OpenTelemetry-conventioned
+      traces, and JSON Lines logs. <em>Nothing magic — everything stock.</em>
+      The four sections below enumerate every signal the substrate produces,
+      with example PromQL alert rules that pair to the runbooks in
+      <a href="playbooks.html">playbooks</a>.
+    </p>
+
+    <nav class="ob-toc" aria-label="observability index">
+      <a class="ob-toc__pill" href="#metrics">
+        <span class="ob-toc__num">§ 01</span>
+        <span class="ob-toc__t">metrics</span>
+        <span class="ob-toc__sub">prometheus · 27 series</span>
+      </a>
+      <a class="ob-toc__pill" href="#traces">
+        <span class="ob-toc__num">§ 02</span>
+        <span class="ob-toc__t">traces</span>
+        <span class="ob-toc__sub">OTel · 9 spans</span>
+      </a>
+      <a class="ob-toc__pill" href="#logs">
+        <span class="ob-toc__num">§ 03</span>
+        <span class="ob-toc__t">logs</span>
+        <span class="ob-toc__sub">JSON Lines · structured</span>
+      </a>
+      <a class="ob-toc__pill" href="#alerts">
+        <span class="ob-toc__num">§ 04</span>
+        <span class="ob-toc__t">alert rules</span>
+        <span class="ob-toc__sub">12 PromQL · pager-ready</span>
+      </a>
+    </nav>
+  </div>
+</section>
+
+<!-- ─────────── §01 metrics ─────────── -->
+<section class="container ob-sec" id="metrics">
+  <span class="ob-sec__num">§ 01 · /metrics on :9464 · text exposition</span>
+  <h2><i>Metrics</i> — Prometheus shape.</h2>
+  <p class="ob-sec__lede">
+    Every metric is prefixed <code>asclepius_</code>. Counters end in
+    <code>_total</code>; histograms in <code>_seconds</code> or
+    <code>_bytes</code>; gauges have no suffix. Cardinality is bounded:
+    label sets are limited to actor scheme (not actor id), policy id (not
+    payload), and feature id (not feature value).
+  </p>
+
+  <h3 class="ob-sec__num" style="margin-top:1.2rem">runtime</h3>
+  <table class="ob-table" aria-label="runtime metrics">
+    <thead><tr><th>name</th><th>type</th><th>description</th></tr></thead>
+    <tbody>
+      <tr><td class="ob-table__name">asclepius_inferences_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Inferences started · labels: <code>purpose</code>, <code>verdict</code> (committed/rejected).</td></tr>
+      <tr><td class="ob-table__name">asclepius_inference_latency_seconds</td><td class="ob-table__type"><span class="ob-tag is-histogram">histogram</span></td><td class="ob-table__desc">End-to-end inference latency · labels: <code>purpose</code>. Buckets: 50µs..1s log-spaced.</td></tr>
+      <tr><td class="ob-table__name">asclepius_policy_chain_latency_seconds</td><td class="ob-table__type"><span class="ob-tag is-histogram">histogram</span></td><td class="ob-table__desc">Policy chain latency only (excludes the model call) · labels: <code>policy_id</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius_policy_violations_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Inputs/outputs that failed a policy · labels: <code>policy_id</code>, <code>verdict</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius_consent_checks_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Consent registry lookups · labels: <code>purpose</code>, <code>result</code> (granted/revoked/missing).</td></tr>
+      <tr><td class="ob-table__name">asclepius_runtime_read_only</td><td class="ob-table__type"><span class="ob-tag is-gauge">gauge</span></td><td class="ob-table__desc">1 if runtime is in read-only mode (set during PB-01 / PB-03).</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="ob-sec__num" style="margin-top:1.2rem">ledger</h3>
+  <table class="ob-table" aria-label="ledger metrics">
+    <thead><tr><th>name</th><th>type</th><th>description</th></tr></thead>
+    <tbody>
+      <tr><td class="ob-table__name">asclepius_ledger_appended_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Entries appended · labels: <code>kind</code> (e.g. <code>inference.completed</code>).</td></tr>
+      <tr><td class="ob-table__name">asclepius_ledger_seq</td><td class="ob-table__type"><span class="ob-tag is-gauge">gauge</span></td><td class="ob-table__desc">Current ledger tail seq. Should monotonically increase forever.</td></tr>
+      <tr><td class="ob-table__name">asclepius_ledger_size_bytes</td><td class="ob-table__type"><span class="ob-tag is-gauge">gauge</span></td><td class="ob-table__desc">SQLite database size (entries + WAL) on disk.</td></tr>
+      <tr><td class="ob-table__name">asclepius_ledger_wal_lag_seconds</td><td class="ob-table__type"><span class="ob-tag is-gauge">gauge</span></td><td class="ob-table__desc">Wall-clock lag between WAL tail and last checkpoint.</td></tr>
+      <tr><td class="ob-table__name">asclepius_ledger_verify_seconds</td><td class="ob-table__type"><span class="ob-tag is-histogram">histogram</span></td><td class="ob-table__desc">Time spent in <code>verify_chain</code> · labels: <code>scope</code> (last1k / full).</td></tr>
+      <tr><td class="ob-table__name">asclepius_ledger_chain_broken_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc"><b>P1</b> — should be exactly zero. Watchdog increments on any verify failure.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="ob-sec__num" style="margin-top:1.2rem">crypto</h3>
+  <table class="ob-table" aria-label="crypto metrics">
+    <thead><tr><th>name</th><th>type</th><th>description</th></tr></thead>
+    <tbody>
+      <tr><td class="ob-table__name">asclepius_sign_seconds</td><td class="ob-table__type"><span class="ob-tag is-histogram">histogram</span></td><td class="ob-table__desc">Ed25519 sign latency.</td></tr>
+      <tr><td class="ob-table__name">asclepius_verify_seconds</td><td class="ob-table__type"><span class="ob-tag is-histogram">histogram</span></td><td class="ob-table__desc">Ed25519 verify latency.</td></tr>
+      <tr><td class="ob-table__name">asclepius_hash_bytes_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Bytes hashed by BLAKE2b — operational throughput baseline.</td></tr>
+      <tr><td class="ob-table__name">asclepius_keystore_operations_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Sign/verify counts by key id (cardinality-bounded by configured set).</td></tr>
+      <tr><td class="ob-table__name">asclepius_key_age_seconds</td><td class="ob-table__type"><span class="ob-tag is-gauge">gauge</span></td><td class="ob-table__desc">Age of current signing key. Watch this for the 180-day rotation window.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="ob-sec__num" style="margin-top:1.2rem">drift &amp; consent</h3>
+  <table class="ob-table" aria-label="drift and consent metrics">
+    <thead><tr><th>name</th><th>type</th><th>description</th></tr></thead>
+    <tbody>
+      <tr><td class="ob-table__name">asclepius_drift_psi</td><td class="ob-table__type"><span class="ob-tag is-gauge">gauge</span></td><td class="ob-table__desc">Population Stability Index per feature · labels: <code>feature</code>, <code>window</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius_drift_ks</td><td class="ob-table__type"><span class="ob-tag is-gauge">gauge</span></td><td class="ob-table__desc">Kolmogorov–Smirnov statistic per feature.</td></tr>
+      <tr><td class="ob-table__name">asclepius_drift_threshold_breaches_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Drift threshold breaches. PB-04.</td></tr>
+      <tr><td class="ob-table__name">asclepius_consent_revocations_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Consent revocations received · labels: <code>purpose</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius_consent_revocation_propagation_seconds</td><td class="ob-table__type"><span class="ob-tag is-histogram">histogram</span></td><td class="ob-table__desc">Wall-clock time from <code>consent.revoked</code> to next denied check. PB-05 SLA.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="ob-sec__num" style="margin-top:1.2rem">bundle export</h3>
+  <table class="ob-table" aria-label="bundle export metrics">
+    <thead><tr><th>name</th><th>type</th><th>description</th></tr></thead>
+    <tbody>
+      <tr><td class="ob-table__name">asclepius_bundle_exports_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc">Bundles produced · labels: <code>scope</code> (encounter/range/all).</td></tr>
+      <tr><td class="ob-table__name">asclepius_bundle_export_seconds</td><td class="ob-table__type"><span class="ob-tag is-histogram">histogram</span></td><td class="ob-table__desc">Bundle build latency end-to-end.</td></tr>
+      <tr><td class="ob-table__name">asclepius_bundle_size_bytes</td><td class="ob-table__type"><span class="ob-tag is-summary">summary</span></td><td class="ob-table__desc">Bundle size distribution.</td></tr>
+      <tr><td class="ob-table__name">asclepius_bundle_verify_failures_total</td><td class="ob-table__type"><span class="ob-tag is-counter">counter</span></td><td class="ob-table__desc"><b>P1</b> — self-verify on export failed. Should be zero.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────────── §02 traces ─────────── -->
+<section class="container ob-sec" id="traces">
+  <span class="ob-sec__num">§ 02 · OpenTelemetry · OTLP/gRPC :4317</span>
+  <h2><i>Traces</i> — OpenTelemetry semantic conventions.</h2>
+  <p class="ob-sec__lede">
+    Span names follow OTel <code>{component}.{operation}</code>. The runtime
+    propagates trace context across the policy chain and the model call so
+    you can see exactly where the latency lives. <em>The model call is its
+    own span — vendor-agnostic, always there.</em>
+  </p>
+
+  <table class="ob-table" aria-label="trace span catalogue">
+    <thead><tr><th>span</th><th>parent</th><th>attributes</th></tr></thead>
+    <tbody>
+      <tr><td class="ob-table__name">asclepius.inference</td><td class="ob-table__type">root</td><td class="ob-table__desc">Top-level inference span. Attributes: <code>asclepius.purpose</code>, <code>asclepius.actor.scheme</code>, <code>asclepius.model.id</code>, <code>asclepius.model.weights_sha256</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius.consent.check</td><td class="ob-table__type">inference</td><td class="ob-table__desc"><code>asclepius.consent.purpose</code>, <code>asclepius.consent.result</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius.policy.run</td><td class="ob-table__type">inference</td><td class="ob-table__desc"><code>asclepius.policy.id</code>, <code>asclepius.policy.version</code>, <code>asclepius.policy.verdict</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius.model.call</td><td class="ob-table__type">inference</td><td class="ob-table__desc">The model boundary. Operator instruments the body. Attributes: <code>asclepius.model.id</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius.drift.update</td><td class="ob-table__type">inference</td><td class="ob-table__desc"><code>asclepius.drift.feature</code>, <code>asclepius.drift.psi</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius.ledger.append</td><td class="ob-table__type">inference</td><td class="ob-table__desc"><code>asclepius.ledger.seq</code>, <code>asclepius.ledger.kind</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius.crypto.sign</td><td class="ob-table__type">ledger.append</td><td class="ob-table__desc"><code>asclepius.crypto.alg</code> = <code>ed25519</code>, <code>asclepius.key.id</code>.</td></tr>
+      <tr><td class="ob-table__name">asclepius.bundle.export</td><td class="ob-table__type">root</td><td class="ob-table__desc">Out-of-band; root span when an export is initiated.</td></tr>
+      <tr><td class="ob-table__name">asclepius.verify.chain</td><td class="ob-table__type">root</td><td class="ob-table__desc">Watchdog or on-demand verify. <code>asclepius.verify.scope</code>, <code>asclepius.verify.result</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="ob-callout">
+    <b>What we don't trace.</b> Anything containing PHI. The model call's
+    request/response body is not an attribute — only its hash is. The same
+    is true for the inputs of the policy chain. <em>The trace is operational,
+    the ledger is forensic.</em>
+  </p>
+</section>
+
+<!-- ─────────── §03 logs ─────────── -->
+<section class="container ob-sec" id="logs">
+  <span class="ob-sec__num">§ 03 · stdout · JSON Lines · 1 line per event</span>
+  <h2><i>Logs</i> — JSON Lines, structured.</h2>
+  <p class="ob-sec__lede">
+    The substrate writes one JSON object per line to stdout. Operators wire
+    that to whatever ingestor they prefer (Vector, Fluent Bit, journald). <em>No
+    free-text strings.</em> Every log line has a <code>code</code> a runbook can
+    look up.
+  </p>
+
+  <pre class="ob-pre">{ <span class="k">"ts"</span>: <span class="s">"2026-04-26T14:21:08.412Z"</span>,
+  <span class="k">"level"</span>: <span class="s">"info"</span>,
+  <span class="k">"code"</span>: <span class="s">"inference.completed"</span>,
+  <span class="k">"actor"</span>: <span class="s">"clin:np_marisol_h"</span>,
+  <span class="k">"purpose"</span>: <span class="s">"scribe"</span>,
+  <span class="k">"model"</span>: { <span class="k">"id"</span>: <span class="s">"scribe-v3"</span>, <span class="k">"weights_sha256"</span>: <span class="s">"6a0f…e2"</span> },
+  <span class="k">"latency_us"</span>: <span class="n">147</span>,
+  <span class="k">"ledger_seq"</span>: <span class="n">874</span>,
+  <span class="k">"trace_id"</span>: <span class="s">"4f1e…"</span>,
+  <span class="k">"span_id"</span>: <span class="s">"a92c…"</span> }</pre>
+
+  <p class="ob-sec__lede" style="margin-top:1rem">
+    Notable codes (each maps to a section of <a href="playbooks.html">playbooks</a>):
+  </p>
+
+  <table class="ob-table" aria-label="log code catalogue">
+    <thead><tr><th>code</th><th>level</th><th>what it means</th></tr></thead>
+    <tbody>
+      <tr><td class="ob-table__name">inference.completed</td><td class="ob-table__type">info</td><td class="ob-table__desc">Successful end-to-end inference. Routine.</td></tr>
+      <tr><td class="ob-table__name">policy.violation</td><td class="ob-table__type">warn</td><td class="ob-table__desc">An input or output failed a policy. Includes <code>policy_id</code> and <code>verdict</code>.</td></tr>
+      <tr><td class="ob-table__name">consent.denied</td><td class="ob-table__type">warn</td><td class="ob-table__desc">Inference rejected due to missing/revoked consent.</td></tr>
+      <tr><td class="ob-table__name">chain.broken</td><td class="ob-table__type">error</td><td class="ob-table__desc"><b>P1</b>. Ledger verify failed. Triggers PB-01.</td></tr>
+      <tr><td class="ob-table__name">drift.psi.breach</td><td class="ob-table__type">warn</td><td class="ob-table__desc">A feature's PSI crossed threshold. PB-04.</td></tr>
+      <tr><td class="ob-table__name">key.rotated</td><td class="ob-table__type">info</td><td class="ob-table__desc">Scheduled rotation succeeded. PB-02.</td></tr>
+      <tr><td class="ob-table__name">key.revoked</td><td class="ob-table__type">error</td><td class="ob-table__desc"><b>P1</b>. Emergency revocation. PB-03.</td></tr>
+      <tr><td class="ob-table__name">backend.unreachable</td><td class="ob-table__type">warn</td><td class="ob-table__desc">Sidecar can't reach central backend; running on local WAL. PB-07.</td></tr>
+      <tr><td class="ob-table__name">bundle.exported</td><td class="ob-table__type">info</td><td class="ob-table__desc">Evidence bundle written. Routine for compliance work.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────────── §04 alert rules ─────────── -->
+<section class="container ob-sec" id="alerts">
+  <span class="ob-sec__num">§ 04 · pager-ready · paste into prometheus</span>
+  <h2>Alert <i>rules.</i></h2>
+  <p class="ob-sec__lede">
+    Twelve PromQL rules sufficient to run a single tenant. Severity tags
+    align with the runbook severities in <a href="playbooks.html">playbooks</a>.
+    Operators almost always want to layer their own org-wide rules on top of
+    this baseline.
+  </p>
+
+  <pre class="ob-pre"><span class="c"># PB-01 — chain broken — never zero increment is acceptable</span>
+- alert: <span class="k">AsclepiusChainBroken</span>
+  expr:  <span class="s">increase(asclepius_ledger_chain_broken_total[5m]) &gt; 0</span>
+  for:   <span class="n">0m</span>
+  labels: { severity: <span class="s">P1</span> }
+  annotations: { runbook: <span class="s">"playbooks.html#truncation"</span> }
+
+<span class="c"># PB-03 — key rotation due / overdue (180-day window)</span>
+- alert: <span class="k">AsclepiusKeyRotationDue</span>
+  expr:  <span class="s">asclepius_key_age_seconds &gt; 180 * 86400</span>
+  for:   <span class="n">1h</span>
+  labels: { severity: <span class="s">P3</span> }
+  annotations: { runbook: <span class="s">"playbooks.html#key-rotation"</span> }
+
+<span class="c"># PB-04 — drift PSI breach for &gt; 30 min in any feature</span>
+- alert: <span class="k">AsclepiusDriftBreach</span>
+  expr:  <span class="s">max by (feature) (asclepius_drift_psi) &gt; 0.25</span>
+  for:   <span class="n">30m</span>
+  labels: { severity: <span class="s">P2</span> }
+  annotations: { runbook: <span class="s">"playbooks.html#drift-breach"</span> }
+
+<span class="c"># PB-05 — consent revocation propagation SLA (60 s p99)</span>
+- alert: <span class="k">AsclepiusConsentLag</span>
+  expr:  <span class="s">histogram_quantile(0.99, sum by (le) (rate(asclepius_consent_revocation_propagation_seconds_bucket[10m]))) &gt; 60</span>
+  for:   <span class="n">10m</span>
+  labels: { severity: <span class="s">P2</span> }
+  annotations: { runbook: <span class="s">"playbooks.html#consent-revocation"</span> }
+
+<span class="c"># PB-07 — backend unreachable for &gt; 60 s</span>
+- alert: <span class="k">AsclepiusBackendUnreachable</span>
+  expr:  <span class="s">absent_over_time(asclepius_ledger_seq[60s])</span>
+  for:   <span class="n">1m</span>
+  labels: { severity: <span class="s">P2</span> }
+  annotations: { runbook: <span class="s">"playbooks.html#partition"</span> }
+
+<span class="c"># bundle self-verify failure — should be zero ever</span>
+- alert: <span class="k">AsclepiusBundleSelfVerifyFailed</span>
+  expr:  <span class="s">increase(asclepius_bundle_verify_failures_total[15m]) &gt; 0</span>
+  for:   <span class="n">0m</span>
+  labels: { severity: <span class="s">P1</span> }
+
+<span class="c"># inference latency p99 &gt; 500ms — soft alert, investigate the chain</span>
+- alert: <span class="k">AsclepiusInferenceLatencyHigh</span>
+  expr:  <span class="s">histogram_quantile(0.99, sum by (le, purpose) (rate(asclepius_inference_latency_seconds_bucket[5m]))) &gt; 0.5</span>
+  for:   <span class="n">10m</span>
+  labels: { severity: <span class="s">P3</span> }
+
+<span class="c"># policy violation rate &gt; 5% in 5 min — model drift OR adversarial input</span>
+- alert: <span class="k">AsclepiusPolicyViolationsElevated</span>
+  expr:  <span class="s">sum(rate(asclepius_policy_violations_total[5m])) / sum(rate(asclepius_inferences_total[5m])) &gt; 0.05</span>
+  for:   <span class="n">10m</span>
+  labels: { severity: <span class="s">P2</span> }
+
+<span class="c"># consent denied rate &gt; 1% — process problem, not substrate problem</span>
+- alert: <span class="k">AsclepiusConsentDeniedElevated</span>
+  expr:  <span class="s">sum(rate(asclepius_consent_checks_total{result="denied"}[5m])) / sum(rate(asclepius_consent_checks_total[5m])) &gt; 0.01</span>
+  for:   <span class="n">15m</span>
+  labels: { severity: <span class="s">P3</span> }
+
+<span class="c"># ledger size growth alarm (4× expected weekly rate)</span>
+- alert: <span class="k">AsclepiusLedgerGrowthAnomaly</span>
+  expr:  <span class="s">deriv(asclepius_ledger_size_bytes[1d]) &gt; 4 * deriv(asclepius_ledger_size_bytes[7d] offset 7d)</span>
+  for:   <span class="n">1h</span>
+  labels: { severity: <span class="s">P3</span> }
+
+<span class="c"># sign latency regression — usually means HSM trouble</span>
+- alert: <span class="k">AsclepiusSignLatencyRegression</span>
+  expr:  <span class="s">histogram_quantile(0.99, sum by (le) (rate(asclepius_sign_seconds_bucket[5m]))) &gt; 0.005</span>
+  for:   <span class="n">10m</span>
+  labels: { severity: <span class="s">P3</span> }
+
+<span class="c"># runtime read-only flag should be zero in steady state</span>
+- alert: <span class="k">AsclepiusReadOnlyAsserted</span>
+  expr:  <span class="s">asclepius_runtime_read_only == 1</span>
+  for:   <span class="n">5m</span>
+  labels: { severity: <span class="s">P2</span> }</pre>
+
+  <p class="ob-callout">
+    <b>Pair with playbooks.</b> Every runbook above pages out to a specific
+    runbook URL via the <code>annotations.runbook</code> field. Your
+    paging tool (PagerDuty, Opsgenie, FireHydrant) can link straight to
+    <em>"what to do at 3 a.m."</em>
+  </p>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="ob-coda">
+    <h2>Visibility is the <i>other</i> half of trust.</h2>
+    <p>
+      A substrate that emits cryptographic provenance but no operational
+      signal is a black box that <em>happens to be auditable in retrospect</em>.
+      That is not enough. The runbook companion to "what does the chain
+      prove?" is "what does the system look like, in real time, while it is
+      proving it?"
+    </p>
+    <p>
+      This page is the answer. Wire it into your stack of choice; the runbooks
+      take it from there.
+    </p>
+    <div class="ob-coda__links">
+      <a href="playbooks.html">playbooks →</a>
+      <a href="status.html">live status</a>
+      <a href="deploy.html">deploy guide</a>
+      <a href="benchmarks.html">benchmarks</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>operate</b>
+        <a href="deploy.html">deploy</a>
+        <a href="observability.html">observability</a>
+        <a href="playbooks.html">playbooks</a>
+        <a href="status.html">status</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">docs</a>
+        <a href="api.html">API reference</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

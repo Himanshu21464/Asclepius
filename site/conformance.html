@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Conformance — Asclepius</title>
+<meta name="description" content="The Asclepius conformance suite: every L1 / L2 / L3 test, what it asserts, and the current pass/fail status from the v0.1.0 reference build.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/conformance.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Conformance">
+<meta property="og:description"  content="Every L1/L2/L3 conformance test, what it asserts, and current pass/fail status.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="status.html">
+<link rel="prefetch" href="benchmarks.html">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.cf-hero { padding: clamp(4rem, 8vw, 6rem) 0 2rem; }
+.cf-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+.cf-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.cf-hero h1 i { color: var(--primary); font-style: italic; }
+.cf-hero p { color: var(--ink-mute); max-width: 64ch; font-size: 1.05rem; line-height: 1.55; }
+.cf-hero p code { font-family: var(--font-mono); font-size: .9em; padding: .08em .4em; background: var(--surface-2); border: 1px solid var(--rule); border-radius: 3px; color: var(--ink-warm); }
+
+.cf-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  margin: 2rem 0 0;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cf-summary > div { padding: 1.2rem 1.4rem; background: var(--surface); }
+.cf-summary span {
+  font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-faint);
+  display: block;
+}
+.cf-summary b {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: 2rem; line-height: 1.1; letter-spacing: -.02em;
+  color: var(--ink-warm);
+  display: inline-block;
+  margin-top: .35rem;
+}
+.cf-summary b em { color: var(--accent); font-style: italic; }
+.cf-summary b.is-partial em { color: #FACC15; }
+.cf-summary b.is-pending em { color: var(--ink-mute); }
+
+.cf-level { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+.cf-level header.cf-level__head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1.4rem;
+  align-items: baseline;
+  margin: 0 0 1.4rem;
+}
+.cf-level__num {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: clamp(2.6rem, 6vw, 4rem);
+  line-height: 1; letter-spacing: -.02em;
+  color: var(--primary);
+  margin: 0;
+}
+.cf-level__name {
+  font-family: var(--font-mono);
+  font-size: .82rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.cf-level__title {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  color: var(--ink-warm); letter-spacing: -.01em;
+  margin: 0;
+}
+.cf-level__title i { color: var(--primary); font-style: italic; }
+.cf-level__pill {
+  font-family: var(--font-mono);
+  font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+  padding: .3rem .8rem;
+  border-radius: 99px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  color: var(--ink-mute);
+}
+.cf-level__pill.is-pass    { color: var(--accent); border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.06); }
+.cf-level__pill.is-partial { color: #FACC15;       border-color: rgba(250,204,21,.4); }
+.cf-level__pill.is-pending { color: var(--ink-mute); }
+
+.cf-level p { color: var(--ink-mute); max-width: 60ch; line-height: 1.6; margin: 0 0 1.4rem; }
+.cf-level p i, .cf-level p em { color: var(--ink); font-style: italic; }
+
+.cf-tests {
+  display: grid;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cf-test {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 1.4rem;
+  padding: 1rem 1.3rem;
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: .88rem;
+  transition: background .15s var(--ease-out);
+}
+.cf-test:hover { background: var(--surface-2); }
+.cf-test__icon {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .68rem;
+  letter-spacing: 0;
+}
+.cf-test__icon.is-pass    { background: rgba(52,211,153,.14); color: var(--accent); }
+.cf-test__icon.is-pass::before    { content: "✓"; }
+.cf-test__icon.is-partial { background: rgba(250,204,21,.14); color: #FACC15; }
+.cf-test__icon.is-partial::before { content: "◐"; }
+.cf-test__icon.is-pending { background: var(--surface-3); color: var(--ink-mute); }
+.cf-test__icon.is-pending::before { content: "○"; }
+.cf-test__name {
+  display: grid; gap: .15rem;
+}
+.cf-test__name b { color: var(--ink-warm); font-weight: 500; }
+.cf-test__name span { color: var(--ink-mute); font-family: var(--font-prose); font-size: .85rem; line-height: 1.5; max-width: 70ch; }
+.cf-test__cite {
+  color: var(--ink-faint);
+  font-size: .76rem;
+  letter-spacing: .04em;
+  text-align: right;
+  white-space: nowrap;
+}
+.cf-test__cite a { color: inherit; }
+.cf-test__cite a:hover { color: var(--primary); }
+
+.cf-foot { padding: 2.4rem 0 4rem; }
+.cf-foot p {
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  color: var(--ink-faint);
+  letter-spacing: .04em;
+  line-height: 1.7;
+  max-width: 76ch;
+}
+.cf-foot p a { color: var(--primary); }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Conformance",
+      "item": "https://asclepius.health/conformance.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-conformance">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="benchmarks.html">benchmarks</a>
+      <a href="conformance.html" class="is-active" aria-current="page">conformance</a>
+      <a href="status.html">status</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/concrete" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="cf-hero">
+  <div class="container">
+    <span class="kbd">conformance suite · v0.1.0 · 2026-04-25</span>
+    <h1>Three levels. <i>Each one runs.</i></h1>
+    <p>
+      The conformance suite is the third-party-runnable test battery that decides whether a
+      vendor integration meets <code>L1 audit</code>, <code>L2 drift</code>, or <code>L3 prospective evidence</code>. Each level
+      strictly extends the previous. Vendors advertise the highest level they pass; customers
+      buy at the level their AI Governance Office requires. The full reference suite is
+      <code>tests/asclepius_tests</code> in the repo — these are the externally-defined assertions
+      that any compliant runtime must satisfy.
+    </p>
+
+    <div class="cf-summary">
+      <div>
+        <span>L1 audit</span>
+        <b><em>10 / 10</em> · pass</b>
+      </div>
+      <div>
+        <span>L2 drift</span>
+        <b><em>4 / 4</em> · pass</b>
+      </div>
+      <div>
+        <span>L3 evidence</span>
+        <b class="is-partial"><em>3 / 5</em> · partial</b>
+      </div>
+      <div>
+        <span>last run</span>
+        <b style="font-size: .88rem; font-family: var(--font-mono); color: var(--ink); display: block; margin-top: .55rem;">2026-04-25 · g++ 15.2 · 687 assertions</b>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── L1 ─────────────────────────────────────────────────────────────── -->
+<section class="cf-level" id="l1">
+  <div class="container">
+    <header class="cf-level__head">
+      <p class="cf-level__num"><i>L1</i></p>
+      <div>
+        <span class="cf-level__name">audit</span>
+        <h2 class="cf-level__title">Trustworthy log.</h2>
+      </div>
+      <span class="cf-level__pill is-pass">10 / 10 pass</span>
+    </header>
+    <p>The runtime emits one entry per wrapped inference. The chain verifies. Bundles export and reverify offline. The signing key is properly held and never leaks into logs. <i>L1 is the floor: without it, nothing else matters.</i></p>
+
+    <div class="cf-tests">
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>chain.append-only</b><span>The runtime exposes no API to delete or modify a committed entry. Attempting it via direct DB access is detectable by <code>verify()</code>.</span></span>
+        <span class="cf-test__cite"><a href="spec.html#ledger-entry">spec § ledger-entry</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>chain.monotonic-seq</b><span>For every entry at sequence <code>N</code>, the next entry has sequence <code>N+1</code>. Gaps are integrity failures.</span></span>
+        <span class="cf-test__cite"><a href="https://github.com/asclepius-ai/asclepius/blob/main/tests/test_audit.cpp">test_audit.cpp</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>chain.prev-hash-binds</b><span>Each entry's <code>prev_hash</code> equals <code>entry_hash(N-1)</code>. Mutating any past entry changes its hash and breaks the chain at the next step.</span></span>
+        <span class="cf-test__cite"><a href="threat-model.html#a1-internal-actor-tampering-with-audit-logs">threat § A1</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>chain.signature-binds</b><span>Each entry carries an Ed25519 signature over (seq, ts, prev, payload, actor, type, tenant, body). Verifies against the registered public key.</span></span>
+        <span class="cf-test__cite"><a href="spec.html#signature-scheme">spec § signature</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>canonical-json.deterministic</b><span>Two equal-shaped bodies produce byte-equal JSON. Sorted keys, no whitespace, UTF-8.</span></span>
+        <span class="cf-test__cite"><a href="spec.html#canonical-json">spec § canonical-json</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>bundle.signed-by-ledger-key</b><span>The exported bundle's <code>manifest.sig</code> verifies against the ledger's public key, not a throwaway.</span></span>
+        <span class="cf-test__cite"><a href="https://github.com/asclepius-ai/asclepius/blob/main/src/evaluation/bundle.cpp">bundle.cpp</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>bundle.contents-match-manifest</b><span>Every file declared in the manifest's <code>files</code> map has its hash present and verifiable.</span></span>
+        <span class="cf-test__cite"><a href="spec.html#evidence-bundle-ustar-tar">spec § bundle</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>bundle.offline-verifiable</b><span>The verifier requires only the bundle file and the public key; no network, no service, no vendor SaaS.</span></span>
+        <span class="cf-test__cite"><a href="index.html#verify">verify ritual</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>phi.not-in-ledger-by-default</b><span>Inference body stores hashes of input/output, not content. Opt-in is the only way to put PHI into the chain.</span></span>
+        <span class="cf-test__cite"><a href="threat-model.html#a5-side-channel-phi-leakage-via-ledger">threat § A5</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>consent.scope-enforced</b><span>An inference is rejected before any policy runs or any model is called if there's no active, non-expired consent token for the patient and purpose.</span></span>
+        <span class="cf-test__cite"><a href="https://github.com/asclepius-ai/asclepius/blob/main/tests/test_runtime.cpp">test_runtime.cpp</a></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── L2 ─────────────────────────────────────────────────────────────── -->
+<section class="cf-level" id="l2">
+  <div class="container">
+    <header class="cf-level__head">
+      <p class="cf-level__num"><i>L2</i></p>
+      <div>
+        <span class="cf-level__name">drift</span>
+        <h2 class="cf-level__title">Observable behaviour.</h2>
+      </div>
+      <span class="cf-level__pill is-pass">4 / 4 pass</span>
+    </header>
+    <p>L1 plus continuous drift telemetry, override capture, and a runtime that surfaces severity transitions instead of dashboards alone. <i>The model can be retired without losing replayability.</i></p>
+
+    <div class="cf-tests">
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>drift.psi-correct</b><span>Population Stability Index implementation matches the reference (sum over bins of <code>(p-q)·ln(p/q)</code>) within numerical noise.</span></span>
+        <span class="cf-test__cite"><a href="https://github.com/asclepius-ai/asclepius/blob/main/tests/test_telemetry.cpp">test_telemetry.cpp</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>drift.severity-bands</b><span>Thresholds match the spec: PSI &lt; 0.10 stable, &lt; 0.25 minor, &lt; 0.50 moderate, ≥ 0.50 severe.</span></span>
+        <span class="cf-test__cite">spec</span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>override.captured-with-rationale</b><span>An override emits an <code>evaluation.override</code> entry tying back to the original <code>inference_id</code>, including the corrected payload and a non-empty rationale.</span></span>
+        <span class="cf-test__cite"><a href="spec.html#standard-event-types">spec § events</a></span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>rotate.preserves-baseline</b><span><code>DriftMonitor::rotate()</code> resets the current window without clearing the baseline. PSI is computed against the baseline always, so slow drift accumulates.</span></span>
+        <span class="cf-test__cite">drift.cpp</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── L3 ─────────────────────────────────────────────────────────────── -->
+<section class="cf-level" id="l3">
+  <div class="container">
+    <header class="cf-level__head">
+      <p class="cf-level__num"><i>L3</i></p>
+      <div>
+        <span class="cf-level__name">evidence</span>
+        <h2 class="cf-level__title">Prospective trial.</h2>
+      </div>
+      <span class="cf-level__pill is-partial">3 / 5 partial</span>
+    </header>
+    <p>L2 plus ground-truth coupling on a defined fraction of inferences. Per-window comparative metrics. Bundle suitable for an FDA submission, signed and reproducible. <i>The substrate becomes the trial harness.</i></p>
+
+    <div class="cf-tests">
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>ground-truth.captured</b><span><code>attach_ground_truth()</code> writes an <code>evaluation.ground_truth</code> entry to the chain, tying back to the original inference.</span></span>
+        <span class="cf-test__cite">harness.cpp</span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>metrics.window-bounded</b><span><code>metrics({start, end})</code> includes only entries whose <code>ts ∈ [start, end)</code>. A bundle's metrics depend only on its window, not on the chain's full length.</span></span>
+        <span class="cf-test__cite">harness.cpp</span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pass"></span>
+        <span class="cf-test__name"><b>bundle.includes-prospective-streams</b><span>An exported bundle for a window with overrides + ground-truth contains both <code>overrides.jsonl</code> and <code>ground_truth.jsonl</code>, signed by the same key as the manifest.</span></span>
+        <span class="cf-test__cite">bundle.cpp</span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__name"><b>reproducibility.bit-equal</b><span>Re-exporting a closed window must produce a byte-identical bundle (modulo the manifest signature, which is non-deterministic for Ed25519). <em>Implementation in v0.2.</em></span></span>
+        <span class="cf-test__cite">planned</span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__name"><b>fda.precert-shape</b><span>The bundle's manifest schema includes the fields an FDA Predetermined Change Control Plan submission references (model id, version, training date, prospective window). <em>Schema land Q4 2026.</em></span></span>
+        <span class="cf-test__cite">planned</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cf-foot">
+  <div class="container">
+    <p>
+      reproduce the run · <code>cmake --build build --target asclepius_tests &amp;&amp; ctest --output-on-failure</code><br>
+      raw asserts · 687 / 687 ·
+      <a href="benchmarks.html">benchmarks</a> ·
+      <a href="docs.html">docs</a> ·
+      <a href="changelog.html">changelog</a>
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — conformance.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="roadmap.html">roadmap</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="glossary.html">glossary</a>
+        <a href="benchmarks.html">benchmarks</a>
+      </div>
+      <div>
+        <b>verify</b>
+        <a href="conformance.html">conformance</a>
+        <a href="status.html">status</a>
+        <a href="security.html">security</a>
+        <a href="deploy.html">deploy</a>
+        <a href="labs.html">labs</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

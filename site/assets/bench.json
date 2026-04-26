@@ -1,0 +1,40 @@
+{
+  "asclepius_version": "0.1.0",
+  "chain_verify": {
+    "entries": 2000,
+    "total_us": 101007.174,
+    "us_per_entry": 50.503586999999996
+  },
+  "end_to_end_inference": {
+    "mean_us": 94.40289700000001,
+    "p50_us": 87.113,
+    "p90_us": 112.289,
+    "p99_us": 147.623,
+    "samples": 1000
+  },
+  "hash": {
+    "algo": "BLAKE2b-256",
+    "mb_per_sec": 613.7318807981255,
+    "ns_per_op": 130.5271
+  },
+  "ledger_append": {
+    "backend": "SQLite WAL",
+    "ops_per_sec": 29602.91902543342,
+    "us_per_op": 33.7804525
+  },
+  "policy_chain": {
+    "composition": "phi_scrubber + length_limit",
+    "ops_per_sec": 40108.62511984875,
+    "us_per_op": 24.932293166666668
+  },
+  "sample_size": 30000,
+  "sign": {
+    "algo": "Ed25519",
+    "ns_per_op": 17437.350266666668,
+    "ops_per_sec": 57348.162691415644
+  },
+  "verify": {
+    "ns_per_op": 46553.80033333333,
+    "ops_per_sec": 21480.5234554392
+  }
+}

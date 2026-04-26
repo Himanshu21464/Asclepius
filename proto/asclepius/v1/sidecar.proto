@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Asclepius Contributors
+//
+// gRPC service surface for the asclepius-svc sidecar. The sidecar is a thin
+// transport over the same Runtime that the C++ SDK exposes — a host that
+// uses the SDK directly and a host that talks to the sidecar produce
+// identical ledger entries.
+//
+// This is the v1 schema. Methods may be added in minor releases; existing
+// methods are stable.
+
+syntax = "proto3";
+
+package asclepius.v1;
+
+import "asclepius/v1/common.proto";
+import "asclepius/v1/ledger.proto";
+import "asclepius/v1/evidence.proto";
+
+option cc_enable_arenas = true;
+option go_package        = "asclepius.health/proto/asclepius/v1;asclepiusv1";
+option java_package      = "health.asclepius.proto.v1";
+option java_multiple_files = true;
+
+// ---- BeginInference ------------------------------------------------------
+
+message InferenceSpec {
+  Id      model            = 1;
+  Id      actor            = 2;
+  Id      patient          = 3;
+  Id      encounter        = 4;
+  Purpose purpose          = 5;
+  Id      tenant           = 6;
+  string  consent_token_id = 7;  // optional
+}
+
+message BeginInferenceRequest {
+  InferenceSpec spec = 1;
+}
+
+message BeginInferenceResponse {
+  string inference_id = 1;
+  Time   started_at   = 2;
+}
+
+// ---- Run -----------------------------------------------------------------
+//
+// The sidecar runs the input through the policy chain, calls back into the
+// host's model (host-side via a streaming inverse RPC, or by pre-registered
+// model handle — out of scope for v1), then runs the output through the
+// chain. v1 ships the synchronous in-process variant; the streaming variant
+// is RFC.
+
+message RunRequest {
+  string inference_id = 1;
+  bytes  input        = 2;  // raw bytes; the host decides encoding
+}
+
+message RunResponse {
+  bytes                        output          = 1;
+  Hash                         input_hash      = 2;
+  Hash                         output_hash     = 3;
+  repeated PolicyVerdictRecord input_verdicts  = 4;
+  repeated PolicyVerdictRecord output_verdicts = 5;
+  uint64                       latency_ns      = 6;
+}
+
+// ---- Commit / Abort ------------------------------------------------------
+
+message CommitRequest { string inference_id = 1; }
+message CommitResponse { LedgerEntry committed = 1; }
+
+message AbortRequest { string inference_id = 1; string reason = 2; }
+message AbortResponse {}
+
+// ---- Override / GroundTruth ---------------------------------------------
+
+message CaptureOverrideRequest {
+  string inference_id   = 1;
+  Id     clinician      = 2;
+  string rationale      = 3;
+  string corrected_json = 4;
+}
+message CaptureOverrideResponse { LedgerEntry committed = 1; }
+
+message AttachGroundTruthRequest {
+  string inference_id = 1;
+  string truth_json   = 2;
+  string source       = 3;
+}
+message AttachGroundTruthResponse { LedgerEntry committed = 1; }
+
+// ---- Drift ---------------------------------------------------------------
+
+message ObserveDriftRequest {
+  string inference_id = 1;
+  string feature      = 2;
+  double value        = 3;
+}
+message ObserveDriftResponse {}
+
+message DriftReportRequest {}
+message DriftReportResponse { DriftDocument document = 1; }
+
+// ---- Ledger inspection ---------------------------------------------------
+
+message LedgerHeadRequest {}
+message LedgerHeadResponse {
+  uint64 length = 1;
+  Hash   head   = 2;
+  string key_id = 3;
+  bytes  public_key = 4;  // 32 bytes
+}
+
+message LedgerVerifyRequest {}
+message LedgerVerifyResponse { bool ok = 1; string error = 2; }
+
+message LedgerTailRequest  { uint32 n = 1; }
+message LedgerTailResponse { repeated LedgerEntry entries = 1; }
+
+message LedgerRangeRequest  { uint64 start = 1; uint64 end = 2; }
+message LedgerRangeResponse { repeated LedgerEntry entries = 1; }
+
+// ---- Evidence ------------------------------------------------------------
+
+message ExportBundleRequest {
+  EvaluationWindow window  = 1;
+  string           out_path = 2;
+  string           note     = 3;
+}
+message ExportBundleResponse {
+  string out_path    = 1;
+  Hash   root_hash   = 2;
+  Time   exported_at = 3;
+}
+
+// ---- Service -------------------------------------------------------------
+
+service Asclepius {
+  rpc BeginInference     (BeginInferenceRequest)    returns (BeginInferenceResponse);
+  rpc Run                (RunRequest)               returns (RunResponse);
+  rpc Commit             (CommitRequest)            returns (CommitResponse);
+  rpc Abort              (AbortRequest)             returns (AbortResponse);
+
+  rpc CaptureOverride    (CaptureOverrideRequest)   returns (CaptureOverrideResponse);
+  rpc AttachGroundTruth  (AttachGroundTruthRequest) returns (AttachGroundTruthResponse);
+
+  rpc ObserveDrift       (ObserveDriftRequest)      returns (ObserveDriftResponse);
+  rpc DriftReport        (DriftReportRequest)       returns (DriftReportResponse);
+
+  rpc LedgerHead         (LedgerHeadRequest)        returns (LedgerHeadResponse);
+  rpc LedgerVerify       (LedgerVerifyRequest)      returns (LedgerVerifyResponse);
+  rpc LedgerTail         (LedgerTailRequest)        returns (LedgerTailResponse);
+  rpc LedgerRange        (LedgerRangeRequest)       returns (LedgerRangeResponse);
+
+  rpc ExportBundle       (ExportBundleRequest)      returns (ExportBundleResponse);
+}

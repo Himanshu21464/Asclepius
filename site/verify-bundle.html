@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Verify a bundle — Asclepius</title>
+<meta name="description" content="A guided five-step walkthrough of the offline evidence-bundle verify ritual: tar, openssl, jq, sha256sum. The bytes a regulator's verifier sees, line by line.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/verify-bundle.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Verify a bundle">
+<meta property="og:description"  content="The offline verify ritual, step by step. tar, openssl, jq, sha256sum.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.vb-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.vb-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.vb-hero h1 i { color: var(--primary); font-style: italic; }
+.vb-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.vb-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.vb-stepper {
+  margin: 2rem 0 0;
+  display: grid;
+  gap: 0;
+}
+.vb-step {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 1.6rem;
+  padding: 2rem 0;
+  border-top: 1px solid var(--rule);
+  position: relative;
+}
+.vb-step:first-child { border-top: 0; padding-top: 0; }
+.vb-step__num {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 3rem; line-height: 1;
+  color: var(--primary);
+  letter-spacing: -.03em;
+  position: sticky; top: 88px; align-self: start;
+}
+.vb-step__body h2 {
+  font-family: var(--font-serif); font-weight: 400;
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 .6rem;
+}
+.vb-step__body h2 i { color: var(--primary); font-style: italic; }
+.vb-step__body p {
+  color: var(--ink); font-family: var(--font-prose); line-height: 1.7;
+  max-width: 70ch; margin: 0 0 1rem;
+}
+.vb-step__body p code,
+.vb-step__body li code {
+  font-family: var(--font-mono); font-size: .9em;
+  padding: .08em .35em; background: var(--surface-2);
+  border: 1px solid var(--rule-soft); border-radius: 3px;
+  color: var(--ink-warm);
+}
+
+.vb-cmd {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 0;
+  margin: 1.1rem 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.vb-cmd__chrome {
+  background: var(--bg-2);
+  border-right: 1px solid var(--rule);
+  padding: .85rem;
+  display: flex; flex-direction: column; gap: .4rem;
+  align-items: center;
+}
+.vb-cmd__chrome i {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--ink-ghost);
+}
+.vb-cmd__chrome i:nth-child(1) { background: #E27D7D; }
+.vb-cmd__chrome i:nth-child(2) { background: #D4A14B; }
+.vb-cmd__chrome i:nth-child(3) { background: var(--accent); }
+.vb-cmd__body {
+  padding: 1rem 1.2rem;
+  font-family: var(--font-mono);
+  font-size: .82rem; line-height: 1.7;
+  color: var(--ink);
+  overflow-x: auto;
+}
+.vb-cmd__body .pr { color: var(--primary); user-select: none; margin-right: .6em; }
+.vb-cmd__body .ok { color: var(--accent); }
+.vb-cmd__body .b  { color: var(--ink-warm); }
+.vb-cmd__body .c  { color: var(--ink-faint); }
+
+.vb-callout {
+  margin: 1.2rem 0;
+  padding: .8rem 1rem;
+  border-left: 2px solid var(--primary);
+  background: rgba(181,123,255,.05);
+  font-family: var(--font-prose);
+  color: var(--ink);
+  font-size: .94rem; line-height: 1.6;
+}
+.vb-callout b { color: var(--primary); }
+
+@media (max-width: 720px) {
+  .vb-step { grid-template-columns: 1fr; gap: .4rem; }
+  .vb-step__num { font-size: 1.5rem; position: static; }
+}
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Verify a bundle",
+      "item": "https://asclepius.health/verify-bundle.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-vb">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="conformance.html">conformance</a>
+      <a href="verify-bundle.html" class="is-active" aria-current="page">verify a bundle</a>
+      <a href="security.html">security</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="vb-hero">
+  <div class="container">
+    <span class="kbd">walkthrough · offline · 8 minutes</span>
+    <h1>Verify a bundle <i>without trusting us.</i></h1>
+    <p>
+      An Asclepius evidence bundle is a USTAR <code>.tar</code> file. The verifier
+      needs only <code>tar</code>, <code>openssl</code>, <code>jq</code>, and
+      <code>sha256sum</code> — all already on every regulator's laptop.
+      No network. No vendor library. No "trust us." Five steps.
+    </p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="vb-stepper">
+
+    <div class="vb-step">
+      <div class="vb-step__num">01</div>
+      <div class="vb-step__body">
+        <h2><i>Extract</i> the tar.</h2>
+        <p>Every bundle is a flat USTAR archive. There are no symlinks, no nested directories, no compression — just files. <code>tar xf</code> is enough.</p>
+
+        <div class="vb-cmd">
+          <div class="vb-cmd__chrome"><i></i><i></i><i></i></div>
+          <div class="vb-cmd__body"><span class="pr">~ $</span> <span class="b">tar xf evidence-2026-04.tar</span>
+<span class="pr">~ $</span> <span class="b">ls</span>
+ground_truth.jsonl   ledger_excerpt.jsonl   manifest.json
+manifest.sig         metrics.json           overrides.jsonl
+public_key           drift.json</div>
+        </div>
+
+        <div class="vb-callout">
+          <b>What you have now.</b> Nine files. <code>manifest.json</code> is the index;
+          <code>manifest.sig</code> is its 64-byte Ed25519 signature; <code>public_key</code>
+          is the 32-byte verification key. The other six are the data the manifest indexes.
+        </div>
+      </div>
+    </div>
+
+    <div class="vb-step">
+      <div class="vb-step__num">02</div>
+      <div class="vb-step__body">
+        <h2><i>Authenticate</i> the manifest.</h2>
+        <p>Verify that the bytes of <code>manifest.json</code> were signed by the operator's key. If the signature doesn't match, you know nothing about the rest of the bundle and you should stop.</p>
+
+        <div class="vb-cmd">
+          <div class="vb-cmd__chrome"><i></i><i></i><i></i></div>
+          <div class="vb-cmd__body"><span class="c"># convert the raw 32-byte public key to PEM</span>
+<span class="pr">~ $</span> <span class="b">{ printf '\\x30\\x2a\\x30\\x05\\x06\\x03\\x2b\\x65\\x70\\x03\\x21\\x00';</span>
+        <span class="b">  cat public_key; } | openssl base64 \\</span>
+        <span class="b">  | sed -e '1i-----BEGIN PUBLIC KEY-----' \\</span>
+        <span class="b">        -e '$a-----END PUBLIC KEY-----' &gt; pk.pem</span>
+
+<span class="pr">~ $</span> <span class="b">openssl pkeyutl -verify \\</span>
+        <span class="b">    -pubin -inkey pk.pem \\</span>
+        <span class="b">    -sigfile manifest.sig \\</span>
+        <span class="b">    -in manifest.json</span>
+<span class="ok">Signature Verified Successfully</span></div>
+        </div>
+
+        <div class="vb-callout">
+          <b>Why this works offline.</b> Ed25519 verification is purely arithmetic over
+          Curve25519. <code>openssl</code> needs no network, no certificate authority,
+          no clock. The public key was published when the system was deployed.
+        </div>
+      </div>
+    </div>
+
+    <div class="vb-step">
+      <div class="vb-step__num">03</div>
+      <div class="vb-step__body">
+        <h2><i>Match</i> every file to its hash.</h2>
+        <p>The manifest declares a SHA-256 for each data file. Re-hash the files you actually have and confirm. <em>This is what catches tampering.</em></p>
+
+        <div class="vb-cmd">
+          <div class="vb-cmd__chrome"><i></i><i></i><i></i></div>
+          <div class="vb-cmd__body"><span class="pr">~ $</span> <span class="b">jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \\</span>
+        <span class="b">    manifest.json | sha256sum -c</span>
+ledger_excerpt.jsonl: <span class="ok">OK</span>
+metrics.json:         <span class="ok">OK</span>
+drift.json:           <span class="ok">OK</span>
+overrides.jsonl:      <span class="ok">OK</span>
+ground_truth.jsonl:   <span class="ok">OK</span></div>
+        </div>
+
+        <div class="vb-callout">
+          A single <code>FAILED</code> here means the bundle has been altered after
+          signing. Pair it with step 02 — <em>both</em> must pass.
+        </div>
+      </div>
+    </div>
+
+    <div class="vb-step">
+      <div class="vb-step__num">04</div>
+      <div class="vb-step__body">
+        <h2><i>Walk</i> the ledger excerpt.</h2>
+        <p>The ledger entries are JSON-Lines. Each line carries its own <code>seq</code>, <code>prev_hash</code>, <code>payload_hash</code>, and <code>signature</code>. Confirm the chain — every <code>prev_hash</code> equals the previous entry's <code>entry_hash</code>.</p>
+
+        <div class="vb-cmd">
+          <div class="vb-cmd__chrome"><i></i><i></i><i></i></div>
+          <div class="vb-cmd__body"><span class="pr">~ $</span> <span class="b">jq -c '. | {seq, ts, event_type, prev_hash}' \\</span>
+        <span class="b">    ledger_excerpt.jsonl | head -3</span>
+{<span class="b">"seq"</span>:1,<span class="b">"ts"</span>:<span class="ok">"2026-04-01T08:14:02Z"</span>,<span class="b">"event_type"</span>:<span class="ok">"inference.committed"</span>,<span class="b">"prev_hash"</span>:<span class="ok">"0000…00"</span>}
+{<span class="b">"seq"</span>:2,<span class="b">"event_type"</span>:<span class="ok">"evaluation.override"</span>,<span class="b">"prev_hash"</span>:<span class="ok">"3f9c1ad8…0e7d21"</span>}
+{<span class="b">"seq"</span>:3,<span class="b">"event_type"</span>:<span class="ok">"evaluation.ground_truth"</span>,<span class="b">"prev_hash"</span>:<span class="ok">"8e510bf4…21b04a"</span>}
+
+<span class="pr">~ $</span> <span class="c"># or ask asclepius itself to verify the excerpt:</span>
+<span class="pr">~ $</span> <span class="b">asclepius evidence verify evidence-2026-04.tar</span>
+<span class="ok">OK</span></div>
+        </div>
+
+        <div class="vb-callout">
+          <b>What the chain proves.</b> If the operator silently dropped row N, the
+          <code>prev_hash</code> on row N+1 would no longer match. If they edited row
+          N's body, the recomputed <code>payload_hash</code> would differ from the
+          one in the header, and that one was signed.
+        </div>
+      </div>
+    </div>
+
+    <div class="vb-step">
+      <div class="vb-step__num">05</div>
+      <div class="vb-step__body">
+        <h2><i>Read</i> the metrics.</h2>
+        <p>You now know the bytes are authentic and the chain is whole. The actual evidence is in <code>metrics.json</code> + <code>drift.json</code>. Read them as a regulator would.</p>
+
+        <div class="vb-cmd">
+          <div class="vb-cmd__chrome"><i></i><i></i><i></i></div>
+          <div class="vb-cmd__body"><span class="pr">~ $</span> <span class="b">jq '.[] | {model, n_inferences, override_rate, accuracy}' \\</span>
+        <span class="b">    metrics.json</span>
+{<span class="b">"model"</span>:<span class="ok">"scribe@v3"</span>,<span class="b">"n_inferences"</span>:148302,<span class="b">"override_rate"</span>:0.041,<span class="b">"accuracy"</span>:0.972}
+{<span class="b">"model"</span>:<span class="ok">"diag@v2"</span>,  <span class="b">"n_inferences"</span>:8917,  <span class="b">"override_rate"</span>:0.213,<span class="b">"accuracy"</span>:0.881}
+
+<span class="pr">~ $</span> <span class="b">jq '.[] | select(.severity != "none")' drift.json</span>
+{<span class="b">"feature"</span>:<span class="ok">"confidence"</span>,<span class="b">"psi"</span>:0.243,<span class="b">"severity"</span>:<span class="ok">"minor"</span>,<span class="b">"computed_at"</span>:<span class="ok">"2026-04-25T17:22Z"</span>}</div>
+        </div>
+
+        <div class="vb-callout">
+          <b>That is the entirety of the verifier protocol.</b> Five commands.
+          No vendor SDK. No network. No "trust the dashboard." A regulator with
+          a laptop and the public key gets cryptographic certainty about what
+          the deployed system did, and a structured-prose summary of what
+          it learned.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-family: var(--font-mono); font-size: .76rem; color: var(--ink-faint); letter-spacing: .04em;">
+    For programmatic verification from your own code, link <code>libasclepius</code> and call
+    <code>EvaluationHarness::verify_bundle(path)</code>. Same checks, same result.
+    Source: <a href="https://github.com/asclepius-ai/asclepius/blob/main/src/evaluation/bundle.cpp">src/evaluation/bundle.cpp</a>.
+  </p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — verify a bundle.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+        <a href="learn.html">learn</a>
+        <a href="explorer.html">explorer</a>
+        <a href="compare.html">compare</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

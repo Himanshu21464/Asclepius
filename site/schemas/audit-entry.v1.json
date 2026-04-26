@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asclepius.health/schemas/audit-entry.v1.json",
+  "title": "Asclepius — audit-ledger entry",
+  "description": "Canonical shape of a single signed entry in an Asclepius Merkle ledger. One JSONL row per entry. Bytes-on-wire identical to bytes-on-disk; canonical-JSON serialised before signing. Versioned independently of the runtime; breaking changes bump the major version (v1 → v2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seq", "ts", "kind", "actor", "prev_hash", "sig"],
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonically increasing sequence number within a ledger. Gaps are forbidden; verifiers MUST reject."
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 / ISO 8601 timestamp in UTC (Z-suffix). Sub-second precision permitted."
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+      "examples": [
+        "inference.completed",
+        "model.suggested",
+        "clinician.read",
+        "order.placed",
+        "agent.proposed",
+        "action.committed",
+        "action.staged",
+        "consent.granted",
+        "consent.revoked",
+        "key.rotated",
+        "policy.added"
+      ],
+      "description": "Event type in dotted lowercase. The dot separates noun from verb-past-tense."
+    },
+    "actor": {
+      "type": "string",
+      "pattern": "^(clin|svc|sys|agent):[a-z0-9_\\-]+$",
+      "description": "Pseudonymous actor id, scheme-prefixed (clin: clinician, svc: service, sys: system, agent: AI agent)."
+    },
+    "patient": {
+      "type": "string",
+      "pattern": "^pt:[a-f0-9]{4,}…?[a-f0-9]{0,}$|^pt:[a-z0-9_\\-]+$",
+      "description": "Pseudonymous patient id. Salted hash, never raw MRN."
+    },
+    "encounter": {
+      "type": "string",
+      "pattern": "^enc:[a-z0-9_\\-:]+$",
+      "description": "Pseudonymous encounter id."
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "weights_sha256"],
+      "properties": {
+        "id":             { "type": "string", "minLength": 1 },
+        "weights_sha256": { "type": "string", "pattern": "^[a-f0-9]{4,}…?[a-f0-9]{0,}$|^[a-f0-9]{64}$" },
+        "version":        { "type": "string" }
+      },
+      "description": "Identifies the exact model artefact that produced an inference. weights_sha256 is the artefact hash, abbreviated forms are accepted for human-readable bundles."
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose"],
+      "properties": {
+        "purpose":     { "type": "string", "enum": ["scribe", "diagnostic", "agentic", "research", "qa", "billing"] },
+        "granted_at":  { "type": "string", "format": "date-time" },
+        "expires_at":  { "type": "string", "format": "date-time" },
+        "revoked_at":  { "type": "string", "format": "date-time" }
+      }
+    },
+    "input_hash":  { "type": "string", "pattern": "^blake2b:[a-f0-9]{4,}…?[a-f0-9]{0,}$|^blake2b:[a-f0-9]{64}$" },
+    "output_hash": { "type": "string", "pattern": "^blake2b:[a-f0-9]{4,}…?[a-f0-9]{0,}$|^blake2b:[a-f0-9]{64}$" },
+    "policies": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_\\.\\-]*$" },
+      "minItems": 0,
+      "description": "Versioned policy identifiers in execution order. e.g. phi.v4, schema.transcript.v2, length.v1."
+    },
+    "drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "psi":    { "type": "number", "minimum": 0 },
+        "ks":     { "type": "number", "minimum": 0, "maximum": 1 },
+        "emd":    { "type": "number", "minimum": 0 },
+        "window": { "type": "string", "pattern": "^[0-9]+[smhdw]$" }
+      }
+    },
+    "finding":     { "type": "string" },
+    "confidence":  { "type": "number", "minimum": 0, "maximum": 1 },
+    "roi_hash":    { "type": "string", "pattern": "^blake2b:[a-f0-9]{4,}…?[a-f0-9]{0,}$|^blake2b:[a-f0-9]{64}$" },
+    "decision":    { "type": "string", "enum": ["concur", "dissent", "defer", "modify"] },
+    "latency_ms":  { "type": "integer", "minimum": 0 },
+    "order":       { "type": "string" },
+    "actions":     { "type": "array", "items": { "type": "string" }, "minItems": 0 },
+    "action":      { "type": "string" },
+    "plan_hash":   { "type": "string", "pattern": "^blake2b:[a-f0-9]{4,}…?[a-f0-9]{0,}$|^blake2b:[a-f0-9]{64}$" },
+    "awaiting":    { "type": "string" },
+    "signed_by":   { "type": "string" },
+    "refers_to": {
+      "oneOf": [
+        { "type": "string", "pattern": "^seq:[0-9]+$" },
+        { "type": "array", "items": { "type": "string", "pattern": "^seq:[0-9]+$" }, "minItems": 1 }
+      ],
+      "description": "Cross-references to other ledger rows by seq:N — for binding actions to suggestions, sign-offs to proposals, etc."
+    },
+    "prev_hash": {
+      "type": "string",
+      "pattern": "^blake2b:[a-f0-9]{4,}…?[a-f0-9]{0,}$|^blake2b:[a-f0-9]{64}$|^blake2b:0+$",
+      "description": "BLAKE2b-256 hash of the previous canonical-JSON entry. Genesis entry uses all-zero hash."
+    },
+    "sig": {
+      "type": "string",
+      "pattern": "^ed25519:0x[a-f0-9]{2,}…?[a-f0-9]{0,}$|^ed25519:[A-Za-z0-9_\\-=]+$",
+      "description": "Ed25519 detached signature over the canonical-JSON sign-input (entry minus the sig field itself)."
+    }
+  },
+  "examples": [
+    {
+      "seq": 874,
+      "ts": "2026-04-26T14:21:08Z",
+      "kind": "inference.completed",
+      "actor": "clin:np_marisol_h",
+      "patient": "pt:7f3c…b21",
+      "encounter": "enc:2026-04-26-r3",
+      "model": { "id": "scribe-v3", "weights_sha256": "6a0f…e2" },
+      "consent": { "purpose": "scribe", "granted_at": "2026-04-26T14:02:00Z" },
+      "input_hash": "blake2b:9f31…",
+      "output_hash": "blake2b:c8aa…",
+      "policies": ["phi.v4", "schema.transcript.v2", "length.v1"],
+      "drift": { "psi": 0.04, "window": "30d" },
+      "prev_hash": "blake2b:1d2e…",
+      "sig": "ed25519:0x9c…"
+    }
+  ]
+}

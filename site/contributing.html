@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Contributing — Asclepius</title>
+<meta name="description" content="How to contribute to the Asclepius runtime — PR flow, RFC process, code style, sign-off, security disclosure.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="canonical" href="https://asclepius.health/contributing.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Contributing — Asclepius">
+<meta property="og:description"  content="PR flow, RFC process, code style, sign-off, security disclosure.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="security.html">
+<link rel="prefetch" href="changelog.html">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .ct { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .ct__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .ct__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .ct__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -0.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .ct__hero h1 i { color: var(--primary); font-style: italic; }
+  .ct__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+
+  .ct-flow {
+    display: grid; gap: 0;
+    grid-template-columns: repeat(5, 1fr);
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+    margin: 3rem 0 4rem;
+  }
+  @media (max-width: 880px) { .ct-flow { grid-template-columns: 1fr; } }
+  .ct-flow__step {
+    padding: 1.4rem 1.2rem;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    display: flex; flex-direction: column; gap: .5rem;
+    position: relative;
+  }
+  .ct-flow__num {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .18em; color: var(--primary);
+  }
+  .ct-flow__step h2 {
+    font-family: var(--font-serif); font-weight: 400; font-size: 1.3rem;
+    color: var(--ink-warm); margin: 0; letter-spacing: -.01em;
+  }
+  .ct-flow__step h2 i { color: var(--primary); font-style: italic; }
+  .ct-flow__step p { color: var(--ink-mute); font-size: .88rem; line-height: 1.55; margin: 0; }
+  .ct-flow__step code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .82em; color: var(--accent);
+  }
+
+  .ct-section { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+  .ct-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+  }
+  .ct-section h2 i { color: var(--primary); font-style: italic; }
+  .ct-section p { color: var(--ink); max-width: 70ch; line-height: 1.7; margin: 0 0 1rem; }
+  .ct-section em { color: var(--primary); font-style: italic; }
+  .ct-section code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+  .ct-section pre {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--accent);
+    padding: 1rem 1.2rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.65;
+    color: var(--ink);
+    white-space: pre;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  .ct-table { display: grid; gap: 0; border-top: 1px solid var(--rule); margin: 1.4rem 0; }
+  .ct-row {
+    display: grid; grid-template-columns: 220px 1fr;
+    gap: 1.2rem; padding: .9rem 0; border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--font-mono); font-size: .86rem;
+  }
+  .ct-row b { color: var(--primary); font-weight: 500; }
+  .ct-row span { color: var(--ink); }
+  @media (max-width: 600px) { .ct-row { grid-template-columns: 1fr; } }
+
+  .ct-pill {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: 2px 7px; border: 1px solid var(--rule);
+    font-family: var(--font-mono); font-size: .66rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-glow);
+    border-color: var(--accent-deep);
+  }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Contributing",
+      "item": "https://asclepius.health/contributing.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-contributing">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="changelog.html">changelog</a>
+      <a href="contributing.html" class="is-active" aria-current="page">contributing</a>
+      <a href="security.html">security</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="ct">
+  <div class="container">
+
+    <header class="ct__hero">
+      <span class="kbd">contributing · v0.1.0 line · Apache&nbsp;2.0</span>
+      <h1>Send a PR. Or <i>read</i> the chain first.</h1>
+      <p>
+        Asclepius is open-source under Apache&nbsp;2.0. The codebase is small, opinionated, and
+        deliberately under-abstracted. Anything you ship here ends up running on a clinician's
+        desk. Read the threat model first, then the architecture, then the spec — in that order.
+      </p>
+    </header>
+
+    <section class="ct-flow" aria-label="contribution flow">
+      <div class="ct-flow__step">
+        <span class="ct-flow__num">01</span>
+        <h2>Read first</h2>
+        <p>Architecture · spec · threat model. Most rejections happen because a PR misunderstood one of these.</p>
+      </div>
+      <div class="ct-flow__step">
+        <span class="ct-flow__num">02</span>
+        <h2>RFC if it's a <i>shape</i></h2>
+        <p>New event type, new policy interface, new bundle field — open a thread in <code>rfc/</code> first.</p>
+      </div>
+      <div class="ct-flow__step">
+        <span class="ct-flow__num">03</span>
+        <h2>Branch &amp; build</h2>
+        <p><code>cmake --preset=dev &amp;&amp; ctest -L unit -j</code>. Sanitisers ship on by default.</p>
+      </div>
+      <div class="ct-flow__step">
+        <span class="ct-flow__num">04</span>
+        <h2>PR with a <i>why</i></h2>
+        <p>Subject line is the <em>why</em>, not the <em>what</em>. Tests required for non-doc changes.</p>
+      </div>
+      <div class="ct-flow__step">
+        <span class="ct-flow__num">05</span>
+        <h2>Sign-off</h2>
+        <p>DCO required: <code>git commit -s</code>. Two-maintainer review before merge.</p>
+      </div>
+    </section>
+
+    <section class="ct-section">
+      <h2>Code style — <i>no surprises</i></h2>
+      <p>
+        We follow the <code>.clang-format</code> in the repo (LLVM-derived, 4-space indent, columns
+        soft-wrapped at 100). One non-obvious convention: prefer <em>composition over inheritance</em>;
+        the only abstract class in the runtime is <code>IPolicy</code>, and that is a deliberate exception.
+      </p>
+      <p>
+        Headers are kept lean — <code>#include</code> only what each file needs.
+        <code>nlohmann/json_fwd.hpp</code> in headers, <code>nlohmann/json.hpp</code> in TUs.
+        No <code>using namespace</code> in headers. <code>noexcept</code> is opt-in: claim it
+        only when the body honestly is.
+      </p>
+      <pre>$ cmake --preset=dev
+$ cmake --build --preset=dev -j
+$ ctest --preset=dev -j -L unit
+$ clang-format -i $(git diff --name-only --diff-filter=AM)</pre>
+    </section>
+
+    <section class="ct-section">
+      <h2>What we accept, what we don't</h2>
+      <div class="ct-table">
+        <div class="ct-row"><b>YES</b><span>bug fix with a regression test that fails before, passes after</span></div>
+        <div class="ct-row"><b>YES</b><span>new built-in policy implementing <code>IPolicy</code> with PHI-safe defaults</span></div>
+        <div class="ct-row"><b>YES</b><span>new event type, gated behind an RFC + a SPEC.md update</span></div>
+        <div class="ct-row"><b>YES</b><span>tighter <code>verify()</code> — refusing earlier on a structural mismatch</span></div>
+        <div class="ct-row"><b>YES</b><span>perf improvement with bench numbers in the PR description</span></div>
+        <div class="ct-row"><b>NO</b><span>format breakage without a <code>asclepius migrate</code> script</span></div>
+        <div class="ct-row"><b>NO</b><span>switching to a non-libsodium primitive without a threat-model update</span></div>
+        <div class="ct-row"><b>NO</b><span>"clean-up" PRs that rename or move files without a justification</span></div>
+        <div class="ct-row"><b>NO</b><span>introducing a runtime dependency that calls home (no analytics, ever)</span></div>
+        <div class="ct-row"><b>NO</b><span>adding a feature flag for something we won't enable in a release</span></div>
+      </div>
+    </section>
+
+    <section class="ct-section">
+      <h2>RFC process</h2>
+      <p>
+        Anything that changes a public type, a wire shape, or a ledger event needs an RFC.
+        Open a Markdown file under <code>rfc/NNNN-title.md</code> with these sections:
+        <em>Problem</em> · <em>Non-goals</em> · <em>Design</em> · <em>Compatibility</em> ·
+        <em>Drawbacks</em> · <em>Alternatives</em> · <em>Open questions</em>. RFCs are
+        merged when two maintainers approve and there is a one-week comment window.
+      </p>
+      <p>
+        An RFC merge does <em>not</em> commit us to ship; it commits us to discuss.
+        The implementation PR carries the RFC number in its subject (<code>rfc/0042</code>).
+      </p>
+    </section>
+
+    <section class="ct-section">
+      <h2>Security disclosures</h2>
+      <p>
+        Found a vulnerability? <strong>Do not open a public issue.</strong> Email
+        <a href="mailto:security@asclepius.health">security@asclepius.health</a> with details and
+        a PoC if available. We acknowledge within 48 hours, fix within 14 days for high-severity
+        issues, coordinate disclosure, and credit you on the security advisory.
+        See <a href="security.html">/security</a> for our PGP key, scope, and SLA.
+      </p>
+    </section>
+
+    <section class="ct-section">
+      <h2 id="code-of-conduct">Code of conduct</h2>
+      <p>
+        Adapted from the Contributor Covenant. The summary: assume good faith, prefer
+        precise critique over personal critique, and remember that everything that happens
+        in this project will, eventually, run next to a patient. Disrespect of either contributors
+        or the patients downstream of our code is unacceptable.
+      </p>
+      <span class="ct-pill">we publish moderation actions</span>
+    </section>
+
+    <section class="ct-section">
+      <h2>Where to start</h2>
+      <p>
+        Issues labelled <code>good-first-issue</code> are scoped to one or two days and have
+        an explicit acceptance test. <code>help-wanted</code> are larger and benefit from a
+        comment before you begin. The friendliest path in is <em>improving the
+        conformance test corpus</em> — public, benchmarked, regulator-relevant, and pure-data.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — contributing.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="contributing.html">contributing</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+      </div>
+    </div>
+    <div class="foot__sig">
+      <span>no cookies · no analytics · no telemetry</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/help.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+</body>
+</html>

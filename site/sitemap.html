@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sitemap — Asclepius</title>
+<meta name="description" content="Every page on asclepius.health, grouped. The crawler version lives at sitemap.xml.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/sitemap.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Sitemap — Asclepius">
+<meta property="og:description"  content="Every page on the site, grouped for humans.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .sm { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .sm__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .sm__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .sm__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .sm__hero h1 i { color: var(--primary); font-style: italic; }
+  .sm__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+  .sm__hero p code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+
+  .sm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+  }
+  .sm-cell {
+    padding: 1.6rem 1.4rem;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    display: flex; flex-direction: column; gap: .8rem;
+  }
+  .sm-cell h2 {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0; font-weight: 500;
+  }
+  .sm-cell ul { list-style: none; padding: 0; margin: 0; }
+  .sm-cell li {
+    padding: .35rem 0;
+    border-top: 1px dashed var(--rule-soft);
+    font-family: var(--font-prose);
+    font-size: .94rem;
+  }
+  .sm-cell li:first-child { border-top: 0; }
+  .sm-cell a {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .6rem;
+    align-items: baseline;
+    color: var(--ink);
+    text-decoration: none;
+    transition: color .15s;
+  }
+  .sm-cell a:hover { color: var(--primary); }
+  .sm-cell a b { font-weight: 500; color: inherit; }
+  .sm-cell a span {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .04em;
+    color: var(--ink-faint);
+  }
+  .sm-cell a em { font-style: italic; color: var(--accent); font-size: .68rem; letter-spacing: .04em; }
+
+  .sm-foot {
+    margin-top: 3rem; padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;
+    font-family: var(--font-mono); font-size: .82rem;
+  }
+  .sm-foot a {
+    display: flex; align-items: baseline; gap: .5rem;
+    color: var(--ink-mute);
+    text-decoration: none;
+    padding: .9rem 1rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    transition: color .15s, border-color .15s;
+  }
+  .sm-foot a:hover { color: var(--primary); border-color: var(--primary-deep); }
+  .sm-foot a code {
+    background: transparent; padding: 0;
+    color: var(--accent); border: 0;
+    font-size: inherit;
+  }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Sitemap",
+      "item": "https://asclepius.health/sitemap.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-sitemap">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="changelog.html">changelog</a>
+      <a href="sitemap.html" class="is-active" aria-current="page">sitemap</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="sm">
+  <div class="container">
+
+    <header class="sm__hero">
+      <span class="kbd">site index · for humans</span>
+      <h1>Every page, in <i>one</i> place.</h1>
+      <p>
+        For crawlers there's <code>sitemap.xml</code>; for browsers there's the command palette
+        (<code>⌘K</code>). For everyone else, here is the same set of pages, grouped, with a hint of
+        what each one is for. <em>If a link below 404s, that's a bug.</em>
+      </p>
+    </header>
+
+    <div class="sm-grid">
+
+      <section class="sm-cell">
+        <h2>§ landing</h2>
+        <ul>
+          <li><a href="index.html"><b>The Linux kernel for clinical AI.</b><span>/</span></a></li>
+          <li><a href="index.html#manifesto"><b>Manifesto</b><em>§01</em></a></li>
+          <li><a href="index.html#crisis"><b>The break — Q1 2026 incidents</b><em>§02</em></a></li>
+          <li><a href="index.html#substrate"><b>Five primitives</b><em>§03</em></a></li>
+          <li><a href="index.html#anatomy"><b>Anatomy of a wrapped inference</b><em>§04</em></a></li>
+          <li><a href="index.html#start"><b>Quickstart</b><em>§05</em></a></li>
+          <li><a href="index.html#verify"><b>Verification ritual</b><em>§06</em></a></li>
+          <li><a href="index.html#benchmarks"><b>Benchmarks</b><em>§07</em></a></li>
+          <li><a href="index.html#compare"><b>Compare vs alternatives</b><em>§08</em></a></li>
+          <li><a href="index.html#faq"><b>FAQ</b><em>§09</em></a></li>
+          <li><a href="index.html#why-now"><b>Why this quarter</b><em>§10</em></a></li>
+        </ul>
+      </section>
+
+      <section class="sm-cell">
+        <h2>§ documentation</h2>
+        <ul>
+          <li><a href="docs.html"><b>Docs hub</b><span>/docs</span></a></li>
+          <li><a href="architecture.html"><b>Architecture</b><span>/architecture</span></a></li>
+          <li><a href="spec.html"><b>Specification</b><span>/spec</span></a></li>
+          <li><a href="threat-model.html"><b>Threat model</b><span>/threat-model</span></a></li>
+          <li><a href="api.html"><b>API reference</b><span>/api</span></a></li>
+          <li><a href="use-cases.html"><b>Use cases</b><span>/use-cases</span></a></li>
+          <li><a href="integrations.html"><b>Integrations</b><span>/integrations</span></a></li>
+          <li><a href="playbooks.html"><b>Playbooks</b><span>/playbooks</span></a></li>
+          <li><a href="observability.html"><b>Observability</b><span>/observability</span></a></li>
+          <li><a href="regulator.html"><b>For regulators</b><span>/regulator</span></a></li>
+          <li><a href="research.html"><b>Research / bibliography</b><span>/research</span></a></li>
+          <li><a href="validate.html"><b>Validate an entry</b><span>/validate</span></a></li>
+          <li><a href="economics.html"><b>Economics</b><span>/economics</span></a></li>
+          <li><a href="migrations.html"><b>Migrations</b><span>/migrations</span></a></li>
+          <li><a href="decisions.html"><b>Decisions (ADRs)</b><span>/decisions</span></a></li>
+          <li><a href="schemas/audit-entry.v1.json"><b>Audit-entry schema</b><span>/schemas/audit-entry.v1</span></a></li>
+          <li><a href="glossary.html"><b>Glossary</b><span>/glossary</span></a></li>
+        </ul>
+      </section>
+
+      <section class="sm-cell">
+        <h2>§ interactive</h2>
+        <ul>
+          <li><a href="demo.html"><b>Playground</b><em>signed Merkle ledger in your browser</em></a></li>
+          <li><a href="crypto.html"><b>Crypto toolbox</b><em>hash · sign · verify · forge</em></a></li>
+          <li><a href="conformance.html"><b>Conformance battery</b><em>L1 · L2 · L3</em></a></li>
+        </ul>
+      </section>
+
+      <section class="sm-cell">
+        <h2>§ release</h2>
+        <ul>
+          <li><a href="changelog.html"><b>Changelog</b><em>release log</em></a></li>
+          <li><a href="roadmap.html"><b>Roadmap</b><em>quarters · L-levels</em></a></li>
+          <li><a href="status.html"><b>Status</b><em>build · verifier · chain</em></a></li>
+          <li><a href="benchmarks.html"><b>Benchmarks</b><em>real numbers</em></a></li>
+          <li><a href="feed.xml"><b>RSS feed</b><span>/feed.xml</span></a></li>
+          <li><a href="feed.json"><b>JSON Feed</b><span>/feed.json</span></a></li>
+        </ul>
+      </section>
+
+      <section class="sm-cell">
+        <h2>§ community</h2>
+        <ul>
+          <li><a href="contributing.html"><b>Contributing</b><em>PR · RFC · DCO</em></a></li>
+          <li><a href="security.html"><b>Security policy</b><em>RFC 9116</em></a></li>
+          <li><a href="press.html"><b>Press kit</b><em>wordmark · palette · facts</em></a></li>
+          <li><a href="labs.html"><b>Labs (pilots)</b><em>where it's running</em></a></li>
+          <li><a href="accessibility.html"><b>Accessibility</b><em>WCAG conformance</em></a></li>
+        </ul>
+      </section>
+
+      <section class="sm-cell">
+        <h2>§ machine-readable</h2>
+        <ul>
+          <li><a href="sitemap.xml"><b>sitemap.xml</b><em>for crawlers</em></a></li>
+          <li><a href="robots.txt"><b>robots.txt</b><span>/robots.txt</span></a></li>
+          <li><a href="humans.txt"><b>humans.txt</b><em>thanks · primitives</em></a></li>
+          <li><a href=".well-known/security.txt"><b>.well-known/security.txt</b><em>RFC 9116</em></a></li>
+          <li><a href="opensearch.xml"><b>opensearch.xml</b><em>browser search descriptor</em></a></li>
+          <li><a href="manifest.json"><b>manifest.json</b><em>PWA manifest</em></a></li>
+          <li><a href="assets/bench.json"><b>bench.json</b><em>raw benchmark numbers</em></a></li>
+        </ul>
+      </section>
+
+    </div>
+
+    <div class="sm-foot">
+      <a href="https://github.com/asclepius-ai/asclepius">
+        source · <code>github.com/asclepius-ai/asclepius</code>
+      </a>
+      <a href="changelog.html">
+        latest release · <code>v0.3.0</code>
+      </a>
+      <a href="https://www.apache.org/licenses/LICENSE-2.0">
+        license · <code>Apache 2.0</code>
+      </a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — sitemap.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>landing</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="index.html#anatomy">anatomy</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Changelog &amp; roadmap — Asclepius</title>
+<meta name="description" content="Versioned release log and forward roadmap for the Asclepius clinical-AI trust substrate.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+<link rel="canonical" href="https://asclepius.health/changelog.html">
+
+<meta property="og:title"        content="Changelog &amp; roadmap — Asclepius">
+<meta property="og:description"  content="Versioned release log and forward roadmap.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="roadmap.html">
+<link rel="prefetch" href="feed.xml">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .ch { padding: clamp(3rem, 7vw, 6rem) 0 5rem; }
+  .ch__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .ch__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .ch__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -0.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .ch__hero h1 i { color: var(--primary); font-style: italic; }
+  .ch__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+
+  .ch__layout {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: clamp(2rem, 5vw, 4rem);
+  }
+  @media (max-width: 920px) { .ch__layout { grid-template-columns: 1fr; } }
+
+  .ch__h { font-family: var(--font-mono); font-size: .72rem;
+    font-weight: 500;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--primary);
+    display: block; margin: 0 0 1.4rem;
+  }
+
+  .ch__rel {
+    border-left: 2px solid var(--rule);
+    padding: 0 0 0 1.6rem;
+    margin: 0 0 2.4rem;
+    position: relative;
+  }
+  .ch__rel::before {
+    content: "";
+    position: absolute; left: -7px; top: .55rem;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--rule);
+    border: 2px solid var(--bg);
+  }
+  .ch__rel--current::before { background: var(--primary); box-shadow: 0 0 12px var(--primary-glow); }
+  .ch__rel--unreleased::before { background: var(--accent); }
+
+  .ch__ver {
+    display: flex; align-items: baseline; gap: 1rem;
+    margin: 0 0 .4rem;
+    font-family: var(--font-mono);
+  }
+  .ch__ver b {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 1.6rem; color: var(--ink-warm); font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  .ch__ver time {
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .ch__ver .pill {
+    margin-left: auto;
+    font-size: .66rem; letter-spacing: .12em; text-transform: uppercase;
+    padding: 2px 7px; border: 1px solid var(--rule); color: var(--ink-mute);
+  }
+  .ch__rel--current .ch__ver .pill {
+    color: var(--primary); border-color: var(--primary-deep); background: var(--primary-glow);
+  }
+  .ch__rel--unreleased .ch__ver .pill {
+    color: var(--accent); border-color: var(--accent-deep); background: var(--accent-glow);
+  }
+
+  .ch__caption {
+    font-family: var(--font-prose); color: var(--ink); font-size: 1rem;
+    line-height: 1.6; margin: .2rem 0 .8rem; max-width: 64ch;
+  }
+  .ch__caption em { color: var(--primary); }
+
+  .ch__items { list-style: none; padding: 0; margin: 0; }
+  .ch__items li {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: .9rem;
+    padding: .55rem 0;
+    border-top: 1px dashed var(--rule-soft);
+    font-size: .94rem;
+    color: var(--ink);
+  }
+  .ch__items li:first-child { border-top: none; }
+  .ch__items li b {
+    font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-faint); padding-top: 3px;
+  }
+  .ch__items li.add  b { color: var(--accent);  }
+  .ch__items li.fix  b { color: var(--primary); }
+  .ch__items li.brk  b { color: var(--danger);  }
+  .ch__items li.docs b { color: var(--ink-mute); }
+  .ch__items li code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+
+  .roadmap__col {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: 1.6rem 1.6rem 1.4rem;
+    margin-bottom: 1.2rem;
+  }
+  .roadmap__col h3 {
+    font-family: var(--font-serif); font-weight: 400; font-size: 1.4rem;
+    color: var(--ink-warm); margin: 0 0 .6rem; letter-spacing: -.01em;
+  }
+  .roadmap__col h3 i { color: var(--primary); font-style: italic; }
+  .roadmap__col p { color: var(--ink-mute); margin: 0 0 .9rem; font-size: .94rem; line-height: 1.6; }
+  .roadmap__col ul { list-style: none; padding: 0; margin: 0; }
+  .roadmap__col li {
+    display: grid; grid-template-columns: auto 1fr; gap: .8rem;
+    padding: .5rem 0; border-top: 1px dashed var(--rule-soft);
+    font-family: var(--font-mono); font-size: .82rem; color: var(--ink);
+  }
+  .roadmap__col li:first-child { border-top: none; }
+  .roadmap__col li svg { width: 14px; height: 14px; margin-top: 4px; flex: 0 0 14px; }
+  .roadmap__col li.done   svg { fill: var(--accent); }
+  .roadmap__col li.wip    svg { fill: var(--primary); }
+  .roadmap__col li.idea   svg { fill: var(--ink-faint); }
+
+  .ch__guarantees {
+    margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--rule);
+    max-width: 80ch;
+  }
+  .ch__guarantees p { color: var(--ink-mute); font-size: 1rem; line-height: 1.7; margin: 0 0 1rem; }
+  .ch__guarantees em { color: var(--primary); }
+  .ch__guarantees code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Changelog",
+      "item": "https://asclepius.health/changelog.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-changelog">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="index.html#substrate">substrate</a>
+      <a href="index.html#anatomy">anatomy</a>
+      <a href="index.html#start">quickstart</a>
+      <a href="docs.html">docs</a>
+      <a href="changelog.html" class="is-active" aria-current="page">changelog</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="ch">
+  <div class="container">
+
+    <header class="ch__hero">
+      <span class="kbd">changelog · v0.1.0 → v1.0</span>
+      <h1>What ships, and <i>when</i>.</h1>
+      <p>
+        Asclepius follows semver. The runtime, on-disk format, and on-wire schema
+        are stable across the v1.x line; pre-1.0 releases may break compatibility,
+        but every break is annotated below and migrated by a one-shot script.
+      </p>
+    </header>
+
+    <div class="ch__layout">
+
+      <!-- ── left: release timeline ── -->
+      <section>
+        <h2 class="ch__h">§ release log</h2>
+
+        <article class="ch__rel ch__rel--unreleased h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v1.0.0</b><time class="dt-planned">target · 2026 Q4</time><span class="pill">unreleased</span>
+          </header>
+          <p class="ch__caption p-summary">
+            Stable runtime + format. Two design-partner health-system deployments
+            wrapping production scribes. First conformance battery shipped.
+            <em>Format frozen for v1.x</em>.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span>L1 / L2 / L3 conformance test battery, third-party-runnable.</span></li>
+            <li class="add"><b>add</b><span>Postgres-backed ledger backend behind <code>ASCLEPIUS_LEDGER=postgres</code>.</span></li>
+            <li class="add"><b>add</b><span>HSM-backed <code>KeyStore</code> implementation (PKCS#11).</span></li>
+            <li class="brk"><b>brk</b><span>Drop pre-1.0 sidecar fields marked <em>deprecated</em>; old clients migrated by <code>asclepius migrate v0_to_v1</code>.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel ch__rel--unreleased h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.0</b><time class="dt-planned">target · 2026 Q3</time><span class="pill">planned</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Sidecar GA</em>. Java, Go, .NET hosts can deploy in production
+            against a single shared substrate.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span>gRPC <code>asclepius-svc</code> server with TLS, mTLS, and OAuth client-credentials auth.</span></li>
+            <li class="add"><b>add</b><span>Streaming inverse-RPC for the model callback (host-side serving).</span></li>
+            <li class="add"><b>add</b><span>Object-store body archive (encrypted-at-rest opt-in PHI retention).</span></li>
+            <li class="add"><b>add</b><span>Rust bindings via <code>cxx</code>.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel ch__rel--current h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.3.0</b><time class="dt-published" datetime="2026-04-25">2026-04-25</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            The current development tip. Consent now flows through the ledger;
+            evaluation harness gained ground-truth ingest; the website ships.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span>Consent grants / revocations append <code>consent.granted</code> + <code>consent.revoked</code> ledger entries.</span></li>
+            <li class="add"><b>add</b><span><code>EvaluationHarness::attach_ground_truth()</code> + signed evidence-bundle export.</span></li>
+            <li class="add"><b>add</b><span>Drift monitor: PSI, KS, EMD on per-feature histograms with <code>DriftSeverity::classify</code>.</span></li>
+            <li class="add"><b>add</b><span><code>asclepius</code> CLI: <code>ledger verify</code>, <code>ledger inspect</code>, <code>evidence bundle</code>, <code>evidence verify</code>.</span></li>
+            <li class="add"><b>add</b><span>Python bindings (pybind11). Wheels for cp310-cp312.</span></li>
+            <li class="add"><b>add</b><span>Public website + in-browser playground (Web Crypto Ed25519 + signed Merkle ledger).</span></li>
+            <li class="fix"><b>fix</b><span>Ledger <code>verify()</code> now refuses on payload-hash mismatch <em>before</em> signature, so corruption surfaces faster.</span></li>
+            <li class="docs"><b>doc</b><span><code>docs/ARCHITECTURE.md</code>, <code>docs/SPEC.md</code>, <code>docs/THREAT_MODEL.md</code> ship in-tree.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.2.0</b><time class="dt-published" datetime="2026-03-12">2026-03-12</time><span class="pill">released</span>
+          </header>
+          <p class="ch__caption p-summary">
+            Policy chain solidifies. Evidence bundles emit USTAR tar; verification works offline.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span>Composable <code>PolicyChain</code> with <code>allow / modify / block</code> verdicts.</span></li>
+            <li class="add"><b>add</b><span>Built-in policies: <code>phi_scrubber</code>, <code>schema_validator</code>, <code>length_limit</code>, <code>clinical_action_filter</code>.</span></li>
+            <li class="add"><b>add</b><span>Evidence bundles: USTAR tar with manifest, ledger excerpt, metrics, drift, overrides, ground-truth.</span></li>
+            <li class="brk"><b>brk</b><span>Renamed <code>InferenceEvent</code> → <code>InferenceCommittedBody</code>. Migrate via <code>asclepius migrate v0_1</code>.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.1.0</b><time class="dt-published" datetime="2026-02-04">2026-02-04</time><span class="pill">released</span>
+          </header>
+          <p class="ch__caption p-summary">
+            First public preview. Append, sign, chain, verify. The minimum viable trust substrate.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span>SQLite-backed Merkle ledger with BLAKE2b-256 + Ed25519.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::open</code>, <code>begin_inference</code>, <code>commit</code>, <code>Ledger::verify</code>.</span></li>
+            <li class="add"><b>add</b><span>Strong identifier types (<code>ActorId</code>, <code>PatientId</code>, <code>EncounterId</code>, <code>ModelId</code>).</span></li>
+          </ul>
+        </article>
+      </section>
+
+      <!-- ── right: roadmap ── -->
+      <aside>
+        <h2 class="ch__h">§ roadmap</h2>
+
+        <div class="roadmap__col">
+          <h3>Shipped <i>now</i></h3>
+          <p>The substrate as it stands today: a working runtime, a working ledger, a working verifier.</p>
+          <ul>
+            <li class="done"><svg viewBox="0 0 16 16"><path d="M6.6 11.4 3.2 8l1-1L6.6 9.4l5.2-5.2 1 1Z"/></svg><span>Signed Merkle ledger</span></li>
+            <li class="done"><svg viewBox="0 0 16 16"><path d="M6.6 11.4 3.2 8l1-1L6.6 9.4l5.2-5.2 1 1Z"/></svg><span>Composable policy chain</span></li>
+            <li class="done"><svg viewBox="0 0 16 16"><path d="M6.6 11.4 3.2 8l1-1L6.6 9.4l5.2-5.2 1 1Z"/></svg><span>Drift monitor (PSI / KS / EMD)</span></li>
+            <li class="done"><svg viewBox="0 0 16 16"><path d="M6.6 11.4 3.2 8l1-1L6.6 9.4l5.2-5.2 1 1Z"/></svg><span>Consent registry</span></li>
+            <li class="done"><svg viewBox="0 0 16 16"><path d="M6.6 11.4 3.2 8l1-1L6.6 9.4l5.2-5.2 1 1Z"/></svg><span>Evidence bundle export + verify</span></li>
+            <li class="done"><svg viewBox="0 0 16 16"><path d="M6.6 11.4 3.2 8l1-1L6.6 9.4l5.2-5.2 1 1Z"/></svg><span>Python bindings (pybind11)</span></li>
+            <li class="done"><svg viewBox="0 0 16 16"><path d="M6.6 11.4 3.2 8l1-1L6.6 9.4l5.2-5.2 1 1Z"/></svg><span>CLI: ledger / evidence / drift</span></li>
+          </ul>
+        </div>
+
+        <div class="roadmap__col">
+          <h3>In flight <i>(2026 Q3)</i></h3>
+          <p>Active development. PRs welcome.</p>
+          <ul>
+            <li class="wip"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>gRPC sidecar (asclepius-svc)</span></li>
+            <li class="wip"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>Postgres ledger backend</span></li>
+            <li class="wip"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>HSM-backed KeyStore (PKCS#11)</span></li>
+            <li class="wip"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>Rust bindings (cxx)</span></li>
+            <li class="wip"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>Encrypted body-store (opt-in PHI retention)</span></li>
+            <li class="wip"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5"/></svg><span>Streaming inverse-RPC for model callbacks</span></li>
+          </ul>
+        </div>
+
+        <div class="roadmap__col">
+          <h3>Considered <i>(post-1.0)</i></h3>
+          <p>Frequently requested; designs in flight, not yet committed to a release.</p>
+          <ul>
+            <li class="idea"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/></svg><span>Policy DSL + <code>asclepius policy lint</code></span></li>
+            <li class="idea"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/></svg><span>Multi-key ledger (rotation in-place)</span></li>
+            <li class="idea"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/></svg><span>Notarization adapters (Sigstore, OpenTimestamps)</span></li>
+            <li class="idea"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/></svg><span>Embedding-drift on top of scalar drift</span></li>
+            <li class="idea"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/></svg><span>Post-quantum signer (when standardized)</span></li>
+            <li class="idea"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/></svg><span>Managed evidence service (commercial offering)</span></li>
+          </ul>
+        </div>
+      </aside>
+
+    </div>
+
+    <section class="ch__guarantees">
+      <h2 class="ch__h">§ compatibility guarantees</h2>
+      <p>
+        <em>Patch (0.1.x):</em> bug fixes only. Binary-compatible. No format changes.
+      </p>
+      <p>
+        <em>Minor (0.x.0):</em> additive changes only. New event types, new fields, new
+        policies. Old verifiers ignore unknown fields.
+      </p>
+      <p>
+        <em>Major (x.0.0):</em> incompatible changes are allowed. A migration script ships
+        with every major bump (<code>asclepius migrate vN-1_to_vN</code>). Bundles emitted by
+        version <code>N</code> continue to verify with the same major version forever.
+      </p>
+      <p>
+        <em>v1.0 onward:</em> the on-disk ledger format and on-wire sidecar schema are
+        frozen. Removing or renaming a field is a v2 break and requires a new schema
+        package (<code>asclepius.v2</code>).
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — changelog.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="index.html#benchmarks">benchmarks</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="https://github.com/asclepius-ai/asclepius/releases">releases&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

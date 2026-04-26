@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Threat Model — Asclepius</title>
+<meta name="description" content="Adversaries A1–A6, residual risk, and exactly what verify() proves.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/threat-model.html">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Threat Model — Asclepius">
+<meta property="og:description"  content="Adversaries A1–A6, residual risk, and exactly what verify() proves.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="demo.html">
+<link rel="prefetch" href="docs.html">
+<link rel="stylesheet" href="styles.css">
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Documentation",
+      "item": "https://asclepius.health/docs.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Threat model",
+      "item": "https://asclepius.health/threat-model.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-docs">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="index.html#substrate">substrate</a>
+      <a href="index.html#anatomy">anatomy</a>
+      <a href="index.html#start">quickstart</a>
+      <a href="docs.html" class="is-active" aria-current="page">docs</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+  <div class="container">
+    <header class="docs-header">
+      <span class="kbd">docs · 03</span>
+      <h1>Threat model</h1>
+      <p>Adversaries A1–A6, residual risk, and exactly what verify() proves.</p>
+    </header>
+
+    <div class="docs-grid">
+      <aside class="docs-toc" aria-label="on this page">
+        <b>contents</b>
+        <a href="#assumptions" class="toc-l1">Assumptions</a>
+<a href="#in-scope-adversaries" class="toc-l1">In-scope adversaries</a>
+<a href="#a1-internal-actor-tampering-with-audit-logs" class="toc-l2">A1. Internal actor tampering with audit logs</a>
+<a href="#a2-model-produces-malicious-or-phi-laden-output" class="toc-l2">A2. Model produces malicious or PHI-laden output</a>
+<a href="#a3-replay-of-a-stale-model-decision" class="toc-l2">A3. Replay of a stale model decision</a>
+<a href="#a4-bundle-forgery" class="toc-l2">A4. Bundle forgery</a>
+<a href="#a5-side-channel-phi-leakage-via-ledger" class="toc-l2">A5. Side-channel PHI leakage via ledger</a>
+<a href="#a6-drift-undetected" class="toc-l2">A6. Drift undetected</a>
+<a href="#out-of-scope-today" class="toc-l1">Out-of-scope (today)</a>
+<a href="#what-verify-proves" class="toc-l1">What verify() proves</a>
+<a href="#reporting" class="toc-l1">Reporting</a>
+        <b style="margin-top: 1.6rem;">other docs</b>
+        <a href="architecture.html" class="">Architecture</a>
+        <a href="spec.html"         class="">Spec</a>
+        <a href="threat-model.html" class="is-active">Threat model</a>
+        <a href="demo.html">Playground&nbsp;↗</a>
+      </aside>
+
+      <article class="docs-content">
+        <p>What the audit substrate does and does not protect against. This is a
+living document; every minor release should re-evaluate it.</p>
+<h2 id="assumptions">Assumptions</h2>
+<ul>
+<li>The customer operates the Asclepius runtime inside their own trust
+  boundary (their VPC, their hospital, their compliance footprint).</li>
+<li>The signing key is held by the runtime, with file-mode-0600 sidecar by
+  default and HSM-backed in production.</li>
+<li>The wrapped model itself is not trusted to be benign. Output guardrails
+  exist precisely because the model can be wrong, drifted, or adversarial.</li>
+<li>The clinician (<code>actor</code>) is authenticated by the customer's IdP before
+  reaching Asclepius. We accept whatever subject claim the IdP issues.</li>
+</ul>
+<h2 id="in-scope-adversaries">In-scope adversaries</h2>
+<h3 id="a1-internal-actor-tampering-with-audit-logs">A1. Internal actor tampering with audit logs</h3>
+<p>An employee with database write access modifies a ledger entry to hide
+that the model recommended a specific action.</p>
+<p><strong>Mitigation:</strong> The entry's signature is over the body and headers; modifying
+either invalidates the signature. <code>Ledger::verify()</code> walks the entire chain
+and detects mismatches at the offending sequence.</p>
+<p><strong>Residual risk:</strong> The actor could delete the entire database and replace
+it with a chain they signed with a key they hold. Defense: pin the chain
+head to an external system (a board-attested checkpointer, a trusted
+notary, or a public ledger) on a regular cadence. Asclepius does not
+implement notarization itself; it produces the artifacts that make
+external notarization cheap.</p>
+<h3 id="a2-model-produces-malicious-or-phi-laden-output">A2. Model produces malicious or PHI-laden output</h3>
+<p>The wrapped model outputs prompt-injection results, hallucinated PHI, or
+clinically dangerous actions.</p>
+<p><strong>Mitigation:</strong> Output policies (PHI scrubber, schema validator, clinical
+action filter, length limit) gate every output before it reaches a
+clinician or downstream system. Blocks are recorded with rationale.</p>
+<p><strong>Residual risk:</strong> Sophisticated semantic attacks may slip past the
+default scrubber. Compose with an ML-based scrubber (e.g. Presidio) for
+production.</p>
+<h3 id="a3-replay-of-a-stale-model-decision">A3. Replay of a stale model decision</h3>
+<p>An attacker replays an old <code>inference.committed</code> entry to confuse a
+downstream auditor.</p>
+<p><strong>Mitigation:</strong> Entries are sequence-numbered and the chain is monotonic.
+A replayed entry would not match the live chain.</p>
+<h3 id="a4-bundle-forgery">A4. Bundle forgery</h3>
+<p>An attacker generates a fake evidence bundle to mislead a regulator.</p>
+<p><strong>Mitigation:</strong> The bundle's <code>manifest.sig</code> is Ed25519-signed by the
+ledger's signing key. The regulator's verifier needs only the public key
+to detect a forgery. Bundles are also cross-checkable against the
+chain: the <code>ledger_head</code> field in the manifest must match the actual
+head of the customer's ledger.</p>
+<h3 id="a5-side-channel-phi-leakage-via-ledger">A5. Side-channel PHI leakage via ledger</h3>
+<p>An auditor with read access to the ledger learns PHI from the ledger
+body.</p>
+<p><strong>Mitigation:</strong> By default, the ledger stores <strong>hashes</strong> of inputs and
+outputs, not the content itself. The body of an <code>inference.committed</code>
+entry contains identifiers, status, and hashes — no free text or imagery.
+PHI-rich content storage is opt-in via a separate encrypted body-store.</p>
+<h3 id="a6-drift-undetected">A6. Drift undetected</h3>
+<p>The model decays slowly enough that single-day metrics look fine.</p>
+<p><strong>Mitigation:</strong> PSI is computed against a fixed baseline (held-out
+validation set), not against the previous day. Slow drift accumulates.
+KS and EMD are also exposed for triangulation.</p>
+<p><strong>Residual risk:</strong> Drift detection is statistical; thresholds need
+calibration per customer. Ship dashboards with severity transitions, not
+just snapshots.</p>
+<h2 id="out-of-scope-today">Out-of-scope (today)</h2>
+<ul>
+<li><strong>Compromise of the signing key.</strong> If an attacker exfiltrates <code>&lt;db&gt;.key</code>
+  they can forge ledger entries and evidence bundles. Mitigation: HSM-back
+  the keystore and rotate keys on a schedule (planned: Asclepius supports
+  multiple <code>key_id</code>s in the same chain).</li>
+<li><strong>Compromise of the host.</strong> Root on the box loses everything.</li>
+<li><strong>Insider with both DB write and key access.</strong> No software defense is
+  sufficient; rely on access controls and auditing.</li>
+<li><strong>Quantum adversaries.</strong> Ed25519 is not post-quantum. The format is
+  versioned; we will migrate to a post-quantum signer when one is
+  standardized.</li>
+<li><strong>Bundle exfiltration.</strong> A bundle contains hashes and metrics, not PHI
+  by default. If a bundle is configured to include PHI, treat it as PHI.</li>
+</ul>
+<h2 id="what-verify-proves">What <code>verify()</code> proves</h2>
+<p><code>Ledger::verify()</code> returns <code>Ok</code> iff:</p>
+<ol>
+<li>Every entry's <code>seq</code> is strictly monotonic from 1.</li>
+<li>Every entry's <code>prev_hash</code> equals the previous entry's <code>entry_hash</code>.</li>
+<li>Every entry's <code>payload_hash</code> matches <code>BLAKE2b256(event_type || RS || body)</code>.</li>
+<li>Every entry's <code>signature</code> verifies against the ledger's public key.</li>
+</ol>
+<p>It does <strong>not</strong> prove:</p>
+<ul>
+<li>That the recorded data reflects what really happened (garbage-in
+  garbage-out — see A1's residual risk).</li>
+<li>That the public key belongs to the entity you think it does (key
+  binding is a customer/governance concern).</li>
+<li>That the wrapped model was the model the entry says it was (model
+  attestation requires hash-binding the model artifact, planned).</li>
+</ul>
+<h2 id="reporting">Reporting</h2>
+<p>Suspected vulnerabilities: security@asclepius.health (placeholder; the
+project is pre-public). PGP and our Vulnerability Disclosure Policy will
+ship with the first public release.</p>
+
+        <hr>
+        <p class="docs-pager" style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:.82rem;color:var(--ink-mute);">
+          <a href="spec.html">← Spec</a>
+          <a href="demo.html">Playground →</a>
+        </p>
+      </article>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — docs.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="index.html#substrate">substrate</a>
+        <a href="index.html#anatomy">anatomy</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="index.html#start">quickstart</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

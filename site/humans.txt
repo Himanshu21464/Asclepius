@@ -1,0 +1,42 @@
+/* TEAM */
+
+  Asclepius — a Future Project Brief.
+  Open, vendor-neutral C++ trust substrate for clinical AI.
+
+/* THANKS */
+
+  libsodium                — Frank Denis & contributors
+  SQLite                   — D. Richard Hipp
+  fmt + spdlog             — Victor Zverovich, Gabi Melman
+  nlohmann/json            — Niels Lohmann
+  pybind11                 — Wenzel Jakob
+  doctest                  — Viktor Kirilov
+
+  And every clinician who has had to override a model and wished
+  the override was actually recorded somewhere that could be
+  re-verified.
+
+/* CRYPTO */
+
+  Hash:      BLAKE2b-256 (32 bytes, libsodium crypto_generichash)
+  Signature: Ed25519     (libsodium crypto_sign_*)
+  PGP key:   A1F2 9C4E B8D1 74E6 · 2A55 0CCB 7F12 BB37 5E4A C9D0
+
+/* SITE */
+
+  Last update:  2026-04-27
+  Standards:    HTML5, CSS3, ES2020, RFC 9116, RFC 4287 (Atom), JSON Feed 1.1,
+                EditorConfig, EFF DNT-policy
+  Pages:        32 HTML, all WCAG 2.2 AA, all SHA-256-attested in
+                /asset-manifest.json
+  Components:   None. Hand-rolled vanilla JS, ~2.4k LoC across nine files
+                (main, extras, palette, demo, floating, help, bench,
+                attest-site, themes).
+  Tools used:   Asclepius itself for the SVG attestation;
+                check_html.py for link/heading/duplicate-id validation;
+                regen_manifest.py + regen_search.py for re-publication;
+                make all to coordinate.
+
+  Designed and written, every paragraph and pixel, by humans and a
+  language model in close collaboration. The bytes you see were
+  authored, not auto-generated.

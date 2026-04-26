@@ -1,0 +1,69 @@
+{
+  "id":               "/?source=pwa",
+  "name":             "Asclepius — Trust Substrate for Clinical AI",
+  "short_name":       "Asclepius",
+  "description":      "Open, vendor-neutral C++ runtime that wraps any clinical AI tool with audit-grade safety: signed Merkle ledger, policy chain, drift detection, evidence bundles.",
+  "categories":       ["developer", "medical", "productivity"],
+  "lang":             "en",
+  "dir":              "ltr",
+  "start_url":        "/?source=pwa",
+  "scope":            "/",
+  "display":          "standalone",
+  "display_override": ["window-controls-overlay", "minimal-ui", "browser"],
+  "orientation":      "any",
+  "theme_color":      "#0A0710",
+  "background_color": "#0A0710",
+  "icons": [
+    { "src": "assets/favicon.svg",          "type": "image/svg+xml", "sizes": "any",     "purpose": "any" },
+    { "src": "assets/favicon-mono.svg",     "type": "image/svg+xml", "sizes": "any",     "purpose": "monochrome" },
+    { "src": "assets/apple-touch-icon.png", "type": "image/png",     "sizes": "180x180", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name":  "Playground",
+      "short_name": "Demo",
+      "description": "Wrap a clinical model in your browser",
+      "url":   "/demo.html",
+      "icons": [{ "src": "assets/favicon.svg", "type": "image/svg+xml", "sizes": "any" }]
+    },
+    {
+      "name":  "Documentation",
+      "short_name": "Docs",
+      "description": "Architecture, spec, threat model",
+      "url":   "/docs.html",
+      "icons": [{ "src": "assets/favicon.svg", "type": "image/svg+xml", "sizes": "any" }]
+    },
+    {
+      "name":  "Status",
+      "short_name": "Status",
+      "description": "Live production-shape dashboard",
+      "url":   "/status.html",
+      "icons": [{ "src": "assets/favicon.svg", "type": "image/svg+xml", "sizes": "any" }]
+    },
+    {
+      "name":  "Crypto toolbox",
+      "short_name": "Crypto",
+      "description": "Hash + Ed25519 sign / verify in your tab",
+      "url":   "/crypto.html",
+      "icons": [{ "src": "assets/favicon.svg", "type": "image/svg+xml", "sizes": "any" }]
+    },
+    {
+      "name":  "Changelog",
+      "short_name": "Changes",
+      "description": "Release log + roadmap",
+      "url":   "/changelog.html",
+      "icons": [{ "src": "assets/favicon.svg", "type": "image/svg+xml", "sizes": "any" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src":   "assets/og-card.png",
+      "type":  "image/png",
+      "sizes": "1200x630",
+      "form_factor": "wide",
+      "label": "Asclepius — The Linux kernel for clinical AI."
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

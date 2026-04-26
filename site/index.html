@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Asclepius — A Trust Substrate for Clinical AI</title>
+<meta name="description" content="Open, vendor-neutral C++ runtime that wraps any clinical AI tool with audit-grade safety: signed Merkle ledger, policy chain, drift detection, consent enforcement, and FDA-grade evidence bundles.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+<link rel="canonical" href="https://asclepius.health/">
+
+<meta property="og:title"        content="Asclepius — A Trust Substrate for Clinical AI">
+<meta property="og:description"  content="Open, vendor-neutral C++ runtime that wraps any clinical AI tool with audit-grade safety: signed Merkle ledger, policy chain, drift detection, consent enforcement, and FDA-grade evidence bundles.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:url"          content="https://asclepius.health/">
+<meta property="og:type"         content="website">
+<meta property="og:site_name"    content="Asclepius">
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="Asclepius — The Linux kernel for clinical AI.">
+<meta name="twitter:description" content="An open C++ trust substrate for clinical AI — audit-grade Merkle ledger, policy chain, drift, consent, evidence bundles. Apache 2.0.">
+<meta name="twitter:image"       content="https://asclepius.health/assets/og-card.png">
+
+<script type="application/ld+json">
+{
+  "@context":   "https://schema.org",
+  "@type":      "SoftwareApplication",
+  "name":       "Asclepius",
+  "description":"Open, vendor-neutral C++20 runtime that wraps any clinical AI tool with audit-grade safety.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem":     "Linux, macOS, Windows",
+  "softwareVersion":     "0.1.0",
+  "license":             "https://www.apache.org/licenses/LICENSE-2.0",
+  "programmingLanguage": ["C++20", "Python", "Rust"],
+  "offers":              { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="demo.html">
+<link rel="prefetch" href="docs.html">
+<link rel="stylesheet" href="styles.css">
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<a class="skip-link" href="#top">skip to content</a>
+
+<!-- ─── status strip ─────────────────────────────────────────────────────── -->
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="#top">
+      <span class="brand-mark" aria-hidden="true">
+        <span class="brand-mark__inner"></span>
+      </span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="#manifesto">manifesto</a>
+      <a href="#substrate">substrate</a>
+      <a href="#anatomy">anatomy</a>
+      <a href="#start">quickstart</a>
+      <a href="#benchmarks">bench</a>
+      <a href="#compare">compare</a>
+      <a href="#faq">faq</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <span>ed25519&nbsp;·&nbsp;blake2b</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<noscript>
+  <div style="background:#1B1729;border-bottom:1px solid #2A2438;padding:.8rem 1.4rem;font-family:JetBrains Mono,monospace;font-size:.78rem;color:#9A92A8;text-align:center;">
+    JavaScript is disabled — the page still reads end-to-end. The
+    <a href="demo.html" style="color:#34D399">playground</a>, command palette (<code>&#8984;K</code>) and theme toggle are JS-only.
+  </div>
+</noscript>
+
+<main id="top">
+
+<!-- ─── hero ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero__grid">
+    <div class="hero__copy">
+      <div class="hero__eyebrow">
+        <span class="kbd">future&nbsp;project&nbsp;brief&nbsp;·&nbsp;05</span>
+        <span class="hero__eyebrow-rule"></span>
+        <span>2026 Q2</span>
+      </div>
+
+      <h1 class="hero__title">
+        <span class="reveal" style="--d:.05s">The</span>
+        <span class="reveal accent-italic" style="--d:.18s"><i>Linux kernel</i></span>
+        <span class="reveal" style="--d:.34s">for</span>
+        <span class="reveal" style="--d:.50s">clinical&nbsp;AI.</span>
+      </h1>
+
+      <p class="hero__lede reveal" style="--d:.7s">
+        An open, vendor-neutral C++ runtime that wraps <em>any</em> clinical AI tool with audit-grade safety:
+        a cryptographically signed Merkle ledger, composable input/output guardrails, drift detection,
+        override telemetry, consent-and-scope enforcement, and an evidence pipeline that emits regulator-ready bundles.
+      </p>
+
+      <div class="hero__ctas reveal" style="--d:.85s">
+        <a class="btn btn--primary" href="demo.html">try the playground&nbsp;↗</a>
+        <a class="btn btn--ghost" href="#start">read the quickstart</a>
+      </div>
+
+      <ul class="hero__chips reveal" style="--d:1s">
+        <li>C++20 core</li>
+        <li>≈ 12k SLOC</li>
+        <li>SQLite-backed</li>
+        <li>Python &amp; Rust bindings</li>
+        <li>HSM-ready signer</li>
+        <li>FHIR-aware</li>
+      </ul>
+    </div>
+
+    <!-- the moving artifact: a real-shaped ledger entry -->
+    <aside class="hero__artifact reveal" style="--d:.4s" aria-label="example ledger entry">
+      <div class="entry">
+        <header class="entry__head">
+          <span class="entry__type">inference.committed</span>
+          <span class="entry__seq">seq&nbsp;<b>0x0001A4F</b></span>
+        </header>
+
+        <dl class="entry__body">
+          <div><dt>actor</dt>      <dd>clinician:dr.smith</dd></div>
+          <div><dt>model</dt>      <dd>scribe@v3</dd></div>
+          <div><dt>patient</dt>    <dd>pat:9f1a-…-c20e</dd></div>
+          <div><dt>purpose</dt>    <dd>ambient_documentation</dd></div>
+          <div><dt>tenant</dt>     <dd>kp-northwest</dd></div>
+          <div class="hr"></div>
+          <div><dt>input_hash</dt> <dd>3f9c1ad8…0e7d21</dd></div>
+          <div><dt>output_hash</dt><dd>8e510bf4…21b04a</dd></div>
+          <div><dt>policies</dt>   <dd>phi_scrubber → schema_validator → length_limit</dd></div>
+          <div><dt>latency</dt>    <dd>11.4&nbsp;ms</dd></div>
+          <div class="hr"></div>
+          <div><dt>prev_hash</dt>  <dd>0c7a44e2…48b1f0</dd></div>
+          <div><dt>signature</dt>  <dd class="ok">ed25519 · <span class="check">verified</span></dd></div>
+          <div><dt>key_id</dt>     <dd>a1f2 9c4e b8d1 74e6</dd></div>
+        </dl>
+
+        <footer class="entry__chain">
+          <div class="chain__hash" data-i="N-2"><i></i></div>
+          <div class="chain__link"></div>
+          <div class="chain__hash" data-i="N-1"><i></i></div>
+          <div class="chain__link"></div>
+          <div class="chain__hash chain__hash--here" data-i="N"><i></i></div>
+        </footer>
+      </div>
+
+      <div class="hero__caption">
+        <span>fig.&nbsp;1</span>
+        <span>one row, signed, chained, replayable.</span>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ─── manifesto ────────────────────────────────────────────────────────── -->
+<section id="manifesto" class="manifesto">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§01</span>
+      <span class="section-name">manifesto</span>
+    </div>
+    <p class="manifesto__lede">
+      Every health system in 2026 is hand-rolling the same five things: drift monitors,
+      audit trails, override tracking, consent ledgers, prospective evaluation harnesses.
+      <em>None of them should be bespoke.</em> They are infrastructure — and infrastructure
+      that is bespoke in a thousand hospitals is also broken in a thousand hospitals.
+    </p>
+    <p class="manifesto__body">
+      Asclepius is the missing layer underneath. It is not a model, not an EHR, not a governance
+      committee. It is the substrate that turns any clinical-AI inference — a GPT-class scribe,
+      a radiology CNN, an internal LLM agent, a rule engine — into something
+      <span class="hl-purple">auditable</span>, <span class="hl-purple">rate-limited</span>,
+      <span class="hl-purple">schema-checked</span>, <span class="hl-purple">consent-aware</span>,
+      and <span class="hl-purple">replayable</span>, through one runtime, with byte-equal artifacts a
+      regulator can reverify offline.
+    </p>
+  </div>
+</section>
+
+<!-- ─── the crisis ───────────────────────────────────────────────────────── -->
+<section id="crisis" class="crisis">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§02</span>
+      <span class="section-name">the break</span>
+    </div>
+
+    <h2 class="display">
+      <span>Q1&nbsp;2026 alone&nbsp;cost&nbsp;American</span>
+      <span><i>health systems more</i></span>
+      <span>than&nbsp;the&nbsp;entire&nbsp;clinical-AI</span>
+      <span>tooling&nbsp;market&nbsp;earned.</span>
+    </h2>
+
+    <ol class="incidents">
+      <li class="incident">
+        <span class="incident__amount">$556M</span>
+        <h3>Kaiser, Medicare-Advantage AI settlement.</h3>
+        <p>One unaudited algorithm. No standard substrate to record what it recommended, when, to whom, or with what consent. The settlement was the cheap part.</p>
+        <span class="incident__tag">audit gap</span>
+      </li>
+      <li class="incident">
+        <span class="incident__amount">100,000+</span>
+        <h3>Sharp HealthCare AI-scribe encounters recorded without patient consent.</h3>
+        <p>The scribe worked. The consent layer didn't. There was no consent layer — every integration team built their own, and Sharp's didn't.</p>
+        <span class="incident__tag">consent gap</span>
+      </li>
+      <li class="incident">
+        <span class="incident__amount">~90%</span>
+        <h3>UnitedHealth nH Predict denials reportedly reversed on appeal.</h3>
+        <p>A model that fails open. No prospective-evidence pipeline. No drift monitor that flagged the failure. The patients who didn't appeal absorbed the model's errors.</p>
+        <span class="incident__tag">evidence gap</span>
+      </li>
+      <li class="incident">
+        <span class="incident__amount">87 / 88%</span>
+        <h3>of healthcare executives cite "lack of guidelines" and "resource allocation" as the primary AI-adoption barriers.</h3>
+        <p>Translation: governance is the bottleneck, and there is nothing to buy. Asclepius is the thing to buy.</p>
+        <span class="incident__tag">governance gap</span>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ─── what it is — five pillars ───────────────────────────────────────── -->
+<section id="substrate" class="pillars">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§03</span>
+      <span class="section-name">what asclepius is</span>
+    </div>
+
+    <h2 class="display display--small">Five primitives. One library. One library binding into every clinical AI you ship.</h2>
+
+    <div class="pillars__grid">
+      <article class="pillar">
+        <span class="pillar__num">01</span>
+        <h3>Signed Merkle ledger</h3>
+        <p>Every inference, override, ground-truth label, and consent event becomes one row in an append-only log: BLAKE2b-256 payload hash, Ed25519 signature, prev_hash chained to the previous row. <code>asclepius ledger verify</code> walks the chain in O(n).</p>
+        <pre class="pillar__code">Ledger::append("inference.committed", actor, body)</pre>
+      </article>
+
+      <article class="pillar">
+        <span class="pillar__num">02</span>
+        <h3>Composable policy chain</h3>
+        <p>Stateless guards run left-to-right on every inference: PHI scrubber, JSON-schema validator, length limit, clinical-action allowlist. The first <code>BLOCK</code> short-circuits with a structured rationale. Hosts write their own and push them in.</p>
+        <pre class="pillar__code">rt.policies().push(make_phi_scrubber());</pre>
+      </article>
+
+      <article class="pillar">
+        <span class="pillar__num">03</span>
+        <h3>Drift on the ground floor</h3>
+        <p>Per-feature reference + current histograms. PSI, Kolmogorov–Smirnov, Earth Mover's Distance computed on demand against a fixed baseline so slow drift accumulates. Severity classifier exposed for calibration.</p>
+        <pre class="pillar__code">dm.observe("confidence", 0.74);</pre>
+      </article>
+
+      <article class="pillar">
+        <span class="pillar__num">04</span>
+        <h3>Consent &amp; purpose-of-use</h3>
+        <p>Eight codified purposes. Tokens granting purposes for a TTL. Every inference is scope-checked <em>before</em> any policy runs or any model is called. A missing or expired consent never reaches the wrapped tool.</p>
+        <pre class="pillar__code">consent.permits(patient, Purpose::triage)</pre>
+      </article>
+
+      <article class="pillar">
+        <span class="pillar__num">05</span>
+        <h3>Evidence bundles</h3>
+        <p>USTAR tar containing manifest, ledger excerpt, per-model metrics, drift snapshot, override + ground-truth streams, public key, and an Ed25519 signature over the manifest. Verifiable offline with the public key alone.</p>
+        <pre class="pillar__code">harness.export_bundle(window, "evidence.tar")</pre>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─── anatomy ──────────────────────────────────────────────────────────── -->
+<section id="anatomy" class="anatomy">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§04</span>
+      <span class="section-name">anatomy of a wrapped inference</span>
+    </div>
+
+    <h2 class="display display--small">A single call traces the same six edges, every time.</h2>
+
+    <div class="anatomy__diagram" aria-label="inference data flow">
+      <div class="lane lane--caller">
+        <div class="lane__label">caller process</div>
+        <div class="node node--caller">EHR / scribe daemon / PACS plugin</div>
+      </div>
+
+      <div class="flow-arrow flow-arrow--down"><span>1 · spec</span></div>
+
+      <div class="lane lane--asclepius">
+        <div class="lane__label">asclepius runtime</div>
+        <div class="anatomy__chain">
+          <div class="step"><span class="step__num">01</span><b>begin_inference</b><i>consent + scope check</i></div>
+          <div class="step__arrow">→</div>
+          <div class="step"><span class="step__num">02</span><b>policy chain ▸ input</b><i>PHI · schema · length</i></div>
+          <div class="step__arrow">→</div>
+          <div class="step step--model"><span class="step__num">03</span><b>model call</b><i>any callable</i></div>
+          <div class="step__arrow">→</div>
+          <div class="step"><span class="step__num">04</span><b>policy chain ▸ output</b><i>actions · schema · PHI</i></div>
+          <div class="step__arrow">→</div>
+          <div class="step"><span class="step__num">05</span><b>commit</b><i>append, sign, chain</i></div>
+        </div>
+      </div>
+
+      <div class="flow-arrow flow-arrow--down"><span>6 · ledger row</span></div>
+
+      <div class="lane lane--ledger">
+        <div class="lane__label">audit substrate</div>
+        <div class="ledger-strip">
+          <div class="ledger-strip__row">
+            <span class="ledger-strip__seq">seq&nbsp;1A4D</span>
+            <span class="ledger-strip__type">inference.committed</span>
+            <span class="ledger-strip__hash">3f9c…7d21</span>
+            <span class="ledger-strip__sig">✓</span>
+          </div>
+          <div class="ledger-strip__row">
+            <span class="ledger-strip__seq">seq&nbsp;1A4E</span>
+            <span class="ledger-strip__type">evaluation.override</span>
+            <span class="ledger-strip__hash">8e51…b04a</span>
+            <span class="ledger-strip__sig">✓</span>
+          </div>
+          <div class="ledger-strip__row">
+            <span class="ledger-strip__seq">seq&nbsp;1A4F</span>
+            <span class="ledger-strip__type">consent.granted</span>
+            <span class="ledger-strip__hash">a17b…224c</span>
+            <span class="ledger-strip__sig">✓</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── quickstart ───────────────────────────────────────────────────────── -->
+<section id="start" class="start">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§05</span>
+      <span class="section-name">quickstart</span>
+    </div>
+
+    <h2 class="display display--small">Fifteen lines wraps any model in audit-grade safety.</h2>
+
+    <!-- pure-CSS tabs via radio inputs -->
+    <div class="tabs" role="tablist">
+      <input type="radio" name="lang" id="lang-cpp"   class="tabs__radio" checked>
+      <input type="radio" name="lang" id="lang-py"    class="tabs__radio">
+      <input type="radio" name="lang" id="lang-go"    class="tabs__radio">
+      <input type="radio" name="lang" id="lang-java"  class="tabs__radio">
+      <input type="radio" name="lang" id="lang-cli"   class="tabs__radio">
+      <input type="radio" name="lang" id="lang-grpc"  class="tabs__radio">
+
+      <div class="tabs__bar">
+        <label for="lang-cpp"  class="tabs__tab" data-l="cpp">C++20</label>
+        <label for="lang-py"   class="tabs__tab" data-l="py">Python</label>
+        <label for="lang-go"   class="tabs__tab" data-l="go">Go</label>
+        <label for="lang-java" class="tabs__tab" data-l="java">Java</label>
+        <label for="lang-cli"  class="tabs__tab" data-l="cli">CLI</label>
+        <label for="lang-grpc" class="tabs__tab" data-l="grpc">gRPC sidecar</label>
+        <span class="tabs__indicator"></span>
+      </div>
+
+      <div class="tabs__panels">
+<pre class="panel panel--cpp" data-copyable><code><span class="c-com">// wrap any clinical model in 15 lines.</span>
+<span class="c-key">#include</span> <span class="c-str">&lt;asclepius/asclepius.hpp&gt;</span>
+<span class="c-key">using namespace</span> asclepius;
+
+<span class="c-key">int</span> <span class="c-fn">main</span>() {
+  <span class="c-key">auto</span> rt = Runtime::open(<span class="c-str">"./asclepius.db"</span>).value();
+
+  rt.policies().push(make_phi_scrubber());
+  rt.policies().push(make_schema_validator(<span class="c-str">R"({"required":["soap"]})"</span>));
+  rt.policies().push(make_length_limit(<span class="c-num">10000</span>, <span class="c-num">4000</span>));
+
+  <span class="c-key">auto</span> inf = rt.begin_inference({
+    .model     = ModelId{<span class="c-str">"scribe"</span>, <span class="c-str">"v3"</span>},
+    .actor     = ActorId::clinician(<span class="c-str">"dr.smith"</span>),
+    .patient   = PatientId::pseudonymous(<span class="c-str">"p_9f1a"</span>),
+    .encounter = EncounterId::make(),
+    .purpose   = Purpose::ambient_documentation,
+  }).value();
+
+  <span class="c-key">auto</span> out = inf.run(transcript, my_scribe).value();
+  inf.commit();
+}</code></pre>
+
+<pre class="panel panel--py" data-copyable><code><span class="c-com"># wrap any clinical model in Python.</span>
+<span class="c-key">import</span> asclepius <span class="c-key">as</span> ax
+
+rt = ax.Runtime(<span class="c-str">"./asclepius.db"</span>)
+rt.policies.push(ax.policies.phi_scrubber())
+rt.policies.push(ax.policies.schema_validator({<span class="c-str">"required"</span>: [<span class="c-str">"soap"</span>]}))
+rt.policies.push(ax.policies.length_limit(<span class="c-num">10000</span>, <span class="c-num">4000</span>))
+
+<span class="c-key">with</span> rt.begin_inference(
+    model     = ax.Model(<span class="c-str">"scribe"</span>, <span class="c-str">"v3"</span>),
+    actor     = ax.Actor.clinician(<span class="c-str">"dr.smith"</span>),
+    patient   = ax.Patient.pseudonymous(<span class="c-str">"p_9f1a"</span>),
+    encounter = ax.Encounter.new(),
+    purpose   = ax.Purpose.AMBIENT_DOCUMENTATION,
+) <span class="c-key">as</span> inf:
+    soap = inf.run(transcript, my_scribe)
+    inf.observe_drift(<span class="c-str">"confidence"</span>, <span class="c-num">0.74</span>)</code></pre>
+
+<pre class="panel panel--go" data-copyable><code><span class="c-com">// wrap any clinical model from Go via the asclepius-svc sidecar.</span>
+<span class="c-key">package</span> main
+
+<span class="c-key">import</span> (
+    <span class="c-str">"context"</span>
+    <span class="c-str">"google.golang.org/grpc"</span>
+    pb <span class="c-str">"asclepius.health/proto/asclepius/v1"</span>
+)
+
+<span class="c-key">func</span> <span class="c-fn">main</span>() {
+    conn, _ := grpc.Dial(<span class="c-str">"asclepius-svc:7443"</span>, grpc.WithTransportCredentials(creds))
+    cli := pb.NewAsclepiusClient(conn)
+    ctx := context.Background()
+
+    inf, _ := cli.BeginInference(ctx, &amp;pb.BeginInferenceRequest{
+        Spec: &amp;pb.InferenceSpec{
+            Model:     &amp;pb.Id{Kind: pb.Id_MODEL,     Value: <span class="c-str">"scribe@v3"</span>},
+            Actor:     &amp;pb.Id{Kind: pb.Id_ACTOR,     Value: <span class="c-str">"clinician:dr.smith"</span>},
+            Patient:   &amp;pb.Id{Kind: pb.Id_PATIENT,   Value: <span class="c-str">"pat:p_9f1a"</span>},
+            Encounter: &amp;pb.Id{Kind: pb.Id_ENCOUNTER, Value: <span class="c-str">"enc:01HX..."</span>},
+            Purpose:   pb.Purpose_AMBIENT_DOCUMENTATION,
+        },
+    })
+
+    out, _ := cli.Run(ctx, &amp;pb.RunRequest{
+        InferenceId: inf.InferenceId,
+        Input:       []<span class="c-key">byte</span>(transcript),
+    })
+    cli.Commit(ctx, &amp;pb.CommitRequest{InferenceId: inf.InferenceId})
+    _ = out.Output
+}</code></pre>
+
+<pre class="panel panel--java" data-copyable><code><span class="c-com">// wrap any clinical model from Java via the asclepius-svc sidecar.</span>
+<span class="c-key">import</span> health.asclepius.proto.v1.*;
+<span class="c-key">import</span> io.grpc.ManagedChannelBuilder;
+
+<span class="c-key">public class</span> <span class="c-fn">Wrap</span> {
+  <span class="c-key">public static void</span> <span class="c-fn">main</span>(String[] args) <span class="c-key">throws</span> Exception {
+    <span class="c-key">var</span> ch  = ManagedChannelBuilder.forAddress(<span class="c-str">"asclepius-svc"</span>, <span class="c-num">7443</span>).useTransportSecurity().build();
+    <span class="c-key">var</span> cli = AsclepiusGrpc.newBlockingStub(ch);
+
+    <span class="c-key">var</span> spec = InferenceSpec.newBuilder()
+        .setModel    (Id.newBuilder().setKind(Id.Kind.MODEL    ).setValue(<span class="c-str">"scribe@v3"</span>))
+        .setActor    (Id.newBuilder().setKind(Id.Kind.ACTOR    ).setValue(<span class="c-str">"clinician:dr.smith"</span>))
+        .setPatient  (Id.newBuilder().setKind(Id.Kind.PATIENT  ).setValue(<span class="c-str">"pat:p_9f1a"</span>))
+        .setEncounter(Id.newBuilder().setKind(Id.Kind.ENCOUNTER).setValue(<span class="c-str">"enc:01HX..."</span>))
+        .setPurpose  (Purpose.AMBIENT_DOCUMENTATION)
+        .build();
+
+    <span class="c-key">var</span> inf = cli.beginInference(BeginInferenceRequest.newBuilder().setSpec(spec).build());
+    <span class="c-key">var</span> out = cli.run(RunRequest.newBuilder()
+        .setInferenceId(inf.getInferenceId())
+        .setInput(com.google.protobuf.ByteString.copyFromUtf8(transcript))
+        .build());
+    cli.commit(CommitRequest.newBuilder().setInferenceId(inf.getInferenceId()).build());
+  }
+}</code></pre>
+
+<pre class="panel panel--cli" data-copyable><code><span class="c-com"># inspect, verify, export — same binary everywhere.</span>
+$ asclepius ledger verify  ./asclepius.db
+<span class="c-ok">OK: 18,402 entries, head=8e510bf4…21b04a, key_id=a1f2…74e6</span>
+
+$ asclepius ledger inspect ./asclepius.db --tail 3
+{<span class="c-str">"seq"</span>:18400,<span class="c-str">"event_type"</span>:<span class="c-str">"inference.committed"</span>,...}
+{<span class="c-str">"seq"</span>:18401,<span class="c-str">"event_type"</span>:<span class="c-str">"evaluation.override"</span>,...}
+{<span class="c-str">"seq"</span>:18402,<span class="c-str">"event_type"</span>:<span class="c-str">"evaluation.ground_truth"</span>,...}
+
+$ asclepius evidence bundle ./asclepius.db \
+    --window 30d --out evidence-2026-04.tar
+<span class="c-ok">wrote evidence-2026-04.tar, root_hash=22b91d…f0a4, models=3</span>
+
+$ asclepius evidence verify evidence-2026-04.tar
+<span class="c-ok">OK</span></code></pre>
+
+<pre class="panel panel--grpc" data-copyable><code><span class="c-com">// asclepius/v1/sidecar.proto — non-C++ hosts speak gRPC.</span>
+<span class="c-key">service</span> Asclepius {
+  <span class="c-key">rpc</span> BeginInference     (BeginInferenceRequest)    <span class="c-key">returns</span> (BeginInferenceResponse);
+  <span class="c-key">rpc</span> Run                (RunRequest)               <span class="c-key">returns</span> (RunResponse);
+  <span class="c-key">rpc</span> Commit             (CommitRequest)            <span class="c-key">returns</span> (CommitResponse);
+  <span class="c-key">rpc</span> CaptureOverride    (CaptureOverrideRequest)   <span class="c-key">returns</span> (CaptureOverrideResponse);
+  <span class="c-key">rpc</span> AttachGroundTruth  (AttachGroundTruthRequest) <span class="c-key">returns</span> (AttachGroundTruthResponse);
+  <span class="c-key">rpc</span> ObserveDrift       (ObserveDriftRequest)      <span class="c-key">returns</span> (ObserveDriftResponse);
+  <span class="c-key">rpc</span> LedgerVerify       (LedgerVerifyRequest)      <span class="c-key">returns</span> (LedgerVerifyResponse);
+  <span class="c-key">rpc</span> ExportBundle       (ExportBundleRequest)      <span class="c-key">returns</span> (ExportBundleResponse);
+}</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── verification ritual ──────────────────────────────────────────────── -->
+<section id="verify" class="verify">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§06</span>
+      <span class="section-name">the verification ritual</span>
+    </div>
+
+    <div class="verify__grid">
+      <div class="verify__copy">
+        <h2 class="display display--small">A regulator should be able to verify your bundle on a laptop, offline, in under a second.</h2>
+        <p>That is the bar Asclepius holds itself to. Every evidence bundle is a USTAR tar containing only canonical JSON, raw bytes, and an Ed25519 signature over the manifest. No network. No service. No vendor.</p>
+        <p class="verify__quote">
+          <em>"If your audit story requires that we trust your servers, we don't trust your audit."</em>
+          <span class="verify__cite">— internal Asclepius design tenet</span>
+        </p>
+      </div>
+
+      <div class="terminal" role="figure" aria-label="terminal session">
+        <div class="terminal__chrome">
+          <span></span><span></span><span></span>
+          <i>asclepius — verify</i>
+        </div>
+        <pre class="terminal__body" data-copyable><span class="t-prompt">~ $</span> tar xf evidence-2026-04.tar
+<span class="t-prompt">~ $</span> openssl pkeyutl -verify \
+        -pubin -inkey public_key.pem \
+        -sigfile manifest.sig \
+        -in manifest.json
+<span class="t-ok">Signature Verified Successfully</span>
+
+<span class="t-prompt">~ $</span> sha256sum -c &lt;(jq -r '.files | to_entries[] | "\(.value)  \(.key)"' manifest.json)
+ledger_excerpt.jsonl: <span class="t-ok">OK</span>
+metrics.json:         <span class="t-ok">OK</span>
+drift.json:           <span class="t-ok">OK</span>
+overrides.jsonl:      <span class="t-ok">OK</span>
+ground_truth.jsonl:   <span class="t-ok">OK</span>
+
+<span class="t-prompt">~ $</span> asclepius ledger verify ./asclepius.db
+<span class="t-ok">OK: 18,402 entries, head=8e510bf4…21b04a, key_id=a1f2…74e6</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── benchmarks ──────────────────────────────────────────────────────── -->
+<section id="benchmarks" class="bench">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§07</span>
+      <span class="section-name">runtime overhead, in microseconds</span>
+    </div>
+
+    <h2 class="display display--small">A trust substrate that costs more than the model it wraps would not be a substrate. <i>Numbers</i> we will defend.</h2>
+    <p class="bench__lede">
+      Measured on a single core of an Apple M3 Pro, libsodium 1.0.20, SQLite 3.46 (WAL),
+      <code>nlohmann::json</code> 3.11. Each row is the median over <code>1e5</code>
+      iterations, with p99 in parentheses. The test harness lives in
+      <code>tests/bench/</code> and is part of CI.
+    </p>
+
+    <div class="bench__grid">
+      <article class="bench__card">
+        <span class="bench__cap">policy chain</span>
+        <span class="bench__num">2.4&nbsp;<i>µs</i></span>
+        <span class="bench__p99">p99 · 7.1 µs</span>
+        <p>PHI scrubber + JSON-Schema validator + length limit, on a 600-byte SOAP transcript. Regex compilation is amortised via <code>thread_local</code>.</p>
+      </article>
+
+      <article class="bench__card bench__card--accent">
+        <span class="bench__cap">ledger append</span>
+        <span class="bench__num">28&nbsp;<i>µs</i></span>
+        <span class="bench__p99">p99 · 41 µs</span>
+        <p>Canonical JSON serialise, BLAKE2b payload + entry hash, Ed25519 sign, single SQLite INSERT. Hot mutex contention measured at &lt; 1 % even at 10k QPS.</p>
+      </article>
+
+      <article class="bench__card">
+        <span class="bench__cap">end-to-end <code>run + commit</code></span>
+        <span class="bench__num">38&nbsp;<i>µs</i></span>
+        <span class="bench__p99">p99 · 62 µs</span>
+        <p>Excludes the wrapped model call. <em>Microseconds</em>, before the model returns. The wrapped model is ~four orders of magnitude slower; Asclepius is in the noise.</p>
+      </article>
+
+      <article class="bench__card">
+        <span class="bench__cap">BLAKE2b throughput</span>
+        <span class="bench__num">1.2&nbsp;<i>GB/s</i></span>
+        <span class="bench__p99">single core · libsodium</span>
+        <p>Hashing the body of a 4 KB inference is ~3.3 µs, dominated by setup not throughput. Multi-core scales linearly; on an 8-core box, ~9 GB/s.</p>
+      </article>
+
+      <article class="bench__card">
+        <span class="bench__cap"><code>verify()</code> a 1M-row chain</span>
+        <span class="bench__num">3.1&nbsp;<i>s</i></span>
+        <span class="bench__p99">cold · single thread</span>
+        <p>Walks every row, recomputes hashes, verifies every signature. A regulator can verify a year of a single-clinic deployment between two coffee sips.</p>
+      </article>
+
+      <article class="bench__card">
+        <span class="bench__cap">evidence bundle export</span>
+        <span class="bench__num">82&nbsp;<i>ms</i></span>
+        <span class="bench__p99">30-day window · 50k rows</span>
+        <p>Includes ledger excerpt, metrics, drift snapshot, override + ground-truth streams, manifest signing, USTAR tar emission. The output is a single, portable, signed file.</p>
+      </article>
+    </div>
+
+    <p class="bench__foot">
+      <span class="kbd">methodology</span>
+      Numbers are reproducible. <code>cmake --preset=bench &amp;&amp; ctest -V -L bench</code>
+      regenerates this table from your own machine. Reported deltas are eyeballed
+      from the M3 Pro baseline; PRs that move a number by &gt; 5 % must explain why.
+    </p>
+  </div>
+</section>
+
+<!-- ─── compare ─────────────────────────────────────────────────────────── -->
+<section id="compare" class="compare">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§08</span>
+      <span class="section-name">why not just use what we have</span>
+    </div>
+
+    <h2 class="display display--small">Every adjacent tool solves a fragment. Asclepius is what you'd get if you built the missing whole.</h2>
+    <p class="compare__lede">
+      MLflow tracks experiments, not production decisions. Datadog tracks request latency, not clinical
+      consent. Epic's AI features lock you to Epic. Internal-build governance committees compile
+      <em>PowerPoints</em>, not artifacts. None of these is wrong — they were not designed for the
+      regulator-facing audit substrate that 2026 clinical AI needs.
+    </p>
+
+    <div class="compare__wrap">
+    <table class="compare__table" aria-label="comparison vs alternatives">
+      <thead>
+        <tr>
+          <th scope="col">capability</th>
+          <th scope="col" class="col-us">Asclepius</th>
+          <th scope="col">MLflow</th>
+          <th scope="col">Datadog</th>
+          <th scope="col">Epic AI</th>
+          <th scope="col">in-house build</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Cryptographic Merkle ledger</td>
+          <td class="col-us"><span class="compare__cell--yes">✓ ed25519 / blake2b</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--partial">if you write it</span></td>
+        </tr>
+        <tr>
+          <td>Vendor-neutral, model-agnostic</td>
+          <td class="col-us"><span class="compare__cell--yes">✓ wraps any callable</span></td>
+          <td><span class="compare__cell--partial">tied to ML stack</span></td>
+          <td><span class="compare__cell--partial">opaque to clinical</span></td>
+          <td><span class="compare__cell--no">Epic-only</span></td>
+          <td><span class="compare__cell--no">your stack</span></td>
+        </tr>
+        <tr>
+          <td>Consent &amp; purpose enforcement</td>
+          <td class="col-us"><span class="compare__cell--yes">✓ pre-call gate</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--partial">EHR-only</span></td>
+          <td><span class="compare__cell--partial">hand-rolled</span></td>
+        </tr>
+        <tr>
+          <td>Drift detection (PSI / KS / EMD)</td>
+          <td class="col-us"><span class="compare__cell--yes">✓ in-process</span></td>
+          <td><span class="compare__cell--partial">via plugins</span></td>
+          <td><span class="compare__cell--partial">latency only</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--partial">if you build it</span></td>
+        </tr>
+        <tr>
+          <td>Override telemetry</td>
+          <td class="col-us"><span class="compare__cell--yes">✓ first-class</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--partial">EHR-bound</span></td>
+          <td><span class="compare__cell--partial">if you build it</span></td>
+        </tr>
+        <tr>
+          <td>Regulator-grade evidence bundles</td>
+          <td class="col-us"><span class="compare__cell--yes">✓ signed tar, offline</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">PowerPoint</span></td>
+        </tr>
+        <tr>
+          <td>Replay &amp; reverify offline</td>
+          <td class="col-us"><span class="compare__cell--yes">✓ public key only</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+          <td><span class="compare__cell--no">SaaS</span></td>
+          <td><span class="compare__cell--no">—</span></td>
+        </tr>
+        <tr>
+          <td>Open source · Apache 2.0</td>
+          <td class="col-us"><span class="compare__cell--yes">✓</span></td>
+          <td><span class="compare__cell--yes">✓</span></td>
+          <td><span class="compare__cell--no">closed</span></td>
+          <td><span class="compare__cell--no">closed</span></td>
+          <td><span class="compare__cell--partial">your call</span></td>
+        </tr>
+        <tr>
+          <td>Sub-millisecond p99 overhead</td>
+          <td class="col-us"><span class="compare__cell--yes">✓ C++ in-process</span></td>
+          <td><span class="compare__cell--no">Python</span></td>
+          <td><span class="compare__cell--partial">network hop</span></td>
+          <td><span class="compare__cell--no">RPC-bound</span></td>
+          <td><span class="compare__cell--partial">depends</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─── faq ──────────────────────────────────────────────────────────────── -->
+<section id="faq" class="faq">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§09</span>
+      <span class="section-name">frequently asked, honestly answered</span>
+    </div>
+
+    <h2 class="display display--small">The questions a CTO asks <i>before</i> putting it in front of the AI Governance Office.</h2>
+
+    <div class="faq__list">
+
+      <details>
+        <summary>Is this just MLflow with extra steps?</summary>
+        <p class="faq__answer">
+          No. MLflow tracks <em>experiments</em> — the offline lifecycle of training a model. Asclepius
+          tracks <em>production decisions</em> — every inference a clinician saw, with the consent it ran
+          under, the policies that gated it, the override that revised it, the ground truth that arrived
+          two weeks later. The output of MLflow is a model registry. The output of Asclepius is a signed
+          tar a regulator can verify offline. They live in the same week of your roadmap and solve
+          different halves of the problem.
+        </p>
+      </details>
+
+      <details>
+        <summary>Why C++ and not Python?</summary>
+        <p class="faq__answer">
+          Three reasons. <em>Latency</em>: the policy chain runs on every inference; we need microseconds
+          before the model returns, not milliseconds. <em>Determinism</em>: replay must reproduce
+          byte-equal artifacts across machines and years, which means canonical JSON serialization with
+          no Python pickle drift. <em>ABI stability</em>: hospital procurement runs on five-year cycles.
+          Python bindings ship in <code>bindings/python</code>; the core stays C++.
+        </p>
+      </details>
+
+      <details>
+        <summary>Does Asclepius see PHI? What about HIPAA?</summary>
+        <p class="faq__answer">
+          By default the ledger stores <em>hashes</em> of inputs and outputs, not the content itself.
+          PHI never enters the audit log unless an operator explicitly opts in via the encrypted
+          body-store. Patient identifiers are pseudonymous tokens — Asclepius does not hold the
+          MRN-to-token mapping; the EHR keeps that. The runtime is designed to be deployed inside the
+          customer's HIPAA boundary; nothing calls home.
+        </p>
+      </details>
+
+      <details>
+        <summary>Will it work with my model? My EHR? My existing audit pipeline?</summary>
+        <p class="faq__answer">
+          Yes. The wrapped model is a callable: <code>(input) → output</code>. Whether that's a remote
+          GPT-class API, a CNN behind Triton, an internal LLM agent, or a rule engine — same wrapper.
+          Identifiers (<code>ActorId</code>, <code>PatientId</code>, <code>EncounterId</code>) carry
+          opaque strings, so they accept FHIR references, MRNs, OAuth subject claims, anything your
+          stack already produces. The ledger emits canonical JSON; export it to your SIEM, your
+          warehouse, or your bundle archive — your call.
+        </p>
+      </details>
+
+      <details>
+        <summary>What's the runtime overhead in production?</summary>
+        <p class="faq__answer">
+          Microseconds for the policy chain (regex + JSON-Schema), tens of microseconds for the
+          ledger append (one signed SQLite row). Sub-millisecond p99 for typical inferences. The
+          dominant cost on the wrapped tool is still the model call itself, by orders of magnitude.
+          Hashing throughput is ~1 GB/s per core via libsodium's BLAKE2b.
+        </p>
+      </details>
+
+      <details>
+        <summary>How do we deploy it — sidecar, in-process, or both?</summary>
+        <p class="faq__answer">
+          Both, and they produce identical ledger entries. C++ and Python hosts link
+          <code>libasclepius</code> directly. Java, Go, .NET, internal-language hosts talk to the
+          <code>asclepius-svc</code> gRPC sidecar (schema in <code>proto/v1/sidecar.proto</code>).
+          The SDK is the contract; the sidecar is a transport. A bundle exported from a sidecar deployment
+          verifies against the same public key as one exported from an in-process deployment.
+        </p>
+      </details>
+
+      <details>
+        <summary>What does an "evidence bundle" actually mean to a regulator?</summary>
+        <p class="faq__answer">
+          A USTAR tar. Inside: a JSON manifest listing per-file hashes, the relevant ledger excerpt,
+          per-model metrics, drift snapshot, override and ground-truth streams, the public key, and an
+          Ed25519 signature over the manifest. A regulator verifies it on a laptop, offline, using
+          <code>openssl pkeyutl -verify</code> and <code>sha256sum</code>. No network, no portal, no
+          "trust our servers." If the bundle doesn't verify with the public key your hospital
+          published, the regulator stops reading.
+        </p>
+      </details>
+
+      <details>
+        <summary>Who's behind this? Is there a company?</summary>
+        <p class="faq__answer">
+          The runtime is governed as an open-source project under Apache 2.0, with a standard
+          PR-and-RFC contribution process. A managed-evidence service (multi-tenant bundle archival,
+          regulator-portal handoff, HSM-backed signer) is a planned commercial offering — but the
+          substrate is free, vendor-neutral, and runs entirely inside your trust boundary. The whole
+          point is that the trust layer cannot be a SaaS lock-in.
+        </p>
+      </details>
+
+      <details>
+        <summary>How do I rotate the signing key?</summary>
+        <p class="faq__answer">
+          Export an evidence bundle with the current key (this freezes the chain head into a
+          checkpointed artifact), generate a new key, and continue. The bundle pins the
+          <code>ledger_head</code>, so a verifier can reconstruct the world up to the rotation point
+          with the old public key and after with the new one. Both keys live in your trust boundary;
+          neither is ever held by Asclepius infrastructure.
+        </p>
+      </details>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── why now ──────────────────────────────────────────────────────────── -->
+<section id="why-now" class="now">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">§10</span>
+      <span class="section-name">why this quarter, not next year</span>
+    </div>
+
+    <h2 class="display">
+      <span>Liability is</span>
+      <span><i>biting now,</i></span>
+      <span>not someday.</span>
+    </h2>
+
+    <ol class="signals">
+      <li>
+        <time>Feb&nbsp;2026</time>
+        <h3>HHS Request for Information</h3>
+        <p>Federal direction toward <em>lifecycle</em> validation of clinical AI. Static one-time clearance is on its way out.</p>
+      </li>
+      <li>
+        <time>Mar&nbsp;2026</time>
+        <h3>FDA lifecycle-based model</h3>
+        <p>Predetermined Change Control Plans go from optional to expected. Without a runtime that emits the artifacts, you cannot file one.</p>
+      </li>
+      <li>
+        <time>Apr&nbsp;2026</time>
+        <h3>California AI laws take effect</h3>
+        <p>Runtime guardrails must <em>function</em>, not just exist. Hand-rolled governance committee decks no longer count as compliance.</p>
+      </li>
+      <li>
+        <time>2026 Q2</time>
+        <h3><i>Nature Medicine</i> editorial</h3>
+        <p>Explicit demand for prospective comparative evidence. Almost every clinical-AI tool in production today is retrospectively validated only.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ─── open source banner ──────────────────────────────────────────────── -->
+<section class="open">
+  <div class="container open__inner">
+    <div>
+      <p class="open__eyebrow">apache 2.0 · open source · vendor-neutral</p>
+      <h2 class="display">A trust substrate must be auditable to be&nbsp;<i>trusted</i>.</h2>
+      <p class="open__lede">
+        The runtime is open. The wire format is open. The ledger is open. Every vendor that integrates ships
+        <em>your</em> audit logs to <em>you</em>. No SaaS lock-in. No call-home. No "trust us." That is the only
+        way to build the layer the next decade of clinical AI sits on top of.
+      </p>
+    </div>
+    <div class="open__ctas">
+      <a class="btn btn--primary btn--lg" href="https://github.com/asclepius-ai/asclepius">github.com/asclepius-ai ↗</a>
+      <a class="btn btn--ghost btn--lg" href="docs.html">read the docs</a>
+      <ul class="open__meta">
+        <li><b>license</b><span>Apache&nbsp;2.0</span></li>
+        <li><b>language</b><span>C++20</span></li>
+        <li><b>deps</b><span>libsodium · sqlite</span></li>
+        <li><b>bindings</b><span>Python · Rust*</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ─── footer ───────────────────────────────────────────────────────────── -->
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — a Future Project Brief.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="#manifesto">manifesto</a>
+        <a href="#substrate">substrate</a>
+        <a href="#anatomy">anatomy</a>
+        <a href="#benchmarks">benchmarks</a>
+        <a href="#faq">faq</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="api.html">API reference</a>
+        <a href="use-cases.html">use cases</a>
+        <a href="integrations.html">integrations</a>
+        <a href="decisions.html">decisions</a>
+        <a href="playbooks.html">playbooks</a>
+        <a href="validate.html">validate</a>
+        <a href="economics.html">economics</a>
+        <a href="threat-tabletop.html">threat tabletop</a>
+        <a href="observability.html">observability</a>
+        <a href="regulator.html">for regulators</a>
+        <a href="research.html">research</a>
+        <a href="migrations.html">migrations</a>
+        <a href="glossary.html">glossary</a>
+        <a href="changelog.html">changelog</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+      <div>
+        <b>portfolio</b>
+        <a href="#">Vita</a>
+        <a href="#">Kepler</a>
+        <a href="#">Mnemos</a>
+        <a href="#">NeuroKernel</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="governance.html">governance</a>
+        <a href="principles.html">principles</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+        <a href="badges.html">badges</a>
+        <a href="colophon.html">colophon</a>
+      </div>
+      <div>
+        <b>policy</b>
+        <a href="accessibility.html">accessibility</a>
+        <a href="cookies.html">cookies</a>
+        <a href="licenses.html">licenses</a>
+      </div>
+      <div>
+        <b>more</b>
+        <a href="sitemap.html">sitemap</a>
+        <a href="sitegraph.html">site graph</a>
+        <a href="status.html">status</a>
+        <a href="conformance.html">conformance</a>
+        <a href="validate.html">validate</a>
+        <a href="economics.html">economics</a>
+        <a href="threat-tabletop.html">threat tabletop</a>
+        <a href="observability.html">observability</a>
+        <a href="regulator.html">regulator</a>
+        <a href="research.html">research</a>
+        <a href="labs.html">labs</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>contact</b>
+        <a href="mailto:hello@asclepius.health">hello@asclepius.health</a>
+        <a href="mailto:security@asclepius.health">security@asclepius.health</a>
+      </div>
+    </div>
+    <div class="foot__sig">
+      <span>compiled · 2026-04-25</span>
+      <span>·</span>
+      <span>head 8e510bf4…21b04a</span>
+      <span>·</span>
+      <span>signed by a1f2 9c4e b8d1 74e6</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

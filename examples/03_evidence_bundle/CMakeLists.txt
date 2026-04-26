@@ -1,0 +1,4 @@
+add_executable(example_evidence_bundle main.cpp)
+target_link_libraries(example_evidence_bundle PRIVATE asclepius::asclepius)
+asclepius_target_warnings(example_evidence_bundle)
+asclepius_target_sanitizers(example_evidence_bundle)

@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Asclepius Contributors
+#ifndef ASCLEPIUS_AUDIT_HPP
+#define ASCLEPIUS_AUDIT_HPP
+
+#include <array>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <nlohmann/json_fwd.hpp>
+
+#include "asclepius/core.hpp"
+#include "asclepius/hashing.hpp"
+
+namespace asclepius {
+
+// ---- KeyStore ------------------------------------------------------------
+//
+// An Ed25519 signing keypair. Keys are 32-byte public, 64-byte secret. The
+// secret is held in locked memory where the platform supports it.
+
+class KeyStore {
+public:
+    static constexpr std::size_t pk_bytes  = 32;
+    static constexpr std::size_t sk_bytes  = 64;
+    static constexpr std::size_t sig_bytes = 64;
+
+    KeyStore(const KeyStore&)            = delete;
+    KeyStore& operator=(const KeyStore&) = delete;
+    KeyStore(KeyStore&&) noexcept;
+    KeyStore& operator=(KeyStore&&) noexcept;
+    ~KeyStore();
+
+    // Generate a fresh keypair from a CSPRNG.
+    static KeyStore generate();
+
+    // Reconstruct from a 32-byte seed. The seed must be high-entropy.
+    static Result<KeyStore> from_seed(std::span<const std::uint8_t, 32> seed);
+
+    // Load from a PEM-style serialized form produced by serialize().
+    static Result<KeyStore> deserialize(std::string_view encoded);
+    std::string             serialize() const;
+
+    // The key id is the hex of the public key truncated to 16 hex chars.
+    std::string                            key_id() const;
+    std::array<std::uint8_t, pk_bytes>     public_key() const;
+    std::array<std::uint8_t, sig_bytes>    sign(Bytes message) const;
+
+    static bool verify(Bytes                                message,
+                       std::span<const std::uint8_t, sig_bytes> signature,
+                       std::span<const std::uint8_t, pk_bytes>  pk);
+
+private:
+    KeyStore() = default;
+    struct Impl;
+    Impl* impl_ = nullptr;
+};
+
+// ---- Ledger entry --------------------------------------------------------
+
+struct LedgerEntryHeader {
+    std::uint64_t seq{};
+    Time          ts{};
+    Hash          prev_hash{};
+    Hash          payload_hash{};
+    std::string   actor;
+    std::string   event_type;
+    std::string   tenant;
+};
+
+struct LedgerEntry {
+    LedgerEntryHeader                                  header;
+    std::string                                        body_json;  // canonical JSON
+    std::array<std::uint8_t, KeyStore::sig_bytes>      signature{};
+    std::string                                        key_id;
+
+    Hash entry_hash() const;  // hash(header || body || sig || key_id)
+};
+
+// ---- Ledger --------------------------------------------------------------
+//
+// An append-only, Merkle-chained, Ed25519-signed event log persisted to a
+// SQLite database. The chain head can be checkpointed externally for
+// off-system attestation.
+
+class Ledger {
+public:
+    Ledger(const Ledger&)            = delete;
+    Ledger& operator=(const Ledger&) = delete;
+    Ledger(Ledger&&) noexcept;
+    Ledger& operator=(Ledger&&) noexcept;
+    ~Ledger();
+
+    // Open or create a SQLite-backed ledger at the given path. If a key is
+    // not provided one is generated and stored alongside (file-permissions
+    // 0600).
+    static Result<Ledger> open(std::filesystem::path path);
+    static Result<Ledger> open(std::filesystem::path path, KeyStore key);
+
+    // Append a new event. body must be a canonicalizable JSON value.
+    Result<LedgerEntry> append(std::string event_type,
+                               std::string actor,
+                               nlohmann::json body,
+                               std::string tenant = "");
+
+    // Read an entry by sequence number.
+    Result<LedgerEntry> at(std::uint64_t seq) const;
+
+    // Read the last n entries (most recent first).
+    Result<std::vector<LedgerEntry>> tail(std::size_t n) const;
+
+    // Read entries within [start, end) seq range.
+    Result<std::vector<LedgerEntry>> range(std::uint64_t start, std::uint64_t end) const;
+
+    // Verify the entire chain: each entry's prev_hash matches the previous,
+    // each signature matches the registered public key, payload_hash matches.
+    Result<void> verify() const;
+
+    // Current chain head (hash of the most recent entry, or zero if empty).
+    Hash          head() const;
+    std::uint64_t length() const;
+
+    // Public verification key bytes for this ledger's signer.
+    std::array<std::uint8_t, KeyStore::pk_bytes> public_key() const;
+    std::string                                  key_id() const;
+
+    // Sign an arbitrary attestation (e.g., an evidence-bundle manifest) with
+    // the same key that signs ledger entries. The signature can be verified
+    // against public_key() with KeyStore::verify. This is intentionally
+    // narrow: forging a ledger entry would still require matching seq,
+    // prev_hash, and the canonical entry encoding, none of which this method
+    // generates.
+    std::array<std::uint8_t, KeyStore::sig_bytes> sign_attestation(Bytes message) const;
+
+private:
+    Ledger() = default;
+    struct Impl;
+    Impl* impl_ = nullptr;
+};
+
+}  // namespace asclepius
+
+#endif  // ASCLEPIUS_AUDIT_HPP

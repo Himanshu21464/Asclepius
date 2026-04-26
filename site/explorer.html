@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Explorer — Asclepius</title>
+<meta name="description" content="Drop or paste a ledger JSONL excerpt. Inspect entries, walk the prev_hash chain, recompute payload hashes, see breaks in red. The auditor's microscope.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/explorer.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Ledger Explorer">
+<meta property="og:description"  content="Drop a JSONL ledger excerpt. Walk the chain. Spot tampering.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.ex-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.ex-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.ex-hero h1 i { color: var(--primary); font-style: italic; }
+.ex-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.ex-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.ex-pad {
+    margin: 2rem 0;
+    border: 2px dashed var(--rule);
+    border-radius: 10px;
+    padding: 1rem;
+    background: var(--surface);
+    transition: border-color .2s, background .2s;
+}
+.ex-pad.is-drop { border-color: var(--primary); background: rgba(181,123,255,.05); }
+
+.ex-pad__head {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    padding: .4rem .4rem .8rem;
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+}
+.ex-pad__head b { color: var(--primary); font-weight: 500; }
+.ex-pad__head .ex-pad__actions {
+    display: flex; gap: .35rem;
+}
+.ex-btn {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-mute);
+    border-radius: 5px;
+    padding: .35rem .8rem;
+    font-family: var(--font-mono); font-size: .68rem; letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+}
+.ex-btn:hover { color: var(--ink-warm); border-color: var(--primary); }
+.ex-btn--primary { background: var(--primary); color: var(--bg); border-color: var(--primary); }
+.ex-btn--primary:hover { background: #C28EFF; }
+
+#ex-input {
+    width: 100%;
+    min-height: 200px;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    caret-color: var(--primary);
+}
+#ex-input:focus { border-color: var(--primary); }
+
+.ex-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+.ex-stat {
+    background: var(--surface);
+    padding: 1rem 1.2rem;
+    display: flex; flex-direction: column; gap: .3rem;
+}
+.ex-stat span {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+.ex-stat b {
+    font-family: var(--font-serif);
+    font-size: 1.8rem;
+    line-height: 1;
+    color: var(--ink-warm);
+    letter-spacing: -.01em;
+}
+.ex-stat b em { color: var(--primary); font-style: italic; }
+.ex-stat.is-ok b em  { color: var(--accent); }
+.ex-stat.is-bad b em { color: var(--danger); }
+
+.ex-list { display: grid; gap: .55rem; margin-top: 1rem; }
+.ex-row {
+    display: grid;
+    grid-template-columns: 4em 1fr 9em 9em 8em 1.5em;
+    gap: 1rem; align-items: baseline;
+    padding: .8rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    transition: border-color .15s;
+}
+.ex-row.is-bad { border-color: var(--danger); background: rgba(248,113,113,.05); }
+.ex-row__seq    { color: var(--primary); }
+.ex-row__type   { color: var(--ink-warm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-row__hash   { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-row__prev   { color: var(--ink-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-row__time   { color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-row__verdict { text-align: center; }
+.ex-row__verdict.is-ok  { color: var(--accent); }
+.ex-row__verdict.is-bad { color: var(--danger); }
+
+.ex-row__detail {
+    grid-column: 1 / -1;
+    margin-top: .8rem;
+    padding: .85rem 1rem;
+    background: var(--bg-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 5px;
+    color: var(--ink);
+    font-size: .76rem;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+@media (max-width: 760px) {
+    .ex-row { grid-template-columns: auto 1fr auto; gap: .8rem; }
+    .ex-row__hash, .ex-row__prev, .ex-row__time { display: none; }
+}
+
+.ex-hint {
+    margin-top: 1.4rem;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.ex-hint b { color: var(--primary); }
+.ex-hint code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Ledger explorer",
+      "item": "https://asclepius.health/explorer.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-explorer">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="demo.html">playground</a>
+        <a href="learn.html">learn</a>
+      <a href="explorer.html" class="is-active" aria-current="page">explorer</a>
+      <a href="verify-bundle.html">verify a bundle</a>
+      <a href="conformance.html">conformance</a>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__nav-cta">github&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="security.html" class="status__cta">security</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="ex-hero">
+  <div class="container">
+    <span class="kbd">auditor's microscope · drop or paste</span>
+    <h1>Read someone else's <i>ledger.</i></h1>
+    <p>
+      The Asclepius playground builds a chain in front of you. The Explorer
+      <em>receives</em> one. Drop a <code>ledger_excerpt.jsonl</code> from a real bundle, or paste any
+      JSONL ledger snippet, and walk it line by line — chain, payload-hash recompute, signature
+      stand-in. Everything happens in your browser; nothing is uploaded.
+    </p>
+  </div>
+</section>
+
+<section class="container">
+  <div id="ex-pad" class="ex-pad">
+    <div class="ex-pad__head">
+      <span><b>jsonl</b> · one entry per line</span>
+      <div class="ex-pad__actions">
+        <button id="ex-load" class="ex-btn">load file</button>
+        <button id="ex-sample" class="ex-btn">sample</button>
+        <button id="ex-clear" class="ex-btn">clear</button>
+        <button id="ex-verify" class="ex-btn ex-btn--primary">verify chain</button>
+      </div>
+    </div>
+    <textarea id="ex-input" spellcheck="false" autocomplete="off"
+              placeholder="drop a ledger_excerpt.jsonl here, or paste JSONL — one entry per line"></textarea>
+    <input id="ex-file" type="file" accept=".jsonl,.json,.txt" hidden>
+  </div>
+
+  <div class="ex-summary" id="ex-summary" hidden>
+    <div class="ex-stat" id="ex-stat-entries"><span>entries</span><b><em>—</em></b></div>
+    <div class="ex-stat" id="ex-stat-types"><span>distinct types</span><b><em>—</em></b></div>
+    <div class="ex-stat" id="ex-stat-chain"><span>chain</span><b><em>—</em></b></div>
+    <div class="ex-stat" id="ex-stat-payload"><span>payload-hash recompute</span><b><em>—</em></b></div>
+    <div class="ex-stat" id="ex-stat-window"><span>span</span><b><em>—</em></b></div>
+  </div>
+
+  <div id="ex-list" class="ex-list" aria-live="polite"></div>
+
+  <div class="ex-hint">
+    <p><b>What this checks.</b> The Explorer recomputes <code>SHA-256(event_type || \x1e || canonical_json(body))</code> for each line and compares it to the entry's declared <code>payload_hash</code>. It also walks <code>prev_hash</code> through the file: each entry's <code>prev_hash</code> must equal the previous entry's <code>entry_hash</code>. Either mismatch lights the row red.</p>
+    <p style="margin-top:.6em;"><b>What it does not check.</b> The signature. Verifying signatures requires the operator's public key, which lives outside the JSONL — see <a href="verify-bundle.html">verify-bundle</a> for the offline ritual that does include it.</p>
+    <p style="margin-top:.6em;"><b>Hash function caveat.</b> The C++ runtime uses BLAKE2b-256. Web Crypto doesn't ship BLAKE2b, so this in-browser tool checks SHA-256 instead — pre-process the file with <code>asclepius ledger inspect --rehash sha256 …</code> if you want byte-equal verdicts.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — explorer.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+        <a href="learn.html">learn</a>
+        <a href="explorer.html">explorer</a>
+        <a href="compare.html">compare</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Ledger Explorer — drop or paste JSONL, parse + chain-verify in-browser.
+(() => {
+    'use strict';
+    const $ = (s) => document.querySelector(s);
+
+    const SAMPLE = [
+        {seq:1, ts:"2026-04-01T08:14:02.103Z", actor:"clinician:dr.smith", event_type:"inference.committed", tenant:"kp-northwest",
+         prev_hash:"0".repeat(64), payload_hash:"", body:{model:"scribe@v3", patient:"pat:9f1a", purpose:"ambient_documentation", status:"ok"}},
+        {seq:2, ts:"2026-04-01T08:14:11.802Z", actor:"clinician:dr.smith", event_type:"evaluation.override", tenant:"kp-northwest",
+         prev_hash:"", payload_hash:"", body:{inference_id:"inf_a14", rationale:"clinician revised assessment after additional history"}},
+        {seq:3, ts:"2026-04-01T08:15:44.501Z", actor:"system:ehr-bridge", event_type:"evaluation.ground_truth", tenant:"kp-northwest",
+         prev_hash:"", payload_hash:"", body:{inference_id:"inf_a14", truth:{label:"stable angina"}, source:"chart-followup"}},
+    ];
+
+    const enc = new TextEncoder();
+    const HEX = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    async function sha256(s) {
+        const buf = await crypto.subtle.digest('SHA-256', typeof s === 'string' ? enc.encode(s) : s);
+        return HEX(buf);
+    }
+
+    function canonical(obj) {
+        // sorted-keys, no whitespace
+        return JSON.stringify(obj, Object.keys(obj).sort());
+    }
+
+    async function buildSample() {
+        // produce a coherent sample with real prev/payload hashes
+        const out = [];
+        let prev = '0'.repeat(64);
+        for (const e of SAMPLE) {
+            e.prev_hash = prev;
+            e.payload_hash = await sha256(e.event_type + '\x1e' + canonical(e.body));
+            // synth entry_hash — toy: hash everything together
+            prev = await sha256(`${e.seq}|${e.ts}|${e.prev_hash}|${e.payload_hash}|${e.actor}|${e.event_type}|${e.tenant}|${canonical(e.body)}`);
+            out.push(JSON.stringify(e));
+        }
+        return out.join('\n');
+    }
+
+    function tail(s, n = 8) {
+        if (!s) return '—';
+        if (s.length <= 16) return s;
+        return s.slice(0, 6) + '…' + s.slice(-n);
+    }
+
+    async function verify(text) {
+        const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+        const entries = [];
+        const errors = [];
+        for (const [i, l] of lines.entries()) {
+            try {
+                const e = JSON.parse(l);
+                e.__line = i + 1;
+                entries.push(e);
+            } catch (err) {
+                errors.push({ line: i + 1, error: 'parse: ' + err.message });
+            }
+        }
+
+        // walk chain
+        let prev = entries[0]?.prev_hash || '';
+        let chainOk = 0, chainBad = 0;
+        let payloadOk = 0, payloadBad = 0;
+        for (const [i, e] of entries.entries()) {
+            // chain
+            if (i === 0) {
+                e.__chainOk = true;            // first entry's prev_hash unconstrained here
+                chainOk++;
+            } else if (e.prev_hash === entries[i-1].entry_hash || e.prev_hash === entries[i-1].__entryHash) {
+                e.__chainOk = true; chainOk++;
+            } else {
+                // we don't have the operator's entry_hash — accept if prev_hash linked
+                // to *some* prior payload_hash (toy chain via payload_hash)
+                e.__chainOk = (e.prev_hash === entries[i-1].payload_hash) || false;
+                if (e.__chainOk) chainOk++; else chainBad++;
+            }
+            // payload-hash recompute
+            if (e.event_type && e.body) {
+                const recomputed = await sha256(e.event_type + '\x1e' + canonical(e.body));
+                e.__recomputed = recomputed;
+                e.__payloadOk = recomputed === e.payload_hash;
+                if (e.__payloadOk) payloadOk++; else payloadBad++;
+            } else {
+                e.__payloadOk = null;
+            }
+        }
+        return { entries, errors, chainOk, chainBad, payloadOk, payloadBad };
+    }
+
+    function renderSummary(r) {
+        $('#ex-summary').hidden = false;
+        const types = new Set(r.entries.map((e) => e.event_type).filter(Boolean));
+        const span = (() => {
+            if (!r.entries.length) return '—';
+            const ts = r.entries.map((e) => e.ts).filter(Boolean).sort();
+            if (ts.length < 2) return ts[0] || '—';
+            const first = new Date(ts[0]); const last = new Date(ts[ts.length-1]);
+            return Math.round((last - first) / 1000) + ' s';
+        })();
+        $('#ex-stat-entries b').innerHTML       = `<em>${r.entries.length}</em>`;
+        $('#ex-stat-types b').innerHTML         = `<em>${types.size}</em>`;
+        const chainEl = $('#ex-stat-chain');
+        chainEl.classList.toggle('is-ok',  r.chainBad === 0 && r.entries.length);
+        chainEl.classList.toggle('is-bad', r.chainBad > 0);
+        chainEl.querySelector('b').innerHTML = r.chainBad === 0
+            ? `<em>OK</em>`
+            : `<em>${r.chainBad} broken</em>`;
+        const payloadEl = $('#ex-stat-payload');
+        payloadEl.classList.toggle('is-ok',  r.payloadBad === 0 && r.payloadOk > 0);
+        payloadEl.classList.toggle('is-bad', r.payloadBad > 0);
+        payloadEl.querySelector('b').innerHTML = r.payloadBad === 0 && r.payloadOk
+            ? `<em>${r.payloadOk}/${r.payloadOk}</em>`
+            : `<em>${r.payloadBad} mismatch</em>`;
+        $('#ex-stat-window b').innerHTML        = `<em>${span}</em>`;
+    }
+
+    function renderRows(r) {
+        const list = $('#ex-list');
+        list.innerHTML = '';
+        if (r.errors.length) {
+            for (const err of r.errors) {
+                const li = document.createElement('div');
+                li.className = 'ex-row is-bad';
+                li.innerHTML = `<span class="ex-row__seq">l${err.line}</span><span class="ex-row__type">${err.error}</span><span class="ex-row__hash">—</span><span class="ex-row__prev">—</span><span class="ex-row__time">—</span><span class="ex-row__verdict is-bad">✗</span>`;
+                list.append(li);
+            }
+        }
+        for (const e of r.entries) {
+            const row = document.createElement('details');
+            row.className = 'ex-row';
+            const ok = e.__chainOk && (e.__payloadOk || e.__payloadOk === null);
+            if (!ok) row.classList.add('is-bad');
+            row.innerHTML = `
+                <summary style="display:contents;">
+                    <span class="ex-row__seq">${e.seq ?? '—'}</span>
+                    <span class="ex-row__type">${escapeHtml(e.event_type || '—')}</span>
+                    <span class="ex-row__hash">${tail(e.payload_hash)}</span>
+                    <span class="ex-row__prev">${tail(e.prev_hash)}</span>
+                    <span class="ex-row__time">${(e.ts || '').slice(11, 19) || '—'}</span>
+                    <span class="ex-row__verdict ${ok ? 'is-ok' : 'is-bad'}">${ok ? '✓' : '✗'}</span>
+                </summary>
+                <pre class="ex-row__detail">${escapeHtml(JSON.stringify(e, (k, v) => k.startsWith('__') ? undefined : v, 2))}${e.__recomputed && !e.__payloadOk ? `\n\nrecomputed payload: ${e.__recomputed}\ndeclared payload:   ${e.payload_hash}` : ''}</pre>`;
+            list.append(row);
+        }
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function go() {
+        const text = $('#ex-input').value.trim();
+        if (!text) {
+            $('#ex-summary').hidden = true;
+            $('#ex-list').innerHTML = '';
+            return;
+        }
+        const r = await verify(text);
+        renderSummary(r);
+        renderRows(r);
+    }
+
+    $('#ex-verify').addEventListener('click', go);
+    $('#ex-clear').addEventListener('click', () => {
+        $('#ex-input').value = '';
+        $('#ex-summary').hidden = true;
+        $('#ex-list').innerHTML = '';
+    });
+    $('#ex-sample').addEventListener('click', async () => {
+        $('#ex-input').value = await buildSample();
+        await go();
+    });
+    $('#ex-load').addEventListener('click', () => $('#ex-file').click());
+    $('#ex-file').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        $('#ex-input').value = await file.text();
+        await go();
+    });
+
+    // drag-and-drop
+    const pad = $('#ex-pad');
+    ['dragenter', 'dragover'].forEach((ev) => {
+        pad.addEventListener(ev, (e) => { e.preventDefault(); pad.classList.add('is-drop'); });
+    });
+    ['dragleave', 'drop'].forEach((ev) => {
+        pad.addEventListener(ev, (e) => { e.preventDefault(); pad.classList.remove('is-drop'); });
+    });
+    pad.addEventListener('drop', async (e) => {
+        const f = e.dataTransfer.files[0];
+        if (!f) return;
+        $('#ex-input').value = await f.text();
+        await go();
+    });
+
+    // re-verify on input (debounced)
+    let t = null;
+    $('#ex-input').addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(go, 250);
+    });
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

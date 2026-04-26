@@ -1,0 +1,4 @@
+add_executable(example_bench main.cpp)
+target_link_libraries(example_bench PRIVATE asclepius::asclepius)
+asclepius_target_warnings(example_bench)
+asclepius_target_sanitizers(example_bench)

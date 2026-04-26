@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Playbooks — Asclepius</title>
+<meta name="description" content="Operator runbooks for incidents you will eventually face: key rotation, ledger truncation detected, drift threshold exceeded, consent revocation cascade, evidence-bundle subpoena, model-version mismatch, sidecar partition.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/playbooks.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Playbooks">
+<meta property="og:description"  content="Operator runbooks. Detection · containment · investigation · remediation · postmortem.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.pb-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.pb-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.pb-hero h1 i { color: var(--primary); font-style: italic; }
+.pb-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.pb-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.pb-toc { margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: .8rem; }
+.pb-toc__pill {
+    display: flex; align-items: center; gap: .9rem;
+    padding: .9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--primary);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--ink-warm);
+    transition: border-color .15s, transform .12s;
+}
+.pb-toc__pill:hover { border-color: var(--primary); transform: translateY(-1px); }
+.pb-toc__num {
+    font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--primary);
+    min-width: 2.6rem;
+}
+.pb-toc__t { font-family: var(--font-prose); font-size: .96rem; line-height: 1.4; }
+.pb-toc__sev {
+    margin-left: auto;
+    padding: .12rem .5rem;
+    font-family: var(--font-mono);
+    font-size: .62rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    border-radius: 3px;
+    background: var(--surface-2);
+    color: var(--ink-mute);
+}
+.pb-toc__sev.is-p1 { background: rgba(239,68,68,.12); color: #F87171; }
+.pb-toc__sev.is-p2 { background: rgba(244,184,96,.12); color: #F4B860; }
+.pb-toc__sev.is-p3 { background: rgba(52,211,153,.12); color: #34D399; }
+
+.pb { margin: 4rem 0; padding-top: 2rem; border-top: 1px solid var(--rule); }
+.pb__head {
+    display: flex; align-items: baseline; gap: .9rem; flex-wrap: wrap;
+    margin-bottom: .4rem;
+}
+.pb__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.pb__sev {
+    padding: .15rem .55rem;
+    font-family: var(--font-mono); font-size: .64rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    border-radius: 3px;
+}
+.pb__sev.is-p1 { background: rgba(239,68,68,.12); color: #F87171; border: 1px solid rgba(239,68,68,.3); }
+.pb__sev.is-p2 { background: rgba(244,184,96,.12); color: #F4B860; border: 1px solid rgba(244,184,96,.3); }
+.pb__sev.is-p3 { background: rgba(52,211,153,.12); color: #34D399; border: 1px solid rgba(52,211,153,.3); }
+.pb__owner {
+    margin-left: auto;
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ink-mute);
+}
+.pb h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .5rem; }
+.pb h2 i { color: var(--primary); font-style: italic; }
+.pb__lede { font-family: var(--font-prose); font-size: 1rem; line-height: 1.6; color: var(--ink); max-width: 64ch; margin: 0 0 1.4rem; }
+.pb__lede em { color: var(--ink-warm); font-style: italic; }
+
+.pb-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 0 0 1.4rem; }
+.pb-step {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .9rem 1rem;
+}
+.pb-step h3 {
+    margin: 0 0 .4rem;
+    font-family: var(--font-mono); font-weight: 500;
+    font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--primary);
+    display: flex; align-items: center; gap: .5rem;
+}
+.pb-step h3::before {
+    content: attr(data-step);
+    display: inline-block;
+    width: 1.4em; height: 1.4em; border-radius: 50%;
+    background: var(--primary); color: var(--bg);
+    text-align: center; line-height: 1.4em;
+    font-size: .68rem; font-weight: 600;
+}
+.pb-step ul, .pb-step ol { margin: 0; padding-left: 1.1rem; font-family: var(--font-prose); font-size: .92rem; line-height: 1.55; color: var(--ink); }
+.pb-step li { margin: .15em 0; }
+.pb-step code { font-family: var(--font-mono); font-size: .88em; padding: .06em .3em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.pb-cmd {
+    margin: .4rem 0 1rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .8rem 1rem;
+    font-family: var(--font-mono);
+    font-size: .82rem; line-height: 1.55;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+}
+.pb-cmd .c { color: var(--ink-faint); font-style: italic; }
+.pb-cmd .k { color: var(--primary); }
+.pb-cmd .s { color: #34D399; }
+
+.pb-postmortem {
+    margin: 1rem 0 0;
+    padding: .9rem 1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    font-size: .92rem; line-height: 1.55;
+}
+.pb-postmortem b { color: var(--primary); }
+.pb-postmortem em { color: var(--ink-warm); font-style: italic; }
+.pb-postmortem code { font-family: var(--font-mono); font-size: .88em; padding: .04em .3em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.pb-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.pb-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.pb-coda h2 i { color: var(--primary); font-style: italic; }
+.pb-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.pb-coda .pb-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.pb-coda .pb-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.pb-coda .pb-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",      "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Playbooks", "item": "https://asclepius.health/playbooks.html" }
+  ]
+}
+</script>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Playbooks",
+      "item": "https://asclepius.health/playbooks.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-playbooks">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="deploy.html">deploy</a>
+      <a href="playbooks.html" class="is-active" aria-current="page">playbooks</a>
+      <a href="status.html">status</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="pb-hero">
+  <div class="container">
+    <span class="kbd">§01 · seven runbooks · oncall ready</span>
+    <h1>What to do at <i>3 a.m.</i></h1>
+    <p>
+      The substrate is reliable. The world it runs in is not. Below are seven
+      runbooks for the incidents an operator <em>will</em> face — written for the
+      person whose pager is on, in the language they will read at 3 a.m. Each
+      follows the same shape: <em>detection · containment · investigation ·
+      remediation · postmortem.</em>
+    </p>
+
+    <nav class="pb-toc" aria-label="runbook index">
+      <a class="pb-toc__pill" href="#truncation">
+        <span class="pb-toc__num">PB-01</span>
+        <span class="pb-toc__t">ledger truncation detected</span>
+        <span class="pb-toc__sev is-p1">P1</span>
+      </a>
+      <a class="pb-toc__pill" href="#key-rotation">
+        <span class="pb-toc__num">PB-02</span>
+        <span class="pb-toc__t">scheduled key rotation</span>
+        <span class="pb-toc__sev is-p3">P3</span>
+      </a>
+      <a class="pb-toc__pill" href="#key-compromise">
+        <span class="pb-toc__num">PB-03</span>
+        <span class="pb-toc__t">signing key compromise</span>
+        <span class="pb-toc__sev is-p1">P1</span>
+      </a>
+      <a class="pb-toc__pill" href="#drift-breach">
+        <span class="pb-toc__num">PB-04</span>
+        <span class="pb-toc__t">drift threshold exceeded</span>
+        <span class="pb-toc__sev is-p2">P2</span>
+      </a>
+      <a class="pb-toc__pill" href="#consent-revocation">
+        <span class="pb-toc__num">PB-05</span>
+        <span class="pb-toc__t">consent revocation cascade</span>
+        <span class="pb-toc__sev is-p2">P2</span>
+      </a>
+      <a class="pb-toc__pill" href="#subpoena">
+        <span class="pb-toc__num">PB-06</span>
+        <span class="pb-toc__t">evidence-bundle subpoena</span>
+        <span class="pb-toc__sev is-p2">P2</span>
+      </a>
+      <a class="pb-toc__pill" href="#partition">
+        <span class="pb-toc__num">PB-07</span>
+        <span class="pb-toc__t">sidecar network partition</span>
+        <span class="pb-toc__sev is-p2">P2</span>
+      </a>
+    </nav>
+  </div>
+</section>
+
+<!-- ─────────── PB-01 ledger truncation ─────────── -->
+<section class="container pb" id="truncation">
+  <div class="pb__head">
+    <span class="pb__num">PB-01</span>
+    <span class="pb__sev is-p1">P1 · 30-min ack</span>
+    <span class="pb__owner">owner · ledger oncall</span>
+  </div>
+  <h2>Ledger <i>truncation</i> detected.</h2>
+  <p class="pb__lede">
+    The verifier reports a gap in <code>seq</code> or a <code>prev_hash</code>
+    mismatch. <em>Treat as adversarial until proven otherwise.</em> The substrate
+    is designed so this is the loudest possible alarm — gaps are forbidden by spec.
+  </p>
+
+  <div class="pb-steps">
+    <div class="pb-step">
+      <h3 data-step="1">detect</h3>
+      <ul>
+        <li>verifier alert: <code>chain.broken</code></li>
+        <li>watchdog: nightly <code>verify_chain --strict</code> failed</li>
+        <li>auditor opens compare.html · sees amber row</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="2">contain</h3>
+      <ul>
+        <li>flip <code>runtime.read_only=true</code> — no new appends</li>
+        <li>snapshot the SQLite WAL <em>before</em> investigating</li>
+        <li>page security oncall · do not reboot</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="3">investigate</h3>
+      <ul>
+        <li><code>asclepius ledger inspect --range last:1000</code></li>
+        <li>diff against last published merkle root in changelog feed</li>
+        <li>check WAL checkpoint + signing-key audit log</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="4">remediate</h3>
+      <ul>
+        <li>restore from last verified snapshot</li>
+        <li>replay from a downstream subscriber if available</li>
+        <li>publish operator advisory in <code>changelog.html</code></li>
+      </ul>
+    </div>
+  </div>
+
+<pre class="pb-cmd"><span class="c"># freeze writes, snapshot, verify range</span>
+asclepius admin set <span class="k">runtime.read_only</span>=<span class="s">true</span>
+asclepius ledger snapshot --out <span class="s">/var/asc/snap-$(date +%s).db</span>
+asclepius ledger verify --range <span class="s">last:1000</span> --strict
+<span class="c"># compare to last published root</span>
+curl <span class="s">https://asclepius.health/feed.json</span> | jq <span class="s">'.items[0].merkle_root'</span></pre>
+
+  <div class="pb-postmortem">
+    <b>Postmortem requirements.</b> Within 7 days of resolution, publish a
+    postmortem to <code>changelog.html</code> with: timeline, root cause,
+    affected encounters (by seq range), customer notification log, and
+    <em>which auditing party caught it first.</em> If the answer is "Asclepius'
+    own watchdog," good. If the answer is "a customer," that goes in the
+    quarterly board report.
+  </div>
+</section>
+
+<!-- ─────────── PB-02 scheduled key rotation ─────────── -->
+<section class="container pb" id="key-rotation">
+  <div class="pb__head">
+    <span class="pb__num">PB-02</span>
+    <span class="pb__sev is-p3">P3 · scheduled</span>
+    <span class="pb__owner">owner · platform</span>
+  </div>
+  <h2>Scheduled key <i>rotation.</i></h2>
+  <p class="pb__lede">
+    Ed25519 ledger keys rotate every 180 days. Rotation is a planned, signed
+    event — not an emergency. The new key takes over after a single
+    <code>key.rotated</code> entry chains the two together. <em>The chain
+    survives the rotation; the verifier never sees a discontinuity.</em>
+  </p>
+
+  <div class="pb-steps">
+    <div class="pb-step">
+      <h3 data-step="1">prepare</h3>
+      <ul>
+        <li>announce in change calendar · 14-day window</li>
+        <li>generate new key in HSM (never on disk)</li>
+        <li>countersign new pubkey with previous private key</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="2">execute</h3>
+      <ul>
+        <li><code>asclepius keys rotate --key-id KID-2</code></li>
+        <li>writes <code>key.rotated</code> entry · signed by both keys</li>
+        <li>publish new pubkey + sig in <code>humans.txt</code></li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="3">verify</h3>
+      <ul>
+        <li>download fresh evidence bundle · verify with new pubkey</li>
+        <li>verify <code>key.rotated</code> entry with old + new sigs</li>
+        <li>confirm changelog entry posts a new root</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="4">retire</h3>
+      <ul>
+        <li>archive old privkey to cold custody (not delete)</li>
+        <li>30-day overlap before old key is fully revoked</li>
+        <li>downstream verifiers must accept both during overlap</li>
+      </ul>
+    </div>
+  </div>
+
+<pre class="pb-cmd"><span class="c"># end-to-end rotation, dry-run first</span>
+asclepius keys rotate --key-id <span class="s">KID-2</span> --dry-run
+asclepius keys rotate --key-id <span class="s">KID-2</span> --confirm
+asclepius ledger verify --range <span class="s">last:50</span>
+<span class="c"># publish new pubkey block</span>
+asclepius keys export --pem KID-2 &gt; <span class="s">site/assets/pubkey-KID-2.pem</span></pre>
+
+  <div class="pb-postmortem">
+    <b>Common pitfall.</b> Operators sometimes try to rotate by <em>writing the
+    new pubkey into config and restarting</em>. That breaks chain continuity
+    and forces every downstream verifier to re-trust manually. Always rotate
+    via <code>keys rotate</code>, which produces the chained
+    <code>key.rotated</code> entry the verifier expects.
+  </div>
+</section>
+
+<!-- ─────────── PB-03 key compromise ─────────── -->
+<section class="container pb" id="key-compromise">
+  <div class="pb__head">
+    <span class="pb__num">PB-03</span>
+    <span class="pb__sev is-p1">P1 · 15-min ack</span>
+    <span class="pb__owner">owner · security</span>
+  </div>
+  <h2>Signing key <i>compromise.</i></h2>
+  <p class="pb__lede">
+    The privkey is suspected leaked, exfiltrated, or misused. <em>Every entry
+    signed with that key is now under suspicion.</em> The substrate's job is to
+    contain the blast radius: rotate, revoke, re-sign nothing, and let the
+    forensic chain do the talking.
+  </p>
+
+  <div class="pb-steps">
+    <div class="pb-step">
+      <h3 data-step="1">declare</h3>
+      <ul>
+        <li>page security oncall · file SEV-1</li>
+        <li>flip <code>runtime.read_only=true</code> globally</li>
+        <li>notify affected customers within 60 min</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="2">rotate</h3>
+      <ul>
+        <li>generate emergency key in air-gapped HSM</li>
+        <li><code>keys rotate --emergency</code> writes a <code>key.revoked</code> entry</li>
+        <li>publish revocation to <code>/.well-known/security.txt</code></li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="3">scope</h3>
+      <ul>
+        <li>identify last-known-good seq before compromise</li>
+        <li>flag all entries between LKG and revocation as <em>under review</em></li>
+        <li>do <em>not</em> delete · the chain is the forensic record</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="4">disclose</h3>
+      <ul>
+        <li>CVE filing within 72 h · <code>security@asclepius.health</code></li>
+        <li>operator advisory in changelog</li>
+        <li>auditors re-pull bundles · re-verify with new pubkey</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pb-postmortem">
+    <b>Why we never re-sign with the new key.</b> Re-signing old entries with
+    the new key would erase the very evidence that distinguishes
+    pre-compromise from post-compromise records. The compromised entries stay
+    signed by the compromised key. The chain itself is forensic. <em>Lying about
+    history would be the actual breach.</em>
+  </div>
+</section>
+
+<!-- ─────────── PB-04 drift breach ─────────── -->
+<section class="container pb" id="drift-breach">
+  <div class="pb__head">
+    <span class="pb__num">PB-04</span>
+    <span class="pb__sev is-p2">P2 · 2-h ack</span>
+    <span class="pb__owner">owner · ml platform</span>
+  </div>
+  <h2>Drift threshold <i>exceeded.</i></h2>
+  <p class="pb__lede">
+    Population Stability Index for one or more features crosses the configured
+    threshold (typically PSI &gt; 0.25). The model is making predictions on
+    data that no longer matches its training distribution. <em>This is not
+    automatically a problem — but it requires a human to look.</em>
+  </p>
+
+  <div class="pb-steps">
+    <div class="pb-step">
+      <h3 data-step="1">detect</h3>
+      <ul>
+        <li>alert: <code>drift.psi.breach</code> per feature</li>
+        <li>which window (1d, 7d, 30d)?</li>
+        <li>which features · how many simultaneously?</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="2">classify</h3>
+      <ul>
+        <li>data-pipeline change → fix upstream, not the model</li>
+        <li>population shift → flag for retraining</li>
+        <li>seasonal → annotate; expect mean reversion</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="3">decide</h3>
+      <ul>
+        <li>downgrade model purpose? <code>diagnostic → advisory_only</code></li>
+        <li>increase oversight? require attending sign-off threshold</li>
+        <li>halt model? rare; only when calibration also fails</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="4">document</h3>
+      <ul>
+        <li>append <code>drift.acknowledged</code> ledger entry</li>
+        <li>note decision + responsible owner</li>
+        <li>schedule re-evaluation · 30 days</li>
+      </ul>
+    </div>
+  </div>
+
+<pre class="pb-cmd"><span class="c"># inspect drift snapshot for the breaching feature</span>
+asclepius drift show --feature <span class="s">"vitals.spo2"</span> --window <span class="s">7d</span>
+<span class="c"># diff distributions before/after</span>
+asclepius drift diff --baseline <span class="s">2026-01-01</span> --current <span class="s">2026-04-26</span>
+<span class="c"># acknowledge with rationale (becomes a signed entry)</span>
+asclepius drift ack --feature <span class="s">"vitals.spo2"</span> --reason <span class="s">"sensor vendor change"</span></pre>
+</section>
+
+<!-- ─────────── PB-05 consent revocation cascade ─────────── -->
+<section class="container pb" id="consent-revocation">
+  <div class="pb__head">
+    <span class="pb__num">PB-05</span>
+    <span class="pb__sev is-p2">P2 · 4-h ack</span>
+    <span class="pb__owner">owner · privacy</span>
+  </div>
+  <h2>Consent revocation <i>cascade.</i></h2>
+  <p class="pb__lede">
+    A patient revokes consent for a purpose. Per the consent registry,
+    <em>future</em> inferences for that patient stop immediately. <em>Past</em>
+    inferences are not deleted — they are flagged in the bundle metadata so
+    auditors know the patient's wishes have changed.
+  </p>
+
+  <div class="pb-steps">
+    <div class="pb-step">
+      <h3 data-step="1">receive</h3>
+      <ul>
+        <li>consent-portal POST → <code>consent.revoked</code> entry</li>
+        <li>or operator-initiated via privacy ticket</li>
+        <li>SLA: revocation in effect within 24 h, target &lt; 1 h</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="2">enforce</h3>
+      <ul>
+        <li>registry refuses subsequent <code>consent.check</code></li>
+        <li>any in-flight inference completes; next is rejected</li>
+        <li><code>scope=revoked</code> propagates to caches in &lt; 60 s</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="3">annotate</h3>
+      <ul>
+        <li>past entries get <code>consent.revoked_at</code> metadata</li>
+        <li>bundle export marks affected rows in manifest</li>
+        <li>retention policy unchanged (deletion is not revocation)</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="4">confirm</h3>
+      <ul>
+        <li>send patient-facing confirmation (per HIPAA)</li>
+        <li>verify next inference attempt → <code>consent.denied</code></li>
+        <li>log audit-trail in privacy-team bundle</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pb-postmortem">
+    <b>Why we annotate, not delete.</b> Deleting past entries would forge the
+    record of what the model did and why. The compliant move is to keep
+    history honest and let the consent revocation flow forward. If a regulator
+    requests true deletion, that is a different process — see PB-06.
+  </div>
+</section>
+
+<!-- ─────────── PB-06 evidence-bundle subpoena ─────────── -->
+<section class="container pb" id="subpoena">
+  <div class="pb__head">
+    <span class="pb__num">PB-06</span>
+    <span class="pb__sev is-p2">P2 · 24-h ack</span>
+    <span class="pb__owner">owner · legal · platform</span>
+  </div>
+  <h2>Evidence-bundle <i>subpoena.</i></h2>
+  <p class="pb__lede">
+    A court, regulator, or peer-review committee requests a bundle for an
+    encounter, a date range, or a model version. <em>The substrate is built
+    for this.</em> Export the bundle, verify it matches the request, hand it
+    over with the public verifier instructions.
+  </p>
+
+  <div class="pb-steps">
+    <div class="pb-step">
+      <h3 data-step="1">scope</h3>
+      <ul>
+        <li>read the request carefully · encounter? date range? model?</li>
+        <li>legal review for over-broad scope</li>
+        <li>no PHI beyond what is required</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="2">export</h3>
+      <ul>
+        <li><code>asclepius bundle export --encounter ENC-…</code></li>
+        <li>or <code>--from 2026-01-01 --to 2026-03-31</code></li>
+        <li>output is USTAR tar · open with stock <code>tar</code></li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="3">verify</h3>
+      <ul>
+        <li>self-verify before delivery: <code>verify_bundle output.tar</code></li>
+        <li>include the public verifier binary + pubkey</li>
+        <li>document the requesting authority + scope</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="4">deliver</h3>
+      <ul>
+        <li>hand off via legal channels · checksum receipt</li>
+        <li>operator log entry: <code>bundle.exported</code></li>
+        <li>retain working copy in cold storage · 7 years</li>
+      </ul>
+    </div>
+  </div>
+
+<pre class="pb-cmd"><span class="c"># export, self-verify, prepare delivery package</span>
+asclepius bundle export --encounter <span class="s">ENC-2026-01-15-r3</span> \
+        --out <span class="s">/secure/2026-04-26-subpoena.tar</span>
+asclepius bundle verify <span class="s">/secure/2026-04-26-subpoena.tar</span>
+sha256sum <span class="s">/secure/2026-04-26-subpoena.tar</span>  &gt; <span class="s">delivery.sha256</span>
+<span class="c"># include the verifier so the recipient never has to trust us</span>
+cp build/tools/verify_bundle <span class="s">/secure/verifier.bin</span></pre>
+</section>
+
+<!-- ─────────── PB-07 partition ─────────── -->
+<section class="container pb" id="partition">
+  <div class="pb__head">
+    <span class="pb__num">PB-07</span>
+    <span class="pb__sev is-p2">P2 · 1-h ack</span>
+    <span class="pb__owner">owner · sre</span>
+  </div>
+  <h2>Sidecar network <i>partition.</i></h2>
+  <p class="pb__lede">
+    The runtime can no longer reach the central ledger backend. The local SQLite
+    WAL keeps accepting writes — that is the design — but downstream
+    subscribers will see a gap until reconnection. <em>The substrate prefers
+    local consistency over global immediacy.</em>
+  </p>
+
+  <div class="pb-steps">
+    <div class="pb-step">
+      <h3 data-step="1">detect</h3>
+      <ul>
+        <li>alert: <code>backend.unreachable</code> &gt; 60 s</li>
+        <li>local WAL size growing; backpressure thresholds</li>
+        <li>verifier sees remote tail older than local tail</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="2">decide</h3>
+      <ul>
+        <li>continue local writes? (default · usually yes)</li>
+        <li>refuse new inferences? (only if WAL near disk limit)</li>
+        <li>page only if partition exceeds 30 min</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="3">reconcile</h3>
+      <ul>
+        <li>on reconnect, replay local WAL forward to backend</li>
+        <li><em>no merging</em> — local seq is canonical</li>
+        <li>verify final root matches backend's expectation</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="4">monitor</h3>
+      <ul>
+        <li>watch tail divergence for 24 h post-incident</li>
+        <li>any retroactive edits → escalate to PB-01</li>
+        <li>capacity-plan WAL headroom for 4× the partition window</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="pb-coda">
+    <h2>The runbook is <i>part of the substrate.</i></h2>
+    <p>
+      Reliable systems are not just code that does the right thing under blue
+      skies — they are the <em>scripts you run when the sky is on fire.</em>
+      Every Asclepius release ships with these playbooks updated alongside the
+      runtime. If a new failure mode is discovered in the field, a new playbook
+      lands before the patch does.
+    </p>
+    <p>
+      A clinical-AI substrate that does not tell its operators how to fail is
+      not a substrate; it is a liability disguised as a library.
+    </p>
+    <div class="pb-coda__links">
+      <a href="deploy.html">deploy guide →</a>
+      <a href="status.html">live status</a>
+      <a href="security.html">security policy</a>
+      <a href="changelog.html">changelog</a>
+      <a href="conformance.html">conformance</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>operate</b>
+        <a href="deploy.html">deploy</a>
+        <a href="playbooks.html">playbooks</a>
+        <a href="status.html">status</a>
+        <a href="security.html">security</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">docs</a>
+        <a href="api.html">API reference</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

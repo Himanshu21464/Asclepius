@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Validate an entry — Asclepius</title>
+<meta name="description" content="Paste a JSON ledger entry. The page loads the published audit-entry JSON Schema and validates the entry in your browser. No upload, no server. The schema is the contract.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/validate.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Validate an entry">
+<meta property="og:description"  content="Paste an entry. Validate against the published schema. In your browser.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.va-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.va-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.va-hero h1 i { color: var(--primary); font-style: italic; }
+.va-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.va-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.va-grid {
+    margin: 2rem 0;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 1rem;
+}
+@media (max-width: 880px) { .va-grid { grid-template-columns: 1fr; } }
+
+.va-pane {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex; flex-direction: column; gap: .8rem;
+}
+.va-pane__head {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+}
+.va-pane__head b { color: var(--primary); font-weight: 500; }
+.va-actions { display: flex; gap: .35rem; flex-wrap: wrap; }
+.va-btn {
+    background: transparent; border: 1px solid var(--rule);
+    color: var(--ink-mute); border-radius: 4px;
+    padding: .25rem .65rem;
+    font-family: var(--font-mono); font-size: .66rem; letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+}
+.va-btn:hover { color: var(--ink-warm); border-color: var(--primary); }
+.va-pane textarea {
+    flex: 1;
+    min-height: 360px;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .8rem 1rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+}
+.va-pane textarea:focus { border-color: var(--primary); }
+.va-pane.is-result {
+    background: var(--surface);
+}
+
+.va-bar {
+    display: flex; gap: 1rem; align-items: center;
+    margin: 1rem 0 0;
+    flex-wrap: wrap;
+}
+.va-bar__action {
+    background: var(--primary);
+    color: var(--bg);
+    border: 0;
+    padding: .7rem 1.2rem;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: background .15s, transform .12s;
+}
+.va-bar__action:hover { background: #C28EFF; transform: translateY(-1px); }
+.va-bar__source {
+    font-family: var(--font-mono); font-size: .72rem;
+    color: var(--ink-mute);
+}
+.va-bar__source code { color: var(--primary); }
+
+.va-verdict {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .35rem .7rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    letter-spacing: .04em;
+    background: var(--surface-2);
+    color: var(--ink-mute);
+}
+.va-verdict.is-pass {
+    background: rgba(52,211,153,.12);
+    color: #34D399;
+    border: 1px solid rgba(52,211,153,.3);
+}
+.va-verdict.is-fail {
+    background: rgba(239,68,68,.12);
+    color: #F87171;
+    border: 1px solid rgba(239,68,68,.3);
+}
+.va-verdict.is-warn {
+    background: rgba(244,184,96,.12);
+    color: #F4B860;
+    border: 1px solid rgba(244,184,96,.3);
+}
+.va-verdict__dot {
+    width: .55em; height: .55em; border-radius: 50%;
+    background: currentColor;
+}
+
+.va-list {
+    margin: 0; padding: 0; list-style: none;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.55;
+}
+.va-list li {
+    padding: .35rem 0;
+    border-bottom: 1px dashed var(--rule-soft);
+    display: grid; grid-template-columns: 1.4em 1fr; gap: .5rem;
+}
+.va-list li:last-child { border-bottom: 0; }
+.va-list .va-mark { color: var(--ink-faint); }
+.va-list .va-mark.is-ok   { color: #34D399; }
+.va-list .va-mark.is-bad  { color: #F87171; }
+.va-list .va-mark.is-warn { color: #F4B860; }
+.va-list .va-key { color: var(--primary); }
+.va-list .va-msg { color: var(--ink); }
+.va-list .va-detail { grid-column: 2; color: var(--ink-mute); font-size: .72rem; margin-top: .15rem; }
+
+.va-empty {
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    font-size: .92rem;
+    padding: 2rem 1rem;
+    text-align: center;
+    line-height: 1.55;
+}
+.va-empty em { color: var(--ink-warm); font-style: italic; }
+
+.va-meta {
+    margin-top: 1.4rem;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.va-meta b { color: var(--primary); }
+.va-meta em { color: var(--ink-warm); font-style: italic; }
+.va-meta code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",     "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Validate", "item": "https://asclepius.health/validate.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-validate">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="explorer.html">explorer</a>
+      <a href="validate.html" class="is-active" aria-current="page">validate</a>
+      <a href="verify-bundle.html">verify bundle</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="va-hero">
+  <div class="container">
+    <span class="kbd">§01 · paste · validate · in your browser</span>
+    <h1>Does this entry <i>conform?</i></h1>
+    <p>
+      Paste a candidate ledger entry below. The page fetches the published
+      <a href="schemas/audit-entry.v1.json"><code>audit-entry.v1</code></a>
+      JSON Schema and validates the entry against it — required keys, types,
+      regex patterns, enums, range bounds. <em>Nothing leaves your machine</em>;
+      the validator runs entirely in the page.
+    </p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="va-grid">
+    <div class="va-pane">
+      <div class="va-pane__head">
+        <span><b>L</b> · candidate entry · JSON</span>
+        <span class="va-actions">
+          <button class="va-btn" data-act="sample-good">sample (valid)</button>
+          <button class="va-btn" data-act="sample-bad">sample (broken)</button>
+          <button class="va-btn" data-act="clear">clear</button>
+        </span>
+      </div>
+      <textarea id="va-input" spellcheck="false" autocomplete="off"
+                placeholder='{ "seq": 1, "ts": "2026-01-01T00:00:00Z", "kind": "inference.completed", ... }'></textarea>
+    </div>
+
+    <div class="va-pane is-result">
+      <div class="va-pane__head">
+        <span><b>R</b> · verdict</span>
+        <span id="va-verdict" class="va-verdict"><span class="va-verdict__dot"></span>idle</span>
+      </div>
+      <div id="va-out" class="va-empty">
+        Paste an entry on the left and click <em>validate</em>. The validator
+        is a small in-page subset of JSON Schema 2020-12 (required, type,
+        pattern, enum, minimum/maximum, additionalProperties) — sufficient for
+        the audit-entry contract.
+      </div>
+    </div>
+  </div>
+
+  <div class="va-bar">
+    <button id="va-go" class="va-bar__action">validate</button>
+    <span class="va-bar__source">
+      schema: <code>schemas/audit-entry.v1.json</code>
+      <span id="va-schema-state">· loading…</span>
+    </span>
+  </div>
+
+  <div class="va-meta">
+    <p><b>Why this exists.</b> Substrate-grade openness means the contract is
+    not a sentence in a docs page — it is a file you can <em>execute</em>
+    against your inputs. This validator is the simplest possible test:
+    <em>does my entry shape match what the chain will accept?</em></p>
+    <p style="margin-top:.6em">For full Draft 2020-12 conformance (allOf,
+    oneOf, $ref, format-validators), use a real validator —
+    <code>ajv</code>, <code>jsonschema</code>, or the C++ verifier shipped
+    with Asclepius. This page is a quick check, not a full conformance run.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — open contract, open validator.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>auditor</b>
+        <a href="explorer.html">explorer</a>
+        <a href="compare.html">compare</a>
+        <a href="validate.html">validate</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+      </div>
+      <div>
+        <b>spec</b>
+        <a href="spec.html">spec</a>
+        <a href="schemas/audit-entry.v1.json">audit-entry schema</a>
+        <a href="api.html">API reference</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+    'use strict';
+    const $ = (s) => document.querySelector(s);
+
+    let SCHEMA = null;
+
+    // ── load schema ───────────────────────────────────────────────────────
+    fetch('schemas/audit-entry.v1.json', { credentials: 'omit' })
+        .then((r) => r.ok ? r.json() : Promise.reject(new Error('schema fetch failed: ' + r.status)))
+        .then((s) => {
+            SCHEMA = s;
+            $('#va-schema-state').textContent = '· loaded · ' + Object.keys(s.properties || {}).length + ' properties · ' + (s.required || []).length + ' required';
+        })
+        .catch((e) => {
+            $('#va-schema-state').textContent = '· error: ' + e.message;
+        });
+
+    // ── samples ───────────────────────────────────────────────────────────
+    const SAMPLE_GOOD = {
+        seq: 874,
+        ts: '2026-04-26T14:21:08Z',
+        kind: 'inference.completed',
+        actor: 'clin:np_marisol_h',
+        patient: 'pt:7f3c…b21',
+        encounter: 'enc:2026-04-26-r3',
+        model: { id: 'scribe-v3', weights_sha256: '6a0f…e2' },
+        consent: { purpose: 'scribe', granted_at: '2026-04-26T14:02:00Z' },
+        input_hash: 'blake2b:9f31…',
+        output_hash: 'blake2b:c8aa…',
+        policies: ['phi.v4', 'schema.transcript.v2', 'length.v1'],
+        drift: { psi: 0.04, window: '30d' },
+        prev_hash: 'blake2b:1d2e…',
+        sig: 'ed25519:0x9c…',
+    };
+    const SAMPLE_BAD = {
+        seq: -3,                                  // violates minimum
+        ts: 'last tuesday',                       // violates date-time format (light)
+        kind: 'INFERENCE_DONE',                    // violates pattern
+        actor: 'someone-without-prefix',           // violates pattern
+        model: { id: 'scribe-v3' },                // missing weights_sha256
+        consent: { purpose: 'gossip' },            // not in enum
+        confidence: 1.7,                           // > maximum
+        decision: 'shrug',                         // not in enum
+        unknown_field: 'should be flagged',        // additionalProperties false
+        prev_hash: 'wrong:format',                 // violates pattern
+        sig: 'ed25519:0x9c…',
+    };
+
+    document.querySelectorAll('button.va-btn').forEach((b) => {
+        b.addEventListener('click', () => {
+            const act = b.dataset.act;
+            if (act === 'sample-good')  $('#va-input').value = JSON.stringify(SAMPLE_GOOD, null, 2);
+            if (act === 'sample-bad')   $('#va-input').value = JSON.stringify(SAMPLE_BAD,  null, 2);
+            if (act === 'clear')        { $('#va-input').value = ''; renderEmpty(); }
+        });
+    });
+
+    // ── tiny Draft-2020-12 subset ─────────────────────────────────────────
+    function validate(value, schema, path = '$') {
+        const errs = [];
+        const exp  = schema.type;
+        const t    = jsType(value);
+
+        if (exp && !typeMatch(exp, t, value)) {
+            errs.push({ path, code: 'type', want: exp, got: t });
+            return errs;
+        }
+        if (Array.isArray(schema.enum) && !schema.enum.includes(value)) {
+            errs.push({ path, code: 'enum', want: schema.enum, got: value });
+        }
+        if (typeof schema.pattern === 'string' && t === 'string') {
+            try {
+                if (!new RegExp(schema.pattern).test(value)) {
+                    errs.push({ path, code: 'pattern', want: schema.pattern, got: value });
+                }
+            } catch { /* invalid regex in schema — skip */ }
+        }
+        if (typeof schema.minimum === 'number' && t === 'number' && value < schema.minimum) {
+            errs.push({ path, code: 'minimum', want: schema.minimum, got: value });
+        }
+        if (typeof schema.maximum === 'number' && t === 'number' && value > schema.maximum) {
+            errs.push({ path, code: 'maximum', want: schema.maximum, got: value });
+        }
+        if (typeof schema.minLength === 'number' && t === 'string' && value.length < schema.minLength) {
+            errs.push({ path, code: 'minLength', want: schema.minLength, got: value.length });
+        }
+        if (Array.isArray(schema.required) && t === 'object') {
+            for (const k of schema.required) {
+                if (!(k in value)) errs.push({ path: path + '.' + k, code: 'required', want: 'present', got: 'missing' });
+            }
+        }
+        if (schema.additionalProperties === false && t === 'object' && schema.properties) {
+            for (const k of Object.keys(value)) {
+                if (!(k in schema.properties)) {
+                    errs.push({ path: path + '.' + k, code: 'additionalProperty', want: 'declared', got: k });
+                }
+            }
+        }
+        if (schema.properties && t === 'object') {
+            for (const [k, sub] of Object.entries(schema.properties)) {
+                if (k in value) errs.push(...validate(value[k], sub, path + '.' + k));
+            }
+        }
+        if (schema.items && Array.isArray(value)) {
+            value.forEach((v, i) => errs.push(...validate(v, schema.items, path + '[' + i + ']')));
+        }
+        if (Array.isArray(schema.oneOf)) {
+            const matches = schema.oneOf.filter((s) => validate(value, s, path).length === 0).length;
+            if (matches !== 1) {
+                errs.push({ path, code: 'oneOf', want: '1 match', got: matches + ' matches' });
+            }
+        }
+        return errs;
+    }
+    function jsType(v) {
+        if (v === null) return 'null';
+        if (Array.isArray(v)) return 'array';
+        if (Number.isInteger(v)) return 'integer';
+        return typeof v;
+    }
+    function typeMatch(want, got, v) {
+        if (want === got) return true;
+        if (want === 'number' && got === 'integer') return true;
+        if (want === 'integer' && got === 'number' && Number.isInteger(v)) return true;
+        return false;
+    }
+
+    // ── render ────────────────────────────────────────────────────────────
+    function renderEmpty() {
+        const out = $('#va-out');
+        out.className = 'va-empty';
+        out.innerHTML = 'Paste an entry on the left and click <em>validate</em>.';
+        setVerdict('idle');
+    }
+    function setVerdict(state, detail) {
+        const v = $('#va-verdict');
+        v.classList.remove('is-pass', 'is-fail', 'is-warn');
+        if (state === 'pass') { v.classList.add('is-pass'); v.innerHTML = '<span class="va-verdict__dot"></span>conforms · ' + (detail || ''); }
+        else if (state === 'fail') { v.classList.add('is-fail'); v.innerHTML = '<span class="va-verdict__dot"></span>' + (detail || 'fails'); }
+        else if (state === 'warn') { v.classList.add('is-warn'); v.innerHTML = '<span class="va-verdict__dot"></span>' + (detail || 'parse error'); }
+        else { v.innerHTML = '<span class="va-verdict__dot"></span>idle'; }
+    }
+    function renderResults(errs, declared) {
+        const out = $('#va-out');
+        if (errs.length === 0) {
+            out.className = '';
+            out.innerHTML = '';
+            const ul = document.createElement('ul');
+            ul.className = 'va-list';
+            const li = document.createElement('li');
+            li.innerHTML = '<span class="va-mark is-ok">✓</span><span><span class="va-msg">passes all required-keys, type, pattern, enum, range and additionalProperties checks · ' + declared + ' declared properties traversed</span></span>';
+            ul.appendChild(li);
+            out.appendChild(ul);
+            setVerdict('pass', errs.length + ' issues');
+            return;
+        }
+        out.className = '';
+        out.innerHTML = '';
+        const ul = document.createElement('ul');
+        ul.className = 'va-list';
+        errs.forEach((e) => {
+            const li = document.createElement('li');
+            const wantTxt = JSON.stringify(e.want);
+            const gotTxt  = JSON.stringify(e.got);
+            li.innerHTML = '<span class="va-mark is-bad">✗</span>'
+                + '<span><span class="va-key">' + escape(e.path) + '</span> '
+                + '<span class="va-msg">· ' + e.code + '</span>'
+                + '<div class="va-detail">expected ' + escape(wantTxt) + ' · got ' + escape(gotTxt) + '</div>'
+                + '</span>';
+            ul.appendChild(li);
+        });
+        out.appendChild(ul);
+        setVerdict('fail', errs.length + ' issue' + (errs.length === 1 ? '' : 's'));
+    }
+    function escape(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    // ── go ────────────────────────────────────────────────────────────────
+    $('#va-go').addEventListener('click', () => {
+        if (!SCHEMA) { setVerdict('warn', 'schema not loaded yet'); return; }
+        const txt = $('#va-input').value.trim();
+        if (!txt) { renderEmpty(); return; }
+        let parsed;
+        try {
+            parsed = JSON.parse(txt);
+        } catch (e) {
+            setVerdict('warn', 'parse error: ' + e.message);
+            const out = $('#va-out');
+            out.className = '';
+            out.innerHTML = '<ul class="va-list"><li><span class="va-mark is-warn">!</span><span><span class="va-msg">JSON parse error · ' + escape(e.message) + '</span></span></li></ul>';
+            return;
+        }
+        const errs = validate(parsed, SCHEMA);
+        const declared = Object.keys(SCHEMA.properties || {}).length;
+        renderResults(errs, declared);
+    });
+    renderEmpty();
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

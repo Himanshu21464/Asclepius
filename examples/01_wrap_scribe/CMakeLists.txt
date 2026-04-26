@@ -1,0 +1,4 @@
+add_executable(example_wrap_scribe main.cpp)
+target_link_libraries(example_wrap_scribe PRIVATE asclepius::asclepius)
+asclepius_target_warnings(example_wrap_scribe)
+asclepius_target_sanitizers(example_wrap_scribe)

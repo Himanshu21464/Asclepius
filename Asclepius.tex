@@ -1,0 +1,212 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=0.9in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{fancyhdr}
+
+\definecolor{primary}{HTML}{6B21A8}
+\definecolor{accent}{HTML}{059669}
+\definecolor{soft}{HTML}{F5F3FF}
+\definecolor{dark}{HTML}{1F2937}
+\definecolor{muted}{HTML}{6B7280}
+
+\titleformat{\section}
+  {\color{primary}\Large\bfseries}{\thesection}{0.8em}{}
+\titleformat{\subsection}
+  {\color{dark}\large\bfseries}{\thesubsection}{0.8em}{}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=primary,
+  urlcolor=accent,
+  pdftitle={Asclepius --- A Trust Substrate for Clinical AI},
+  pdfauthor={Future Project Brief}
+}
+
+\tcbuselibrary{skins,breakable}
+
+\newtcolorbox{callout}[1][]{
+  enhanced,breakable,
+  colback=soft,colframe=primary,
+  boxrule=0.4pt,arc=3pt,
+  left=12pt,right=12pt,top=10pt,bottom=10pt,
+  #1
+}
+
+\newtcolorbox{warnbox}[1][]{
+  enhanced,breakable,
+  colback=accent!5,colframe=accent,
+  boxrule=0.4pt,arc=3pt,
+  left=12pt,right=12pt,top=10pt,bottom=10pt,
+  #1
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[L]{\color{muted}\small Asclepius --- Project Brief}
+\fancyfoot[R]{\color{muted}\small \thepage}
+
+\setlength{\parskip}{0.6em}
+\setlength{\parindent}{0pt}
+
+\begin{document}
+
+\begin{center}
+  \vspace*{-1.2cm}
+  {\color{muted}\small FUTURE PROJECT BRIEF \textbullet{} 2026}\\[0.4em]
+  {\color{primary}\Huge\bfseries Asclepius}\\[0.3em]
+  {\color{dark}\Large A Trust Substrate for Clinical AI}\\[0.2em]
+  {\color{muted}\itshape ``The Linux kernel for clinical AI.''}\\[0.4em]
+  \rule{0.35\textwidth}{0.5pt}
+\end{center}
+
+\vspace{0.6em}
+
+\begin{callout}
+\textbf{One-line pitch.} An open, vendor-neutral C++ runtime that wraps any clinical-AI tool with audit-grade safety: composable input/output guardrails, cryptographically signed Merkle ledger, drift detection, override telemetry, consent-and-scope enforcement, and an evidence pipeline that emits regulator-ready bundles.
+
+\vspace{0.4em}
+\textbf{What it replaces.} The hand-rolled ``AI governance'' PowerPoints at every health system, the bespoke MLOps each vendor reinvents, the consent-and-audit gaps that just cost Kaiser \$556M, and the artisanal evidence-generation that gates every FDA submission.
+
+\vspace{0.4em}
+\textbf{Why now.} Liability is biting \emph{this quarter}. HHS has signaled federal direction toward lifecycle validation; FDA has moved to a lifecycle-based model; California AI laws now require runtime guardrails to function under real-world pressure, not just exist on paper.
+\end{callout}
+
+\section{The Unsolved Problem}
+
+Clinical AI in 2026 is being deployed at a pace that has outrun its safety substrate. Every health system, every vendor, every research hospital is hand-rolling the same five things, badly:
+
+\begin{itemize}[leftmargin=1.2em]
+  \item \textbf{Guardrails.} Input/output policy is bolted on per-vendor: PHI scrubbers, prompt-injection checks, output-schema validation, clinical-action allowlists. None compose.
+  \item \textbf{Audit.} Logs are unsigned, mutable, and scattered across CloudWatch, Splunk, and vendor dashboards. ``Who saw what, when, and what did they do about it'' is unanswerable in court.
+  \item \textbf{Drift detection.} Every team writes its own PSI/KS test scripts, picks its own thresholds, and forgets to wire the alert.
+  \item \textbf{Consent and scope.} ``Did this patient consent to AI on this encounter, for this purpose, with this model version?'' has no canonical answer.
+  \item \textbf{Evidence generation.} Producing FDA-grade prospective evidence from a deployment is a six-month artisanal exercise per submission.
+\end{itemize}
+
+There is no kernel. There is no audit substrate. There is no shared trust layer. Every clinical AI tool re-implements the same lifecycle plumbing --- and patients pay when it breaks.
+
+\section{What It Actually Solves}
+
+\begin{callout}
+\textbf{Health systems.} A single, vendor-neutral substrate the AI Governance Office signs off on once --- every wrapped tool inherits the audit, drift, and consent guarantees automatically.
+
+\vspace{0.3em}
+\textbf{Vendors.} Ship faster: integrate Asclepius and your customer's procurement, compliance, and infosec checks become one form, not seven.
+
+\vspace{0.3em}
+\textbf{Regulators.} A standardized evidence bundle: ledger excerpt, drift report, override statistics, prospective-evaluation summary --- cryptographically signed and replayable.
+
+\vspace{0.3em}
+\textbf{Patients.} Cryptographic provenance for every AI-influenced clinical decision. ``Show me what the model said about my care, and what the doctor did with it'' becomes answerable.
+\end{callout}
+
+\section{Why C++ Is Non-Negotiable}
+
+Clinical AI runs in latency- and throughput-bound paths: every patient encounter, every order, every imaging study. The substrate cannot be a Python service.
+
+\begin{enumerate}[leftmargin=1.4em]
+  \item \textbf{Inline latency.} Pre/post-guards must add microseconds, not milliseconds, to every inference. C++ with a tight ABI is the only option for sidecar deployment in EHR-integrated paths.
+  \item \textbf{Cryptographic throughput.} A signed Merkle ledger across millions of daily inferences requires native crypto (libsodium, BLAKE3) without GIL bottlenecks.
+  \item \textbf{Memory safety where it counts.} Guardrails handle untrusted clinician input \emph{and} model output. C++20 with strict warnings, sanitizers, and a hardened policy compiler is the audit-grade option; we treat unsafe code paths as bugs.
+  \item \textbf{Long-lived embedding.} Customers will run Asclepius unchanged for a decade. The C ABI guarantees a stable substrate while passes evolve underneath.
+  \item \textbf{Determinism for replay.} Every audit-ledger replay must produce byte-identical reconstructions. Native code with content-addressed serialization makes this auditable.
+\end{enumerate}
+
+\section{Why It Is a Substrate, Not an App}
+
+\begin{itemize}[leftmargin=1.2em]
+  \item \textbf{Vendor-neutral.} Asclepius does not care if you wrap GPT-class scribes, radiology CNNs, internal LLM agents, or rule-based CDS. The runtime sits between any model and any clinical action.
+  \item \textbf{Composable policies.} Policies are first-class values that compose: PHI scrubber $\circ$ schema validator $\circ$ clinical-action whitelist $\circ$ tenant override.
+  \item \textbf{Append-only ledger.} The ledger is the canonical artifact. Logs, dashboards, and reports are projections.
+  \item \textbf{Open core.} Apache 2.0. A trust layer with proprietary internals is a contradiction --- you cannot audit what you cannot read.
+\end{itemize}
+
+\section{Architecture Sketch}
+
+\begin{verbatim}
+ +--------------------------------------------------------+
+ |  Front End                                             |
+ |  C++ API . C ABI . Python . Rust . HTTP/gRPC sidecar   |
+ +--------------------------------------------------------+
+ |  Runtime Orchestrator                                  |
+ |  request lifecycle . pre-guards . dispatch . post-     |
+ |  guards . consent check . action emit . audit hook     |
+ +--------------------------------------------------------+
+ |  Policy Engine          |  Telemetry / Drift           |
+ |  composable PolicyChain |  PSI . KS . EMD . override   |
+ |  PHI . schema . allow   |  rate . performance . alerts |
+ +--------------------------------------------------------+
+ |  Audit Ledger (Merkle, signed)                         |
+ |  hash chain . key rotation . tamper-evident . replay   |
+ +--------------------------------------------------------+
+ |  Evaluation Harness                                    |
+ |  ground-truth coupling . prospective splits . evidence |
+ |  bundle export (FDA-shaped) . cohort-level metrics     |
+ +--------------------------------------------------------+
+ |  Storage Layer                                         |
+ |  SQLite (single-node) . Postgres . object store        |
+ +--------------------------------------------------------+
+\end{verbatim}
+
+Every Inference is a content-addressed object. The ledger is a Merkle DAG. A bundle exported in 2027 verifies in 2047 against the same public keys.
+
+\section{12--18 Month MVP Roadmap}
+
+\begin{enumerate}[leftmargin=1.4em]
+  \item \textbf{Months 1--3.} Core runtime, PolicyChain, signed Merkle ledger over SQLite, doctest harness. CLI: \texttt{asclepius ledger verify}, \texttt{ledger inspect}, \texttt{policy lint}.
+  \item \textbf{Months 3--6.} Drift telemetry (PSI/KS/EMD), override capture, consent registry, FHIR-aware metadata. Python bindings via pybind11. First reference integration: ambient-scribe wrapper.
+  \item \textbf{Months 6--9.} Evidence-bundle exporter (signed tarball with ledger excerpt, drift report, override stats, schema). HTTP/gRPC sidecar for non-C++ tools. Postgres backend for multi-node.
+  \item \textbf{Months 9--12.} Two design-partner health systems live. AI Governance dashboard. Threat-model audit by external firm.
+  \item \textbf{Months 12--18.} Prospective-evaluation harness with ground-truth coupling. Conformance suite for vendors. First FDA submission accepted using an Asclepius bundle.
+\end{enumerate}
+
+All of this runs on commodity hardware. The reference design assumes a single sidecar process per service node, with a shared Postgres for multi-node ledger.
+
+\section{Go-to-Market}
+
+\begin{itemize}[leftmargin=1.2em]
+  \item \textbf{Open source.} Apache 2.0 core. A trust substrate must be auditable to be trusted.
+  \item \textbf{Commercial: managed evidence service.} Customer-hosted ledgers replicate to Asclepius Cloud for long-term retention, key rotation, and on-demand evidence-bundle generation.
+  \item \textbf{Commercial: governance dashboard.} The AI Governance Office's single pane of glass, billed per integrated tool.
+  \item \textbf{Commercial: vendor conformance.} Vendors pay for certification that their integration meets Asclepius conformance levels (L1: audit, L2: drift, L3: prospective-evidence).
+  \item \textbf{First wedge.} The newly minted Chief AI Officer at a large IDN. They have a board mandate and zero substrate. We are the answer to ``what do we deploy first?''
+\end{itemize}
+
+\section{2050 Vision}
+
+By 2050, every clinical AI inference in the developed world is mediated by a trust substrate. ``AI-influenced'' is a checkbox on the chart with cryptographic provenance behind it. Patients have a personal verifier. Regulators have continuous evidence streams. The category this creates: \emph{trust kernels for high-stakes AI} --- and Asclepius is the reference implementation for healthcare, with adjacent kernels for finance, law, and autonomy following the same shape.
+
+\section{Key Risks}
+
+\begin{warnbox}
+\textbf{EHR vendor capture.} Epic and Oracle Health will try to own this layer. Mitigation: open core, vendor-neutral, integrate with their AI registries rather than replace them. They are not the buyer; the AI Governance Office is.
+
+\textbf{Performance budget.} Inline guards must not slow inference. Mitigation: zero-copy paths for hot policies; policies compile to bytecode at registration; benchmarks gate every release.
+
+\textbf{Cryptographic operational burden.} Key rotation, custody, and recovery are non-trivial. Mitigation: ship a hosted key-management option from day one; integrate with HSMs for enterprise.
+
+\textbf{Regulatory ambiguity.} ``Audit-grade'' is not a defined regulatory term yet. Mitigation: shape the term ourselves --- publish the conformance suite, work with FDA pre-cert pathways, partner with academic medical-AI safety groups.
+\end{warnbox}
+
+\section{References}
+
+\begin{itemize}[leftmargin=1.2em]
+  \item \href{https://www.alignmt.ai/post/from-556m-to-1-2-seconds-the-healthcare-ai-cases-that-changed-everything-in-2026}{From \$556M to 1.2 Seconds --- 2026 healthcare-AI cases (Alignmt AI)}
+  \item \href{https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-enabled-medical-devices}{FDA --- AI-Enabled Medical Devices}
+  \item \href{https://www.jonesday.com/en/insights/2026/02/hhs-signals-policy-direction-to-accelerate-adoption-of-ai-in-clinical-care}{HHS signals policy direction on AI in clinical care (Jones Day, Feb 2026)}
+  \item \href{https://www.getmaxim.ai/articles/the-complete-ai-guardrails-implementation-guide-for-2026/}{The Complete AI Guardrails Implementation Guide (Maxim AI, 2026)}
+  \item \href{https://www.nature.com/articles/s41591-026-04389-4}{Show us the evidence for the value of medical AI (Nature Medicine)}
+  \item \href{https://censinet.com/perspectives/ai-policy-playbook-essential-guardrails-healthcare-innovation}{AI Policy Playbook for Healthcare Innovation (Censinet)}
+  \item \href{https://dimesociety.org/newsroom/blog/3-key-insights-for-the-2026-health-ai-horizon/}{3 Key Insights for the 2026 Health AI Horizon (DiMe Society)}
+\end{itemize}
+
+\end{document}

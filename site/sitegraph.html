@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Site graph — Asclepius</title>
+<meta name="description" content="Every page on this site, every link between them. A force-directed graph rendered in your browser from a fetched JSON index.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/sitegraph.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Site graph">
+<meta property="og:description"  content="Every page, every link. A force-directed graph in your browser.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.sg-hero { padding: clamp(4rem, 8vw, 6rem) 0 2rem; }
+.sg-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.sg-hero h1 i { color: var(--primary); font-style: italic; }
+.sg-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; }
+.sg-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.sg-stage {
+    margin: 2rem 0;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 16 / 10;
+    min-height: 480px;
+    background:
+        radial-gradient(1000px 600px at 50% 20%, rgba(181,123,255,.08), transparent 60%),
+        var(--bg);
+}
+#sg-svg {
+    width: 100%; height: 100%;
+    display: block;
+}
+.sg-info {
+    position: absolute;
+    bottom: .8rem; left: .8rem;
+    padding: .55rem .85rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    color: var(--ink-mute);
+    pointer-events: none;
+    max-width: 50%;
+    line-height: 1.55;
+}
+.sg-info b { color: var(--primary); font-weight: 500; }
+
+.sg-edge {
+    stroke: var(--rule);
+    stroke-width: 1;
+    transition: stroke .15s, opacity .2s;
+}
+.sg-edge.is-active { stroke: var(--primary); }
+.sg-edge.is-dim    { opacity: .15; }
+
+.sg-node circle {
+    fill: var(--surface);
+    stroke: var(--rule);
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: fill .15s, stroke .15s, r .2s var(--ease-out);
+}
+.sg-node:hover circle,
+.sg-node.is-hot circle {
+    fill: var(--primary);
+    stroke: var(--primary);
+    r: 9;
+}
+.sg-node.is-current circle {
+    fill: var(--accent);
+    stroke: var(--accent);
+    r: 9;
+}
+.sg-node.is-dim circle {
+    opacity: .35;
+}
+.sg-node text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    fill: var(--ink-mute);
+    pointer-events: none;
+    transition: fill .15s, opacity .2s;
+}
+.sg-node:hover text,
+.sg-node.is-hot text {
+    fill: var(--ink-warm);
+}
+.sg-node.is-dim text { opacity: .35; }
+
+.sg-empty {
+    display: grid; place-items: center;
+    height: 100%;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: .82rem;
+}
+
+.sg-legend {
+    display: flex; gap: 1.4rem; flex-wrap: wrap;
+    margin-top: 1.4rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule-soft);
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+.sg-legend i {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: .4em;
+    vertical-align: -1px;
+}
+.sg-legend i.l-page    { background: var(--surface); border: 1px solid var(--rule); }
+.sg-legend i.l-current { background: var(--accent); }
+.sg-legend i.l-hot     { background: var(--primary); }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Sitemap",
+      "item": "https://asclepius.health/sitemap.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Site graph",
+      "item": "https://asclepius.health/sitegraph.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-sitegraph">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="learn.html">learn</a>
+      <a href="sitegraph.html" class="is-active" aria-current="page">site graph</a>
+      <a href="changelog.html">changelog</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="sg-hero">
+  <div class="container">
+    <span class="kbd">graph · 23 nodes · drawn in your browser</span>
+    <h1>Every page. <i>Every link.</i></h1>
+    <p>
+      A force-directed visualization of the Asclepius site, built from
+      <code>search-index.json</code> + a runtime crawl of the rendered
+      pages. Hover any node to see its neighbours; click to navigate.
+      Useful for spotting orphans and dense subgraphs.
+    </p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="sg-stage">
+    <svg id="sg-svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="sg-info" id="sg-info">computing layout…</div>
+  </div>
+
+  <div class="sg-legend">
+    <span><i class="l-page"></i> page</span>
+    <span><i class="l-current"></i> you are here</span>
+    <span><i class="l-hot"></i> hover / neighbour</span>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — site graph.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="explorer.html">explorer</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Site graph — drawn live from search-index.json + a small fetch of each
+// page's links. Force-directed via Barnes-Hut-free naive O(n²) — fine
+// for ~25 nodes. No dependencies.
+(() => {
+    'use strict';
+
+    const W = 1000, H = 600;
+    const svg = document.getElementById('sg-svg');
+    const info = document.getElementById('sg-info');
+    const me = location.pathname.split('/').pop() || 'index.html';
+
+    async function loadIndex() {
+        try {
+            const r = await fetch('search-index.json');
+            const j = await r.json();
+            return j.pages || [];
+        } catch (_) { return []; }
+    }
+
+    async function fetchLinks(url) {
+        try {
+            const r = await fetch(url);
+            const text = await r.text();
+            const links = new Set();
+            const re = /href="([a-z][a-z0-9-]*\.html)(?:#[^"]*)?"/gi;
+            let m;
+            while ((m = re.exec(text)) !== null) links.add(m[1]);
+            return Array.from(links);
+        } catch (_) { return []; }
+    }
+
+    function init(pages) {
+        // place nodes initially in a ring, then relax
+        const n = pages.length;
+        for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2;
+            pages[i].x  = W/2 + Math.cos(a) * 220;
+            pages[i].y  = H/2 + Math.sin(a) * 180;
+            pages[i].vx = 0; pages[i].vy = 0;
+            pages[i].outs = [];
+        }
+        return pages;
+    }
+
+    function step(pages, edges) {
+        const repel = 1800;          // node-node repulsion
+        const link  = 0.04;          // edge spring
+        const pull  = 0.02;          // gravity to center
+        for (const a of pages) {
+            // repulsion
+            for (const b of pages) {
+                if (a === b) continue;
+                const dx = a.x - b.x, dy = a.y - b.y;
+                const d2 = Math.max(60, dx*dx + dy*dy);
+                a.vx += (dx / d2) * repel;
+                a.vy += (dy / d2) * repel;
+            }
+            // gravity
+            a.vx += (W/2 - a.x) * pull;
+            a.vy += (H/2 - a.y) * pull;
+        }
+        for (const e of edges) {
+            const a = pages[e.s], b = pages[e.t];
+            if (!a || !b) continue;
+            const dx = b.x - a.x, dy = b.y - a.y;
+            a.vx += dx * link; a.vy += dy * link;
+            b.vx -= dx * link; b.vy -= dy * link;
+        }
+        // integrate, with strong damping
+        for (const a of pages) {
+            a.vx *= 0.55; a.vy *= 0.55;
+            a.x += a.vx * 0.08; a.y += a.vy * 0.08;
+            // clamp inside frame
+            a.x = Math.max(40, Math.min(W - 40, a.x));
+            a.y = Math.max(40, Math.min(H - 40, a.y));
+        }
+    }
+
+    function render(pages, edges) {
+        const idx = new Map(pages.map((p, i) => [p.url, i]));
+        const meIdx = idx.get(me);
+
+        // edges first (drawn under nodes)
+        const eHtml = edges.map((e) => {
+            const a = pages[e.s], b = pages[e.t];
+            return `<line class="sg-edge" data-s="${e.s}" data-t="${e.t}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"/>`;
+        }).join('');
+
+        const nHtml = pages.map((p, i) => {
+            const isCurrent = i === meIdx ? ' is-current' : '';
+            const label = (p.url || '').replace(/\.html$/, '').replace(/^index$/, 'home');
+            return `<g class="sg-node${isCurrent}" data-i="${i}" data-url="${p.url}">
+                <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6"/>
+                <text x="${p.x.toFixed(1)}" y="${(p.y + 18).toFixed(1)}" text-anchor="middle">${label}</text>
+            </g>`;
+        }).join('');
+
+        svg.innerHTML = eHtml + nHtml;
+
+        info.innerHTML = `<b>${pages.length}</b> pages · <b>${edges.length}</b> links · hover any node`;
+
+        const nodeEls = svg.querySelectorAll('.sg-node');
+        const edgeEls = svg.querySelectorAll('.sg-edge');
+
+        nodeEls.forEach((g) => {
+            const i = Number(g.dataset.i);
+            g.addEventListener('mouseenter', () => {
+                const neighbours = new Set();
+                edgeEls.forEach((e) => {
+                    const s = Number(e.dataset.s), t = Number(e.dataset.t);
+                    const touch = s === i || t === i;
+                    e.classList.toggle('is-active', touch);
+                    e.classList.toggle('is-dim',    !touch);
+                    if (s === i) neighbours.add(t);
+                    if (t === i) neighbours.add(s);
+                });
+                nodeEls.forEach((other) => {
+                    const j = Number(other.dataset.i);
+                    if (j === i)                 { other.classList.add('is-hot'); other.classList.remove('is-dim'); }
+                    else if (neighbours.has(j))  { other.classList.add('is-hot'); other.classList.remove('is-dim'); }
+                    else                          { other.classList.remove('is-hot'); other.classList.add('is-dim'); }
+                });
+                const p = pages[i];
+                info.innerHTML = `<b>${p.url}</b> — ${neighbours.size} neighbour${neighbours.size === 1 ? '' : 's'}`;
+            });
+            g.addEventListener('mouseleave', () => {
+                edgeEls.forEach((e) => { e.classList.remove('is-active', 'is-dim'); });
+                nodeEls.forEach((other) => other.classList.remove('is-hot', 'is-dim'));
+                info.innerHTML = `<b>${pages.length}</b> pages · <b>${edges.length}</b> links · hover any node`;
+            });
+            g.addEventListener('click', () => {
+                const url = g.dataset.url;
+                if (url && url !== me) location.href = url;
+            });
+        });
+    }
+
+    async function main() {
+        let pages = await loadIndex();
+        if (!pages.length) {
+            svg.innerHTML = '';
+            const stage = document.querySelector('.sg-stage');
+            const div = document.createElement('div');
+            div.className = 'sg-empty';
+            div.textContent = 'search-index.json not available — re-run build_search.py';
+            stage.appendChild(div);
+            info.textContent = 'no data';
+            return;
+        }
+
+        pages = init(pages);
+
+        // crawl edges from each page
+        info.textContent = 'fetching links…';
+        const edges = [];
+        const idx = new Map(pages.map((p, i) => [p.url, i]));
+        // limit concurrency
+        let done = 0;
+        await Promise.all(pages.map(async (p, i) => {
+            const links = await fetchLinks(p.url);
+            for (const l of links) {
+                const j = idx.get(l);
+                if (j != null && j !== i) edges.push({ s: i, t: j });
+            }
+            done++;
+            info.textContent = `fetching links… ${done} / ${pages.length}`;
+        }));
+
+        // dedupe edges (treat as undirected for layout)
+        const seen = new Set();
+        const ud = [];
+        for (const e of edges) {
+            const k = e.s < e.t ? `${e.s}-${e.t}` : `${e.t}-${e.s}`;
+            if (seen.has(k)) continue;
+            seen.add(k); ud.push(e);
+        }
+
+        info.textContent = 'relaxing layout…';
+        // run a few iterations
+        for (let i = 0; i < 240; i++) step(pages, ud);
+
+        render(pages, ud);
+    }
+
+    main();
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

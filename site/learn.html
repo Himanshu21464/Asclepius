@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Learn — Asclepius</title>
+<meta name="description" content="Three interactive surfaces, in order: build a chain in the playground, walk the offline verify ritual, then inspect a real ledger in the explorer. Plus the crypto toolbox.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/learn.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Learn">
+<meta property="og:description"  content="Three interactive surfaces in order. 12 minutes to confidence.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.lh-hero { padding: clamp(4rem, 8vw, 6rem) 0 2rem; }
+.lh-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.lh-hero h1 i { color: var(--primary); font-style: italic; }
+.lh-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.lh-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.lh-track {
+    margin: 3rem 0;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+}
+.lh-step {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr) auto;
+    gap: 2rem;
+    padding: 2rem 2rem 2rem 1.4rem;
+    border-bottom: 1px solid var(--rule);
+    align-items: start;
+    text-decoration: none;
+    color: inherit;
+    transition: background .2s var(--ease-out);
+    position: relative;
+}
+.lh-step:last-child { border-bottom: 0; }
+.lh-step:hover {
+    background: linear-gradient(90deg, rgba(181,123,255,.04), transparent 70%);
+}
+.lh-step__num {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 4rem; line-height: 1;
+    color: var(--primary);
+    letter-spacing: -.04em;
+    position: sticky; top: 88px;
+}
+.lh-step__body h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    color: var(--ink-warm); letter-spacing: -.01em;
+    margin: 0 0 .5rem;
+}
+.lh-step__body h2 i { color: var(--primary); font-style: italic; }
+.lh-step__body p {
+    color: var(--ink-mute); font-family: var(--font-prose); line-height: 1.7;
+    margin: 0 0 .6rem; max-width: 60ch;
+}
+.lh-step__body p code {
+    font-family: var(--font-mono); font-size: .9em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .08em .35em; color: var(--ink-warm);
+}
+.lh-step__learn {
+    display: flex; gap: 1.4rem; flex-wrap: wrap;
+    margin: 1rem 0 0;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+.lh-step__learn b {
+    color: var(--accent);
+    font-weight: 500;
+    margin-right: .35em;
+}
+.lh-step__cta {
+    align-self: center;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    white-space: nowrap;
+    transition: transform .15s var(--ease-out);
+}
+.lh-step:hover .lh-step__cta { transform: translateX(4px); }
+
+@media (max-width: 760px) {
+    .lh-step { grid-template-columns: 1fr; gap: .8rem; }
+    .lh-step__num { font-size: 1.8rem; position: static; }
+    .lh-step__cta { align-self: start; }
+}
+
+.lh-side {
+    margin: 4rem 0 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+}
+.lh-side h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.6rem;
+    color: var(--ink-warm); letter-spacing: -.01em;
+    margin: 0 0 1rem;
+}
+.lh-side h2 i { color: var(--primary); font-style: italic; }
+.lh-side__list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+.lh-side__list a {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: .9rem; align-items: center;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color .15s, transform .15s;
+}
+.lh-side__list a:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+.lh-side__list b {
+    color: var(--primary);
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    width: 1.6rem;
+}
+.lh-side__list span {
+    font-family: var(--font-serif); font-size: 1.05rem;
+    color: var(--ink-warm);
+}
+.lh-side__list em {
+    color: var(--ink-faint); font-style: normal;
+    font-family: var(--font-mono); font-size: .76rem;
+}
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Learn",
+      "item": "https://asclepius.health/learn.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-learn">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="learn.html" class="is-active" aria-current="page">learn</a>
+      <a href="benchmarks.html">benchmarks</a>
+      <a href="changelog.html">changelog</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="lh-hero">
+  <div class="container">
+    <span class="kbd">three surfaces · 12 minutes total</span>
+    <h1>Learn the substrate <i>by running it.</i></h1>
+    <p>
+      Asclepius is easier to feel than to read about. The three pages below cover the full
+      lifecycle of an audited inference — emit, hand off, inspect — and each is interactive.
+      Open them in order. Twelve minutes from cold to confident.
+    </p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="lh-track">
+
+    <a class="lh-step" href="demo.html">
+      <span class="lh-step__num">01</span>
+      <div class="lh-step__body">
+        <h2>Wrap a model <i>in your tab.</i></h2>
+        <p>
+          The playground is a faithful reimplementation of the runtime in vanilla JS.
+          Type a clinical transcript with PHI, hit <code>wrap inference</code>, and watch
+          a Web-Crypto-signed Merkle ledger grow in front of you. Tamper a row;
+          the chain goes red and tells you exactly which byte changed.
+        </p>
+        <p class="lh-step__learn">
+          <span><b>you'll learn</b></span>
+          <span>policy chain</span>
+          <span>signed entries</span>
+          <span>tamper detection</span>
+          <span>drift telemetry</span>
+        </p>
+      </div>
+      <span class="lh-step__cta">open playground →</span>
+    </a>
+
+    <a class="lh-step" href="verify-bundle.html">
+      <span class="lh-step__num">02</span>
+      <div class="lh-step__body">
+        <h2>Hand it off <i>to a verifier.</i></h2>
+        <p>
+          Five steps with <code>tar</code>, <code>openssl</code>, <code>jq</code>, and
+          <code>sha256sum</code>. The exact commands a regulator runs against a real
+          evidence bundle, with the exact expected output for each. No vendor library,
+          no network — just the bytes.
+        </p>
+        <p class="lh-step__learn">
+          <span><b>you'll learn</b></span>
+          <span>USTAR layout</span>
+          <span>Ed25519 verify</span>
+          <span>chain walking</span>
+          <span>offline verification</span>
+        </p>
+      </div>
+      <span class="lh-step__cta">walk the ritual →</span>
+    </a>
+
+    <a class="lh-step" href="explorer.html">
+      <span class="lh-step__num">03</span>
+      <div class="lh-step__body">
+        <h2>Inspect <i>a real chain.</i></h2>
+        <p>
+          The auditor's microscope. Drop a <code>ledger_excerpt.jsonl</code> from a real
+          bundle — or generate a sample — and walk the chain entry by entry. Recompute
+          payload hashes in the browser, see green check-marks where the chain is clean
+          and red where it broke.
+        </p>
+        <p class="lh-step__learn">
+          <span><b>you'll learn</b></span>
+          <span>JSONL inspection</span>
+          <span>payload re-hash</span>
+          <span>chain integrity in vivo</span>
+        </p>
+      </div>
+      <span class="lh-step__cta">open explorer →</span>
+    </a>
+
+  </div>
+
+  <section class="lh-side">
+    <h2>Side trips, <i>when you want depth.</i></h2>
+    <ul class="lh-side__list">
+      <li><a href="crypto.html"><b>04</b><span>Crypto toolbox</span><em>hash · sign · verify in your tab</em></a></li>
+      <li><a href="benchmarks.html"><b>05</b><span>Benchmarks</span><em>real numbers from a real harness</em></a></li>
+      <li><a href="conformance.html"><b>06</b><span>Conformance suite</span><em>L1 / L2 / L3 with concrete tests</em></a></li>
+      <li><a href="status.html"><b>07</b><span>Status dashboard</span><em>what production looks like</em></a></li>
+      <li><a href="architecture.html"><b>08</b><span>Architecture</span><em>component map, data flow</em></a></li>
+      <li><a href="spec.html"><b>09</b><span>Specification</span><em>on-disk + on-wire bytes</em></a></li>
+      <li><a href="threat-model.html"><b>10</b><span>Threat model</span><em>A1–A6 adversaries · what verify() proves</em></a></li>
+      <li><a href="glossary.html"><b>11</b><span>Glossary</span><em>every term, defined once</em></a></li>
+    </ul>
+  </section>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — learn.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="glossary.html">glossary</a>
+        <a href="cheatsheet.html">cheatsheet</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="explorer.html">explorer</a>
+        <a href="compare.html">compare</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Asclepius — A trust substrate for clinical AI">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0E0A18"/>
+      <stop offset="1" stop-color="#0A0710"/>
+    </linearGradient>
+    <radialGradient id="purple" cx="980" cy="80" r="540" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6B21A8" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#6B21A8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="green" cx="40" cy="540" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#059669" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#059669" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1F1A2A" stroke-width="0.6"/>
+    </pattern>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .04 0"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#purple)"/>
+  <rect width="1200" height="630" fill="url(#green)"/>
+  <rect width="1200" height="630" filter="url(#grain)" opacity=".5"/>
+
+  <!-- top bar -->
+  <g font-family="JetBrains Mono, ui-monospace, monospace" font-size="14" letter-spacing="3" fill="#9A92A8">
+    <text x="64"   y="64">FUTURE PROJECT BRIEF · 05</text>
+    <text x="1136" y="64" text-anchor="end">2026 Q2</text>
+  </g>
+  <line x1="64" y1="80" x2="1136" y2="80" stroke="#2A2438" stroke-width="1"/>
+
+  <!-- mark, top-right -->
+  <g transform="translate(1080 184)">
+    <circle r="56" fill="none" stroke="#2A2438" stroke-width="1"/>
+    <circle r="44" fill="none" stroke="#2A2438" stroke-width="1" stroke-dasharray="2 4"/>
+    <g>
+      <path d="M 30 0 A 30 30 0 1 0 -8 28"
+            fill="none" stroke="#B57BFF" stroke-width="3.6" stroke-linecap="round"/>
+      <circle cx="30" cy="0" r="7.5" fill="#B57BFF"/>
+      <circle cx="-10" cy="-10" r="3.4" fill="#34D399"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <text x="64" y="290"
+        font-family="Instrument Serif, Times New Roman, serif"
+        font-size="160"
+        fill="#F2EDDB"
+        letter-spacing="-3">Asclepius</text>
+
+  <!-- tagline (italic accent) -->
+  <text x="64" y="378"
+        font-family="Instrument Serif, Times New Roman, serif"
+        font-size="56"
+        font-style="italic"
+        fill="#EFEAF5">The <tspan fill="#B57BFF">Linux kernel</tspan> for clinical AI.</text>
+
+  <!-- description -->
+  <text x="64" y="448"
+        font-family="Newsreader, Georgia, serif"
+        font-size="22"
+        fill="#9A92A8">An open, vendor-neutral C++ runtime that wraps any clinical-AI tool with audit-grade safety:</text>
+  <text x="64" y="478"
+        font-family="Newsreader, Georgia, serif"
+        font-size="22"
+        fill="#9A92A8">signed Merkle ledger · composable guardrails · drift detection · regulator-ready evidence bundles.</text>
+
+  <!-- spec strip -->
+  <g transform="translate(64 540)" font-family="JetBrains Mono, monospace" font-size="14" letter-spacing="2" fill="#9A92A8">
+    <text x="0"   y="0">APACHE 2.0</text>
+    <line x1="120" y1="-5" x2="120" y2="5" stroke="#36303F"/>
+    <text x="148" y="0">C++20 · ED25519 · BLAKE2b</text>
+    <line x1="464" y1="-5" x2="464" y2="5" stroke="#36303F"/>
+    <text x="492" y="0">SQLITE-BACKED · FHIR-AWARE</text>
+    <line x1="848" y1="-5" x2="848" y2="5" stroke="#36303F"/>
+    <text x="876" y="0">PYTHON · RUST</text>
+  </g>
+
+  <!-- bottom bar -->
+  <line x1="64" y1="566" x2="1136" y2="566" stroke="#2A2438" stroke-width="1"/>
+  <g font-family="JetBrains Mono, monospace" font-size="13" letter-spacing="3" fill="#5A5167">
+    <text x="64"   y="592">asclepius.health</text>
+    <text x="1136" y="592" text-anchor="end">verify offline · in under a second</text>
+  </g>
+</svg>

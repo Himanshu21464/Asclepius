@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colophon — Asclepius</title>
+<meta name="description" content="How the Asclepius site itself is built: type stack, design tokens, no-framework discipline, build pipeline, self-attestation, lessons learned.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/colophon.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Colophon — Asclepius">
+<meta property="og:description"  content="The site, by the same posture as the substrate: hand-rolled, attested, no framework.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .co { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .co__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .co__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .co__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.6rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .co__hero h1 i { color: var(--primary); font-style: italic; }
+  .co__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+
+  /* big type specimen */
+  .co-spec {
+    margin: 0 0 3rem;
+    padding: clamp(2rem, 5vw, 3rem) 1.6rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    background-image:
+      radial-gradient(640px 280px at 100% 0%, var(--primary-glow), transparent 70%);
+  }
+  .co-spec__cap {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--ink-faint);
+    margin-bottom: .8rem;
+  }
+  .co-spec__display {
+    font-family: var(--font-serif);
+    font-size: clamp(3.6rem, 10vw, 8rem);
+    line-height: .9; letter-spacing: -.04em;
+    color: var(--ink-warm); margin: 0 0 .4rem;
+  }
+  .co-spec__display i { color: var(--primary); font-style: italic; }
+  .co-spec__prose {
+    font-family: var(--font-prose); font-size: 1.1rem;
+    line-height: 1.6; color: var(--ink); max-width: 60ch; margin: .8rem 0 0;
+  }
+  .co-spec__mono {
+    font-family: var(--font-mono); font-size: .82rem;
+    color: var(--ink-mute); margin-top: 1.4rem; letter-spacing: .06em;
+  }
+
+  .co-section { padding: 2.4rem 0; border-top: 1px solid var(--rule-soft); max-width: 70ch; }
+  .co-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+  }
+  .co-section h2 i { color: var(--primary); font-style: italic; }
+  .co-section p { color: var(--ink); font-family: var(--font-prose); line-height: 1.7; margin: 0 0 1rem; }
+  .co-section em { color: var(--primary); font-style: italic; }
+  .co-section code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+
+  .co-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 1.4rem;
+    padding: .9rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: baseline;
+  }
+  .co-grid:first-of-type { border-top: 1px solid var(--rule); padding-top: 1rem; }
+  .co-grid b {
+    font-family: var(--font-mono); font-size: .82rem;
+    letter-spacing: .04em; color: var(--primary); font-weight: 500;
+  }
+  .co-grid span { color: var(--ink); font-family: var(--font-prose); font-size: .94rem; line-height: 1.6; }
+  .co-grid code { background: var(--surface-2); border: 1px solid var(--rule); padding: 1px 5px; font-size: .85em; color: var(--accent); }
+  @media (max-width: 600px) { .co-grid { grid-template-columns: 1fr; gap: .25rem; } }
+
+  /* swatches */
+  .co-swatches {
+    margin: 1.4rem 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0;
+    border: 1px solid var(--rule);
+    border-radius: 0;
+  }
+  .co-swatch {
+    padding: 1.4rem 1rem .8rem;
+    border-right: 1px solid var(--rule);
+    font-family: var(--font-mono);
+  }
+  .co-swatch:last-child { border-right: 0; }
+  .co-swatch__chip {
+    height: 56px; margin: 0 0 .8rem; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.06);
+  }
+  .co-swatch b { display: block; font-weight: 500; font-size: .8rem; color: var(--ink-warm); }
+  .co-swatch span { font-size: .68rem; color: var(--ink-faint); letter-spacing: .04em; }
+
+  .co-pre {
+    margin: 1rem 0;
+    padding: 1rem 1.2rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.65;
+    color: var(--ink);
+    white-space: pre;
+    overflow-x: auto;
+  }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",     "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Colophon", "item": "https://asclepius.health/colophon.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-colophon">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="press.html">press</a>
+      <a href="colophon.html" class="is-active" aria-current="page">colophon</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="co">
+  <div class="container">
+
+    <header class="co__hero">
+      <span class="kbd">colophon · about this site</span>
+      <h1>The site, by the same posture as the <i>substrate</i>.</h1>
+      <p>
+        Hand-rolled. No framework. No bundler. No analytics. Every page validates against
+        a single Python script. Every byte of every response is published in a SHA-256
+        manifest at <code>/asset-manifest.json</code> and the footer pill on every page
+        verifies the page you are reading right now.
+      </p>
+    </header>
+
+    <!-- type specimen -->
+    <section class="co-spec">
+      <span class="co-spec__cap">type specimen</span>
+      <p class="co-spec__display">The <i>Linux kernel</i> for clinical&nbsp;AI.</p>
+      <p class="co-spec__prose">
+        Display in <em>Instrument Serif</em>, italics doing the rhetorical work.
+        Long-form prose in <em>Newsreader</em>, four weights only — 300, 400, 500, 600.
+        Code, hashes, and meta in <em>JetBrains Mono</em>, deliberately neither pretty
+        nor ugly.
+      </p>
+      <p class="co-spec__mono">SHA-256 · BLAKE2b-256 · Ed25519 · 0x00 ↔ chain head</p>
+    </section>
+
+    <section class="co-section">
+      <h2>Type stack</h2>
+      <div>
+        <div class="co-grid">
+          <b>display</b>
+          <span><em>Instrument Serif</em>, italic where structural — never roman-set the wordmark.
+            Loaded from Google Fonts; <code>display=swap</code> so first paint never blocks.
+            <a href="https://fonts.google.com/specimen/Instrument+Serif">SIL OFL 1.1</a>.</span>
+        </div>
+        <div class="co-grid">
+          <b>prose</b>
+          <span><em>Newsreader</em> 300/400/500/600, both upright and italic. Comfortable at 17px,
+            still readable at 14px. <a href="https://fonts.google.com/specimen/Newsreader">SIL OFL 1.1</a>.</span>
+        </div>
+        <div class="co-grid">
+          <b>mono</b>
+          <span><em>JetBrains Mono</em> 400/500/600. Used for hashes, identifiers, code samples,
+            telemetry strips, <code>kbd</code> chips. <a href="https://www.jetbrains.com/lp/mono/">SIL OFL 1.1</a>.</span>
+        </div>
+        <div class="co-grid">
+          <b>fallback</b>
+          <span>If a visitor blocks Google Fonts the page falls through to system serif/sans/mono.
+            We tested with <code>fonts.googleapis.com</code> blocked: layout holds, italics still italicize.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="co-section">
+      <h2>Palette</h2>
+      <div class="co-swatches">
+        <div class="co-swatch">
+          <div class="co-swatch__chip" style="background:#0A0710"></div>
+          <b>ink</b><span>#0A0710 — bg dark</span>
+        </div>
+        <div class="co-swatch">
+          <div class="co-swatch__chip" style="background:#14101D"></div>
+          <b>surface</b><span>#14101D — cards</span>
+        </div>
+        <div class="co-swatch">
+          <div class="co-swatch__chip" style="background:#6B21A8"></div>
+          <b>primary</b><span>#6B21A8 — canonical</span>
+        </div>
+        <div class="co-swatch">
+          <div class="co-swatch__chip" style="background:#B57BFF"></div>
+          <b>primary&nbsp;lift</b><span>#B57BFF — dark theme</span>
+        </div>
+        <div class="co-swatch">
+          <div class="co-swatch__chip" style="background:#059669"></div>
+          <b>accent</b><span>#059669 — canonical</span>
+        </div>
+        <div class="co-swatch">
+          <div class="co-swatch__chip" style="background:#34D399"></div>
+          <b>accent&nbsp;lift</b><span>#34D399 — dark theme</span>
+        </div>
+      </div>
+      <p>
+        The light-theme palette inverts surface and ink and uses the canonical-deep variants
+        of primary and accent. <em>No pure-white backgrounds, no pure-black text</em> — both
+        readings are tinted toward primary.
+      </p>
+    </section>
+
+    <section class="co-section">
+      <h2>Build pipeline</h2>
+      <p>
+        Three Python helpers, one Makefile, zero JavaScript build step. Default flow on every edit:
+      </p>
+      <pre class="co-pre">$ make all
+asclepius site validator — 32 html files
+✓ all clean
+wrote asset-manifest.json — 61 files
+wrote search-index.json — 31 pages
+✓ site refreshed</pre>
+      <p>
+        <code>check_html.py</code> walks every page for broken links, duplicate IDs, missing alts,
+        heading-hierarchy violations, and metadata gaps; <code>regen_manifest.py</code> recomputes
+        SHA-256 of every served file; <code>regen_search.py</code> rebuilds the page index.
+        <code>build_docs.py</code> renders the markdown docs into themed HTML pages.
+        Make targets coordinate.
+      </p>
+    </section>
+
+    <section class="co-section">
+      <h2>JavaScript discipline</h2>
+      <p>
+        Nine modules, ~2.4k lines, no transpilation, no bundling, no source maps. Each file is
+        self-contained and IIFE-wrapped:
+      </p>
+      <div>
+        <div class="co-grid"><b>main.js</b><span>theme toggle, scroll spy, FAQ accordion, embedded landing-page demo</span></div>
+        <div class="co-grid"><b>extras.js</b><span>reveal-on-scroll, copy buttons, status-bar frost, anchor flash, typed terminal, mobile burger, SW registration</span></div>
+        <div class="co-grid"><b>palette.js</b><span>⌘K command palette · hand-curated index of every URL on the site</span></div>
+        <div class="co-grid"><b>help.js</b><span>? help modal · g-then-key navigation chords (g h, g d, g p, …)</span></div>
+        <div class="co-grid"><b>floating.js</b><span>bottom-right cluster: scroll-top, share-permalink, page-attestation pill</span></div>
+        <div class="co-grid"><b>attest-site.js</b><span>computes SHA-256 of <code>&lt;main&gt;</code> and verifies against /asset-manifest.json</span></div>
+        <div class="co-grid"><b>themes.js</b><span>multi-preset palette picker beyond basic dark/light</span></div>
+        <div class="co-grid"><b>bench.js</b><span>live-binds /benchmarks numbers from /assets/bench.json</span></div>
+        <div class="co-grid"><b>demo.js</b><span>playground runtime — Web Crypto Ed25519 + SHA-256, signed Merkle ledger, drift PSI, evidence export</span></div>
+      </div>
+    </section>
+
+    <section class="co-section">
+      <h2>Self-attestation</h2>
+      <p>
+        The substrate's thesis is that audit must be cryptographically verifiable, not "trust us."
+        We hold the site to the same bar. Every file the server returns has its SHA-256 published
+        in <code>/asset-manifest.json</code>. The pill at the bottom-right corner of every page —
+        the small ◇ — recomputes the hash of the <code>&lt;main&gt;</code> you are reading and shows
+        you whether it matches the manifest entry. <em>Click it to verify what we just served you.</em>
+      </p>
+      <p>
+        This is the same posture as the runtime, applied to the site that markets it. There is no
+        coherent way to ask hospitals to trust an audit substrate while shipping their executives
+        a marketing site that runs Google Tag Manager.
+      </p>
+    </section>
+
+    <section class="co-section">
+      <h2>What didn't make the cut</h2>
+      <p>
+        We tried a Tailwind variant: too much HTML noise. We tried a build with esbuild: the speed
+        gain wasn't worth the cognitive cost of a build step. We tried an MDX-rendered docs path:
+        the markdown source is the source of truth, and HTML rendered from it stayed simpler.
+      </p>
+      <p>
+        The site has remained at zero runtime dependencies (other than Google Fonts, which is opt-out
+        via <a href="cookies.html">/cookies</a>) for every iteration. Adding one is a code change,
+        a PR, and an RFC.
+      </p>
+    </section>
+
+    <section class="co-section">
+      <h2>Lessons</h2>
+      <p>
+        — Validating before publishing is faster than fixing in production. <code>make all</code> on every change.
+      </p>
+      <p>
+        — Italic accents do most of the rhetorical work; they survive theme inversion gracefully and
+        cost nothing on render.
+      </p>
+      <p>
+        — A small, hand-curated command palette beats live full-text search for a site of 32 pages.
+        At 100 pages we may revisit.
+      </p>
+      <p>
+        — Self-attestation is harder than runtime attestation, because pages get edited often and the
+        manifest goes stale. <code>regen_manifest.py</code> in <code>make all</code> closes the loop.
+      </p>
+    </section>
+
+    <section class="co-section">
+      <h2>Thanks</h2>
+      <p>
+        See <a href="humans.txt">/humans.txt</a> and <a href="licenses.html">/licenses</a>. Special
+        thanks to the type designers — David Jonathan Ross (Instrument Serif), Production Type
+        (Newsreader), JetBrains (JetBrains Mono) — whose work makes this site readable at any scale.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — colophon.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>about</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="press.html">press kit</a>
+        <a href="colophon.html">colophon</a>
+        <a href="humans.txt">humans.txt</a>
+      </div>
+      <div>
+        <b>policies</b>
+        <a href="accessibility.html">accessibility</a>
+        <a href="cookies.html">cookies</a>
+        <a href="licenses.html">licenses</a>
+        <a href="governance.html">governance</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/floating.js" defer></script>
+</body>
+</html>

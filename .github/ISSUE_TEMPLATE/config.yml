@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security disclosure
+    url: mailto:security@asclepius.health
+    about: For chain forgery, signature bypass, PHI leakage, or any vulnerability that could affect a deployed customer. See SECURITY.
+  - name: Asclepius docs
+    url: https://asclepius.health/docs.html
+    about: Architecture, spec, threat model.
+  - name: GitHub Discussions
+    url: https://github.com/asclepius-ai/asclepius/discussions
+    about: Questions, design conversations, sharing how you wired Asclepius into your stack.

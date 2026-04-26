@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Badges — Asclepius</title>
+<meta name="description" content="Embeddable SVG status badges for the Asclepius project. Drop them into your README, your dashboard, your runbook.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/badges.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Badges — Asclepius">
+<meta property="og:description"  content="Embeddable SVG status badges. Copy the snippet, paste in your README.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .bg { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .bg__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .bg__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .bg__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .bg__hero h1 i { color: var(--primary); font-style: italic; }
+  .bg__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+  .bg__hero p code { background: var(--surface-2); border: 1px solid var(--rule); padding: 1px 5px; font-size: .85em; color: var(--accent); }
+
+  .bg-card {
+    margin: 1rem 0;
+    padding: 1.6rem 1.6rem 1.4rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    display: grid;
+    grid-template-columns: minmax(160px, auto) 1fr;
+    gap: 1.6rem;
+    align-items: start;
+  }
+  @media (max-width: 700px) { .bg-card { grid-template-columns: 1fr; gap: 1rem; } }
+
+  .bg-card__preview {
+    padding: 1.4rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 64px;
+  }
+  [data-theme="light"] .bg-card__preview {
+    background: var(--surface-2);
+  }
+  .bg-card__preview img { display: block; max-width: 100%; height: auto; }
+
+  .bg-card__body h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.4rem; color: var(--ink-warm);
+    margin: 0 0 .35rem; letter-spacing: -.01em;
+  }
+  .bg-card__body h2 { font-size: 1.4rem; }
+  .bg-card__body h2 i { color: var(--primary); font-style: italic; }
+  .bg-card__body p {
+    color: var(--ink-mute); font-family: var(--font-prose);
+    font-size: .94rem; line-height: 1.6; margin: 0 0 .9rem;
+  }
+
+  .bg-snippet {
+    margin: .4rem 0 0;
+    padding: .7rem .9rem;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    line-height: 1.55;
+    color: var(--ink);
+    word-break: break-all;
+    cursor: copy;
+    position: relative;
+    transition: border-color .2s, background .2s;
+  }
+  .bg-snippet:hover { border-color: var(--primary); }
+  .bg-snippet[data-copied="1"]::after {
+    content: "copied";
+    position: absolute;
+    top: .55rem; right: .9rem;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    background: var(--accent-glow);
+    border: 1px solid var(--accent-deep);
+    padding: 1px 6px;
+  }
+  .bg-snippet b {
+    display: block;
+    color: var(--ink-faint);
+    font-weight: 500;
+    font-size: .66rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-bottom: .4rem;
+  }
+
+  .bg-section { padding: 2.4rem 0; border-top: 1px solid var(--rule-soft); max-width: 70ch; }
+  .bg-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+  }
+  .bg-section h2 i { color: var(--primary); font-style: italic; }
+  .bg-section p { color: var(--ink); font-family: var(--font-prose); line-height: 1.7; margin: 0 0 1rem; }
+  .bg-section em { color: var(--primary); font-style: italic; }
+  .bg-section code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    padding: 1px 5px; font-size: .85em; color: var(--accent);
+  }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",   "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Badges", "item": "https://asclepius.health/badges.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-badges">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="press.html">press</a>
+      <a href="badges.html" class="is-active" aria-current="page">badges</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="bg">
+  <div class="container">
+
+    <header class="bg__hero">
+      <span class="kbd">badges · embeddable · attested</span>
+      <h1>Drop a <i>verifier-grade</i> badge in your README.</h1>
+      <p>
+        Six SVGs, hosted at <code>asclepius.health/assets/badges/</code>. Click any snippet to
+        copy it. The image fetch from your README will hit our service worker's edge cache
+        first; we serve <code>image/svg+xml</code> with a sensible <code>Cache-Control</code>.
+        Every badge is itself part of the <code>/asset-manifest.json</code> attestation.
+      </p>
+    </header>
+
+    <section class="bg-card">
+      <div class="bg-card__preview"><img src="assets/badges/version.svg" alt="asclepius v0.3.0"></div>
+      <div class="bg-card__body">
+        <h2>Release <i>version</i></h2>
+        <p>The current latest release. Updated on every tagged release; today: v0.3.0.</p>
+        <p class="bg-snippet" data-copy="![asclepius](https://asclepius.health/assets/badges/version.svg)">
+          <b>markdown</b>
+          <code>![asclepius](https://asclepius.health/assets/badges/version.svg)</code>
+        </p>
+        <p class="bg-snippet" data-copy='&lt;img src="https://asclepius.health/assets/badges/version.svg" alt="asclepius v0.3.0"&gt;'>
+          <b>html</b>
+          <code>&lt;img src="https://asclepius.health/assets/badges/version.svg" alt="asclepius v0.3.0"&gt;</code>
+        </p>
+      </div>
+    </section>
+
+    <section class="bg-card">
+      <div class="bg-card__preview"><img src="assets/badges/license.svg" alt="license Apache 2.0"></div>
+      <div class="bg-card__body">
+        <h2>License</h2>
+        <p>Static. Apache 2.0 across the runtime, bindings, conformance suite, and this site.</p>
+        <p class="bg-snippet" data-copy="![license](https://asclepius.health/assets/badges/license.svg)">
+          <b>markdown</b>
+          <code>![license](https://asclepius.health/assets/badges/license.svg)</code>
+        </p>
+      </div>
+    </section>
+
+    <section class="bg-card">
+      <div class="bg-card__preview"><img src="assets/badges/conformance.svg" alt="conformance L1 · L2 · L3"></div>
+      <div class="bg-card__body">
+        <h2>Conformance <i>level</i></h2>
+        <p>L1 audit · L2 drift · L3 prospective evidence — what the public conformance battery currently passes. Updated on every CI run.</p>
+        <p class="bg-snippet" data-copy="![conformance](https://asclepius.health/assets/badges/conformance.svg)">
+          <b>markdown</b>
+          <code>![conformance](https://asclepius.health/assets/badges/conformance.svg)</code>
+        </p>
+      </div>
+    </section>
+
+    <section class="bg-card">
+      <div class="bg-card__preview"><img src="assets/badges/ledger.svg" alt="ledger verified"></div>
+      <div class="bg-card__body">
+        <h2>Ledger <i>verified</i></h2>
+        <p>The public test corpus's chain replays cleanly against its head. Regenerated every nightly verifier run; see <a href="status.html">/status</a>.</p>
+        <p class="bg-snippet" data-copy="![ledger verified](https://asclepius.health/assets/badges/ledger.svg)">
+          <b>markdown</b>
+          <code>![ledger verified](https://asclepius.health/assets/badges/ledger.svg)</code>
+        </p>
+      </div>
+    </section>
+
+    <section class="bg-card">
+      <div class="bg-card__preview"><img src="assets/badges/build.svg" alt="build passing"></div>
+      <div class="bg-card__body">
+        <h2>Build status</h2>
+        <p>CI-equivalent. The badge is updated when the build pipeline writes a fresh asset-manifest, so it reflects the bytes you'd actually fetch.</p>
+        <p class="bg-snippet" data-copy="![build](https://asclepius.health/assets/badges/build.svg)">
+          <b>markdown</b>
+          <code>![build](https://asclepius.health/assets/badges/build.svg)</code>
+        </p>
+      </div>
+    </section>
+
+    <section class="bg-card">
+      <div class="bg-card__preview"><img src="assets/badges/runtime.svg" alt="runtime C++20"></div>
+      <div class="bg-card__body">
+        <h2>Runtime <i>language</i></h2>
+        <p>C++20 throughout the core. Useful when you're mentioning Asclepius next to your own runtime stack.</p>
+        <p class="bg-snippet" data-copy="![runtime](https://asclepius.health/assets/badges/runtime.svg)">
+          <b>markdown</b>
+          <code>![runtime](https://asclepius.health/assets/badges/runtime.svg)</code>
+        </p>
+      </div>
+    </section>
+
+    <section class="bg-section">
+      <h2>Why <i>self-hosted</i></h2>
+      <p>
+        We don't use shields.io. The badges live at <code>asclepius.health/assets/badges/*.svg</code>
+        and are part of the same <code>asset-manifest.json</code> SHA-256 record that every other
+        page is. <em>If a badge ever shows you a value we cannot back up with a published bundle,
+        the manifest will say so.</em>
+      </p>
+      <p>
+        Hosts that proxy SVG (e.g., GitHub's image proxy <code>camo.githubusercontent.com</code>)
+        will cache the badge for several minutes. That's fine — the values change rarely, and the
+        page that authoritatively reports each value (<a href="changelog.html">/changelog</a>,
+        <a href="status.html">/status</a>, <a href="conformance.html">/conformance</a>) is one
+        click away.
+      </p>
+    </section>
+
+    <section class="bg-section">
+      <h2>For partners + design partners</h2>
+      <p>
+        If you're piloting Asclepius and want a "powered by" pill for your hospital's intranet, the
+        same set fits. Email <a href="mailto:labs@asclepius.health">labs@asclepius.health</a> if
+        you'd like a customized monochrome variant — we keep them in <code>assets/badges/mono/</code>
+        when partners need to drop them onto a coloured background.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — badges.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>about</b>
+        <a href="press.html">press kit</a>
+        <a href="badges.html">badges</a>
+        <a href="colophon.html">colophon</a>
+        <a href="humans.txt">humans.txt</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="security.html">security</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/badges.js" defer></script>
+</body>
+</html>

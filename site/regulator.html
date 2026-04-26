@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>For regulators — Asclepius</title>
+<meta name="description" content="A direct mapping from regulatory requirement to substrate primitive. HIPAA, EU AI Act high-risk obligations, FDA SaMD, California AB 3030, Joint Commission integrity rules — each tied to the exact Asclepius mechanism that addresses it.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/regulator.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — For regulators">
+<meta property="og:description"  content="Regulatory requirements mapped to substrate primitives. HIPAA · EU AI Act · FDA SaMD · AB 3030.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.rg-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.rg-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.rg-hero h1 i { color: var(--primary); font-style: italic; }
+.rg-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.rg-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.rg-toc { margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
+.rg-toc__pill {
+    display: block; padding: .9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--ink-warm);
+    transition: border-color .15s, transform .12s;
+}
+.rg-toc__pill:hover { border-color: var(--primary); transform: translateY(-1px); }
+.rg-toc__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.rg-toc__t { display: block; font-family: var(--font-prose); font-size: 1rem; margin-top: .25rem; line-height: 1.35; }
+.rg-toc__sub { display: block; font-family: var(--font-mono); font-size: .68rem; color: var(--ink-mute); margin-top: .35rem; }
+
+.rg-frame {
+    margin: 4rem 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+}
+.rg-frame__head {
+    display: flex; align-items: baseline; gap: .9rem; flex-wrap: wrap;
+    margin-bottom: .4rem;
+}
+.rg-frame__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.rg-frame__juris { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-mute); }
+.rg-frame__date { margin-left: auto; font-family: var(--font-mono); font-size: .68rem; color: var(--ink-mute); }
+.rg-frame h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.8rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .25rem 0 .8rem; }
+.rg-frame h2 i { color: var(--primary); font-style: italic; }
+.rg-frame__lede { font-family: var(--font-prose); font-size: 1rem; line-height: 1.6; color: var(--ink); max-width: 64ch; margin: 0 0 1.4rem; }
+.rg-frame__lede em { color: var(--ink-warm); font-style: italic; }
+.rg-frame__lede code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.rg-map { width: 100%; border-collapse: collapse; font-family: var(--font-prose); font-size: .96rem; line-height: 1.5; margin-top: 1rem; }
+.rg-map th, .rg-map td { text-align: left; padding: .75rem 1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.rg-map th { font-family: var(--font-mono); font-weight: 500; font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); border-bottom: 1px solid var(--rule); }
+.rg-map td.rg-map__req { color: var(--ink-warm); width: 38%; }
+.rg-map td.rg-map__req b { color: var(--primary); display: block; font-family: var(--font-mono); font-weight: 500; font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; margin-bottom: .25rem; }
+.rg-map td.rg-map__prim { color: var(--ink); }
+.rg-map td.rg-map__prim a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.rg-map td.rg-map__prim a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+.rg-map td.rg-map__prim code { font-family: var(--font-mono); font-size: .86em; padding: .04em .3em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+.rg-map tr:hover td { background: rgba(181,123,255,.04); }
+
+.rg-stamp {
+    margin: 1.2rem 0 0;
+    padding: .9rem 1rem;
+    border-left: 2px solid #34D399;
+    background: rgba(52,211,153,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    font-size: .92rem;
+    line-height: 1.55;
+}
+.rg-stamp b { color: #34D399; }
+.rg-stamp em { color: var(--ink-warm); font-style: italic; }
+
+.rg-warn {
+    margin: 1.2rem 0 0;
+    padding: .9rem 1rem;
+    border-left: 2px solid #F4B860;
+    background: rgba(244,184,96,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    font-size: .92rem;
+    line-height: 1.55;
+}
+.rg-warn b { color: #F4B860; }
+.rg-warn em { color: var(--ink-warm); font-style: italic; }
+
+.rg-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.rg-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.rg-coda h2 i { color: var(--primary); font-style: italic; }
+.rg-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.rg-coda .rg-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.rg-coda .rg-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.rg-coda .rg-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+
+@media (max-width: 760px) {
+    .rg-map td.rg-map__req { width: 100%; display: block; }
+    .rg-map td.rg-map__prim { width: 100%; display: block; padding-top: 0; }
+}
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",            "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "For regulators",  "item": "https://asclepius.health/regulator.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-regulator">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="threat-model.html">threat model</a>
+      <a href="regulator.html" class="is-active" aria-current="page">for regulators</a>
+      <a href="conformance.html">conformance</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="rg-hero">
+  <div class="container">
+    <span class="kbd">§01 · five frameworks · primitive-by-primitive</span>
+    <h1>What an auditor should <i>look for.</i></h1>
+    <p>
+      Asclepius is not certified to any single framework — substrates rarely are.
+      But every clause that an auditor cares about maps to a specific, named
+      mechanism in the runtime. This page is that map. <em>If your framework
+      isn't here, send a request — the gap is almost certainly an oversight,
+      not an absence.</em>
+    </p>
+
+    <nav class="rg-toc" aria-label="framework index">
+      <a class="rg-toc__pill" href="#hipaa">
+        <span class="rg-toc__num">§ 01</span>
+        <span class="rg-toc__t">HIPAA Security &amp; Privacy</span>
+        <span class="rg-toc__sub">US · 45 CFR § 164</span>
+      </a>
+      <a class="rg-toc__pill" href="#eu-ai-act">
+        <span class="rg-toc__num">§ 02</span>
+        <span class="rg-toc__t">EU AI Act, high-risk</span>
+        <span class="rg-toc__sub">EU · Reg. (EU) 2024/1689</span>
+      </a>
+      <a class="rg-toc__pill" href="#fda-samd">
+        <span class="rg-toc__num">§ 03</span>
+        <span class="rg-toc__t">FDA SaMD pre-market</span>
+        <span class="rg-toc__sub">US · 21 CFR § 820 / 510(k)</span>
+      </a>
+      <a class="rg-toc__pill" href="#ab-3030">
+        <span class="rg-toc__num">§ 04</span>
+        <span class="rg-toc__t">California AB 3030</span>
+        <span class="rg-toc__sub">CA · Health &amp; Safety §1339.75</span>
+      </a>
+      <a class="rg-toc__pill" href="#joint-comm">
+        <span class="rg-toc__num">§ 05</span>
+        <span class="rg-toc__t">Joint Commission record integrity</span>
+        <span class="rg-toc__sub">US · RC.01.03.01 · IM.02.01.03</span>
+      </a>
+    </nav>
+  </div>
+</section>
+
+<!-- ─────────── §01 HIPAA ─────────── -->
+<section class="container rg-frame" id="hipaa">
+  <div class="rg-frame__head">
+    <span class="rg-frame__num">§ 01</span>
+    <span class="rg-frame__juris">US · 45 CFR § 164 subparts C+E</span>
+    <span class="rg-frame__date">last reviewed 2026-04-01</span>
+  </div>
+  <h2>HIPAA — Security &amp; Privacy <i>Rules.</i></h2>
+  <p class="rg-frame__lede">
+    HIPAA does not regulate AI directly; it regulates <em>protected health
+    information</em>. When an AI tool sees, derives, or stores PHI, every
+    Security Rule administrative-, physical-, and technical-safeguard clause
+    applies. The substrate addresses the technical safeguards directly and
+    provides the audit substrate for the administrative ones.
+  </p>
+
+  <table class="rg-map" aria-label="HIPAA requirement to primitive map">
+    <thead>
+      <tr><th>requirement</th><th>Asclepius primitive</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rg-map__req"><b>§ 164.312(a)(1) · access control</b>Unique user id, automatic logoff, encryption at rest.</td>
+        <td class="rg-map__prim">Every entry carries an <code>actor</code> id (clin/svc/sys/agent prefix); KeyStore can sit behind an HSM with per-actor delegation. See <a href="api.html">KeyStore</a> · <a href="deploy.html">Deploy</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>§ 164.312(b) · audit controls</b>Hardware, software, procedural mechanisms that record and examine activity.</td>
+        <td class="rg-map__prim">The Merkle-chained signed ledger <em>is</em> this control. Every inference, consent change, key event, and bundle export is one signed row. See <a href="architecture.html">Ledger</a> · <a href="schemas/audit-entry.v1.json">audit-entry schema</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>§ 164.312(c)(1) · integrity</b>Protect ePHI from improper alteration or destruction.</td>
+        <td class="rg-map__prim">Append-only chain; <code>prev_hash</code> binds every row to its predecessor. Any retroactive edit fails verification. See <a href="playbooks.html#truncation">Playbook PB-01</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>§ 164.312(d) · person/entity authentication</b>Verify that a person/entity seeking access is the one claimed.</td>
+        <td class="rg-map__prim">Ed25519 sig on every entry binds the action to the keyholder. Two-key co-sign for human-ratified agentic actions. See <a href="decisions.html#adr-001">ADR-001</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>§ 164.312(e)(1) · transmission security</b>Guard ePHI in transit.</td>
+        <td class="rg-map__prim">Substrate is transport-agnostic — operate behind your TLS terminator. Bundles are signed at rest, tamper-evident in transit.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>§ 164.524 · access of individuals</b>Right of access to one's PHI.</td>
+        <td class="rg-map__prim">Per-patient bundle export: <code>asclepius bundle export --patient PT-…</code>. The patient (or their delegate) gets a signed, replayable record.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>§ 164.508 · authorisations &amp; revocations</b>Track consent and its revocation.</td>
+        <td class="rg-map__prim">ConsentRegistry records grant/expire/revoke as signed entries; runtime revalidates scope every inference. See <a href="playbooks.html#consent-revocation">Playbook PB-05</a>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="rg-stamp">
+    <b>Substrate posture.</b> Asclepius does not become a <em>covered entity</em>
+    or <em>business associate</em> by virtue of being deployed; the operator
+    does. The substrate is a vendor-neutral library — the BAA is between the
+    operator and the model vendor, not the operator and us.
+  </p>
+</section>
+
+<!-- ─────────── §02 EU AI Act ─────────── -->
+<section class="container rg-frame" id="eu-ai-act">
+  <div class="rg-frame__head">
+    <span class="rg-frame__num">§ 02</span>
+    <span class="rg-frame__juris">EU · Regulation (EU) 2024/1689</span>
+    <span class="rg-frame__date">last reviewed 2026-04-01</span>
+  </div>
+  <h2>EU AI Act — <i>high-risk</i> obligations.</h2>
+  <p class="rg-frame__lede">
+    Article 6 lists healthcare AI explicitly as high-risk. The Title III
+    obligations — risk management, data governance, technical documentation,
+    record-keeping, transparency, human oversight, robustness, post-market
+    monitoring — are the meat of the audit. The substrate addresses
+    record-keeping and post-market monitoring at the primitive level.
+  </p>
+
+  <table class="rg-map" aria-label="EU AI Act requirement to primitive map">
+    <thead>
+      <tr><th>obligation</th><th>Asclepius primitive</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rg-map__req"><b>art. 9 · risk management</b>Iterative process; identify, analyse, evaluate, mitigate.</td>
+        <td class="rg-map__prim">Threat model A1–A6 enumerates substrate-level risks; conformance suite L1/L2/L3 demonstrates mitigations. See <a href="threat-model.html">threat-model</a> · <a href="conformance.html">conformance</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>art. 10 · data &amp; data governance</b>Training/validation/test sets · representativeness · freedom from errors.</td>
+        <td class="rg-map__prim">Out-of-scope at the substrate layer; the operator's MLOps stack governs this. The substrate <em>records</em> the resulting model artefact (<code>weights_sha256</code>) so the data lineage is bound to runtime decisions.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>art. 12 · record-keeping</b>Logs that enable traceability of the AI system's functioning over its life.</td>
+        <td class="rg-map__prim">The ledger <em>is</em> this control. Every inference, every drift snapshot, every consent change, every key rotation, is one signed entry. See <a href="architecture.html">Ledger</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>art. 13 · transparency &amp; provision of information to deployers</b>Operating instructions, performance characteristics, oversight measures.</td>
+        <td class="rg-map__prim">Public spec, threat model, conformance suite, ADR log. See <a href="docs.html">docs</a> · <a href="decisions.html">decisions</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>art. 14 · human oversight</b>Effective oversight by natural persons; ability to override or stop.</td>
+        <td class="rg-map__prim">ActionFilter blast-radius table forces high-impact actions to require a human co-sign. See <a href="use-cases.html#agentic">agentic use case</a> · <a href="integrations.html#agent">agent recipe</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>art. 15 · accuracy, robustness, cybersecurity</b>Performance levels, resilience to unauthorised attempts to alter use.</td>
+        <td class="rg-map__prim">Drift monitor (PSI/KS/EMD), evidence bundles, the threat model's A2–A4 mitigations. See <a href="benchmarks.html">benchmarks</a> · <a href="threat-model.html">threat model</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>art. 17 · post-market monitoring</b>Document/analyse data on the system in actual use.</td>
+        <td class="rg-map__prim">Drift snapshots and conformance reports are emitted continuously and bound to releases. Bundles can be aggregated into a post-market dossier.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="rg-stamp">
+    <b>Substrate posture.</b> Asclepius is <em>not itself</em> a high-risk AI
+    system under art. 3 — it is a record-keeping and oversight component. The
+    AI provider remains responsible for arts. 9, 10, 13, 14, 15 conformity;
+    the substrate provides the audit infrastructure that art. 12 and 17
+    demand.
+  </p>
+</section>
+
+<!-- ─────────── §03 FDA SaMD ─────────── -->
+<section class="container rg-frame" id="fda-samd">
+  <div class="rg-frame__head">
+    <span class="rg-frame__num">§ 03</span>
+    <span class="rg-frame__juris">US · 21 CFR § 820 · 510(k) / De Novo</span>
+    <span class="rg-frame__date">last reviewed 2026-04-01</span>
+  </div>
+  <h2>FDA — <i>SaMD</i> pre-market submissions.</h2>
+  <p class="rg-frame__lede">
+    Software as a Medical Device with AI/ML components must include a
+    Predetermined Change Control Plan (PCCP), a Good Machine Learning Practice
+    (GMLP) attestation, and post-market real-world performance reporting. The
+    substrate is the mechanism by which an operator demonstrates that the
+    deployed model is the model that was cleared.
+  </p>
+
+  <table class="rg-map" aria-label="FDA SaMD requirement to primitive map">
+    <thead>
+      <tr><th>obligation</th><th>Asclepius primitive</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rg-map__req"><b>21 CFR § 820.30 · design controls</b>Establish &amp; maintain procedures.</td>
+        <td class="rg-map__prim">ADR log + spec + threat model + conformance suite are the design history file in plain sight. See <a href="decisions.html">decisions</a> · <a href="spec.html">spec</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>510(k) · device identity</b>The cleared device is the device on the market.</td>
+        <td class="rg-map__prim">Every entry binds <code>weights_sha256</code> of the artefact that produced it. Substrate refuses to commit if the running artefact's hash drifts from the cleared hash. See <a href="api.html">Runtime</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>PCCP · predetermined change control</b>Permitted changes &amp; their boundary.</td>
+        <td class="rg-map__prim">Policy chain entries are versioned (e.g., <code>phi.v4</code>); a policy or model bump is one signed <code>policy.added</code> or <code>model.updated</code> entry, replayable end to end.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>GMLP principles 1–10</b>Total product life-cycle, end-to-end clinical evaluation.</td>
+        <td class="rg-map__prim">Evaluation Harness writes a signed report bundle (<a href="integrations.html#batch">batch eval recipe</a>). Drift monitor watches deployed shift.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>post-market real-world performance</b>Reportable adverse-event traceability.</td>
+        <td class="rg-map__prim">Encounter-scoped bundle export. The chain is the evidence pack handed to MDR. See <a href="playbooks.html#subpoena">Playbook PB-06</a>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="rg-warn">
+    <b>Substrate posture.</b> Asclepius is <em>not</em> a cleared device. It
+    is a record-keeping substrate that helps a cleared device demonstrate
+    continued conformance. The 510(k) holder remains the AI provider — the
+    substrate just makes their post-market evidence trivially defensible.
+  </p>
+</section>
+
+<!-- ─────────── §04 California AB 3030 ─────────── -->
+<section class="container rg-frame" id="ab-3030">
+  <div class="rg-frame__head">
+    <span class="rg-frame__num">§ 04</span>
+    <span class="rg-frame__juris">CA · Health &amp; Safety Code § 1339.75</span>
+    <span class="rg-frame__date">last reviewed 2026-04-01</span>
+  </div>
+  <h2>California AB 3030 — <i>generative AI in clinical comms.</i></h2>
+  <p class="rg-frame__lede">
+    AB 3030 (effective Jan 1, 2025) requires health facilities to disclose
+    when generative AI was used in patient communications and to identify a
+    human contact for clinical-information questions. The substrate provides
+    the verifiable trail that "AI was used here, and here's exactly what it
+    did" — without which the disclosure is just words.
+  </p>
+
+  <table class="rg-map" aria-label="AB 3030 requirement to primitive map">
+    <thead>
+      <tr><th>obligation</th><th>Asclepius primitive</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rg-map__req"><b>disclosure of GenAI use</b>"AI was used in this communication."</td>
+        <td class="rg-map__prim">Every inference of <code>kind: inference.completed</code> with a generative model is one signed row. The disclosure is mechanically derivable from the chain.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>human contact</b>Provide a way to reach a clinician for follow-up.</td>
+        <td class="rg-map__prim">Out-of-substrate; the operator's workflow handles this. The substrate ensures the <em>actor</em> on file is identifiable from the entry.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>exemptions for clinician review</b>If a clinician reviewed before patient communication, disclosure may not be required.</td>
+        <td class="rg-map__prim">The chain shows whether a <code>clinician.read</code> entry was bound to the AI's <code>model.suggested</code> output before the message went out. Exemption is provable, not asserted.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="rg-stamp">
+    <b>Substrate posture.</b> AB 3030 is the cleanest fit on this page —
+    Asclepius makes "did a human review this AI output before it reached the
+    patient?" answerable from the chain alone. <em>Auditable disclosures
+    instead of disclosure-shaped marketing copy.</em>
+  </p>
+</section>
+
+<!-- ─────────── §05 Joint Commission ─────────── -->
+<section class="container rg-frame" id="joint-comm">
+  <div class="rg-frame__head">
+    <span class="rg-frame__num">§ 05</span>
+    <span class="rg-frame__juris">US · The Joint Commission · RC.01.03.01 · IM.02.01.03</span>
+    <span class="rg-frame__date">last reviewed 2026-04-01</span>
+  </div>
+  <h2>Joint Commission — <i>medical record</i> integrity.</h2>
+  <p class="rg-frame__lede">
+    Joint Commission accreditation requires the medical record to be
+    "complete, accurate, and authenticated" with retention policies and a
+    process for late entries / amendments. AI-generated content makes
+    "authenticated" a non-trivial question. The substrate makes it trivial
+    again.
+  </p>
+
+  <table class="rg-map" aria-label="Joint Commission requirement to primitive map">
+    <thead>
+      <tr><th>standard</th><th>Asclepius primitive</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rg-map__req"><b>RC.01.03.01 EP-2 · authentication</b>Each entry must be authenticated by the author.</td>
+        <td class="rg-map__prim">Every entry signed by an Ed25519 actor key. Co-signed for agentic actions. See <a href="decisions.html#adr-001">ADR-001</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>RC.01.03.01 EP-3 · amendments &amp; corrections</b>Original content, the change, and the reason are preserved.</td>
+        <td class="rg-map__prim">Append-only chain forbids in-place edits. Amendments are new entries with <code>refers_to: seq:N</code> and a stated reason — original survives.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>RC.02.01.07 · timeliness</b>Entries reflect the time they were made.</td>
+        <td class="rg-map__prim"><code>ts</code> field is RFC 3339 UTC; ledger refuses out-of-order writes. Late entries carry both their <code>ts</code> and the <code>recorded_at</code> the substrate observed.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>IM.02.01.03 · integrity over time</b>Information protected against unauthorised access, loss, alteration.</td>
+        <td class="rg-map__prim">Merkle root published nightly to the changelog feed; auditors can reconstruct the historical state from any backup.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="rg-coda">
+    <h2>What the substrate is <i>not.</i></h2>
+    <p>
+      Asclepius is <em>not</em> a certification, an attestation, or a
+      regulatory blessing. It is a mechanism — open, vendor-neutral, and
+      reproducible — that makes the obligations enforceable. Auditors should
+      not trust the substrate; they should <em>verify</em> the substrate, with
+      the same tools they use on every other piece of evidence.
+    </p>
+    <p>
+      If a regulator asks "what does Asclepius do for compliance?" the
+      honest answer is: <em>it shortens the question from "produce a credible
+      audit trail" to "publish the trail you already have."</em>
+    </p>
+    <div class="rg-coda__links">
+      <a href="threat-model.html">threat model →</a>
+      <a href="conformance.html">conformance suite</a>
+      <a href="schemas/audit-entry.v1.json">audit-entry schema</a>
+      <a href="security.html">security policy</a>
+      <a href="mailto:hello@asclepius.health">talk to us</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>compliance</b>
+        <a href="regulator.html">for regulators</a>
+        <a href="conformance.html">conformance</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="security.html">security</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">docs</a>
+        <a href="api.html">API reference</a>
+        <a href="spec.html">spec</a>
+        <a href="schemas/audit-entry.v1.json">audit-entry schema</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

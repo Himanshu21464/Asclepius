@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Research — Asclepius</title>
+<meta name="description" content="Annotated bibliography of papers and primitives Asclepius is built on. Merkle 1979, Bernstein et al. on Ed25519 / BLAKE2, drift detection literature, FHIR R5, and the clinical-AI accountability canon.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/research.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Research">
+<meta property="og:description"  content="Annotated bibliography. Where the substrate's primitives come from.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.rs-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.rs-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.rs-hero h1 i { color: var(--primary); font-style: italic; }
+.rs-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.rs-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.rs-toc { margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
+.rs-toc__pill {
+    display: block; padding: .9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--ink-warm);
+    transition: border-color .15s, transform .12s;
+}
+.rs-toc__pill:hover { border-color: var(--primary); transform: translateY(-1px); }
+.rs-toc__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.rs-toc__t { display: block; font-family: var(--font-prose); font-size: 1rem; margin-top: .25rem; line-height: 1.35; }
+.rs-toc__sub { display: block; font-family: var(--font-mono); font-size: .68rem; color: var(--ink-mute); margin-top: .35rem; }
+
+.rs-sec { margin: 4rem 0; padding-top: 2rem; border-top: 1px solid var(--rule); }
+.rs-sec__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.rs-sec h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .35rem 0 .8rem; }
+.rs-sec h2 i { color: var(--primary); font-style: italic; }
+.rs-sec__lede { font-family: var(--font-prose); font-size: 1rem; line-height: 1.6; color: var(--ink); max-width: 64ch; margin: 0 0 1.4rem; }
+.rs-sec__lede em { color: var(--ink-warm); font-style: italic; }
+
+.rs-ref {
+    margin: 1rem 0 0;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--primary);
+    border-radius: 6px;
+}
+.rs-ref__cite {
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .04em;
+    color: var(--ink-mute);
+    line-height: 1.55;
+    margin-bottom: .4rem;
+}
+.rs-ref__cite b { color: var(--ink-warm); font-weight: 500; }
+.rs-ref h3 {
+    margin: 0 0 .4rem;
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: 1.2rem;
+    line-height: 1.3;
+    color: var(--ink-warm);
+}
+.rs-ref h3 i { color: var(--primary); font-style: italic; }
+.rs-ref p {
+    margin: 0;
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .95rem;
+    color: var(--ink);
+}
+.rs-ref p + p { margin-top: .6em; }
+.rs-ref em { color: var(--ink-warm); font-style: italic; }
+.rs-ref code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+.rs-ref__link {
+    margin-top: .5rem;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    color: var(--primary);
+    word-break: break-all;
+}
+
+.rs-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.rs-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.rs-coda h2 i { color: var(--primary); font-style: italic; }
+.rs-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.rs-coda .rs-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.rs-coda .rs-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.rs-coda .rs-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",     "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Research", "item": "https://asclepius.health/research.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-research">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="decisions.html">decisions</a>
+      <a href="research.html" class="is-active" aria-current="page">research</a>
+      <a href="labs.html">labs</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="rs-hero">
+  <div class="container">
+    <span class="kbd">§01 · annotated · cited · standing on shoulders</span>
+    <h1>Where the <i>primitives</i> come from.</h1>
+    <p>
+      Asclepius does not invent its own crypto, drift maths, or interop
+      schemas — it composes proven ones. This bibliography is the canon the
+      substrate is built on. Each entry is annotated with what we use it for
+      and which ADR or section depends on it. <em>Read the originals; we
+      did.</em>
+    </p>
+
+    <nav class="rs-toc" aria-label="research index">
+      <a class="rs-toc__pill" href="#crypto">
+        <span class="rs-toc__num">§ 01</span>
+        <span class="rs-toc__t">cryptographic primitives</span>
+        <span class="rs-toc__sub">merkle · ed25519 · blake2 · ml-dsa</span>
+      </a>
+      <a class="rs-toc__pill" href="#provenance">
+        <span class="rs-toc__num">§ 02</span>
+        <span class="rs-toc__t">provenance &amp; transparency logs</span>
+        <span class="rs-toc__sub">CT · trillian · in-toto · slsa</span>
+      </a>
+      <a class="rs-toc__pill" href="#drift">
+        <span class="rs-toc__num">§ 03</span>
+        <span class="rs-toc__t">distribution drift</span>
+        <span class="rs-toc__sub">PSI · KS · EMD · calibration</span>
+      </a>
+      <a class="rs-toc__pill" href="#clinical">
+        <span class="rs-toc__num">§ 04</span>
+        <span class="rs-toc__t">clinical-AI accountability</span>
+        <span class="rs-toc__sub">model cards · datasheets · audit</span>
+      </a>
+      <a class="rs-toc__pill" href="#interop">
+        <span class="rs-toc__num">§ 05</span>
+        <span class="rs-toc__t">interop standards</span>
+        <span class="rs-toc__sub">FHIR · DICOM · IHE · USTAR</span>
+      </a>
+    </nav>
+  </div>
+</section>
+
+<!-- ─────────── §01 cryptographic primitives ─────────── -->
+<section class="container rs-sec" id="crypto">
+  <span class="rs-sec__num">§ 01 · cryptographic primitives</span>
+  <h2>Crypto we <i>chose</i> to build on.</h2>
+  <p class="rs-sec__lede">
+    The substrate signs and hashes on the hot path of every clinical inference.
+    Performance, correctness, and longevity all matter. Each of the primitives
+    below has decades of cryptanalytic scrutiny — that's the point.
+  </p>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Merkle, R. C.</b> (1979). <i>Secrecy, authentication, and public key systems.</i> PhD thesis, Stanford. (See also: <i>A Certified Digital Signature</i>, CRYPTO 1989.)</div>
+    <h3>The <i>Merkle tree</i> — log integrity for forty-five years.</h3>
+    <p>The original construction. Asclepius's ledger is a hash chain (a degenerate Merkle tree where each node has one child); evidence bundles include a full Merkle root over the entries. The mathematical guarantee — that any tampering leaves a verifiable trace — is unchanged since 1979.</p>
+    <p class="rs-ref__cite" style="margin-top:.5em">Used in: <a href="architecture.html">architecture</a>, <a href="spec.html">spec</a>.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Bernstein, D. J., Duif, N., Lange, T., Schwabe, P., Yang, B.-Y.</b> (2012). <i>High-speed high-security signatures.</i> Journal of Cryptographic Engineering 2(2):77–89.</div>
+    <h3>Ed25519 — the <i>signature scheme</i> we sign with.</h3>
+    <p>Defines the curve, the encoding, the deterministic-nonce derivation. Asclepius uses libsodium's reference implementation. <em>Deterministic signatures are an audit feature, not a side effect</em> — same input + key always produces the same sig, which makes replay-comparison decisive.</p>
+    <p class="rs-ref__cite" style="margin-top:.5em">Used in: <a href="decisions.html#adr-001">ADR-001</a>.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Aumasson, J.-P., Neves, S., Wilcox-O'Hearn, Z., Winnerlein, C.</b> (2013). <i>BLAKE2: simpler, smaller, fast as MD5.</i> ACNS 2013.</div>
+    <h3>BLAKE2 — the <i>hash</i> the ledger leans on.</h3>
+    <p>BLAKE2b-256 in libsodium gives ~1 GB/s/core throughput with no length-extension footgun. Every <code>prev_hash</code>, <code>input_hash</code>, <code>output_hash</code>, and bundle manifest entry uses it.</p>
+    <p class="rs-ref__cite" style="margin-top:.5em">Used in: <a href="decisions.html#adr-002">ADR-002</a>.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>NIST.</b> (2024). <i>FIPS 204 — Module-Lattice-Based Digital Signature Standard (ML-DSA).</i></div>
+    <h3>ML-DSA — the <i>post-quantum</i> migration target.</h3>
+    <p>The PQ-safe successor to Ed25519. Bigger signatures (≈ 3 KB at security level 2), but Shor-resistant. Asclepius's wire format already prefixes signatures with a scheme identifier, so the migration is additive — see ADR-010.</p>
+    <p class="rs-ref__cite" style="margin-top:.5em">Used in: <a href="decisions.html#adr-010">ADR-010</a> (proposed).</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Bernstein, D. J., Lange, T.</b> (curators). <i>libsodium / NaCl.</i> Maintained by Frank Denis and contributors.</div>
+    <h3>libsodium — the <i>implementation</i> we trust to be right.</h3>
+    <p>Misuse-resistant API, audited by multiple independent reviews, available everywhere the substrate ships. We do not roll our own. Every <code>crypto_sign_*</code> and <code>crypto_generichash</code> call is libsodium's.</p>
+    <p class="rs-ref__link">https://doc.libsodium.org/</p>
+  </div>
+</section>
+
+<!-- ─────────── §02 provenance ─────────── -->
+<section class="container rs-sec" id="provenance">
+  <span class="rs-sec__num">§ 02 · provenance &amp; transparency logs</span>
+  <h2>Prior art for <i>auditable systems.</i></h2>
+  <p class="rs-sec__lede">
+    Asclepius is not the first append-only signed log. The conceptual framework
+    — verifiable, replayable, externally-auditable — is shared with
+    Certificate Transparency, in-toto, and the SLSA supply-chain framework.
+    We borrow shamelessly.
+  </p>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Laurie, B., Langley, A., Käsper, E.</b> (2013). <i>RFC 6962 — Certificate Transparency.</i></div>
+    <h3>CT — public, append-only, gossiped.</h3>
+    <p>The specification that proved you can run an audit log at internet scale and have third parties verify it without trusting the operator. Asclepius's "publish the Merkle root in the public changelog feed" pattern is borrowed directly.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Trillian project, Google.</b> (2015–). <i>Trillian: general-purpose append-only log.</i></div>
+    <h3>Trillian — the operational reference.</h3>
+    <p>An open-source implementation of a CT-style log with consistency proofs, gossip, and operations tooling. The <code>verify_chain</code> implementation in Asclepius mirrors Trillian's range proofs.</p>
+    <p class="rs-ref__link">https://github.com/google/trillian</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Torres-Arias, S., Ammula, A. K., Curtmola, R., Cappos, J.</b> (2019). <i>in-toto: providing farm-to-table guarantees for bits and bytes.</i> USENIX Security.</div>
+    <h3>in-toto — supply-chain attestation that <i>composes.</i></h3>
+    <p>The conceptual ancestor of "every step in a process is signed by the actor who performed it, in a way that downstream consumers can verify end-to-end." That is exactly the chain Asclepius produces for clinical inferences.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Open Source Security Foundation (OpenSSF).</b> (2022–). <i>SLSA — Supply-chain Levels for Software Artifacts.</i></div>
+    <h3>SLSA — the <i>L1/L2/L3 ladder</i> we mirror.</h3>
+    <p>The graduated-conformance model in <a href="conformance.html">Asclepius's conformance suite</a> (L1 audit · L2 drift · L3 prospective evidence) is structurally similar to SLSA's level-up framework. <em>Conformance is a ladder, not a checkbox.</em></p>
+    <p class="rs-ref__link">https://slsa.dev/</p>
+  </div>
+</section>
+
+<!-- ─────────── §03 drift ─────────── -->
+<section class="container rs-sec" id="drift">
+  <span class="rs-sec__num">§ 03 · distribution drift</span>
+  <h2>How the <i>drift monitor</i> measures.</h2>
+  <p class="rs-sec__lede">
+    The substrate watches three statistics per feature: PSI for binned distributions,
+    KS for continuous, EMD for ordinal. Each comes from an established literature.
+    The substrate's job is to compute them honestly and bind their values to the
+    ledger; the threshold-setting and remediation belong to the operator.
+  </p>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Wu, N., Zhao, J.</b> (2007). <i>Population Stability Index methodology.</i> Discover Card credit-risk technical note (widely cited industrial reference).</div>
+    <h3>PSI — the <i>binned-distribution</i> shift index.</h3>
+    <p>The metric of choice for monitoring credit-risk model drift, adopted broadly across industries. Cheap to compute, interpretable: PSI &lt; 0.1 stable, &gt; 0.25 distribution change, &gt; 0.5 major shift. Asclepius's default threshold is 0.25.</p>
+    <p class="rs-ref__cite" style="margin-top:.5em">Used in: <a href="playbooks.html#drift-breach">PB-04</a>.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Kolmogorov, A. N.</b> (1933). <i>Sulla determinazione empirica di una legge di distribuzione.</i> Giornale dell'Istituto Italiano degli Attuari 4:83–91. — <b>Smirnov, N.</b> (1948).</div>
+    <h3>KS test — <i>continuous-feature</i> shift.</h3>
+    <p>For features that are continuous (vitals, lab values), PSI's bucketing introduces noise. The Kolmogorov–Smirnov statistic — the supremum of |F<sub>1</sub>(x) − F<sub>2</sub>(x)| — is binning-free and well-understood.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Rubner, Y., Tomasi, C., Guibas, L. J.</b> (2000). <i>The Earth Mover's Distance as a Metric for Image Retrieval.</i> Int. J. Computer Vision 40(2):99–121.</div>
+    <h3>EMD — <i>ordinal</i> drift, where order matters.</h3>
+    <p>For ordinal features (severity scores, age bands), shifts that move probability mass adjacent vs distant rungs matter very differently. EMD captures that by penalising the work required to transport one distribution to the other.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Niculescu-Mizil, A., Caruana, R.</b> (2005). <i>Predicting good probabilities with supervised learning.</i> ICML.</div>
+    <h3>Calibration — the <i>other</i> drift.</h3>
+    <p>Distribution-shift can be silent; calibration loss is the louder cousin. The Evaluation Harness writes reliability curves and ECE to every QA bundle, which is what regulators look at first.</p>
+  </div>
+</section>
+
+<!-- ─────────── §04 clinical AI accountability ─────────── -->
+<section class="container rs-sec" id="clinical">
+  <span class="rs-sec__num">§ 04 · clinical-AI accountability</span>
+  <h2>The <i>literature</i> the substrate enacts.</h2>
+  <p class="rs-sec__lede">
+    Many of the practices Asclepius automates were proposed in writing years
+    before the tooling caught up. Model cards, datasheets, and audit
+    frameworks defined the artefacts; the substrate just makes them
+    cryptographically real.
+  </p>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Mitchell, M. et al.</b> (2019). <i>Model Cards for Model Reporting.</i> FAccT 2019.</div>
+    <h3>Model cards — declared <i>once</i>, bound to <i>every</i> inference.</h3>
+    <p>The model-card framework standardised "what the model is, where it works, where it fails." Asclepius binds the model's <code>id</code> + <code>weights_sha256</code> to every entry, which makes the corresponding model card resolvable from any row.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Gebru, T. et al.</b> (2018). <i>Datasheets for Datasets.</i> CACM 64(12).</div>
+    <h3>Datasheets — the <i>training-data</i> contract.</h3>
+    <p>Out-of-substrate, but motivates the discipline that the substrate enforces: <em>commit to what the model has seen, then prove what it does on what it hasn't.</em></p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Sendak, M. P., Gao, M., Brajer, N., Balu, S.</b> (2020). <i>Presenting machine learning model information to clinical end users with model facts labels.</i> NPJ Digital Medicine 3(1).</div>
+    <h3>Model Facts — <i>at the bedside.</i></h3>
+    <p>Demonstrates that simple, nutrition-label-style summaries of model performance are usable at the point of care. The substrate is what makes those labels reliably truthful — the underlying numbers are pulled from the chain, not asserted.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Wiens, J. et al.</b> (2019). <i>Do no harm: a roadmap for responsible machine learning for health care.</i> Nature Medicine 25(9):1337–1340.</div>
+    <h3>Do no harm — the <i>operational</i> imperative.</h3>
+    <p>The framework that crystallised "deployed clinical-AI is a regulated medical activity, not a research output." Every primitive in Asclepius is downstream of that imperative.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>Raji, I. D., Smart, A., White, R. N., Mitchell, M., Gebru, T., et al.</b> (2020). <i>Closing the AI accountability gap: defining an end-to-end framework for internal algorithmic auditing.</i> FAccT.</div>
+    <h3>The <i>accountability gap</i> we are filling.</h3>
+    <p>Defines the auditing artefacts an organisation must produce to hold itself accountable for an AI system. The substrate's evidence-bundle export is, deliberately, a turn-key version of those artefacts.</p>
+  </div>
+</section>
+
+<!-- ─────────── §05 interop standards ─────────── -->
+<section class="container rs-sec" id="interop">
+  <span class="rs-sec__num">§ 05 · interop standards</span>
+  <h2>The <i>specs</i> we speak.</h2>
+  <p class="rs-sec__lede">
+    Substrate code only matters if it can plug into the world. These are the
+    interop standards Asclepius implements verbatim, so the operator does not
+    have to glue our shape to theirs.
+  </p>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>HL7 International.</b> (2023). <i>FHIR R5 — Fast Healthcare Interoperability Resources.</i></div>
+    <h3>FHIR R5 — the <i>EHR contract.</i></h3>
+    <p>The substrate's interop layer (<code>asc::interop::FhirBundle</code>) parses FHIR <code>Bundle</code>s, derives runtime context, and emits <code>DocumentReference</code>s whose <code>identifier.value</code> is the ledger seq.</p>
+    <p class="rs-ref__cite" style="margin-top:.5em">Used in: <a href="integrations.html#fhir">FHIR sidecar recipe</a>.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>NEMA.</b> (2024). <i>DICOM PS3.x — Digital Imaging and Communications in Medicine.</i></div>
+    <h3>DICOM — the <i>imaging</i> contract.</h3>
+    <p>DICOM files carry both pixels and PHI tags. The DicomStrip policy strips identifying tags (PatientName, PatientID, AccessionNumber, etc.) before the bytes reach the model.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>IHE Health IT Profiles.</b> (ongoing). <i>ITI/PCC technical frameworks.</i></div>
+    <h3>IHE — the <i>workflow</i> profiles.</h3>
+    <p>Where FHIR specifies the resource shapes, IHE specifies how they flow between actors. Asclepius's actor scheme (<code>clin:</code>, <code>svc:</code>, <code>sys:</code>, <code>agent:</code>) is informed by IHE actor terminology.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>IEEE / ISO.</b> (1988). <i>POSIX.1 — IEEE Std 1003.1, Annex on USTAR archive interchange.</i></div>
+    <h3>USTAR tar — <i>portable forever.</i></h3>
+    <p>The lowest-common-denominator archive format that opens with a one-decade-from-now tool. Evidence bundles use it; recipients verify with stock <code>tar</code> and <code>jq</code>.</p>
+    <p class="rs-ref__cite" style="margin-top:.5em">Used in: <a href="decisions.html#adr-006">ADR-006</a>.</p>
+  </div>
+
+  <div class="rs-ref">
+    <div class="rs-ref__cite"><b>JSON Schema Specification.</b> (2020). <i>Draft 2020-12.</i></div>
+    <h3>JSON Schema — the <i>entry shape</i> contract.</h3>
+    <p>The audit-entry schema is a Draft 2020-12 document. Validators in any language can verify that any candidate entry conforms before signing. <em>The schema is an artefact, not just documentation.</em></p>
+    <p class="rs-ref__cite" style="margin-top:.5em">Used in: <a href="schemas/audit-entry.v1.json">/schemas/audit-entry.v1.json</a>.</p>
+  </div>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="rs-coda">
+    <h2>What we are <i>not</i> citing.</h2>
+    <p>
+      We are not citing Bitcoin. We are not citing "blockchain for healthcare"
+      papers. The substrate uses a hash chain and digital signatures because
+      Merkle described them in 1979 and Bernstein-et-al. described how to do
+      them efficiently in 2012; <em>cryptography existed before tokens, and
+      will exist after them.</em>
+    </p>
+    <p>
+      If a paper that ought to be on this list is missing, please open an
+      issue. We would much rather extend the canon than gatekeep it.
+    </p>
+    <div class="rs-coda__links">
+      <a href="decisions.html">decisions →</a>
+      <a href="architecture.html">architecture</a>
+      <a href="threat-model.html">threat model</a>
+      <a href="contributing.html">propose an addition →</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>provenance</b>
+        <a href="research.html">research</a>
+        <a href="decisions.html">decisions</a>
+        <a href="architecture.html">architecture</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>compliance</b>
+        <a href="regulator.html">for regulators</a>
+        <a href="conformance.html">conformance</a>
+        <a href="threat-model.html">threat model</a>
+        <a href="security.html">security</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="api.html">API reference</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

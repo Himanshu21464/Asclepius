@@ -1,0 +1,50 @@
+name: Feature request
+description: A new capability that fits the substrate's scope.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Asclepius is a **substrate, not an app**. Features that turn it into
+        an AI scribe, an MLOps platform, or an EHR will be politely declined.
+        See the [roadmap](https://asclepius.health/roadmap.html) for the
+        scope we're committed to.
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this solve? Who hits it? Be specific.
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: Proposed shape
+      description: API sketch, file layout, or a CLI invocation.
+      render: cpp
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Why not compose existing primitives? Why not user-land?
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Surface
+      options:
+        - C++ core
+        - Policy
+        - Audit (Ledger/KeyStore)
+        - Telemetry
+        - Consent
+        - Evaluation
+        - CLI / sidecar
+        - Bindings
+        - Docs / spec
+    validations:
+      required: true

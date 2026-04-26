@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Labs — Asclepius</title>
+<meta name="description" content="Where Asclepius is being piloted: design partners, research collaborators, and active conformance battery sites.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="canonical" href="https://asclepius.health/labs.html">
+
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Labs — Asclepius">
+<meta property="og:description"  content="Where the substrate is being piloted, replayed, and reverified.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="prefetch" href="conformance.html">
+<link rel="prefetch" href="status.html">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .lb { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .lb__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .lb__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .lb__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -0.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .lb__hero h1 i { color: var(--primary); font-style: italic; }
+  .lb__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+
+  .lb-grid {
+    display: grid; gap: 0;
+    grid-template-columns: repeat(2, 1fr);
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+  }
+  @media (max-width: 760px) { .lb-grid { grid-template-columns: 1fr; } }
+
+  .lb-card {
+    padding: 1.6rem 1.6rem 1.4rem;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    display: flex; flex-direction: column; gap: .55rem;
+  }
+  .lb-card__cap {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--primary);
+  }
+  .lb-card h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.4rem, 2.4vw, 1.8rem);
+    color: var(--ink-warm); margin: 0; letter-spacing: -0.01em;
+  }
+  .lb-card h2 i { color: var(--primary); font-style: italic; }
+  .lb-card p {
+    color: var(--ink-mute); margin: 0; font-size: .96rem; line-height: 1.6;
+  }
+  .lb-card p em { color: var(--ink-warm); font-style: italic; }
+  .lb-card dl {
+    margin: .5rem 0 0; padding: 0;
+    display: grid; grid-template-columns: auto 1fr; gap: .25rem .8rem;
+    font-family: var(--font-mono); font-size: .72rem;
+  }
+  .lb-card dt { color: var(--ink-faint); letter-spacing: .12em; text-transform: uppercase; }
+  .lb-card dd { margin: 0; color: var(--ink); }
+
+  .lb-card--marquee {
+    grid-column: 1 / -1;
+    background:
+      radial-gradient(700px 240px at 90% 0%, var(--primary-glow), transparent 70%),
+      radial-gradient(540px 220px at 0% 100%, var(--accent-glow), transparent 70%),
+      var(--surface);
+  }
+  .lb-card--marquee h2 { font-size: clamp(2rem, 3.4vw, 2.8rem); }
+
+  .lb-section { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+  .lb-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+  }
+  .lb-section h2 i { color: var(--primary); font-style: italic; }
+  .lb-section p { color: var(--ink-mute); max-width: 68ch; line-height: 1.7; margin: 0 0 1rem; }
+
+  .lb-list {
+    list-style: none; padding: 0; margin: 1.2rem 0 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .6rem;
+    font-family: var(--font-mono); font-size: .82rem;
+  }
+  .lb-list li {
+    display: grid; grid-template-columns: auto 1fr; gap: .8rem;
+    padding: .7rem 1rem; border: 1px solid var(--rule);
+    background: var(--surface-2); color: var(--ink);
+  }
+  .lb-list li b { color: var(--primary); font-weight: 500; }
+</style>
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Labs",
+      "item": "https://asclepius.health/labs.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-labs">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="conformance.html">conformance</a>
+      <a href="status.html">status</a>
+      <a href="labs.html" class="is-active" aria-current="page">labs</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="lb">
+  <div class="container">
+
+    <header class="lb__hero">
+      <span class="kbd">labs · pilot · research</span>
+      <h1>Where the substrate is being <i>worn-in</i>.</h1>
+      <p>
+        Listed when the partner has consented to be named, anonymised when not.
+        Every lab below runs the public conformance battery against its own deployment;
+        every lab below has the right to publish counter-evidence if Asclepius misbehaves.
+      </p>
+    </header>
+
+    <section class="lb-grid" aria-label="active labs">
+
+      <article class="lb-card lb-card--marquee">
+        <span class="lb-card__cap">design partner · scribe</span>
+        <h2>An academic medical center, <i>Pacific Northwest</i>.</h2>
+        <p>
+          Wrapping an in-house ambient-documentation scribe across two ambulatory clinics
+          since 2026-Q1. Asclepius records consent, scrubs PHI, captures clinician overrides,
+          and exports a 30-day evidence bundle for the IRB on a fixed cadence.
+          <em>Named in 1.0.</em>
+        </p>
+        <dl>
+          <dt>encounters / month</dt><dd>~ 8,400</dd>
+          <dt>override rate</dt>     <dd>11.4 %</dd>
+          <dt>p99 wrap latency</dt>  <dd>54&nbsp;µs</dd>
+          <dt>bundle export</dt>     <dd>weekly · regulator-shared monthly</dd>
+        </dl>
+      </article>
+
+      <article class="lb-card">
+        <span class="lb-card__cap">research</span>
+        <h2>Cardiac electrophysiology twin, <i>Europe</i>.</h2>
+        <p>
+          A digital-twin group binding their FEniCS-based ablation simulator behind the
+          policy chain. Drift monitor watches twin-vs-truth gap on validation cohorts.
+        </p>
+        <dl>
+          <dt>level</dt><dd>L2 (drift)</dd>
+          <dt>since</dt><dd>2026-03</dd>
+        </dl>
+      </article>
+
+      <article class="lb-card">
+        <span class="lb-card__cap">design partner · radiology</span>
+        <h2>Community hospital network, <i>Midwest</i>.</h2>
+        <p>
+          Wrapping a third-party FDA-cleared radiology triage CNN. Asclepius captures
+          radiologist overrides and emits the lifecycle-validation bundle the FDA's
+          Predetermined Change Control Plan now expects.
+        </p>
+        <dl>
+          <dt>level</dt><dd>L3 (prospective evidence)</dd>
+          <dt>since</dt><dd>2026-02</dd>
+        </dl>
+      </article>
+
+      <article class="lb-card">
+        <span class="lb-card__cap">research</span>
+        <h2>Drug repurposing for the long tail, <i>academic consortium</i>.</h2>
+        <p>
+          Wrapping a TxGNN-style repurposing model. Asclepius binds purpose-of-use to
+          <code>research</code>, blocks any output containing prescribing actions, and
+          retains an evidence bundle per cohort.
+        </p>
+        <dl>
+          <dt>level</dt><dd>L1 (audit) → L2 in flight</dd>
+          <dt>since</dt><dd>2026-04</dd>
+        </dl>
+      </article>
+
+      <article class="lb-card">
+        <span class="lb-card__cap">internal</span>
+        <h2>Asclepius dogfood, <i>everywhere</i>.</h2>
+        <p>
+          Every commit to <code>main</code> runs the conformance battery against the
+          contributors' own playground deployments. The status page is itself an
+          evidence-bundle artefact, regenerated on push.
+        </p>
+        <dl>
+          <dt>level</dt><dd>L1 · L2 · L3</dd>
+          <dt>since</dt><dd>v0.1.0</dd>
+        </dl>
+      </article>
+
+    </section>
+
+    <section class="lb-section">
+      <h2>Apply to <i>pilot</i></h2>
+      <p>
+        Asclepius is happiest when it is being beaten on. If you are a clinical-AI team
+        — vendor or in-house, hospital or independent lab — and you want a substrate
+        whose audit story works against you as a buyer, get in touch.
+      </p>
+      <p>
+        We pair every pilot with a designated reviewer for two weeks; if the substrate
+        does not survive your day-1 incident drill, we will tell you that, and we will
+        not ship to your IRB until it does.
+      </p>
+      <ul class="lb-list">
+        <li><b>scope</b><span>one team, one model, one consent purpose</span></li>
+        <li><b>cadence</b><span>weekly bundle export, monthly review</span></li>
+        <li><b>licensing</b><span>Apache 2.0 — runs entirely in your trust boundary</span></li>
+        <li><b>contact</b><span><a href="mailto:labs@asclepius.health">labs@asclepius.health</a></span></li>
+      </ul>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — labs.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>conformance</b>
+        <a href="conformance.html">battery</a>
+        <a href="status.html">status</a>
+        <a href="labs.html">labs</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

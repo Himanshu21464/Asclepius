@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Compare bundles — Asclepius</title>
+<meta name="description" content="Drop two ledger excerpts side by side. Asclepius diffs them by seq and payload_hash and highlights added, removed, and modified entries — in your browser, no upload.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/compare.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Compare bundles">
+<meta property="og:description"  content="Diff two ledger excerpts side-by-side. Spot retroactive edits.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.cm-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.cm-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.cm-hero h1 i { color: var(--primary); font-style: italic; }
+.cm-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.cm-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.cm-grid {
+    margin: 2rem 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+@media (max-width: 880px) { .cm-grid { grid-template-columns: 1fr; } }
+
+.cm-pane {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex; flex-direction: column; gap: .8rem;
+}
+.cm-pane.is-drop { border-color: var(--primary); background: rgba(181,123,255,.05); }
+.cm-pane__head {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+}
+.cm-pane__head b { color: var(--primary); font-weight: 500; }
+.cm-pane__head .cm-pane__actions { display: flex; gap: .35rem; }
+.cm-btn {
+    background: transparent; border: 1px solid var(--rule);
+    color: var(--ink-mute); border-radius: 4px;
+    padding: .25rem .65rem;
+    font-family: var(--font-mono); font-size: .66rem; letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+}
+.cm-btn:hover { color: var(--ink-warm); border-color: var(--primary); }
+.cm-pane textarea {
+    flex: 1;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .8rem 1rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    min-height: 200px;
+}
+.cm-pane textarea:focus { border-color: var(--primary); }
+
+.cm-bar {
+    margin: 1rem 0 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: center;
+}
+.cm-bar__action {
+    background: var(--primary);
+    color: var(--bg);
+    border: 0;
+    padding: .7rem 1.2rem;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: background .15s, transform .12s;
+}
+.cm-bar__action:hover { background: #C28EFF; transform: translateY(-1px); }
+.cm-summary {
+    display: flex; gap: 1.6rem; flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+}
+.cm-summary span { color: var(--ink-faint); }
+.cm-summary span b { font-weight: 500; }
+.cm-summary .add  b { color: var(--accent); }
+.cm-summary .rem  b { color: var(--danger); }
+.cm-summary .mod  b { color: #FACC15; }
+.cm-summary .same b { color: var(--ink-mute); }
+
+.cm-rows { display: grid; gap: .55rem; margin-top: 1.4rem; }
+.cm-row {
+    display: grid;
+    grid-template-columns: 4em 5em 1fr 9em 9em 1.5em;
+    gap: 1rem; align-items: baseline;
+    padding: .75rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    transition: background .15s, border-color .15s;
+}
+.cm-row__seq    { color: var(--primary); }
+.cm-row__verdict { font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; }
+.cm-row__type   { color: var(--ink-warm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-row__l, .cm-row__r { color: var(--ink-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-row__icon   { text-align: center; }
+
+.cm-row.is-add  { border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.04); }
+.cm-row.is-add  .cm-row__verdict { color: var(--accent); }
+.cm-row.is-rem  { border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.04); }
+.cm-row.is-rem  .cm-row__verdict { color: var(--danger); }
+.cm-row.is-mod  { border-color: rgba(250,204,21,.5); background: rgba(250,204,21,.05); }
+.cm-row.is-mod  .cm-row__verdict { color: #FACC15; }
+.cm-row.is-same { opacity: .65; }
+.cm-row.is-same .cm-row__verdict { color: var(--ink-faint); }
+
+@media (max-width: 760px) {
+    .cm-row { grid-template-columns: auto 5em 1fr 1.5em; }
+    .cm-row__l, .cm-row__r { display: none; }
+}
+
+.cm-hint {
+    margin-top: 1.4rem;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.cm-hint b { color: var(--primary); }
+.cm-hint code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Compare",
+      "item": "https://asclepius.health/compare.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-compare">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="explorer.html">explorer</a>
+      <a href="compare.html" class="is-active" aria-current="page">compare</a>
+      <a href="verify-bundle.html">verify a bundle</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="cm-hero">
+  <div class="container">
+    <span class="kbd">side-by-side · added · removed · modified</span>
+    <h1>Compare two <i>bundles.</i></h1>
+    <p>
+      An auditor receives two sequential exports from the same operator. Each one is a JSONL
+      ledger excerpt. Drop them in the panes below and Asclepius diffs by <code>seq</code>
+      and <code>payload_hash</code> — surfacing newly added rows, anything missing, and
+      anything whose body changed since the previous bundle. <em>Retroactive edits show up
+      amber.</em>
+    </p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="cm-grid">
+    <div id="cm-left" class="cm-pane">
+      <header class="cm-pane__head">
+        <span><b>L</b> · earlier bundle</span>
+        <span class="cm-pane__actions">
+          <button class="cm-btn" data-side="left" data-act="load">load file</button>
+          <button class="cm-btn" data-side="left" data-act="sample">sample A</button>
+          <button class="cm-btn" data-side="left" data-act="clear">clear</button>
+        </span>
+      </header>
+      <textarea id="cm-left-input" spellcheck="false" autocomplete="off"
+                placeholder="JSONL — one entry per line"></textarea>
+    </div>
+    <div id="cm-right" class="cm-pane">
+      <header class="cm-pane__head">
+        <span><b>R</b> · later bundle</span>
+        <span class="cm-pane__actions">
+          <button class="cm-btn" data-side="right" data-act="load">load file</button>
+          <button class="cm-btn" data-side="right" data-act="sample">sample B</button>
+          <button class="cm-btn" data-side="right" data-act="clear">clear</button>
+        </span>
+      </header>
+      <textarea id="cm-right-input" spellcheck="false" autocomplete="off"
+                placeholder="JSONL — one entry per line"></textarea>
+    </div>
+  </div>
+
+  <input id="cm-file-l" type="file" accept=".jsonl,.json,.txt" hidden>
+  <input id="cm-file-r" type="file" accept=".jsonl,.json,.txt" hidden>
+
+  <div class="cm-bar">
+    <div class="cm-summary" id="cm-summary">
+      <span class="same">drop two bundles · click <b>diff</b> to compare</span>
+    </div>
+    <button id="cm-go" class="cm-bar__action">diff</button>
+  </div>
+
+  <div id="cm-rows" class="cm-rows" aria-live="polite"></div>
+
+  <div class="cm-hint">
+    <p><b>What this catches.</b> If the operator silently rewrites <code>seq 442</code> between two bundles, this page shows that row in <em>amber</em> — same seq, different <code>payload_hash</code>. That's a retroactive edit; if the chain still verifies, the operator either re-signed it or rotated keys, both of which are events you should ask about.</p>
+    <p style="margin-top: .6em;"><b>What it does not catch.</b> Anything outside the JSONL. Bundle metadata, signing-key changes, drift snapshots — see <a href="verify-bundle.html">verify-bundle</a> for the full ritual.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — compare.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>auditor</b>
+        <a href="explorer.html">explorer</a>
+        <a href="compare.html">compare</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+        <a href="conformance.html">conformance</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+    'use strict';
+    const $ = (s) => document.querySelector(s);
+    const enc = new TextEncoder();
+    const HEX = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    function parseJsonl(text) {
+        const out = [];
+        for (const [i, line] of text.split('\n').entries()) {
+            const t = line.trim();
+            if (!t) continue;
+            try {
+                const e = JSON.parse(t);
+                e.__line = i + 1;
+                if (typeof e.seq === 'number') out.push(e);
+            } catch (_) { /* skip malformed */ }
+        }
+        out.sort((a, b) => a.seq - b.seq);
+        return out;
+    }
+
+    function tail(s, n = 8) {
+        if (!s) return '—';
+        if (s.length <= 16) return s;
+        return s.slice(0, 6) + '…' + s.slice(-n);
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function buildSampleA() {
+        // 4 entries
+        const out = [];
+        let prev = '0'.repeat(64);
+        const events = [
+            { event_type: 'inference.committed',  body: { model:'scribe@v3', patient:'pat:9f1a', purpose:'ambient_documentation' }},
+            { event_type: 'evaluation.override',  body: { inference_id:'inf_a14', rationale:'corrected to stable angina' }},
+            { event_type: 'inference.committed',  body: { model:'diag@v2', patient:'pat:b771', purpose:'diagnostic_suggestion' }},
+            { event_type: 'evaluation.ground_truth', body: { inference_id:'inf_a14', truth:{label:'stable angina'}, source:'chart' }},
+        ];
+        for (let i = 0; i < events.length; i++) {
+            const ts = `2026-04-01T08:1${i}:00Z`;
+            const ph = await sha(`${events[i].event_type}\x1e${cj(events[i].body)}`);
+            const entry = { seq: i+1, ts, actor: 'clinician:dr.smith', tenant: 'kp-northwest',
+                            event_type: events[i].event_type, prev_hash: prev, payload_hash: ph,
+                            body: events[i].body };
+            const eh = await sha(`${entry.seq}|${entry.ts}|${entry.prev_hash}|${entry.payload_hash}|${entry.actor}|${entry.event_type}|${entry.tenant}|${cj(entry.body)}`);
+            entry.entry_hash = eh;
+            out.push(JSON.stringify(entry));
+            prev = eh;
+        }
+        return out.join('\n');
+    }
+
+    async function buildSampleB() {
+        // sample A + retroactive edit on seq 2 + 2 new entries
+        const a = await buildSampleA();
+        const lines = a.split('\n');
+        // mutate seq 2's body — retroactive edit
+        const seq2 = JSON.parse(lines[1]);
+        seq2.body.rationale = 'corrected after a phone call from cardiology';
+        // re-hash payload to reflect the new body (this would normally be re-signed)
+        seq2.payload_hash = await sha(`${seq2.event_type}\x1e${cj(seq2.body)}`);
+        lines[1] = JSON.stringify(seq2);
+        // append two new rows
+        let prev = JSON.parse(lines[lines.length - 1]).entry_hash;
+        for (let k = 5; k <= 6; k++) {
+            const body = { model: 'scribe@v3', patient: `pat:c${k}90`, purpose: 'ambient_documentation' };
+            const ts = `2026-04-02T0${k - 4}:30:00Z`;
+            const ph = await sha(`inference.committed\x1e${cj(body)}`);
+            const entry = { seq: k, ts, actor: 'clinician:dr.smith', tenant: 'kp-northwest',
+                            event_type: 'inference.committed', prev_hash: prev, payload_hash: ph, body };
+            const eh = await sha(`${entry.seq}|${entry.ts}|${entry.prev_hash}|${entry.payload_hash}|${entry.actor}|${entry.event_type}|${entry.tenant}|${cj(entry.body)}`);
+            entry.entry_hash = eh;
+            lines.push(JSON.stringify(entry));
+            prev = eh;
+        }
+        return lines.join('\n');
+    }
+
+    async function sha(s) {
+        const buf = await crypto.subtle.digest('SHA-256', enc.encode(s));
+        return HEX(buf);
+    }
+    function cj(o) { return JSON.stringify(o, Object.keys(o).sort()); }
+
+    function diff(left, right) {
+        const seqs = new Set([...left.map((e) => e.seq), ...right.map((e) => e.seq)]);
+        const lBy = new Map(left.map((e) => [e.seq, e]));
+        const rBy = new Map(right.map((e) => [e.seq, e]));
+        const rows = [];
+        for (const seq of [...seqs].sort((a, b) => a - b)) {
+            const l = lBy.get(seq), r = rBy.get(seq);
+            if (l && r) {
+                if (l.payload_hash === r.payload_hash) rows.push({ seq, kind: 'same', l, r });
+                else                                    rows.push({ seq, kind: 'mod',  l, r });
+            } else if (r) rows.push({ seq, kind: 'add', r });
+            else if (l)   rows.push({ seq, kind: 'rem', l });
+        }
+        return rows;
+    }
+
+    function render(rows) {
+        const list = $('#cm-rows');
+        const counts = { add: 0, rem: 0, mod: 0, same: 0 };
+        list.innerHTML = rows.map((row) => {
+            counts[row.kind]++;
+            const VERB = { add: '+ added', rem: '− removed', mod: '~ modified', same: '= unchanged' }[row.kind];
+            const type = (row.r || row.l).event_type;
+            const lHash = row.l ? tail(row.l.payload_hash) : '—';
+            const rHash = row.r ? tail(row.r.payload_hash) : '—';
+            const icon = { add: '+', rem: '−', mod: '~', same: '·' }[row.kind];
+            return `<div class="cm-row is-${row.kind}">
+                <span class="cm-row__seq">${row.seq}</span>
+                <span class="cm-row__verdict">${VERB}</span>
+                <span class="cm-row__type">${escapeHtml(type)}</span>
+                <span class="cm-row__l" title="L payload">${lHash}</span>
+                <span class="cm-row__r" title="R payload">${rHash}</span>
+                <span class="cm-row__icon">${icon}</span>
+            </div>`;
+        }).join('');
+        $('#cm-summary').innerHTML = `
+            <span class="same"><b>${counts.same}</b> unchanged</span>
+            <span class="add"><b>${counts.add}</b> added</span>
+            <span class="rem"><b>${counts.rem}</b> removed</span>
+            <span class="mod"><b>${counts.mod}</b> modified</span>`;
+    }
+
+    async function go() {
+        const left  = parseJsonl($('#cm-left-input').value);
+        const right = parseJsonl($('#cm-right-input').value);
+        if (!left.length && !right.length) {
+            $('#cm-summary').innerHTML = '<span class="same">drop two bundles · click <b>diff</b> to compare</span>';
+            $('#cm-rows').innerHTML = '';
+            return;
+        }
+        const rows = diff(left, right);
+        render(rows);
+    }
+
+    $('#cm-go').addEventListener('click', go);
+
+    // button handlers
+    document.querySelectorAll('.cm-btn').forEach((b) => {
+        b.addEventListener('click', async () => {
+            const side = b.dataset.side;
+            const ta = $(`#cm-${side}-input`);
+            switch (b.dataset.act) {
+                case 'clear':  ta.value = ''; await go(); break;
+                case 'sample': ta.value = side === 'left' ? await buildSampleA() : await buildSampleB(); await go(); break;
+                case 'load':   $(`#cm-file-${side === 'left' ? 'l' : 'r'}`).click(); break;
+            }
+        });
+    });
+
+    // file pickers
+    for (const which of ['l', 'r']) {
+        $(`#cm-file-${which}`).addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            $(`#cm-${which === 'l' ? 'left' : 'right'}-input`).value = text;
+            await go();
+        });
+    }
+
+    // drag-and-drop on each pane
+    for (const side of ['left', 'right']) {
+        const pane = $(`#cm-${side}`);
+        ['dragenter', 'dragover'].forEach((ev) => {
+            pane.addEventListener(ev, (e) => { e.preventDefault(); pane.classList.add('is-drop'); });
+        });
+        ['dragleave', 'drop'].forEach((ev) => {
+            pane.addEventListener(ev, (e) => { e.preventDefault(); pane.classList.remove('is-drop'); });
+        });
+        pane.addEventListener('drop', async (e) => {
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            $(`#cm-${side}-input`).value = await file.text();
+            await go();
+        });
+    }
+
+    // re-diff on input (debounced)
+    let t = null;
+    for (const side of ['left', 'right']) {
+        $(`#cm-${side}-input`).addEventListener('input', () => {
+            clearTimeout(t);
+            t = setTimeout(go, 280);
+        });
+    }
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

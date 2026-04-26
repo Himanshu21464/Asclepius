@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Decisions — Asclepius</title>
+<meta name="description" content="Architecture Decision Records (ADRs) for the Asclepius substrate. Why Ed25519, why BLAKE2b, why C++20, why SQLite, why canonical JSON, why USTAR tar, why Pimpl, why Result&lt;T&gt;.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/decisions.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Decisions">
+<meta property="og:description"  content="Architecture Decision Records — every important choice, written down.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.dc-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.dc-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.dc-hero h1 i { color: var(--primary); font-style: italic; }
+.dc-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.dc-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.dc-toc { margin: 2rem 0 0; }
+.dc-toc table {
+    width: 100%; border-collapse: collapse;
+    font-family: var(--font-mono); font-size: .82rem;
+}
+.dc-toc th, .dc-toc td {
+    text-align: left; padding: .5rem .8rem;
+    border-bottom: 1px solid var(--rule);
+}
+.dc-toc th {
+    font-weight: 500; font-size: .68rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-mute);
+    border-bottom: 1px solid var(--rule);
+}
+.dc-toc td a { color: var(--ink-warm); text-decoration: none; }
+.dc-toc td a:hover { color: var(--primary); }
+.dc-toc tr:hover td { background: rgba(181,123,255,.04); }
+.dc-toc__id { color: var(--primary); font-weight: 500; }
+.dc-toc__st {
+    padding: .12rem .5rem;
+    font-size: .62rem; letter-spacing: .12em;
+    text-transform: uppercase; border-radius: 3px;
+}
+.dc-toc__st.is-accepted    { background: rgba(52,211,153,.12);  color: #34D399; }
+.dc-toc__st.is-superseded  { background: rgba(244,184,96,.12);  color: #F4B860; }
+.dc-toc__st.is-proposed    { background: rgba(125,211,252,.12); color: #7DD3FC; }
+
+.dc-adr {
+    margin: 4rem 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+}
+.dc-adr__head {
+    display: flex; align-items: baseline; gap: .9rem; flex-wrap: wrap;
+    margin-bottom: .35rem;
+}
+.dc-adr__id     { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.dc-adr__date   { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-mute); }
+.dc-adr__status {
+    padding: .15rem .55rem;
+    font-family: var(--font-mono); font-size: .62rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    border-radius: 3px; border: 1px solid var(--rule);
+}
+.dc-adr__status.is-accepted    { background: rgba(52,211,153,.12);  color: #34D399; border-color: rgba(52,211,153,.3); }
+.dc-adr__status.is-superseded  { background: rgba(244,184,96,.12);  color: #F4B860; border-color: rgba(244,184,96,.3); }
+.dc-adr__status.is-proposed    { background: rgba(125,211,252,.12); color: #7DD3FC; border-color: rgba(125,211,252,.3); }
+
+.dc-adr h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 1rem; }
+.dc-adr h2 i { color: var(--primary); font-style: italic; }
+
+.dc-section {
+    margin: 1.4rem 0 0;
+    padding: 1rem 1.1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+}
+.dc-section h3 {
+    margin: 0 0 .5rem;
+    font-family: var(--font-mono); font-weight: 500;
+    font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--primary);
+}
+.dc-section p, .dc-section ul, .dc-section ol {
+    margin: 0; font-family: var(--font-prose); line-height: 1.65; color: var(--ink); font-size: .98rem;
+}
+.dc-section p + p, .dc-section p + ul, .dc-section ul + p { margin-top: .8em; }
+.dc-section em { color: var(--ink-warm); font-style: italic; }
+.dc-section code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+.dc-section ul, .dc-section ol { padding-left: 1.2rem; }
+.dc-section li { margin: .2em 0; }
+
+.dc-section.is-decision  { border-left: 2px solid var(--primary); }
+.dc-section.is-conseq    { border-left: 2px solid #34D399; }
+.dc-section.is-alts      { border-left: 2px solid #F4B860; }
+.dc-section.is-context   { border-left: 2px solid var(--rule-soft); }
+
+.dc-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.dc-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.dc-coda h2 i { color: var(--primary); font-style: italic; }
+.dc-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.dc-coda .dc-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.dc-coda .dc-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.dc-coda .dc-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",      "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Decisions", "item": "https://asclepius.health/decisions.html" }
+  ]
+}
+</script>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Architecture decisions",
+      "item": "https://asclepius.health/decisions.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-decisions">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="architecture.html">architecture</a>
+      <a href="decisions.html" class="is-active" aria-current="page">decisions</a>
+      <a href="governance.html">governance</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="dc-hero">
+  <div class="container">
+    <span class="kbd">§01 · architecture decision records · adr</span>
+    <h1>Every choice, <i>written down.</i></h1>
+    <p>
+      A substrate that asks operators to trust it should be able to explain why
+      it picked the primitives it did. The records below are the "why" — the
+      trade-offs we considered, the alternatives we rejected, and the consequences
+      we accepted. <em>If we ever change one, that becomes a new record, not an
+      edit to an old one.</em>
+    </p>
+
+    <div class="dc-toc" aria-label="decision index">
+      <table>
+        <thead>
+          <tr>
+            <th>id</th>
+            <th>title</th>
+            <th>status</th>
+            <th>date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="dc-toc__id">ADR-001</td><td><a href="#adr-001">Ed25519 over RSA / ECDSA</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-01-12</td></tr>
+          <tr><td class="dc-toc__id">ADR-002</td><td><a href="#adr-002">BLAKE2b-256 over SHA-256</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-01-12</td></tr>
+          <tr><td class="dc-toc__id">ADR-003</td><td><a href="#adr-003">SQLite WAL as the default backend</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-01-18</td></tr>
+          <tr><td class="dc-toc__id">ADR-004</td><td><a href="#adr-004">C++20 over Rust for the core</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-01-22</td></tr>
+          <tr><td class="dc-toc__id">ADR-005</td><td><a href="#adr-005">Canonical JSON over CBOR</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-02-04</td></tr>
+          <tr><td class="dc-toc__id">ADR-006</td><td><a href="#adr-006">USTAR tar for evidence bundles</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-02-15</td></tr>
+          <tr><td class="dc-toc__id">ADR-007</td><td><a href="#adr-007">Pimpl as the ABI strategy</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-02-22</td></tr>
+          <tr><td class="dc-toc__id">ADR-008</td><td><a href="#adr-008">Result&lt;T,Error&gt; over exceptions</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-03-01</td></tr>
+          <tr><td class="dc-toc__id">ADR-009</td><td><a href="#adr-009">Strong typedefs for IDs</a></td><td><span class="dc-toc__st is-accepted">accepted</span></td><td>2026-03-08</td></tr>
+          <tr><td class="dc-toc__id">ADR-010</td><td><a href="#adr-010">ML-DSA migration path (post-quantum)</a></td><td><span class="dc-toc__st is-proposed">proposed</span></td><td>2026-04-19</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-001 ─────────────── -->
+<section class="container dc-adr" id="adr-001">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-001</span>
+    <span class="dc-adr__date">2026-01-12</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>Ed25519 over <i>RSA / ECDSA.</i></h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      The substrate signs every ledger entry, every evidence-bundle manifest,
+      and every key-rotation record. The signature scheme has to be fast on
+      modern CPUs (no HSM round-trip on the hot path), small on the wire (one
+      sig per entry, often millions of entries), and well-understood by
+      auditors. RSA, ECDSA-P256, and Ed25519 were the candidates.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Use <em>Ed25519</em> via libsodium <code>crypto_sign_*</code>. 64-byte
+      detached signatures, deterministic, batch-verifiable. Public keys are
+      32 bytes; private keys 64 bytes (seed + pubkey).
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>≈ 70 µs sign + 130 µs verify on commodity CPUs · zero round-trip</li>
+      <li>deterministic sigs → same input + key always produces same output (auditable)</li>
+      <li>no parameter choices to misuse (vs ECDSA's nonce reuse risks)</li>
+      <li>HSM support: most modern HSMs ship Ed25519 (AWS KMS Q3 2024)</li>
+      <li>no native FIPS-140-3 cert at v1.0; ML-DSA migration is queued (ADR-010)</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>RSA-2048-PSS.</b> 256-byte sigs blow up bundle size; 1.5 ms sign latency; legacy compatibility was not a real requirement.</li>
+      <li><b>ECDSA-P256.</b> Acceptable, but nonce-reuse footguns and non-deterministic sigs make replay-comparison harder.</li>
+      <li><b>Schnorr / BIP-340.</b> Excellent crypto, but ecosystem mostly biased to Bitcoin contexts; libsodium support is the operational tiebreaker.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-002 ─────────────── -->
+<section class="container dc-adr" id="adr-002">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-002</span>
+    <span class="dc-adr__date">2026-01-12</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>BLAKE2b-256 over <i>SHA-256.</i></h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      Every entry hashes its previous entry; every payload is hashed before
+      signing; bundles include per-file hashes. The hash function runs orders
+      of magnitude more often than the signature. We want the fastest sound
+      256-bit hash available to libsodium.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Use <em>BLAKE2b-256</em> via libsodium <code>crypto_generichash</code>.
+      Produces 32-byte outputs, vectorisable, tree-hashable for bundle
+      manifests. Outputs are encoded with the prefix <code>blake2b:</code> on
+      the wire so verifiers can negotiate hash agility later.
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>≈ 1 GB/s/core hashing throughput · the ledger never stalls on hash</li>
+      <li>no length-extension issues (unlike vanilla SHA-256)</li>
+      <li>hash agility planned: the prefix lets us add SHA-3 / BLAKE3 later</li>
+      <li>not FIPS-140-3 certified — same caveat as Ed25519</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>SHA-256.</b> Universally available, FIPS-friendly, ~3× slower for our shapes; we leave it as a future negotiable.</li>
+      <li><b>SHA-3 / Keccak-256.</b> Slower in software than BLAKE2b without hardware acceleration; not yet pervasive in HSMs.</li>
+      <li><b>BLAKE3.</b> Faster, parallelisable, but younger; we prefer the Bernstein lineage's track record for v1.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-003 ─────────────── -->
+<section class="container dc-adr" id="adr-003">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-003</span>
+    <span class="dc-adr__date">2026-01-18</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>SQLite WAL as the <i>default backend.</i></h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      The ledger needs durable, append-mostly storage that runs in a sidecar,
+      survives a hard reset, supports many readers / one writer, and ships
+      with the binary. Auditors expect to be able to inspect the data without
+      installing a database server.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Use <em>SQLite in WAL mode</em> as the default backend. One <code>entries</code>
+      table, one <code>keys</code> table, one <code>policies</code> table. The
+      WAL gives us crash-safe writes and concurrent reads; <code>.dump</code>
+      produces a textual export auditors already know how to read.
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>single-file ledger trivially replicates (<code>cp</code> works)</li>
+      <li>no separate process to run, monitor, or upgrade</li>
+      <li>single-writer is a real limit; ADR-Postgres (TBD) will lift it for multi-tenant</li>
+      <li>WAL must be checkpointed periodically · runbook PB-07 handles partition recovery</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>Postgres.</b> Right answer at scale, but mandatory dependency at v1 would gate on every customer's DBA team. Planned as a pluggable v0.2 backend.</li>
+      <li><b>LMDB.</b> Faster reads, but auditor ergonomics are worse — no <code>SELECT</code>, no tooling.</li>
+      <li><b>Custom append-only file.</b> We are not in the business of writing yet another WAL.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-004 ─────────────── -->
+<section class="container dc-adr" id="adr-004">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-004</span>
+    <span class="dc-adr__date">2026-01-22</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>C++20 over <i>Rust</i> for the core.</h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      The substrate has to embed in EHRs, gRPC sidecars, Python wheels, and
+      eventually Java/JVM hosts. It has to interop with libsodium, sqlite,
+      protobuf, and mature C ABIs. It has to be fast and predictable. Rust and
+      C++20 were the credible options.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Use <em>C++20</em> with a strict subset (no exceptions on the hot path,
+      no RTTI in public headers, no global state). Treat it like "Rust without
+      the borrow checker" — turn on every warning, run ASan + UBSan in CI,
+      use Pimpl for ABI stability (ADR-007).
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>libsodium / SQLite integration is zero-friction</li>
+      <li>pybind11 → first-class Python wheels in 200 lines of binding code</li>
+      <li>JNI, swift-bridge, and gRPC all consume the C ABI directly</li>
+      <li>memory-safety burden falls on us · sanitisers are not optional</li>
+      <li>future Rust port is not foreclosed — the public C ABI is the contract</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>Rust.</b> Better safety story, but the ecosystem for libsodium / sqlite / pybind-equivalent (PyO3) was less mature at the time we shipped, and the C++ talent pool in clinical software is the operational reality.</li>
+      <li><b>Go.</b> Excellent for sidecars, weak for hot-path latency variance and embedability.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-005 ─────────────── -->
+<section class="container dc-adr" id="adr-005">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-005</span>
+    <span class="dc-adr__date">2026-02-04</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>Canonical JSON over <i>CBOR.</i></h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      Entries are signed by hashing a serialised form. The serialised form has
+      to be byte-identical across writers and verifiers, decades apart. JSON
+      is human-readable; CBOR is compact and binary; either can be canonical
+      with effort.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Use <em>canonical JSON</em>: UTF-8, sorted keys, no insignificant
+      whitespace, integer or scientific-notation numbers, escaped strings per
+      RFC 8259. Implementation: a single <code>asc::canon::encode()</code>
+      function with property-based tests.
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>auditors can <code>jq</code> a bundle straight off disk</li>
+      <li>no separate decoder for human inspection vs verification</li>
+      <li>~1.5× the size of equivalent CBOR · acceptable for the volume</li>
+      <li>numeric precision corner cases are explicit · canonical form pins them</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>CBOR.</b> Smaller, faster to parse, but tooling gap for auditors. Reserved as a potential v0.3 wire-only encoding.</li>
+      <li><b>Protobuf.</b> Tied to a schema registry; bad for forward-compat over decades.</li>
+      <li><b>MsgPack.</b> Same wire-vs-tooling argument as CBOR, less standardised.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-006 ─────────────── -->
+<section class="container dc-adr" id="adr-006">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-006</span>
+    <span class="dc-adr__date">2026-02-15</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>USTAR tar for <i>evidence bundles.</i></h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      Bundles are the artefact handed to regulators, peer reviewers, and
+      auditors. They have to open with software that already exists on every
+      operating system, decades from now. They must include an integrity
+      manifest so a recipient can detect tampering offline.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Use <em>USTAR tar</em> with a top-level <code>manifest.json</code>
+      containing BLAKE2b-256 of every other file plus an Ed25519 signature.
+      Recipients verify with stock <code>tar</code>, <code>jq</code>, and
+      <code>openssl</code> — or with the published <code>verify_bundle</code>
+      binary.
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>opens on macOS, Linux, BSD, Windows (built-in) without our tooling</li>
+      <li>uncompressed by default · bundles are deterministic byte-for-byte</li>
+      <li>USTAR's 100-char filename limit is a hard constraint; we enforce it</li>
+      <li>bundle size is real (50–200 MB typical) · acceptable for non-streaming use</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>ZIP.</b> Equally portable, but its manifest semantics are weaker; no canonical ordering guarantees.</li>
+      <li><b>OCI image format.</b> Designed for container layers, not legal-grade artefacts; tooling assumes container runtime.</li>
+      <li><b>Custom binary format.</b> Auditors should never have to install something to read evidence.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-007 ─────────────── -->
+<section class="container dc-adr" id="adr-007">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-007</span>
+    <span class="dc-adr__date">2026-02-22</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>Pimpl as the <i>ABI strategy.</i></h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      Asclepius binaries embed in long-lived clinical software. Rebuilding
+      every consumer when our internals change is not acceptable. We need
+      a stable C++ ABI for the public types — <code>Runtime</code>,
+      <code>Ledger</code>, <code>KeyStore</code>, <code>Inference</code> —
+      across at least minor versions.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Use <em>the Pimpl idiom</em> for every public class: the header
+      declares only forward-declared <code>class Impl;</code> and a
+      <code>std::unique_ptr&lt;Impl&gt;</code>. Implementations are in the
+      <code>.cpp</code>; consumers see only opaque pointers. Method
+      additions require a recompile of consumers; layout changes do not.
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>internal refactors do not break consumer ABI</li>
+      <li>one heap allocation per public object (acceptable; objects are long-lived)</li>
+      <li>destructors must be defined in the .cpp where Impl is complete</li>
+      <li>inline-only optimisations are forfeit at the public boundary</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>Header-only.</b> Fastest, but every internal change is a downstream rebuild.</li>
+      <li><b>C ABI shim.</b> Stronger guarantee, but loses RAII and ergonomic types at the boundary; reserved for Java/Swift bindings.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-008 ─────────────── -->
+<section class="container dc-adr" id="adr-008">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-008</span>
+    <span class="dc-adr__date">2026-03-01</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2><i>Result&lt;T,Error&gt;</i> over exceptions.</h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      The runtime sits on the latency-sensitive path of every clinical AI call.
+      Exceptions in C++ have non-trivial, hard-to-predict cost when thrown,
+      especially across DLL boundaries, and they make control flow opaque to
+      reviewers. Auditability requires that every fallible call be visibly
+      handled.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Use a <em><code>Result&lt;T, Error&gt;</code></em> type for every fallible
+      public API. Internal code may throw, but all throws are caught at the
+      public boundary and converted. Errors carry a <code>code</code>, a
+      <code>message</code>, and a <code>cause</code> chain.
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>every error path is an explicit branch — easy to audit / fuzz</li>
+      <li>no stack-unwinding cost on the hot path</li>
+      <li>callers must check <code>.ok()</code> · linter enforces unused-result</li>
+      <li>cross-language bindings translate cleanly (Python <code>raise</code>, gRPC status)</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>Exceptions everywhere.</b> Fast in the no-throw case, but observability and FFI hostile.</li>
+      <li><b>Error codes only.</b> Loses the "carries a value or carries an error" duality that <code>Result</code> makes natural.</li>
+      <li><b><code>std::expected</code>.</b> Same shape; we may switch to it once C++23 is the floor.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-009 ─────────────── -->
+<section class="container dc-adr" id="adr-009">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-009</span>
+    <span class="dc-adr__date">2026-03-08</span>
+    <span class="dc-adr__status is-accepted">accepted</span>
+  </div>
+  <h2>Strong typedefs <i>for IDs.</i></h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      The substrate juggles many id types: <code>ActorId</code>,
+      <code>PatientId</code>, <code>EncounterId</code>, <code>ModelId</code>,
+      <code>TenantId</code>. They are all effectively strings, but mixing
+      them is a category of bug that is catastrophic when it surfaces in a
+      clinical context. <em>One swapped argument should not be a quiet
+      compile.</em>
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision</h3>
+    <p>
+      Each id is a distinct type — a <code>struct</code> wrapping a
+      <code>std::string</code>, with explicit construction and no implicit
+      conversion to or from string. Comparison operators are defined within
+      the type. Bindings translate to NewType-style classes (Python,
+      mypy-friendly).
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>argument swaps fail to compile, not at 3 a.m.</li>
+      <li>some boilerplate at construction sites · acceptable</li>
+      <li>serialisation goes through explicit codec functions, not implicit casts</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>Bare <code>std::string</code>.</b> Cheaper, but the bug class is unacceptable for the deployment target.</li>
+      <li><b>Phantom types.</b> Considered; the overhead is similar but the diagnostics are worse.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────── ADR-010 ─────────────── -->
+<section class="container dc-adr" id="adr-010">
+  <div class="dc-adr__head">
+    <span class="dc-adr__id">ADR-010</span>
+    <span class="dc-adr__date">2026-04-19</span>
+    <span class="dc-adr__status is-proposed">proposed</span>
+  </div>
+  <h2>ML-DSA <i>migration path</i> (post-quantum).</h2>
+
+  <div class="dc-section is-context">
+    <h3>context</h3>
+    <p>
+      Ledger entries are durable evidence that a peer-reviewer might still
+      verify in 2046. Cryptographically relevant quantum computers may exist
+      by then. Ed25519 falls to Shor's algorithm. The substrate needs a
+      forward-compatible posture.
+    </p>
+  </div>
+  <div class="dc-section is-decision">
+    <h3>decision (proposed)</h3>
+    <p>
+      Plan a v1.0 migration to <em>ML-DSA</em> (formerly Dilithium, FIPS 204).
+      The wire format already prefixes signatures with a scheme identifier
+      (<code>ed25519:</code>), so adding <code>ml-dsa-65:</code> is a
+      compatibility-preserving extension. Bundles will dual-sign for a
+      transition window; verifiers accept either.
+    </p>
+  </div>
+  <div class="dc-section is-conseq">
+    <h3>consequences</h3>
+    <ul>
+      <li>bundle size grows substantially (~3 KB per ML-DSA-65 sig)</li>
+      <li>HSM support landscape is uneven · monitor through 2026</li>
+      <li>BLAKE2b is already PQ-safe (collision resistance only) — no hash migration</li>
+      <li>verifier tooling adds ~200 KB for the ML-DSA implementation</li>
+    </ul>
+  </div>
+  <div class="dc-section is-alts">
+    <h3>alternatives considered</h3>
+    <ul>
+      <li><b>SLH-DSA (SPHINCS+, FIPS 205).</b> Hash-based, conservative, but signatures are 8–17 KB; bundle size becomes painful.</li>
+      <li><b>Falcon / FN-DSA (FIPS 206 draft).</b> Smaller sigs, but floating-point implementation hazard.</li>
+      <li><b>Wait.</b> Considered and rejected — substrate-grade durability requires we are ahead of the migration, not behind it.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="dc-coda">
+    <h2>What an ADR is, and is <i>not.</i></h2>
+    <p>
+      An ADR is a record of a decision <em>at a point in time</em>. It is not a
+      promise that the decision is forever right. When a decision changes, the
+      old ADR is marked <em>superseded</em> and a new one is written —
+      decision history is, like the ledger itself, append-only.
+    </p>
+    <p>
+      Writing them down is the cheapest cost. Not writing them down is how
+      institutional memory rots, and how a substrate becomes "load-bearing
+      magic only the original maintainers can reason about."
+    </p>
+    <div class="dc-coda__links">
+      <a href="architecture.html">architecture</a>
+      <a href="spec.html">spec</a>
+      <a href="threat-model.html">threat model</a>
+      <a href="governance.html">governance</a>
+      <a href="contributing.html">propose an ADR →</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>provenance</b>
+        <a href="decisions.html">decisions</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>operate</b>
+        <a href="deploy.html">deploy</a>
+        <a href="playbooks.html">playbooks</a>
+        <a href="security.html">security</a>
+        <a href="status.html">status</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="api.html">API reference</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licenses — Asclepius</title>
+<meta name="description" content="Third-party licenses for the Asclepius runtime and the website. Apache 2.0 ourselves; everything else attributed.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/licenses.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+
+<meta property="og:title"        content="Licenses — Asclepius">
+<meta property="og:description"  content="Third-party licenses for the runtime and the website.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .lc { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .lc__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; margin-bottom: 3rem; max-width: 64ch; }
+  .lc__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .lc__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .lc__hero h1 i { color: var(--primary); font-style: italic; }
+  .lc__hero p { color: var(--ink-mute); font-size: 1.05rem; line-height: 1.65; margin: 0; }
+  .lc__hero p code { background: var(--surface-2); border: 1px solid var(--rule); padding: 1px 5px; font-size: .85em; color: var(--accent); }
+
+  .lc-section { padding: 3rem 0; border-top: 1px solid var(--rule-soft); }
+  .lc-section:first-of-type { border-top: 1px solid var(--rule); }
+  .lc-section h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em; margin: 0 0 1rem;
+  }
+  .lc-section h2 i { color: var(--primary); font-style: italic; }
+  .lc-section p { color: var(--ink); max-width: 70ch; line-height: 1.7; margin: 0 0 1rem; }
+
+  .lc-table {
+    margin-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+  }
+  .lc-row {
+    display: grid;
+    grid-template-columns: 220px 130px 1fr;
+    gap: 1.4rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: baseline;
+  }
+  .lc-row b {
+    font-family: var(--font-mono); font-size: .9rem;
+    color: var(--ink-warm); font-weight: 500;
+  }
+  .lc-row a {
+    font-family: var(--font-mono); font-size: .76rem;
+    color: var(--accent); text-decoration: none;
+    border-bottom: 1px dashed var(--accent-deep);
+  }
+  .lc-row a:hover { color: var(--ink-warm); }
+  .lc-row span {
+    font-family: var(--font-prose); font-size: .94rem;
+    color: var(--ink-mute); line-height: 1.6;
+  }
+  .lc-row em {
+    font-family: var(--font-mono); font-style: normal;
+    color: var(--accent); font-size: .82em;
+    margin-right: .35rem;
+    letter-spacing: .04em;
+  }
+  @media (max-width: 700px) {
+    .lc-row { grid-template-columns: 1fr; gap: .25rem; padding: 1rem 0; }
+  }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",     "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Licenses", "item": "https://asclepius.health/licenses.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-licenses">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="docs.html">docs</a>
+      <a href="changelog.html">changelog</a>
+      <a href="licenses.html" class="is-active" aria-current="page">licenses</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="lc">
+  <div class="container">
+
+    <header class="lc__hero">
+      <span class="kbd">third-party licenses · v0.1.0</span>
+      <h1>Everything we did <i>not</i> write.</h1>
+      <p>
+        Asclepius itself is <code>Apache 2.0</code>. The runtime links a small, deliberately curated
+        set of dependencies; the website embeds three font families. Every one is listed below with
+        its license, version, and the reason we picked it. If anything is missing, that's a bug —
+        email <a href="mailto:hello@asclepius.health">hello@asclepius.health</a>.
+      </p>
+    </header>
+
+    <section class="lc-section">
+      <h2>Runtime <i>dependencies</i></h2>
+      <p>Linked into <code>libasclepius</code> at build time. Each is declared in
+      <code>cmake/Dependencies.cmake</code> and pinned by tag.</p>
+      <div class="lc-table">
+        <div class="lc-row">
+          <b>libsodium</b>
+          <a href="https://github.com/jedisct1/libsodium/blob/master/LICENSE">ISC</a>
+          <span><em>1.0.20</em>BLAKE2b-256 hashing and Ed25519 signatures. Chosen for its no-config,
+            constant-time discipline and wide platform support.</span>
+        </div>
+        <div class="lc-row">
+          <b>SQLite</b>
+          <a href="https://www.sqlite.org/copyright.html">Public domain</a>
+          <span><em>3.46</em>The append-only WAL backend for the Merkle ledger.
+            Single-file, zero-config, regulator-friendly.</span>
+        </div>
+        <div class="lc-row">
+          <b>fmt</b>
+          <a href="https://github.com/fmtlib/fmt/blob/master/LICENSE">MIT</a>
+          <span><em>10.2</em>Type-safe formatting. Replaces printf in error paths and the CLI.</span>
+        </div>
+        <div class="lc-row">
+          <b>spdlog</b>
+          <a href="https://github.com/gabime/spdlog/blob/v1.x/LICENSE">MIT</a>
+          <span><em>1.13</em>Structured logging — used sparingly; the ledger is the log of record.</span>
+        </div>
+        <div class="lc-row">
+          <b>nlohmann/json</b>
+          <a href="https://github.com/nlohmann/json/blob/develop/LICENSE.MIT">MIT</a>
+          <span><em>3.11</em>Canonical-JSON serialization for ledger entries. The hash function depends
+            on key-sorted output; nlohmann's <code>dump</code> guarantees that.</span>
+        </div>
+        <div class="lc-row">
+          <b>doctest</b>
+          <a href="https://github.com/doctest/doctest/blob/master/LICENSE.txt">MIT</a>
+          <span><em>2.4</em>Test framework. Single header, fast compile, drives all 312 unit cases.</span>
+        </div>
+        <div class="lc-row">
+          <b>CLI11</b>
+          <a href="https://github.com/CLIUtils/CLI11/blob/main/LICENSE">BSD 3-Clause</a>
+          <span><em>2.4</em>The argument parser behind the <code>asclepius</code> CLI.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="lc-section">
+      <h2>Binding <i>dependencies</i></h2>
+      <p>Optional — pulled only when the corresponding binding is enabled.</p>
+      <div class="lc-table">
+        <div class="lc-row">
+          <b>pybind11</b>
+          <a href="https://github.com/pybind/pybind11/blob/master/LICENSE">BSD 3-Clause</a>
+          <span><em>2.13</em>The Python-binding glue. Header-only, ABI-stable across Python 3.10–3.12.</span>
+        </div>
+        <div class="lc-row">
+          <b>cxx</b>
+          <a href="https://github.com/dtolnay/cxx/blob/master/LICENSE-APACHE">Apache 2.0 / MIT</a>
+          <span><em>1.0 (planned)</em>Rust bindings via <code>cxx</code>. Not yet shipped.</span>
+        </div>
+        <div class="lc-row">
+          <b>protobuf + grpc</b>
+          <a href="https://github.com/protocolbuffers/protobuf/blob/main/LICENSE">BSD 3-Clause</a>
+          <span><em>5.29 + 1.66 (sidecar)</em>Pulled only when <code>ASCLEPIUS_BUILD_SVC=ON</code>.
+            The sidecar is the only place we touch them.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="lc-section">
+      <h2>Website <i>resources</i></h2>
+      <p>Loaded by the static pages you are reading right now.</p>
+      <div class="lc-table">
+        <div class="lc-row">
+          <b>Instrument Serif</b>
+          <a href="https://github.com/Instrument/instrument-serif/blob/main/OFL.txt">SIL OFL 1.1</a>
+          <span><em>display</em>Editorial italic accents and large headlines. Loaded from Google Fonts.</span>
+        </div>
+        <div class="lc-row">
+          <b>Newsreader</b>
+          <a href="https://github.com/productiontype/Newsreader/blob/master/OFL.txt">SIL OFL 1.1</a>
+          <span><em>prose</em>Long-form body text on the manifesto, FAQ, and docs.</span>
+        </div>
+        <div class="lc-row">
+          <b>JetBrains Mono</b>
+          <a href="https://github.com/JetBrains/JetBrainsMono/blob/master/OFL.txt">SIL OFL 1.1</a>
+          <span><em>mono</em>Code blocks, hashes, telemetry strips, the playground terminal.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="lc-section">
+      <h2>What this <i>doesn't</i> ship</h2>
+      <p>
+        No analytics SDKs. No A/B testing frameworks. No customer-data platforms. No third-party
+        CDN-served JavaScript bundles. The only over-the-wire dependency at runtime is the Google Fonts
+        stylesheet — and we honor a <code>preconnect</code> + <code>preload</code> hint so first paint
+        is not blocked on it. If you are reading this on a privacy-respecting browser and you block
+        Google Fonts, the page falls back to system-stack serif/sans/mono and reads cleanly.
+      </p>
+    </section>
+
+    <section class="lc-section">
+      <h2>Auto-generated</h2>
+      <p>
+        This page is regenerated from <code>cmake/Dependencies.cmake</code> on every release.
+        If the repo says version <code>X</code> but the table above says <code>Y</code>, the repo wins.
+        File an issue with the <code>licensing</code> label and we'll fix the page.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — licenses.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="benchmarks.html">benchmarks</a>
+        <a href="changelog.html">changelog</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+        <a href="licenses.html">licenses</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/themes.js" defer></script>
+<script src="js/floating.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>404 — Asclepius</title>
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+<meta name="description" content="404 — the page is not in the ledger.">
+<meta name="robots" content="noindex">
+<meta property="og:title"        content="404 — Asclepius">
+<meta property="og:description"  content="The page is not in the ledger.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="website">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  /* Higher-specificity overrides — keeps the 404 typography unmistakable
+     even if a generic <p> rule wins on cascade. */
+  body.page-404 main { min-height: 80vh; display: grid; place-items: center; padding: 4rem 1.4rem; }
+  body.page-404 .v404 { text-align: center; max-width: 64ch; }
+  body.page-404 .v404__num {
+      font-family: "Instrument Serif", "Cormorant Garamond", "Times New Roman", serif !important;
+      font-size: clamp(7rem, 22vw, 16rem) !important;
+      line-height: 1 !important;
+      color: var(--primary) !important;
+      letter-spacing: -.04em !important;
+      margin: 0 !important;
+      font-weight: 400 !important;
+  }
+  body.page-404 .v404 h1 {
+      font-family: "Instrument Serif", "Cormorant Garamond", "Times New Roman", serif;
+      font-weight: 400;
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      color: var(--ink-warm);
+      margin: 0.6rem 0;
+      letter-spacing: -.01em;
+  }
+  body.page-404 .v404 h1 i { color: var(--primary); font-style: italic; }
+  body.page-404 .v404 p {
+      color: var(--ink-mute);
+      font-family: "JetBrains Mono", monospace;
+      font-size: .82rem;
+      letter-spacing: .04em;
+      line-height: 1.7;
+      margin: 0 0 1.6rem;
+  }
+  body.page-404 .v404__nav {
+      display: flex; gap: .7rem; flex-wrap: wrap; justify-content: center;
+  }
+</style>
+</head>
+<body class="page-404">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="index.html#substrate">substrate</a>
+      <a href="docs.html">docs</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="v404">
+    <p class="v404__num">404</p>
+    <h1>The chain <i>broke</i> at this seq.</h1>
+    <p>This URL has no corresponding entry. <code>asclepius ledger verify</code> would refuse. Try one of these instead:</p>
+    <div class="v404__nav">
+      <a class="btn btn--primary" href="index.html">manifesto</a>
+      <a class="btn btn--ghost"   href="docs.html">docs</a>
+      <a class="btn btn--ghost"   href="demo.html">playground&nbsp;↗</a>
+    </div>
+  </div>
+</main>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

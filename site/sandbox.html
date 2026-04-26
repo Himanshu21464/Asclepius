@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Policy sandbox — Asclepius</title>
+<meta name="description" content="Write a custom regex or schema policy. Test it live against synthetic clinical encounters. See exactly what the runtime would see, in your browser, without a build.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/sandbox.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Policy sandbox">
+<meta property="og:description"  content="Compose your own policy. Test it live, in the browser.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.sb-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.sb-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.sb-hero h1 i { color: var(--primary); font-style: italic; }
+.sb-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.sb-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.sb-grid {
+    margin: 2rem 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 1rem;
+    align-items: start;
+}
+@media (max-width: 920px) { .sb-grid { grid-template-columns: 1fr; } }
+
+.sb-pane {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1.2rem;
+}
+.sb-pane h2 {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 .9rem;
+}
+.sb-pane h2 + p { color: var(--ink-mute); margin: -0.6rem 0 1rem; font-size: .88rem; line-height: 1.55; }
+
+.sb-tabs { display: flex; gap: .35rem; margin-bottom: .8rem; }
+.sb-tab {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-mute);
+    border-radius: 5px;
+    padding: .35rem .8rem;
+    font-family: var(--font-mono); font-size: .68rem; letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+}
+.sb-tab:hover { color: var(--ink-warm); border-color: var(--primary); }
+.sb-tab.is-active { background: var(--primary); color: var(--bg); border-color: var(--primary); }
+
+textarea.sb-edit {
+    width: 100%;
+    min-height: 220px;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .9rem 1rem;
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    caret-color: var(--primary);
+    box-sizing: border-box;
+}
+textarea.sb-edit:focus { border-color: var(--primary); }
+textarea.sb-edit.is-error { border-color: var(--danger); }
+
+.sb-status {
+    margin: .8rem 0 0;
+    padding: .55rem .8rem;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .04em;
+    background: var(--bg-2);
+    border: 1px solid var(--rule-soft);
+    color: var(--ink-mute);
+}
+.sb-status.is-ok   { color: var(--accent); border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.05); }
+.sb-status.is-bad  { color: var(--danger); border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.05); }
+
+.sb-encounters {
+    display: grid;
+    gap: .55rem;
+    margin: .9rem 0 0;
+}
+.sb-encounter {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 1rem; align-items: center;
+    padding: .65rem .85rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    transition: border-color .2s;
+}
+.sb-encounter.is-allow  { border-color: rgba(52,211,153,.35); }
+.sb-encounter.is-modify { border-color: rgba(181,123,255,.35); }
+.sb-encounter.is-block  { border-color: rgba(248,113,113,.45); background: rgba(248,113,113,.04); }
+
+.sb-encounter__text {
+    color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sb-encounter__text mark {
+    background: rgba(181,123,255,.20);
+    color: var(--ink-warm);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+.sb-encounter__verdict {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .14em; text-transform: uppercase;
+}
+.sb-encounter.is-allow  .sb-encounter__verdict { color: var(--accent); }
+.sb-encounter.is-modify .sb-encounter__verdict { color: var(--primary); }
+.sb-encounter.is-block  .sb-encounter__verdict { color: var(--danger); }
+.sb-encounter__icon {
+    text-align: center;
+    font-size: 1rem;
+    color: var(--ink-faint);
+}
+.sb-encounter.is-allow  .sb-encounter__icon { color: var(--accent); }
+.sb-encounter.is-modify .sb-encounter__icon { color: var(--primary); }
+.sb-encounter.is-block  .sb-encounter__icon { color: var(--danger); }
+
+.sb-detail {
+    grid-column: 1 / -1;
+    margin-top: .55rem;
+    padding: .55rem .75rem;
+    background: var(--bg-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    color: var(--ink-mute);
+    font-size: .76rem;
+    line-height: 1.55;
+}
+.sb-detail.is-empty { display: none; }
+
+.sb-summary {
+    display: flex; gap: 1.4rem; flex-wrap: wrap;
+    margin: 0 0 .8rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    color: var(--ink-faint);
+}
+.sb-summary b { font-weight: 500; }
+.sb-summary .ok b   { color: var(--accent); }
+.sb-summary .mod b  { color: var(--primary); }
+.sb-summary .bad b  { color: var(--danger); }
+
+.sb-presets { display: flex; gap: .35rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.sb-preset-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    color: var(--ink-mute);
+    padding: .3rem .65rem;
+    border-radius: 4px;
+    font-family: var(--font-mono); font-size: .68rem; letter-spacing: .12em;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+}
+.sb-preset-btn:hover { color: var(--ink-warm); border-color: var(--primary); }
+
+.sb-hint {
+    margin-top: 1.4rem;
+    padding: 1rem 1.1rem;
+    border-left: 2px solid var(--primary);
+    background: rgba(181,123,255,.05);
+    color: var(--ink-mute);
+    font-family: var(--font-prose);
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.sb-hint b { color: var(--primary); }
+.sb-hint code { font-family: var(--font-mono); font-size: .9em; padding: .08em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://asclepius.health/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Playground",
+      "item": "https://asclepius.health/demo.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Sandbox",
+      "item": "https://asclepius.health/sandbox.html"
+    }
+  ]
+}
+</script>
+</head>
+<body class="page-sandbox">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="docs.html">docs</a>
+      <a href="demo.html">playground</a>
+      <a href="sandbox.html" class="is-active" aria-current="page">policy sandbox</a>
+      <a href="explorer.html">explorer</a>
+      <a href="learn.html" class="status__nav-cta">learn&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+            <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="sb-hero">
+  <div class="container">
+    <span class="kbd">policy editor · live · synthetic encounters</span>
+    <h1>Compose a policy. <i>Watch it bite.</i></h1>
+    <p>
+      The policy chain is the substrate's authoring surface — what your hospital decides should
+      block, modify, or allow each clinical-AI inference. Write a regex (PHI scrubber-shaped) or
+      a JSON-Schema fragment (output validator) here and watch it run in real time against a row
+      of synthetic encounters. Whatever this page validates, the C++ runtime validates the same
+      way.
+    </p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="sb-grid">
+
+    <div class="sb-pane">
+      <h2>your policy</h2>
+      <p>Pick a kind, edit the source, and it compiles in your browser as you type.</p>
+
+      <div class="sb-tabs" role="tablist">
+        <button class="sb-tab is-active" data-kind="regex"  type="button">regex (input scrubber)</button>
+        <button class="sb-tab"            data-kind="schema" type="button">json-schema (output validator)</button>
+        <button class="sb-tab"            data-kind="fn"     type="button">function (custom)</button>
+      </div>
+
+      <div class="sb-presets" id="sb-presets"></div>
+
+      <textarea id="sb-edit" class="sb-edit" spellcheck="false" autocomplete="off"></textarea>
+      <div id="sb-status" class="sb-status">ready</div>
+    </div>
+
+    <div class="sb-pane">
+      <h2>verdicts on 8 synthetic encounters</h2>
+      <p>Each row is a representative wrapped inference. Re-runs whenever the policy changes.</p>
+      <div class="sb-summary" id="sb-summary"></div>
+      <div id="sb-encounters" class="sb-encounters"></div>
+    </div>
+
+  </div>
+
+  <div class="sb-hint">
+    <p><b>What this is.</b> The policy chain in the C++ runtime composes input policies (PHI scrubber, length limit) and output policies (JSON-schema validator, action allowlist). Each policy returns one of <em>allow</em>, <em>modify</em>, or <em>block</em>. Whatever you compose here would be the JS-side equivalent of a single C++ <code>IPolicy</code> — small, stateless, and composable.</p>
+    <p style="margin-top: .6em;"><b>Three policy kinds.</b></p>
+    <ul style="margin: .4em 0 0 1.5em; line-height: 1.7;">
+      <li><b style="color: var(--primary);">Regex scrubber</b> — every match becomes <code>[REDACTED]</code>; <em>modify</em> if any matches found, <em>allow</em> otherwise.</li>
+      <li><b style="color: var(--primary);">JSON-Schema validator</b> — checks the encounter's <em>output</em> doc; <em>allow</em> if it conforms, <em>block</em> otherwise.</li>
+      <li><b style="color: var(--primary);">Custom function</b> — a body that returns <code>{decision, payload?, rationale?}</code>. The expression has access to <code>input</code> (string) and <code>output</code> (parsed JSON).</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — sandbox.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>project</b>
+        <a href="index.html#manifesto">manifesto</a>
+        <a href="changelog.html">changelog</a>
+        <a href="roadmap.html">roadmap</a>
+      </div>
+      <div>
+        <b>auditor</b>
+        <a href="explorer.html">explorer</a>
+        <a href="compare.html">compare</a>
+        <a href="verify-bundle.html">verify a bundle</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="crypto.html">crypto toolbox</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+    'use strict';
+    const $ = (s) => document.querySelector(s);
+
+    // 8 synthetic encounters covering common policy scenarios
+    const ENCOUNTERS = [
+        { id: 'e1', input: 'Patient John Doe MRN:12345678 reports chest pain on exertion.', output: {chief_complaint:'chest pain', subjective:'30 min pressure', assessment:'r/o ACS', plan:'ECG, troponin'} },
+        { id: 'e2', input: 'Phone (415) 555-1234 to coordinate care.', output: {chief_complaint:'phone follow-up', plan:'call back next week'} },
+        { id: 'e3', input: 'No PHI here, just routine vitals: BP 132/84, HR 88, SpO2 97%.', output: {chief_complaint:'routine', plan:'discharge'} },
+        { id: 'e4', input: 'SSN 123-45-6789 listed in chart by mistake.', output: {chief_complaint:'data quality', plan:'remove SSN from note'} },
+        { id: 'e5', input: 'Email jane.doe@example.com pending consent.', output: {chief_complaint:'pending consent'} },
+        { id: 'e6', input: 'Date of injury 03/14/2026.', output: {chief_complaint:'sprain', subjective:'tripped at work', assessment:'left ankle sprain', plan:'RICE'} },
+        { id: 'e7', input: 'Clean encounter, just a wellness check.', output: {} },
+        { id: 'e8', input: 'Cardiology referral for arrhythmia — no PHI.', output: {chief_complaint:'arrhythmia referral', subjective:'palpitations', assessment:'r/o AFib', plan:'24h Holter'} },
+    ];
+
+    // ── presets ───────────────────────────────────────────────────────────
+    const PRESETS = {
+        regex: {
+            'phi (default)': '\\b\\d{3}-\\d{2}-\\d{4}\\b\n\\b\\(?\\d{3}\\)?[\\s\\-]?\\d{3}[\\s\\-]?\\d{4}\\b\n\\b[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}\\b\n\\bMRN[:#\\-\\s]*\\d{4,12}\\b\n\\b(0?[1-9]|1[0-2])[/\\-](0?[1-9]|[12]\\d|3[01])[/\\-](19|20)\\d{2}\\b',
+            'just SSN':       '\\b\\d{3}-\\d{2}-\\d{4}\\b',
+            'just emails':    '\\b[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}\\b',
+            'PHI (incl. names)': 'Patient\\s+[A-Z][a-z]+\\s+[A-Z][a-z]+\n\\b\\d{3}-\\d{2}-\\d{4}\\b',
+        },
+        schema: {
+            'SOAP-shape': JSON.stringify({
+                type: 'object',
+                required: ['chief_complaint', 'plan'],
+                properties: {
+                    chief_complaint: { type: 'string', minLength: 3, maxLength: 200 },
+                    subjective:      { type: 'string', maxLength: 4000 },
+                    assessment:      { type: 'string', maxLength: 1000 },
+                    plan:            { type: 'string', minLength: 1, maxLength: 1000 },
+                },
+            }, null, 2),
+            'minimum required': JSON.stringify({
+                type: 'object',
+                required: ['chief_complaint', 'subjective', 'assessment', 'plan'],
+            }, null, 2),
+            'just chief_complaint': JSON.stringify({
+                type: 'object',
+                required: ['chief_complaint'],
+                properties: { chief_complaint: { type: 'string', minLength: 3 } },
+            }, null, 2),
+        },
+        fn: {
+            'block long inputs': '// return {decision, rationale}; decision in {"allow","modify","block"}\nif (input.length > 80) {\n  return { decision: "block", rationale: "input too long" };\n}\nreturn { decision: "allow" };',
+            'forbid "phone"':    '// case-insensitive phone-word block\nif (/phone/i.test(input)) {\n  return { decision: "block", rationale: "no phone fields allowed" };\n}\nreturn { decision: "allow" };',
+            'require plan':      '// inspect output; require plan ≥ 5 chars\nif (typeof output.plan !== "string" || output.plan.length < 5) {\n  return { decision: "block", rationale: "plan missing or trivial" };\n}\nreturn { decision: "allow" };',
+        },
+    };
+
+    let kind = 'regex';
+    const editor = $('#sb-edit');
+    const status = $('#sb-status');
+
+    function setKind(k) {
+        kind = k;
+        document.querySelectorAll('.sb-tab').forEach((t) => {
+            t.classList.toggle('is-active', t.dataset.kind === k);
+        });
+        // load default preset
+        const first = Object.entries(PRESETS[k])[0];
+        editor.value = first[1];
+        renderPresets();
+        run();
+    }
+
+    function renderPresets() {
+        const wrap = $('#sb-presets');
+        wrap.innerHTML = Object.keys(PRESETS[kind]).map((label) =>
+            `<button class="sb-preset-btn" type="button" data-label="${label}">${label}</button>`
+        ).join('');
+        wrap.querySelectorAll('button').forEach((b) => {
+            b.addEventListener('click', () => {
+                editor.value = PRESETS[kind][b.dataset.label];
+                run();
+            });
+        });
+    }
+
+    document.querySelectorAll('.sb-tab').forEach((t) => {
+        t.addEventListener('click', () => setKind(t.dataset.kind));
+    });
+
+    // ── compile + run ─────────────────────────────────────────────────────
+
+    function compileRegex(src) {
+        const lines = src.split('\n').map((s) => s.trim()).filter(Boolean);
+        const res = [];
+        for (const l of lines) res.push(new RegExp(l, 'g'));
+        return res;
+    }
+
+    function evalRegex(res, enc) {
+        let modified = enc.input;
+        let any = false;
+        const hits = [];
+        for (const re of res) {
+            const matches = enc.input.match(re);
+            if (matches) {
+                any = true;
+                hits.push(...matches);
+                modified = modified.replace(re, '[REDACTED]');
+            }
+        }
+        if (!any) return { decision: 'allow' };
+        return { decision: 'modify', payload: modified, rationale: `${hits.length} match${hits.length === 1 ? '' : 'es'}` };
+    }
+
+    function evalSchema(schema, enc) {
+        const errs = [];
+        function walk(s, d, p) {
+            if (s.type) {
+                const t = s.type, ok =
+                    (t === 'object' && d && typeof d === 'object' && !Array.isArray(d)) ||
+                    (t === 'array'  && Array.isArray(d)) ||
+                    (t === 'string' && typeof d === 'string') ||
+                    (t === 'number' && typeof d === 'number') ||
+                    (t === 'integer' && Number.isInteger(d)) ||
+                    (t === 'boolean' && typeof d === 'boolean');
+                if (!ok) { errs.push(`${p||'$'}: expected ${t}`); return; }
+            }
+            if (s.required && Array.isArray(s.required)) {
+                for (const k of s.required) if (!(k in (d||{}))) errs.push(`${p}/${k}: required`);
+            }
+            if (s.properties && d && typeof d === 'object') {
+                for (const k of Object.keys(s.properties)) {
+                    if (k in d) walk(s.properties[k], d[k], `${p}/${k}`);
+                }
+            }
+            if (typeof d === 'string') {
+                if (s.minLength != null && d.length < s.minLength) errs.push(`${p}: too short`);
+                if (s.maxLength != null && d.length > s.maxLength) errs.push(`${p}: too long`);
+            }
+        }
+        walk(schema, enc.output, '');
+        if (!errs.length) return { decision: 'allow' };
+        return { decision: 'block', rationale: errs[0] };
+    }
+
+    function compileFn(src) {
+        // safer-ish: still uses Function() so do not run untrusted policies
+        // pulled from a server. Sandbox is a teaching surface for the
+        // visitor's own input.
+        // eslint-disable-next-line no-new-func
+        return new Function('input', 'output', src);
+    }
+
+    function evalFn(fn, enc) {
+        try {
+            const r = fn(enc.input, enc.output) || {};
+            const dec = ['allow', 'modify', 'block'].includes(r.decision) ? r.decision : 'allow';
+            return { decision: dec, payload: r.payload, rationale: r.rationale };
+        } catch (e) {
+            return { decision: 'block', rationale: 'function threw: ' + (e.message || e) };
+        }
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function highlightHits(text, regexes) {
+        let safe = escapeHtml(text);
+        // build a single flag-merged "or" pattern for highlighting
+        if (!regexes.length) return safe;
+        try {
+            const merged = new RegExp(regexes.map((r) => r.source).join('|'), 'g');
+            // operate on the raw text, then escape both sides of the match
+            const out = [];
+            let last = 0;
+            let m;
+            while ((m = merged.exec(text)) !== null) {
+                out.push(escapeHtml(text.slice(last, m.index)));
+                out.push('<mark>', escapeHtml(m[0]), '</mark>');
+                last = m.index + m[0].length;
+                if (m[0].length === 0) merged.lastIndex++;
+            }
+            out.push(escapeHtml(text.slice(last)));
+            return out.join('');
+        } catch (_) {
+            return safe;
+        }
+    }
+
+    function run() {
+        editor.classList.remove('is-error');
+        status.classList.remove('is-ok', 'is-bad');
+        let evalFnRef = null;
+        let regexes = null;
+        let schema  = null;
+
+        try {
+            if (kind === 'regex') {
+                regexes = compileRegex(editor.value);
+                status.textContent = `compiled ${regexes.length} pattern${regexes.length === 1 ? '' : 's'}`;
+                status.classList.add('is-ok');
+                evalFnRef = (enc) => evalRegex(regexes, enc);
+            } else if (kind === 'schema') {
+                schema = JSON.parse(editor.value);
+                status.textContent = `schema parsed`;
+                status.classList.add('is-ok');
+                evalFnRef = (enc) => evalSchema(schema, enc);
+            } else {
+                const f = compileFn(editor.value);
+                status.textContent = `function compiled`;
+                status.classList.add('is-ok');
+                evalFnRef = (enc) => evalFn(f, enc);
+            }
+        } catch (e) {
+            status.textContent = `compile error: ${e.message || e}`;
+            status.classList.add('is-bad');
+            editor.classList.add('is-error');
+            renderRows([]);
+            return;
+        }
+
+        const rows = ENCOUNTERS.map((enc) => ({ enc, verdict: evalFnRef(enc) }));
+        renderRows(rows, regexes);
+    }
+
+    function renderRows(rows, regexes) {
+        const list = $('#sb-encounters');
+        const counts = { allow: 0, modify: 0, block: 0 };
+        list.innerHTML = rows.map((r) => {
+            counts[r.verdict.decision]++;
+            const hl = regexes ? highlightHits(r.enc.input, regexes) : escapeHtml(r.enc.input);
+            const verb = { allow: 'allow', modify: 'modify', block: 'block' }[r.verdict.decision];
+            const icon = { allow: '✓', modify: '~', block: '✗' }[r.verdict.decision];
+            const detail = r.verdict.rationale
+                ? `<span class="sb-detail">${escapeHtml(r.verdict.rationale)}${r.verdict.payload ? ' · ' + escapeHtml(r.verdict.payload).slice(0, 240) : ''}</span>`
+                : '';
+            return `<div class="sb-encounter is-${r.verdict.decision}">
+                <span class="sb-encounter__text">${hl}</span>
+                <span class="sb-encounter__verdict">${verb}</span>
+                <span class="sb-encounter__icon">${icon}</span>
+                ${detail}
+            </div>`;
+        }).join('');
+
+        $('#sb-summary').innerHTML = `
+            <span class="ok"><b>${counts.allow}</b> allow</span>
+            <span class="mod"><b>${counts.modify}</b> modify</span>
+            <span class="bad"><b>${counts.block}</b> block</span>
+            <span style="color: var(--ink-faint);">· ${rows.length} encounters</span>`;
+    }
+
+    // debounced
+    let t = null;
+    editor.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(run, 240);
+    });
+
+    setKind('regex');
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>

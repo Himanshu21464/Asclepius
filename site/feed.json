@@ -1,0 +1,63 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Asclepius — changelog",
+  "home_page_url": "https://asclepius.health/changelog.html",
+  "feed_url": "https://asclepius.health/feed.json",
+  "description": "Cryptographically chained release history for the Asclepius clinical-AI trust substrate. Each entry references the previous hash; the changelog is itself a Merkle log.",
+  "language": "en",
+  "icon": "https://asclepius.health/assets/og-card.png",
+  "favicon": "https://asclepius.health/assets/favicon.svg",
+  "authors": [{ "name": "Asclepius Contributors", "url": "https://asclepius.health/" }],
+  "items": [
+    {
+      "id": "asclepius:v0.1.0",
+      "url": "https://asclepius.health/changelog.html#v0-1-0",
+      "title": "v0.1.0 — The substrate, open-sourced.",
+      "summary": "First public release. C++20 runtime with signed Merkle ledger, policy chain, drift detection, consent registry, and offline-verifiable evidence bundles. Apache 2.0.",
+      "content_text": "First public release of the Asclepius runtime. Apache 2.0. C++20 with Runtime, Inference, Ledger, PolicyChain, DriftMonitor, ConsentRegistry, EvaluationHarness. Append-only Merkle ledger over SQLite WAL. BLAKE2b-256 + Ed25519. Policies: phi_scrubber, schema_validator, clinical_action_filter, length_limit. USTAR evidence bundles, signed manifest, offline-verifiable. Python bindings, CLI, three worked examples. 52 doctest cases / 687 assertions, all green.",
+      "tags": ["technology-preview", "release"],
+      "date_published": "2026-04-25T00:00:00Z"
+    },
+    {
+      "id": "asclepius:v0.0.9",
+      "url": "https://asclepius.health/changelog.html#v0-0-9",
+      "title": "v0.0.9 — Conformance: L1 audit suite green.",
+      "summary": "Pinned the on-disk ledger format (spec.md v1) and ran the L1 conformance suite end-to-end.",
+      "content_text": "Pinned the on-disk ledger format. Sign-input layout fixed. Drift severity bands tuned against published clinical-AI deployment data.",
+      "tags": ["internal"],
+      "date_published": "2026-04-12T00:00:00Z"
+    },
+    {
+      "id": "asclepius:v0.0.7",
+      "url": "https://asclepius.health/changelog.html#v0-0-7",
+      "title": "v0.0.7 — Evidence bundles ship.",
+      "summary": "USTAR tar emit + offline-verify. Manifest signed by the ledger key.",
+      "tags": ["internal"],
+      "date_published": "2026-03-19T00:00:00Z"
+    },
+    {
+      "id": "asclepius:v0.0.5",
+      "url": "https://asclepius.health/changelog.html#v0-0-5",
+      "title": "v0.0.5 — Drift on the ground floor.",
+      "summary": "DriftMonitor with PSI / KS / EMD on per-feature histograms.",
+      "tags": ["internal"],
+      "date_published": "2026-02-28T00:00:00Z"
+    },
+    {
+      "id": "asclepius:v0.0.3",
+      "url": "https://asclepius.health/changelog.html#v0-0-3",
+      "title": "v0.0.3 — Policy chain composed.",
+      "summary": "First version of the PolicyChain with allow/modify/block verdicts.",
+      "tags": ["internal"],
+      "date_published": "2026-02-04T00:00:00Z"
+    },
+    {
+      "id": "asclepius:v0.0.1",
+      "url": "https://asclepius.health/changelog.html#v0-0-1",
+      "title": "v0.0.1 — Genesis. The Merkle ledger compiles.",
+      "summary": "First commit. Append-only signed log over SQLite. verify() walks the chain.",
+      "tags": ["internal"],
+      "date_published": "2026-01-08T00:00:00Z"
+    }
+  ]
+}

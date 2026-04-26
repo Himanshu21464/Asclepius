@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"
+                      xmlns:moz="http://www.mozilla.org/2006/browser/search/">
+  <ShortName>Asclepius</ShortName>
+  <Description>Search the Asclepius docs, spec, threat model, benchmarks, and conformance suite.</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Image height="32" width="32" type="image/svg+xml">https://asclepius.health/assets/favicon.svg</Image>
+  <Image height="180" width="180" type="image/png">https://asclepius.health/assets/apple-touch-icon.png</Image>
+  <Url type="text/html" template="https://asclepius.health/?q={searchTerms}"/>
+  <moz:SearchForm>https://asclepius.health/</moz:SearchForm>
+  <Tags>asclepius clinical-ai trust substrate audit ledger merkle</Tags>
+  <Contact>hello@asclepius.health</Contact>
+</OpenSearchDescription>

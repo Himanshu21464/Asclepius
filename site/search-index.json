@@ -1,0 +1,747 @@
+{
+  "generated_at": "2026-04-26T06:53:14Z",
+  "count": 45,
+  "pages": [
+    {
+      "url": "accessibility.html",
+      "title": "Accessibility — Asclepius",
+      "description": "Accessibility statement: WCAG 2.2 AA target, current conformance, known issues, contact for accessibility complaints.",
+      "headings": [
+        "Current conformance",
+        "What we did, mechanically",
+        "Known issues — being worked on",
+        "Out of scope",
+        "How to report"
+      ]
+    },
+    {
+      "url": "api.html",
+      "title": "API reference — Asclepius",
+      "description": "Auto-generated reference of every public C++ symbol in include/asclepius/. Classes, methods, free functions, enums — direct from the source.",
+      "headings": [
+        "asclepius.hpp",
+        "audit.hpp",
+        "KeyStore",
+        "LedgerEntryHeader",
+        "LedgerEntry",
+        "Ledger",
+        "consent.hpp",
+        "enums",
+        "ConsentToken",
+        "ConsentRegistry",
+        "free functions",
+        "core.hpp",
+        "Error",
+        "Time",
+        "evaluation.hpp",
+        "EvaluationHarness",
+        "hashing.hpp",
+        "Hash",
+        "Hasher",
+        "HashHasher",
+        "identity.hpp",
+        "StrongId",
+        "ActorId",
+        "PatientId",
+        "EncounterId",
+        "ModelId",
+        "TenantId",
+        "interop/fhir.hpp",
+        "ResourceRef",
+        "EncounterScope",
+        "policy.hpp",
+        "InferenceContext",
+        "IPolicy",
+        "PolicyChain",
+        "runtime.hpp",
+        "InferenceSpec",
+        "Inference",
+        "Runtime",
+        "telemetry.hpp",
+        "Histogram",
+        "DriftReport",
+        "DriftMonitor",
+        "MetricRegistry",
+        "version.hpp",
+        "Version"
+      ]
+    },
+    {
+      "url": "architecture.html",
+      "title": "Architecture — Asclepius",
+      "description": "Component map, data flow, and the rationale behind every layer of the runtime.",
+      "headings": [
+        "Component map",
+        "Data flow for a single inference",
+        "Why a Merkle-chained signed ledger",
+        "Why SQLite (for now)",
+        "Why Ed25519 + BLAKE2b",
+        "Why C++20",
+        "Storage model",
+        "Evidence bundles",
+        "Threading model",
+        "What is NOT in the runtime",
+        "Future work"
+      ]
+    },
+    {
+      "url": "badges.html",
+      "title": "Badges — Asclepius",
+      "description": "Embeddable SVG status badges for the Asclepius project. Drop them into your README, your dashboard, your runbook.",
+      "headings": [
+        "Release version",
+        "License",
+        "Conformance level",
+        "Ledger verified",
+        "Build status",
+        "Runtime language",
+        "Why self-hosted",
+        "For partners + design partners"
+      ]
+    },
+    {
+      "url": "benchmarks.html",
+      "title": "Benchmarks — Asclepius",
+      "description": "Real performance numbers from the Asclepius C++20 runtime: sub-millisecond p99 on wrapped inferences, 633 MB/s BLAKE2b-256, 62,657 Ed25519 sigs/sec on commodity hardware.",
+      "headings": [
+        "Cryptographic primitives are not the bottleneck.",
+        "Runtime: ledger, policy, end-to-end.",
+        "Where the 87 µs goes.",
+        "Reproduce them yourself.",
+        "Run it",
+        "Methodology",
+        "What is not measured",
+        "Honest caveats"
+      ]
+    },
+    {
+      "url": "changelog.html",
+      "title": "Changelog &amp; roadmap — Asclepius",
+      "description": "Versioned release log and forward roadmap for the Asclepius clinical-AI trust substrate.",
+      "headings": [
+        "§ release log",
+        "§ roadmap",
+        "Shipped now",
+        "In flight (2026 Q3)",
+        "Considered (post-1.0)",
+        "§ compatibility guarantees"
+      ]
+    },
+    {
+      "url": "cheatsheet.html",
+      "title": "Cheatsheet — Asclepius",
+      "description": "The fewest-words version. Every common pattern, every CLI invocation, every verification ritual on one dense page. Print it, pin it, paste from it.",
+      "headings": [
+        "Wrap an inference C++20",
+        "Wrap an inference Python",
+        "Build &amp; test cmake",
+        "CLI asclepius",
+        "Verify a bundle without our binary",
+        "Built-in policies composable",
+        "Ledger entry spec.md",
+        "Standard event types",
+        "Eight purposes codified",
+        "Drift bands PSI",
+        "Performance budget real numbers",
+        "Key custody three options",
+        "Threat model TL;DR",
+        "What not to expect",
+        "Site keyboard shortcuts",
+        "Where things live"
+      ]
+    },
+    {
+      "url": "colophon.html",
+      "title": "Colophon — Asclepius",
+      "description": "How the Asclepius site itself is built: type stack, design tokens, no-framework discipline, build pipeline, self-attestation, lessons learned.",
+      "headings": [
+        "Type stack",
+        "Palette",
+        "Build pipeline",
+        "JavaScript discipline",
+        "Self-attestation",
+        "What didn't make the cut",
+        "Lessons",
+        "Thanks"
+      ]
+    },
+    {
+      "url": "compare.html",
+      "title": "Compare bundles — Asclepius",
+      "description": "Drop two ledger excerpts side by side. Asclepius diffs them by seq and payload_hash and highlights added, removed, and modified entries — in your browser, no upload.",
+      "headings": []
+    },
+    {
+      "url": "conformance.html",
+      "title": "Conformance — Asclepius",
+      "description": "The Asclepius conformance suite: every L1 / L2 / L3 test, what it asserts, and the current pass/fail status from the v0.1.0 reference build.",
+      "headings": [
+        "Trustworthy log.",
+        "Observable behaviour.",
+        "Prospective trial."
+      ]
+    },
+    {
+      "url": "contributing.html",
+      "title": "Contributing — Asclepius",
+      "description": "How to contribute to the Asclepius runtime — PR flow, RFC process, code style, sign-off, security disclosure.",
+      "headings": [
+        "Read first",
+        "RFC if it's a shape",
+        "Branch &amp; build",
+        "PR with a why",
+        "Sign-off",
+        "Code style — no surprises",
+        "What we accept, what we don't",
+        "RFC process",
+        "Security disclosures",
+        "Code of conduct",
+        "Where to start"
+      ]
+    },
+    {
+      "url": "cookies.html",
+      "title": "Cookies — Asclepius",
+      "description": "The complete list of cookies asclepius.health sets: zero. The complete list of trackers it loads: zero. What it does store, and where.",
+      "headings": [
+        "What we do store",
+        "What we load from third parties",
+        "Service worker",
+        "Why this matters",
+        "Contact"
+      ]
+    },
+    {
+      "url": "crypto.html",
+      "title": "Crypto toolbox — Asclepius",
+      "description": "In-browser cryptographic playground: hash visualizer (SHA-256 / SHA-384 / SHA-512), Ed25519 keypair generation and signing, chain-forge demonstration. All Web Crypto, no network.",
+      "headings": [
+        "Same input, three fingerprints.",
+        "One keypair, one signature, irrefutable.",
+        "An attacker without the secret key cannot succeed."
+      ]
+    },
+    {
+      "url": "decisions.html",
+      "title": "Decisions — Asclepius",
+      "description": "Architecture Decision Records (ADRs) for the Asclepius substrate. Why Ed25519, why BLAKE2b, why C++20, why SQLite, why canonical JSON, why USTAR tar, why Pimpl, why Result&lt;T&gt;.",
+      "headings": [
+        "Ed25519 over RSA / ECDSA.",
+        "context",
+        "decision",
+        "consequences",
+        "alternatives considered",
+        "BLAKE2b-256 over SHA-256.",
+        "SQLite WAL as the default backend.",
+        "C++20 over Rust for the core.",
+        "Canonical JSON over CBOR.",
+        "USTAR tar for evidence bundles.",
+        "Pimpl as the ABI strategy.",
+        "Result&lt;T,Error&gt; over exceptions.",
+        "Strong typedefs for IDs.",
+        "ML-DSA migration path (post-quantum).",
+        "decision (proposed)",
+        "What an ADR is, and is not."
+      ]
+    },
+    {
+      "url": "demo.html",
+      "title": "Asclepius — playground",
+      "description": "A live, in-browser simulation of an Asclepius-wrapped clinical-AI inference. PHI is scrubbed, output is schema-checked, and a signed Merkle ledger row is appended in front of you.",
+      "headings": [
+        "Clinician transcript",
+        "detected PHI",
+        "Asclepius runtime",
+        "Every wrap appends one row, signed by your browser.",
+        "A confidence histogram, drifting in real time."
+      ]
+    },
+    {
+      "url": "deploy.html",
+      "title": "Deploy — Asclepius",
+      "description": "Production deployment recipes for Asclepius: docker-compose, Postgres backend, sidecar, key custody, retention, multi-tenant. The page the production-ops engineer reads first.",
+      "headings": [
+        "Development.",
+        "Production.",
+        "Sidecar (gRPC).",
+        "Key custody.",
+        "Retention.",
+        "Multi-tenant.",
+        "Monitoring.",
+        "Scheduled evidence bundles.",
+        "Kubernetes.",
+        "What's next."
+      ]
+    },
+    {
+      "url": "docs.html",
+      "title": "Docs — Asclepius",
+      "description": "Architecture, on-disk + on-wire spec, threat model, and an in-browser playground for the Asclepius clinical-AI trust substrate.",
+      "headings": [
+        "Architecture",
+        "Specification",
+        "Threat model",
+        "API reference",
+        "Use cases",
+        "Integrations",
+        "Playground&nbsp;↗",
+        "Other surfaces",
+        "Cryptographic primitives at a glance"
+      ]
+    },
+    {
+      "url": "economics.html",
+      "title": "Economics — Asclepius",
+      "description": "What does it actually cost to run Asclepius? Bytes per entry, entries per day, signing CPU, verification CPU, bundle export size, WAL disk, retention multiplier — with worked examples for small / medium / large hospitals.",
+      "headings": [
+        "One signed entry.",
+        "Three operators, three sizings.",
+        "Bundle exports — the regulator side.",
+        "How long we keep things.",
+        "The counterfactual.",
+        "The substrate is not free."
+      ]
+    },
+    {
+      "url": "explorer.html",
+      "title": "Explorer — Asclepius",
+      "description": "Drop or paste a ledger JSONL excerpt. Inspect entries, walk the prev_hash chain, recompute payload hashes, see breaks in red. The auditor's microscope.",
+      "headings": []
+    },
+    {
+      "url": "glossary.html",
+      "title": "Glossary — Asclepius",
+      "description": "Every clinical and cryptographic term Asclepius uses, defined in one place. Other pages deep-link here.",
+      "headings": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "K",
+        "L",
+        "M",
+        "O",
+        "P",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V"
+      ]
+    },
+    {
+      "url": "governance.html",
+      "title": "Governance — Asclepius",
+      "description": "How decisions get made in the Asclepius project: lazy consensus for routine PRs, RFCs for shape changes, public voting for breaking changes, no BDFL.",
+      "headings": [
+        "Three tiers of change",
+        "Routine",
+        "Shape changes",
+        "Breaking changes",
+        "Roles",
+        "RFC process",
+        "Disagreement",
+        "Releases",
+        "Trademarks &amp; the brand",
+        "Code of conduct",
+        "Why this is short"
+      ]
+    },
+    {
+      "url": "index.html",
+      "title": "Asclepius — A Trust Substrate for Clinical AI",
+      "description": "Open, vendor-neutral C++ runtime that wraps any clinical AI tool with audit-grade safety: signed Merkle ledger, policy chain, drift detection, consent enforcement, and FDA-grade evidence bundles.",
+      "headings": [
+        "Q1&nbsp;2026 alone&nbsp;cost&nbsp;American health systems more than&nbsp;the&nbsp;entire&nbsp;clinical-AI tooling&nbsp;market&nbsp;earned.",
+        "Kaiser, Medicare-Advantage AI settlement.",
+        "Sharp HealthCare AI-scribe encounters recorded without patient consent.",
+        "UnitedHealth nH Predict denials reportedly reversed on appeal.",
+        "of healthcare executives cite \"lack of guidelines\" and \"resource allocation\" as the primary AI-adoption barriers.",
+        "Five primitives. One library. One library binding into every clinical AI you ship.",
+        "Signed Merkle ledger",
+        "Composable policy chain",
+        "Drift on the ground floor",
+        "Consent &amp; purpose-of-use",
+        "Evidence bundles",
+        "A single call traces the same six edges, every time.",
+        "Fifteen lines wraps any model in audit-grade safety.",
+        "A regulator should be able to verify your bundle on a laptop, offline, in under a second.",
+        "A trust substrate that costs more than the model it wraps would not be a substrate. Numbers we will defend.",
+        "Every adjacent tool solves a fragment. Asclepius is what you'd get if you built the missing whole.",
+        "The questions a CTO asks before putting it in front of the AI Governance Office.",
+        "Liability is biting now, not someday.",
+        "HHS Request for Information",
+        "FDA lifecycle-based model",
+        "California AI laws take effect",
+        "Nature Medicine editorial",
+        "A trust substrate must be auditable to be&nbsp;trusted."
+      ]
+    },
+    {
+      "url": "integrations.html",
+      "title": "Integrations — Asclepius",
+      "description": "Copy-paste recipes for wrapping common clinical-AI tools in Asclepius. Ambient scribe, in-house model, agentic system, FHIR sidecar, batch evaluation. C++ and Python side-by-side, with the resulting ledger row.",
+      "headings": [
+        "An ambient-scribe vendor.",
+        "resulting ledger row",
+        "An in-house imaging model.",
+        "A tool-using agent.",
+        "two-row outcome (auto-commit + staged + co-signed)",
+        "A FHIR sidecar.",
+        "A batch evaluation harness.",
+        "resulting bundle (USTAR tar — opens with stock tar)",
+        "The pattern is always the same."
+      ]
+    },
+    {
+      "url": "labs.html",
+      "title": "Labs — Asclepius",
+      "description": "Where Asclepius is being piloted: design partners, research collaborators, and active conformance battery sites.",
+      "headings": [
+        "An academic medical center, Pacific Northwest.",
+        "Cardiac electrophysiology twin, Europe.",
+        "Community hospital network, Midwest.",
+        "Drug repurposing for the long tail, academic consortium.",
+        "Asclepius dogfood, everywhere.",
+        "Apply to pilot"
+      ]
+    },
+    {
+      "url": "learn.html",
+      "title": "Learn — Asclepius",
+      "description": "Three interactive surfaces, in order: build a chain in the playground, walk the offline verify ritual, then inspect a real ledger in the explorer. Plus the crypto toolbox.",
+      "headings": [
+        "Wrap a model in your tab.",
+        "Hand it off to a verifier.",
+        "Inspect a real chain.",
+        "Side trips, when you want depth."
+      ]
+    },
+    {
+      "url": "licenses.html",
+      "title": "Licenses — Asclepius",
+      "description": "Third-party licenses for the Asclepius runtime and the website. Apache 2.0 ourselves; everything else attributed.",
+      "headings": [
+        "Runtime dependencies",
+        "Binding dependencies",
+        "Website resources",
+        "What this doesn't ship",
+        "Auto-generated"
+      ]
+    },
+    {
+      "url": "migrations.html",
+      "title": "Migrations — Asclepius",
+      "description": "Version-to-version upgrade guides for the Asclepius substrate. v0.0.x → v0.1, v0.1 → v0.2 (Postgres backend), v0.2 → v1.0 (ML-DSA dual-sign). Pre-flight, runbook, rollback, verification.",
+      "headings": [
+        "v0.0.x → v0.1 · initial GA.",
+        "pre-flight",
+        "migrate",
+        "verify",
+        "rollback",
+        "v0.1 → v0.2 · Postgres backend.",
+        "copy-forward",
+        "cutover",
+        "v0.2 → v0.3 · gRPC sidecar GA.",
+        "deploy",
+        "v0.3 → v1.0 · ML-DSA dual-sign window.",
+        "activate dual-sign",
+        "extend verifier",
+        "retire (much later)",
+        "The chain survives the substrate."
+      ]
+    },
+    {
+      "url": "observability.html",
+      "title": "Observability — Asclepius",
+      "description": "Every metric, trace span, and structured log line the substrate emits. Prometheus shape, OpenTelemetry semantic conventions, JSON Lines logs, with example dashboards and alert rules.",
+      "headings": [
+        "Metrics — Prometheus shape.",
+        "runtime",
+        "ledger",
+        "crypto",
+        "drift &amp; consent",
+        "bundle export",
+        "Traces — OpenTelemetry semantic conventions.",
+        "Logs — JSON Lines, structured.",
+        "Alert rules.",
+        "Visibility is the other half of trust."
+      ]
+    },
+    {
+      "url": "playbooks.html",
+      "title": "Playbooks — Asclepius",
+      "description": "Operator runbooks for incidents you will eventually face: key rotation, ledger truncation detected, drift threshold exceeded, consent revocation cascade, evidence-bundle subpoena, model-version mismatch, sidecar partition.",
+      "headings": [
+        "Ledger truncation detected.",
+        "detect",
+        "contain",
+        "investigate",
+        "remediate",
+        "Scheduled key rotation.",
+        "prepare",
+        "execute",
+        "verify",
+        "retire",
+        "Signing key compromise.",
+        "declare",
+        "rotate",
+        "scope",
+        "disclose",
+        "Drift threshold exceeded.",
+        "classify",
+        "decide",
+        "document",
+        "Consent revocation cascade.",
+        "receive",
+        "enforce",
+        "annotate",
+        "confirm",
+        "Evidence-bundle subpoena.",
+        "export",
+        "deliver",
+        "Sidecar network partition.",
+        "reconcile",
+        "monitor",
+        "The runbook is part of the substrate."
+      ]
+    },
+    {
+      "url": "press.html",
+      "title": "Press kit — Asclepius",
+      "description": "Wordmark, mark, color tokens, fact sheet, downloadable brand assets, sample copy. For journalists, partners, and the AI Governance Office.",
+      "headings": [
+        "Palette",
+        "Fact sheet",
+        "Sample copy — pick your length",
+        "Downloads",
+        "Tone",
+        "Contact"
+      ]
+    },
+    {
+      "url": "principles.html",
+      "title": "Principles — Asclepius",
+      "description": "The seven design tenets that drive Asclepius decisions. Each is opinionated, and the trade-offs we accept are stated explicitly.",
+      "headings": [
+        "Cryptographic provenance, not \"trust us.\"",
+        "Vendor-neutral, by structure.",
+        "Audit-grade or it does not ship.",
+        "One canonical encoding, forever.",
+        "Substrate, not SaaS.",
+        "Specific over clever.",
+        "Patients, not dashboards."
+      ]
+    },
+    {
+      "url": "regulator.html",
+      "title": "For regulators — Asclepius",
+      "description": "A direct mapping from regulatory requirement to substrate primitive. HIPAA, EU AI Act high-risk obligations, FDA SaMD, California AB 3030, Joint Commission integrity rules — each tied to the exact Asclepius mechanism that addresses it.",
+      "headings": [
+        "HIPAA — Security &amp; Privacy Rules.",
+        "EU AI Act — high-risk obligations.",
+        "FDA — SaMD pre-market submissions.",
+        "California AB 3030 — generative AI in clinical comms.",
+        "Joint Commission — medical record integrity.",
+        "What the substrate is not."
+      ]
+    },
+    {
+      "url": "research.html",
+      "title": "Research — Asclepius",
+      "description": "Annotated bibliography of papers and primitives Asclepius is built on. Merkle 1979, Bernstein et al. on Ed25519 / BLAKE2, drift detection literature, FHIR R5, and the clinical-AI accountability canon.",
+      "headings": [
+        "Crypto we chose to build on.",
+        "The Merkle tree — log integrity for forty-five years.",
+        "Ed25519 — the signature scheme we sign with.",
+        "BLAKE2 — the hash the ledger leans on.",
+        "ML-DSA — the post-quantum migration target.",
+        "libsodium — the implementation we trust to be right.",
+        "Prior art for auditable systems.",
+        "CT — public, append-only, gossiped.",
+        "Trillian — the operational reference.",
+        "in-toto — supply-chain attestation that composes.",
+        "SLSA — the L1/L2/L3 ladder we mirror.",
+        "How the drift monitor measures.",
+        "PSI — the binned-distribution shift index.",
+        "KS test — continuous-feature shift.",
+        "EMD — ordinal drift, where order matters.",
+        "Calibration — the other drift.",
+        "The literature the substrate enacts.",
+        "Model cards — declared once, bound to every inference.",
+        "Datasheets — the training-data contract.",
+        "Model Facts — at the bedside.",
+        "Do no harm — the operational imperative.",
+        "The accountability gap we are filling.",
+        "The specs we speak.",
+        "FHIR R5 — the EHR contract.",
+        "DICOM — the imaging contract.",
+        "IHE — the workflow profiles.",
+        "USTAR tar — portable forever.",
+        "JSON Schema — the entry shape contract.",
+        "What we are not citing."
+      ]
+    },
+    {
+      "url": "roadmap.html",
+      "title": "Roadmap — Asclepius",
+      "description": "Asclepius roadmap: gRPC sidecar, Postgres backend, HSM signer, conformance suite L1/L2/L3, multi-tenant evidence-bundle service.",
+      "headings": [
+        "Q2&nbsp;2026",
+        "shipped",
+        "Q3&nbsp;2026",
+        "in progress",
+        "Q4&nbsp;2026",
+        "planned",
+        "Q1&nbsp;2027",
+        "v1.0",
+        "Conformance ladder.",
+        "Trustworthy log",
+        "Observable behaviour",
+        "Prospective trial",
+        "Non-goals."
+      ]
+    },
+    {
+      "url": "sandbox.html",
+      "title": "Policy sandbox — Asclepius",
+      "description": "Write a custom regex or schema policy. Test it live against synthetic clinical encounters. See exactly what the runtime would see, in your browser, without a build.",
+      "headings": [
+        "your policy",
+        "verdicts on 8 synthetic encounters"
+      ]
+    },
+    {
+      "url": "security.html",
+      "title": "Security — Asclepius",
+      "description": "Asclepius security policy: vulnerability disclosure, supported versions, signing keys, and how to report a finding.",
+      "headings": [
+        "How to report.",
+        "Scope.",
+        "Supported versions.",
+        "Project signing keys.",
+        "What to expect."
+      ]
+    },
+    {
+      "url": "sitegraph.html",
+      "title": "Site graph — Asclepius",
+      "description": "Every page on this site, every link between them. A force-directed graph rendered in your browser from a fetched JSON index.",
+      "headings": []
+    },
+    {
+      "url": "sitemap.html",
+      "title": "Sitemap — Asclepius",
+      "description": "Every page on asclepius.health, grouped. The crawler version lives at sitemap.xml.",
+      "headings": [
+        "§ landing",
+        "§ documentation",
+        "§ interactive",
+        "§ release",
+        "§ community",
+        "§ machine-readable"
+      ]
+    },
+    {
+      "url": "spec.html",
+      "title": "Spec — Asclepius",
+      "description": "On-disk and on-wire formats. The bytes a verifier sees, in lexicographic order.",
+      "headings": [
+        "Hash function",
+        "Signature scheme",
+        "Time",
+        "Canonical JSON",
+        "Ledger entry",
+        "SQLite schema",
+        "Standard event types",
+        "Evidence bundle (USTAR tar)",
+        "Versioning policy"
+      ]
+    },
+    {
+      "url": "status.html",
+      "title": "Status — Asclepius",
+      "description": "What an Asclepius-deployed health system sees in production: live ledger throughput, drift alerts, recent bundle exports, last attestation.",
+      "headings": [
+        "Live throughput.",
+        "Recent attestation.",
+        "Latest entries · streaming.",
+        "Tenant matrix."
+      ]
+    },
+    {
+      "url": "threat-model.html",
+      "title": "Threat Model — Asclepius",
+      "description": "Adversaries A1–A6, residual risk, and exactly what verify() proves.",
+      "headings": [
+        "Assumptions",
+        "In-scope adversaries",
+        "A1. Internal actor tampering with audit logs",
+        "A2. Model produces malicious or PHI-laden output",
+        "A3. Replay of a stale model decision",
+        "A4. Bundle forgery",
+        "A5. Side-channel PHI leakage via ledger",
+        "A6. Drift undetected",
+        "Out-of-scope (today)",
+        "What verify() proves",
+        "Reporting"
+      ]
+    },
+    {
+      "url": "threat-tabletop.html",
+      "title": "Tabletop exercises — Asclepius",
+      "description": "Five concrete adversarial scenarios for the Asclepius substrate. Insider re-write, retroactive consent forgery, model-version swap, drift gaslighting, key-leak-but-detected. Each maps to threat-model adversaries and playbook runbooks.",
+      "headings": [
+        "An insider tries to re-write a row.",
+        "what the substrate sees",
+        "response",
+        "residual risk",
+        "Forging a consent after the fact.",
+        "The vendor swaps the model mid-deployment.",
+        "Gaslighting the drift monitor.",
+        "The signing key leaks.",
+        "What tabletop exercises are for."
+      ]
+    },
+    {
+      "url": "use-cases.html",
+      "title": "Use cases — Asclepius",
+      "description": "Three concrete clinical-AI deployments wrapped by Asclepius: ambient scribe, diagnostic suggestion, agentic action. Each shows the policy chain, model boundary, consent flow, and audit-bundle schema.",
+      "headings": [
+        "An ambient scribe.",
+        "policy chain",
+        "consent flow",
+        "audit-bundle excerpt",
+        "A diagnostic second-read.",
+        "peer-review replay (six months later)",
+        "audit-bundle excerpt — three linked rows",
+        "An agentic action.",
+        "blast-radius table (excerpt)",
+        "audit-bundle excerpt — staged action awaiting sign-off",
+        "None of these are features."
+      ]
+    },
+    {
+      "url": "validate.html",
+      "title": "Validate an entry — Asclepius",
+      "description": "Paste a JSON ledger entry. The page loads the published audit-entry JSON Schema and validates the entry in your browser. No upload, no server. The schema is the contract.",
+      "headings": []
+    },
+    {
+      "url": "verify-bundle.html",
+      "title": "Verify a bundle — Asclepius",
+      "description": "A guided five-step walkthrough of the offline evidence-bundle verify ritual: tar, openssl, jq, sha256sum. The bytes a regulator's verifier sees, line by line.",
+      "headings": [
+        "Extract the tar.",
+        "Authenticate the manifest.",
+        "Match every file to its hash.",
+        "Walk the ledger excerpt.",
+        "Read the metrics."
+      ]
+    }
+  ]
+}

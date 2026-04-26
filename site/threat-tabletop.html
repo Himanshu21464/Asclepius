@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<title>Tabletop exercises — Asclepius</title>
+<meta name="description" content="Five concrete adversarial scenarios for the Asclepius substrate. Insider re-write, retroactive consent forgery, model-version swap, drift gaslighting, key-leak-but-detected. Each maps to threat-model adversaries and playbook runbooks.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/threat-tabletop.html">
+<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Tabletop exercises">
+<meta property="og:description"  content="Five adversarial scenarios. What the substrate sees. What the operator does next.">
+<meta property="og:image"        content="assets/og-card.png">
+<meta property="og:type"         content="website">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.tt-hero { padding: clamp(4rem, 8vw, 6rem) 0 1.6rem; }
+.tt-hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1; letter-spacing: -.02em; color: var(--ink-warm); margin: 0 0 .8rem; }
+.tt-hero h1 i { color: var(--primary); font-style: italic; }
+.tt-hero p { color: var(--ink-mute); max-width: 64ch; line-height: 1.55; font-size: 1.05rem; }
+.tt-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+.tt-toc { margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .8rem; }
+.tt-toc__pill {
+    display: flex; align-items: center; gap: .9rem;
+    padding: .9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid #F87171;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--ink-warm);
+    transition: border-color .15s, transform .12s;
+}
+.tt-toc__pill:hover { border-color: var(--primary); transform: translateY(-1px); }
+.tt-toc__num {
+    font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--primary);
+    min-width: 2.6rem;
+}
+.tt-toc__t { font-family: var(--font-prose); font-size: .96rem; line-height: 1.4; }
+.tt-toc__a {
+    margin-left: auto;
+    padding: .12rem .55rem;
+    font-family: var(--font-mono);
+    font-size: .62rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    background: rgba(239,68,68,.1);
+    color: #F87171;
+    border-radius: 3px;
+}
+
+.tt-ex { margin: 4rem 0; padding-top: 2rem; border-top: 1px solid var(--rule); }
+.tt-ex__head {
+    display: flex; align-items: baseline; gap: .9rem; flex-wrap: wrap;
+    margin-bottom: .4rem;
+}
+.tt-ex__num { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.tt-ex__adv {
+    padding: .15rem .55rem;
+    font-family: var(--font-mono); font-size: .62rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    background: rgba(239,68,68,.1);
+    color: #F87171;
+    border-radius: 3px;
+    border: 1px solid rgba(239,68,68,.3);
+}
+.tt-ex__win { margin-left: auto; font-family: var(--font-mono); font-size: .68rem; color: var(--ink-mute); }
+.tt-ex h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.02em; color: var(--ink-warm); margin: .25rem 0 .8rem; }
+.tt-ex h2 i { color: var(--primary); font-style: italic; }
+
+.tt-ex__story {
+    font-family: var(--font-prose);
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--ink);
+    max-width: 64ch;
+    margin: 0 0 1.4rem;
+}
+.tt-ex__story p { margin: 0 0 .9em; }
+.tt-ex__story p:last-child { margin-bottom: 0; }
+.tt-ex__story em { color: var(--ink-warm); font-style: italic; }
+.tt-ex__story code { font-family: var(--font-mono); font-size: .9em; padding: .06em .35em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+
+.tt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0 1rem; }
+.tt-card {
+    padding: 1rem 1.1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+}
+.tt-card.is-detect { border-left: 2px solid #34D399; }
+.tt-card.is-respond { border-left: 2px solid var(--primary); }
+.tt-card.is-residual { border-left: 2px solid #F4B860; }
+.tt-card h3 {
+    margin: 0 0 .5rem;
+    font-family: var(--font-mono); font-weight: 500;
+    font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--primary);
+}
+.tt-card.is-detect h3 { color: #34D399; }
+.tt-card.is-residual h3 { color: #F4B860; }
+.tt-card ul, .tt-card ol { margin: 0; padding-left: 1.1rem; font-family: var(--font-prose); font-size: .92rem; line-height: 1.55; color: var(--ink); }
+.tt-card li { margin: .15em 0; }
+.tt-card code { font-family: var(--font-mono); font-size: .88em; padding: .04em .3em; background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: 3px; color: var(--ink-warm); }
+.tt-card a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.tt-card a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+
+.tt-meta {
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    color: var(--ink-mute);
+    margin-top: 1rem;
+    display: flex;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+}
+.tt-meta b { color: var(--ink-warm); font-weight: 500; }
+
+.tt-coda { margin: 4rem 0 1rem; padding: 2rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.tt-coda h2 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .6rem; color: var(--ink-warm); }
+.tt-coda h2 i { color: var(--primary); font-style: italic; }
+.tt-coda p { font-family: var(--font-prose); line-height: 1.65; color: var(--ink); margin: 0 0 .8rem; max-width: 64ch; }
+.tt-coda .tt-coda__links { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; font-family: var(--font-mono); font-size: .82rem; }
+.tt-coda .tt-coda__links a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); }
+.tt-coda .tt-coda__links a:hover { color: var(--ink-warm); border-color: var(--ink-warm); }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",      "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Tabletop",  "item": "https://asclepius.health/threat-tabletop.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-tabletop">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="threat-model.html">threat model</a>
+      <a href="threat-tabletop.html" class="is-active" aria-current="page">tabletop</a>
+      <a href="playbooks.html">playbooks</a>
+      <a href="security.html">security</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/asclepius-ai/asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+
+<section class="tt-hero">
+  <div class="container">
+    <span class="kbd">§01 · five exercises · narrate · detect · respond</span>
+    <h1>What the chain <i>actually</i> catches.</h1>
+    <p>
+      Threat models are abstract. Tabletop exercises are not. Below, five
+      concrete adversarial scenarios — each with the attacker's capability,
+      the narrative, what the substrate observes, the expected time-to-detect,
+      the runbook to follow, and the residual risk after response. <em>Run
+      them in your own SOC. Tell us what we missed.</em>
+    </p>
+
+    <nav class="tt-toc" aria-label="exercise index">
+      <a class="tt-toc__pill" href="#tt-01"><span class="tt-toc__num">TT-01</span><span class="tt-toc__t">insider re-write</span><span class="tt-toc__a">A1</span></a>
+      <a class="tt-toc__pill" href="#tt-02"><span class="tt-toc__num">TT-02</span><span class="tt-toc__t">retroactive consent forgery</span><span class="tt-toc__a">A2</span></a>
+      <a class="tt-toc__pill" href="#tt-03"><span class="tt-toc__num">TT-03</span><span class="tt-toc__t">silent model-version swap</span><span class="tt-toc__a">A3</span></a>
+      <a class="tt-toc__pill" href="#tt-04"><span class="tt-toc__num">TT-04</span><span class="tt-toc__t">drift gaslighting</span><span class="tt-toc__a">A4</span></a>
+      <a class="tt-toc__pill" href="#tt-05"><span class="tt-toc__num">TT-05</span><span class="tt-toc__t">key leak (HSM bypass)</span><span class="tt-toc__a">A5</span></a>
+    </nav>
+  </div>
+</section>
+
+<!-- ─────────── TT-01 ─────────── -->
+<section class="container tt-ex" id="tt-01">
+  <div class="tt-ex__head">
+    <span class="tt-ex__num">TT-01 · insider re-write</span>
+    <span class="tt-ex__adv">A1 · log-tampering insider</span>
+    <span class="tt-ex__win">window: minutes</span>
+  </div>
+  <h2>An insider tries to <i>re-write</i> a row.</h2>
+
+  <div class="tt-ex__story">
+    <p>
+      An employee with database credentials wants to silently change the
+      output of inference <code>seq=874</code> after a malpractice complaint.
+      They have <em>full SQLite access</em>; they connect, locate the row,
+      and update its <code>output_hash</code>, leaving the rest unchanged.
+      They restart the runtime to clear caches. They go home.
+    </p>
+    <p>
+      The next nightly verifier run hashes <code>seq=873</code> and computes
+      the expected <code>prev_hash</code> for <code>seq=874</code>. The
+      stored <code>prev_hash</code> on <code>seq=874</code> still matches —
+      it was not edited. But the row's <em>own</em> signed body now hashes
+      to a different value than the one <code>seq=875</code>'s
+      <code>prev_hash</code> embeds. <em>The chain breaks at 875.</em>
+    </p>
+  </div>
+
+  <div class="tt-grid">
+    <div class="tt-card is-detect">
+      <h3>what the substrate sees</h3>
+      <ul>
+        <li><code>asclepius_ledger_chain_broken_total</code> increments at next verify</li>
+        <li>log: <code>chain.broken</code> at <code>seq=875</code></li>
+        <li>compare.html highlights <code>seq=874</code> amber if two bundles span the edit</li>
+        <li>signature on <code>seq=874</code> still verifies — body matches sig — but the chain link fails</li>
+      </ul>
+    </div>
+    <div class="tt-card is-respond">
+      <h3>response</h3>
+      <ol>
+        <li>page · runbook <a href="playbooks.html#truncation">PB-01</a></li>
+        <li>flip <code>runtime.read_only=true</code></li>
+        <li>snapshot WAL · diff against last verified backup</li>
+        <li>identify modified row · escalate to security oncall</li>
+        <li>publish operator advisory · disclose timeline</li>
+      </ol>
+    </div>
+    <div class="tt-card is-residual">
+      <h3>residual risk</h3>
+      <ul>
+        <li>between insider edit and next verifier run, downstream consumers may have read the modified value</li>
+        <li>mitigation: nightly is the floor; high-stakes deployments verify hourly</li>
+        <li>retroactive backups are the recovery path · the chain is the alarm</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="tt-meta">
+    <span><b>detect</b>: ≤ 24h (nightly) / ≤ 1h (hourly verify)</span>
+    <span><b>response runbook</b>: <a href="playbooks.html#truncation">PB-01</a></span>
+    <span><b>threat-model adversary</b>: A1</span>
+  </div>
+</section>
+
+<!-- ─────────── TT-02 ─────────── -->
+<section class="container tt-ex" id="tt-02">
+  <div class="tt-ex__head">
+    <span class="tt-ex__num">TT-02 · retroactive consent forgery</span>
+    <span class="tt-ex__adv">A2 · consent fabricator</span>
+    <span class="tt-ex__win">window: seconds</span>
+  </div>
+  <h2>Forging a <i>consent</i> after the fact.</h2>
+
+  <div class="tt-ex__story">
+    <p>
+      A patient files a complaint that an AI scribe was used during a visit
+      for which they never granted consent. The clinic, panicking, asks an
+      ops engineer to "back-date" a <code>consent.granted</code> entry to
+      cover the encounter. The engineer attempts to insert a row with
+      <code>seq</code> in the past.
+    </p>
+    <p>
+      The runtime refuses: <em>seq is monotonic and gaps are forbidden by
+      spec.</em> If they instead append a fresh entry at the current tail
+      with a back-dated <code>ts</code>, the entry's recorded-at time is
+      preserved separately by the verifier and the discrepancy is visible.
+      Either way, the forgery surfaces.
+    </p>
+  </div>
+
+  <div class="tt-grid">
+    <div class="tt-card is-detect">
+      <h3>what the substrate sees</h3>
+      <ul>
+        <li>insert at past seq → runtime refuses · log: <code>ledger.append.rejected</code></li>
+        <li>append-with-backdated-ts → verifier flags <code>ts</code> vs <code>recorded_at</code> divergence</li>
+        <li>auditor's compare.html bundle diff catches a "new" row inserted at a sequence already in the prior bundle</li>
+      </ul>
+    </div>
+    <div class="tt-card is-respond">
+      <h3>response</h3>
+      <ol>
+        <li>privacy-team incident · runbook <a href="playbooks.html#consent-revocation">PB-05</a> (inverse)</li>
+        <li>preserve the forgery attempt as evidence · do not delete</li>
+        <li>publish patient-facing acknowledgement · 24 h SLA</li>
+        <li>conduct breach-notification analysis (HIPAA / state law)</li>
+      </ol>
+    </div>
+    <div class="tt-card is-residual">
+      <h3>residual risk</h3>
+      <ul>
+        <li>between encounter and forgery, a brief window where audits would have shown "no consent on file"</li>
+        <li>this is not a substrate failure — it is the substrate doing exactly what it should</li>
+        <li>training: ops engineers must understand that the chain is not negotiable</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="tt-meta">
+    <span><b>detect</b>: instant (refused) or next compare run (revealed)</span>
+    <span><b>response runbook</b>: <a href="playbooks.html#consent-revocation">PB-05</a></span>
+    <span><b>threat-model adversary</b>: A2</span>
+  </div>
+</section>
+
+<!-- ─────────── TT-03 ─────────── -->
+<section class="container tt-ex" id="tt-03">
+  <div class="tt-ex__head">
+    <span class="tt-ex__num">TT-03 · silent model-version swap</span>
+    <span class="tt-ex__adv">A3 · vendor-side substitution</span>
+    <span class="tt-ex__win">window: until next inference</span>
+  </div>
+  <h2>The vendor swaps the <i>model</i> mid-deployment.</h2>
+
+  <div class="tt-ex__story">
+    <p>
+      An ambient-scribe vendor ships a "free" upgrade overnight.
+      The container's <code>scribe-v3</code> tag now points to a different
+      set of weights with subtly different behaviour. The vendor does not
+      announce it. The clinical team starts to see slightly different note
+      structures, but it is gradual and easy to attribute to "the model
+      learning."
+    </p>
+    <p>
+      The substrate computes <code>weights_sha256</code> on every
+      <code>inference.completed</code> entry. The hash <em>changes the
+      moment the new weights load.</em> The chain still verifies — the new
+      weights are what produced the output — but the FDA-cleared artefact
+      is no longer the deployed artefact. <em>The substrate has the
+      receipts.</em>
+    </p>
+  </div>
+
+  <div class="tt-grid">
+    <div class="tt-card is-detect">
+      <h3>what the substrate sees</h3>
+      <ul>
+        <li>new <code>weights_sha256</code> appears in <code>asclepius_inferences_total</code> labels</li>
+        <li>alert: <code>weights_sha256</code> not in cleared-artefact allowlist</li>
+        <li>OTel span <code>asclepius.inference</code> attribute changes; trace tools surface it</li>
+        <li>FDA post-market dossier for next reporting period flags the discrepancy</li>
+      </ul>
+    </div>
+    <div class="tt-card is-respond">
+      <h3>response</h3>
+      <ol>
+        <li>flip the vendor integration to <code>read_only</code> until clarified</li>
+        <li>contact vendor; request weights_sha256 reconciliation</li>
+        <li>file PCCP-deviation memo if the swap is unauthorised</li>
+        <li>file safety report with FDA if patient-facing impact suspected</li>
+        <li>append <code>model.deviation</code> entry to the chain</li>
+      </ol>
+    </div>
+    <div class="tt-card is-residual">
+      <h3>residual risk</h3>
+      <ul>
+        <li>any inferences before detection used uncleared artefact · scope by hash transition seq</li>
+        <li>mitigation: pin <code>weights_sha256</code> at deploy time; refuse on mismatch</li>
+        <li>if pinning is not feasible, the substrate at minimum records the truth</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="tt-meta">
+    <span><b>detect</b>: first inference after swap</span>
+    <span><b>response runbook</b>: PB-04 (drift adjacent) · custom PCCP memo</span>
+    <span><b>threat-model adversary</b>: A3</span>
+  </div>
+</section>
+
+<!-- ─────────── TT-04 ─────────── -->
+<section class="container tt-ex" id="tt-04">
+  <div class="tt-ex__head">
+    <span class="tt-ex__num">TT-04 · drift gaslighting</span>
+    <span class="tt-ex__adv">A4 · adversarial input distribution</span>
+    <span class="tt-ex__win">window: hours–days</span>
+  </div>
+  <h2><i>Gaslighting</i> the drift monitor.</h2>
+
+  <div class="tt-ex__story">
+    <p>
+      An attacker (or a misbehaving upstream pipeline) feeds the model a
+      slowly-shifting distribution of inputs, intending to gradually move the
+      population such that drift detection rolls forward without ever
+      crossing a threshold. The goal is to land the model in a regime where
+      its calibration has degraded but the substrate's PSI never breached
+      0.25.
+    </p>
+    <p>
+      The substrate watches three statistics — PSI on binned features, KS on
+      continuous, EMD on ordinal — and aggregates over windows of 1d, 7d, and
+      30d. <em>A creep across the 7d window will eventually breach the 30d
+      window, and vice versa.</em> Even when no single threshold fires, the
+      ledger's drift snapshots make the gradual transition visible
+      retrospectively in any bundle export.
+    </p>
+  </div>
+
+  <div class="tt-grid">
+    <div class="tt-card is-detect">
+      <h3>what the substrate sees</h3>
+      <ul>
+        <li>PSI/KS/EMD trends across windows captured every drift snapshot</li>
+        <li>multi-window divergence makes "hide the drift" require shifting all three at once — much harder</li>
+        <li>calibration loss surfaces in QA harness reports independent of drift</li>
+        <li>conformance suite L2 fails on cumulative shift even if instantaneous is fine</li>
+      </ul>
+    </div>
+    <div class="tt-card is-respond">
+      <h3>response</h3>
+      <ol>
+        <li>runbook <a href="playbooks.html#drift-breach">PB-04</a></li>
+        <li>investigate input pipeline · was this organic shift or upstream change?</li>
+        <li>downgrade purpose to <code>advisory_only</code> while investigating</li>
+        <li>append <code>drift.acknowledged</code> with rationale</li>
+        <li>schedule re-evaluation; consider model retraining</li>
+      </ol>
+    </div>
+    <div class="tt-card is-residual">
+      <h3>residual risk</h3>
+      <ul>
+        <li>some misclassifications between threshold breach and acknowledgement are unavoidable</li>
+        <li>multi-window detection is harder to evade but not impossible</li>
+        <li>backstop: calibration loss in QA reports is an orthogonal signal</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="tt-meta">
+    <span><b>detect</b>: hours (multi-window) to days (calibration QA)</span>
+    <span><b>response runbook</b>: <a href="playbooks.html#drift-breach">PB-04</a></span>
+    <span><b>threat-model adversary</b>: A4</span>
+  </div>
+</section>
+
+<!-- ─────────── TT-05 ─────────── -->
+<section class="container tt-ex" id="tt-05">
+  <div class="tt-ex__head">
+    <span class="tt-ex__num">TT-05 · key leak (HSM bypass)</span>
+    <span class="tt-ex__adv">A5 · privileged-credential attacker</span>
+    <span class="tt-ex__win">window: minutes (with tooling)</span>
+  </div>
+  <h2>The signing key <i>leaks.</i></h2>
+
+  <div class="tt-ex__story">
+    <p>
+      An attacker exfiltrates the active Ed25519 private key — perhaps via a
+      sidechannel against an HSM that wasn't quite the HSM it claimed to be,
+      or via a misconfigured role on a cloud key-management service. They
+      now have the ability to sign arbitrary entries that will verify under
+      the deployed pubkey.
+    </p>
+    <p>
+      They cannot, however, append entries to the substrate's ledger without
+      <em>also</em> writing them to the database, because every entry needs
+      a valid <code>prev_hash</code>. If they fork their own ledger and try
+      to substitute it, downstream subscribers and the public Merkle-root
+      feed catch the divergence. <em>The chain is gossipable.</em>
+    </p>
+  </div>
+
+  <div class="tt-grid">
+    <div class="tt-card is-detect">
+      <h3>what the substrate sees</h3>
+      <ul>
+        <li>local ledger does not know the leak occurred — until divergence is observed</li>
+        <li>downstream subscriber computes a different <code>tail_root</code> than what the local runtime publishes</li>
+        <li>HSM operation log shows unexplained sign calls (if HSM is honest)</li>
+        <li>auditor running compare.html sees ghost entries that don't exist in local backups</li>
+      </ul>
+    </div>
+    <div class="tt-card is-respond">
+      <h3>response</h3>
+      <ol>
+        <li>declare incident · runbook <a href="playbooks.html#key-compromise">PB-03</a></li>
+        <li>emergency rotate · publish <code>key.revoked</code> entry</li>
+        <li>publish revocation to <code>/.well-known/security.txt</code></li>
+        <li>do <em>not</em> re-sign past entries · the chain is forensic</li>
+        <li>file CVE within 72h</li>
+        <li>auditors: re-pull bundles, verify with new pubkey, flag everything between LKG and revocation as under review</li>
+      </ol>
+    </div>
+    <div class="tt-card is-residual">
+      <h3>residual risk</h3>
+      <ul>
+        <li>any forged entries the attacker successfully gossiped to a third party retain a valid sig forever — see <a href="decisions.html#adr-001">ADR-001</a></li>
+        <li>the chain forensic property — "compromised entries stay signed by compromised key" — is a feature</li>
+        <li>recovery is a process, not a button</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="tt-meta">
+    <span><b>detect</b>: gossip / divergence within hours · HSM log if available</span>
+    <span><b>response runbook</b>: <a href="playbooks.html#key-compromise">PB-03</a></span>
+    <span><b>threat-model adversary</b>: A5</span>
+  </div>
+</section>
+
+<!-- ─────────── coda ─────────── -->
+<section class="container">
+  <div class="tt-coda">
+    <h2>What tabletop exercises are <i>for.</i></h2>
+    <p>
+      Reading a threat model tells you what <em>could</em> go wrong. Walking
+      through these exercises tells you what your team is actually prepared
+      to do. Run them at the substrate layer; run them in your SOC; run them
+      with your legal team. <em>If a step in any of these doesn't survive
+      "okay, you, do it now," you have a planning problem, not a runtime
+      problem.</em>
+    </p>
+    <p>
+      These five are the obvious ones. We will add new exercises as the
+      ecosystem develops new attack patterns — <a
+      href="contributing.html">contribute one</a> if your team finds something
+      we haven't covered.
+    </p>
+    <div class="tt-coda__links">
+      <a href="threat-model.html">threat model →</a>
+      <a href="playbooks.html">playbooks</a>
+      <a href="security.html">security policy</a>
+      <a href="conformance.html">conformance suite</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — substrate, not app.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>safety</b>
+        <a href="threat-model.html">threat model</a>
+        <a href="threat-tabletop.html">tabletop</a>
+        <a href="playbooks.html">playbooks</a>
+        <a href="security.html">security</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">docs</a>
+        <a href="api.html">API reference</a>
+        <a href="spec.html">spec</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/asclepius-ai/asclepius">github&nbsp;↗</a>
+        <a href="conformance.html">conformance</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
+</script>
+</body>
+</html>
