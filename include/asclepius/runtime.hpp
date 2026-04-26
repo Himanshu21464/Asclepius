@@ -153,6 +153,17 @@ public:
     // inference id so prospective evaluation can join later.
     Result<void> capture_override(std::string rationale, nlohmann::json corrected);
 
+    // Attach a ground-truth label for prospective evaluation. The truth
+    // value (any canonicalizable JSON), the source (registry/follow-up
+    // encounter/adjudicator), and the captured-at timestamp are stored
+    // against this inference's id. If the inference has not been
+    // committed yet this method auto-commits — matches the
+    // capture_override pattern. The ground truth is held on the
+    // EvaluationHarness, not the ledger, so it can be mutated until the
+    // evidence window closes.
+    Result<void> attach_ground_truth(nlohmann::json truth,
+                                     std::string    source);
+
     // Attach a numeric drift observation under a registered feature.
     Result<void> observe_drift(std::string_view feature, double value);
 

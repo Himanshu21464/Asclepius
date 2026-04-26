@@ -1064,3 +1064,120 @@ TEST_CASE("add_metadata: many keys roundtrip correctly") {
         CHECK(body["metadata"]["k" + std::to_string(i)] == i);
     }
 }
+
+// ============== Inference::attach_ground_truth ==========================
+
+TEST_CASE("attach_ground_truth records the truth with inference id and source") {
+    auto rt_ = fresh_runtime("gt_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gt");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().attach_ground_truth(
+        nlohmann::json{{"label", "positive"}, {"confidence", 0.92}},
+        "registry:cardio"));
+    // metrics() should now reflect the ground-truth count.
+    auto window = EvaluationWindow{
+        Time{Time::now().nanos_since_epoch() - std::int64_t{1'000'000'000} * 60},
+        Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}},
+    };
+    auto m = rt.evaluation().metrics(window); REQUIRE(m);
+    bool found = false;
+    for (const auto& mm : m.value()) {
+        if (mm.n_with_truth >= 1) { found = true; break; }
+    }
+    CHECK(found);
+}
+
+TEST_CASE("attach_ground_truth auto-commits the inference") {
+    auto rt_ = fresh_runtime("gt_auto"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gt_a");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("x",
+        [](std::string s)->Result<std::string>{ return s; }));
+    auto before = rt.ledger().length();
+    REQUIRE(inf.value().attach_ground_truth(
+        nlohmann::json{{"label", "neg"}}, "follow_up"));
+    // attach_ground_truth on an uncommitted inference appends 2 entries:
+    // inference.committed (from auto-commit) + evaluation.ground_truth
+    // (from the harness mirroring to ledger).
+    CHECK(rt.ledger().length() == before + 2);
+}
+
+TEST_CASE("attach_ground_truth rejects empty source") {
+    auto rt_ = fresh_runtime("gt_src"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gt_s");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("x",
+        [](std::string s)->Result<std::string>{ return s; }));
+    auto r = inf.value().attach_ground_truth(nlohmann::json{{"label", "pos"}}, "");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("attach_ground_truth on already-committed inference does not double-commit") {
+    auto rt_ = fresh_runtime("gt_already"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gt_ac");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("x",
+        [](std::string s)->Result<std::string>{ return s; }));
+    REQUIRE(inf.value().commit());
+    auto before = rt.ledger().length();
+    REQUIRE(inf.value().attach_ground_truth(
+        nlohmann::json{{"label", "n"}}, "src"));
+    // No double-commit (inference already committed), but the harness
+    // still appends one evaluation.ground_truth entry.
+    CHECK(rt.ledger().length() == before + 1);
+}
+
+TEST_CASE("attach_ground_truth: chain integrity preserved") {
+    auto rt_ = fresh_runtime("gt_chain"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gt_c");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    for (int i = 0; i < 5; i++) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("x",
+            [](std::string s)->Result<std::string>{ return s; }));
+        REQUIRE(inf.value().attach_ground_truth(
+            nlohmann::json{{"i", i}}, "test_source"));
+    }
+    REQUIRE(rt.ledger().verify());
+}
+
+TEST_CASE("attach_ground_truth: many inferences each get unique labels") {
+    auto rt_ = fresh_runtime("gt_many"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_gt_m");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    for (int i = 0; i < 12; i++) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("x",
+            [](std::string s)->Result<std::string>{ return s; }));
+        REQUIRE(inf.value().attach_ground_truth(
+            nlohmann::json{{"id", i}, {"label", (i%2==0 ? "pos" : "neg")}},
+            "registry"));
+    }
+    auto window = EvaluationWindow{
+        Time{Time::now().nanos_since_epoch() - std::int64_t{1'000'000'000} * 600},
+        Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}},
+    };
+    auto m = rt.evaluation().metrics(window); REQUIRE(m);
+    std::uint64_t total_truth = 0;
+    for (const auto& mm : m.value()) total_truth += mm.n_with_truth;
+    CHECK(total_truth == 12);
+}

@@ -424,6 +424,23 @@ Result<void> Inference::capture_override(std::string rationale, nlohmann::json c
     return impl_->rt->evaluation().capture_override(std::move(ev));
 }
 
+Result<void> Inference::attach_ground_truth(nlohmann::json truth,
+                                            std::string    source) {
+    if (source.empty()) {
+        return Error::invalid("attach_ground_truth requires non-empty source");
+    }
+    if (!impl_->committed) {
+        auto c = commit();
+        if (!c) return c.error();
+    }
+    GroundTruth gt;
+    gt.inference_id = std::string{impl_->ctx.id()};
+    gt.truth        = std::move(truth);
+    gt.source       = std::move(source);
+    gt.captured_at  = Time::now();
+    return impl_->rt->evaluation().attach_ground_truth(std::move(gt));
+}
+
 Result<void> Inference::observe_drift(std::string_view feature, double value) {
     return impl_->rt->drift().observe(feature, value);
 }
