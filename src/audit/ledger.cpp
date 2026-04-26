@@ -689,6 +689,36 @@ std::string Ledger::Stats::to_json() const {
     return j.dump();
 }
 
+Result<LedgerEntry> Ledger::find_by_inference_id(std::string_view id) const {
+    if (id.empty()) {
+        return Error::invalid("find_by_inference_id requires non-empty id");
+    }
+    std::optional<LedgerEntry> hit;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Cheap prefilter: skip entries whose body can't contain the id.
+        if (e.body_json.find(id) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("inference_id");
+            if (it != j.end() && it->is_string() &&
+                it->get<std::string>() == id) {
+                hit = e;
+                return false;  // stop scanning
+            }
+        } catch (...) {
+            // body is not JSON — ignore; ledger never appends non-JSON
+            // bodies in normal flow, but defensive against future event
+            // types.
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    if (!hit) {
+        return Error::not_found("no ledger entry matches inference_id");
+    }
+    return std::move(*hit);
+}
+
 LedgerCheckpoint Ledger::checkpoint() const {
     LedgerCheckpoint cp;
     cp.seq        = impl_->length.load();

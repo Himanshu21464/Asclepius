@@ -1291,3 +1291,103 @@ TEST_CASE("Ledger::stats handles 1000-entry chain") {
     CHECK(s.value().newest_seq  == 1000);
     CHECK(s.value().avg_body_bytes > 0);
 }
+
+// ============== Ledger::find_by_inference_id ============================
+
+TEST_CASE("find_by_inference_id locates the matching entry") {
+    auto p = tmp_db("find_inf");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 20; i++) {
+        REQUIRE(l.append("evt", "a",
+            nlohmann::json{{"inference_id", "inf_" + std::to_string(i)},
+                           {"i", i}}, ""));
+    }
+    auto e = l.find_by_inference_id("inf_13"); REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body["inference_id"] == "inf_13");
+    CHECK(body["i"]            == 13);
+    CHECK(e.value().header.seq == 14);  // 1-indexed
+}
+
+TEST_CASE("find_by_inference_id returns not_found for unknown id") {
+    auto p = tmp_db("find_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("evt", "a", nlohmann::json{{"inference_id", "x1"}}, ""));
+    auto r = l.find_by_inference_id("never_existed");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_by_inference_id rejects empty id") {
+    auto p = tmp_db("find_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().find_by_inference_id("");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("find_by_inference_id ignores entries without inference_id field") {
+    auto p = tmp_db("find_nokey");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("a", "x", nlohmann::json{{"some_other_field", "abc123"}}, ""));
+    REQUIRE(l.append("a", "x", nlohmann::json{{"inference_id", "abc123"}}, ""));
+    auto e = l.find_by_inference_id("abc123"); REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body.contains("inference_id"));
+    CHECK(body["inference_id"] == "abc123");
+}
+
+TEST_CASE("find_by_inference_id requires exact match, not substring") {
+    auto p = tmp_db("find_exact");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("evt", "a", nlohmann::json{{"inference_id", "inf_abc"}}, ""));
+    REQUIRE(l.append("evt", "a", nlohmann::json{{"inference_id", "inf_abcdef"}}, ""));
+    auto e = l.find_by_inference_id("inf_abc"); REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body["inference_id"] == "inf_abc");
+}
+
+TEST_CASE("find_by_inference_id returns first match if duplicates exist") {
+    auto p = tmp_db("find_dup");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("evt", "a",
+        nlohmann::json{{"inference_id", "dup"}, {"v", 1}}, ""));
+    REQUIRE(l.append("evt", "a",
+        nlohmann::json{{"inference_id", "dup"}, {"v", 2}}, ""));
+    auto e = l.find_by_inference_id("dup"); REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body["v"] == 1);  // first/oldest match
+}
+
+TEST_CASE("find_by_inference_id ignores non-string inference_id values") {
+    auto p = tmp_db("find_typed");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("evt", "a",
+        nlohmann::json{{"inference_id", 42}, {"i", 0}}, ""));
+    REQUIRE(l.append("evt", "a",
+        nlohmann::json{{"inference_id", "real_42"}, {"i", 1}}, ""));
+    auto e = l.find_by_inference_id("real_42"); REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body["i"] == 1);
+}
+
+TEST_CASE("find_by_inference_id survives reopen") {
+    auto p = tmp_db("find_reopen");
+    {
+        auto l_ = Ledger::open(p); REQUIRE(l_);
+        for (int i = 0; i < 50; i++) {
+            REQUIRE(l_.value().append("evt", "a",
+                nlohmann::json{{"inference_id", "inf_" + std::to_string(i)}}, ""));
+        }
+    }
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto e = l_.value().find_by_inference_id("inf_42"); REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body["inference_id"] == "inf_42");
+}

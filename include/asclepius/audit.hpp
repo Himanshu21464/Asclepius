@@ -233,6 +233,15 @@ public:
 
     Result<Stats> stats() const;
 
+    // ---- Forensic lookup ------------------------------------------------
+    //
+    // Find the entry whose body contains "inference_id" == id. Used by
+    // incident response when a downstream report names a specific
+    // inference and the ledger needs to be the source of truth. Returns
+    // not_found if no such entry exists. O(n) scan via for_each — bounded
+    // by chain length, run off the hot path.
+    Result<LedgerEntry> find_by_inference_id(std::string_view id) const;
+
     // ---- Subscription ---------------------------------------------------
     //
     // Register a callback that fires after each successful append, on the
