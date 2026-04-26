@@ -237,6 +237,13 @@ std::size_t MetricRegistry::counter_count() const {
     return counters_.size();
 }
 
+std::uint64_t MetricRegistry::counter_total() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::uint64_t s = 0;
+    for (const auto& [_, v] : counters_) s += v;
+    return s;
+}
+
 std::size_t MetricRegistry::histogram_count_total() const {
     std::lock_guard<std::mutex> lk(mu_);
     return histograms_.size();

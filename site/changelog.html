@@ -285,7 +285,68 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.3</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.4</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Replica checksums, bulk drift, purpose-scoped emergency
+            revoke.</em> Round 81 lands the primitives the substrate needs
+            for multi-replica operation, batch backfills, and surgical
+            consent withdrawal. Audit grows
+            <code>seq_range_for_tenant(t)</code> as the bracketing
+            primitive for per-tenant slices,
+            <code>distinct_event_types()</code> as the dashboard-picker
+            source of truth, <code>checksum_range(start, end)</code> — a
+            single BLAKE2b digest two replicas exchange to confirm a range
+            agrees byte-for-byte before paying for a full sync — and
+            <code>has_event_after_seq(seq)</code> as the O(1)
+            follower-poll predicate. Telemetry adds
+            <code>Histogram::clear()</code> (drop counts, keep bin shape)
+            and <code>nonzero_bin_count()</code> (concentration probe);
+            <code>MetricRegistry::counter_total()</code> sums every
+            counter in one pass; <code>DriftMonitor::observe_batch</code>
+            is the bulk-record path that fires <em>at most one</em> alert
+            across the batch — the right shape for replays and
+            end-of-window flushes that would otherwise page on-call once
+            per observation; <code>has_alert_sink()</code> distinguishes
+            "no alerts because nothing is severe" from "no alerts because
+            nobody is listening." Consent gains
+            <code>expire_purpose_for_patient(patient, purpose)</code> —
+            surgical emergency revoke that touches one purpose and
+            leaves the others alone, distinct from the whole-patient
+            <code>expire_all_for_patient</code>;
+            <code>is_token_active(id)</code> as a <code>noexcept</code>
+            hot-loop bool; <code>active_purpose_count_for_patient</code>
+            as cardinality without the vector;
+            <code>longest_lived_active_for_patient</code> as the
+            per-patient sibling of <code>longest_active</code>.
+            <code>Inference::input_size()</code> /
+            <code>output_size()</code> read post-policy byte lengths
+            from the committed body. Runtime sugar:
+            <code>recent_inferences(n)</code>,
+            <code>can_serve(patient, purpose)</code> (the single bool an
+            admission gate wants), <code>warm_caches()</code>. No
+            on-disk format changes; nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::seq_range_for_tenant(tenant)</code> — oldest and newest seq scoped to one tenant in one round-trip; <code>nullopt</code> for empty tenants.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::distinct_event_types()</code> — sorted set of every event-type string ever appended. Backs dashboard pickers without a hand-rolled scan.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::checksum_range(start, end)</code> — single BLAKE2b digest over the entry hashes in <code>[start, end]</code>. Replica-diff in 32 bytes; confirms byte-for-byte agreement before paying for a full sync.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::has_event_after_seq(seq)</code> — O(1) bool; the follower's "is there anything new?" poll without materializing a row.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::clear()</code>, <code>nonzero_bin_count()</code> — drop observations while keeping bin shape · concentration probe ahead of a full PSI report.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::counter_total()</code> — sum of every registered counter in one pass; the "how much has happened on this runtime, period?" line.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::observe_batch(feature, span)</code> — bulk-record path that fires <em>at most one</em> alert across the batch. The right shape for backfills and end-of-window flushes.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::has_alert_sink()</code> — startup-gate predicate that distinguishes silence from quiet.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::expire_purpose_for_patient(patient, purpose)</code> — <strong>emergency revoke</strong>, surgical: force-expires every active token that grants <em>this</em> purpose, leaving the others. Distinct from the whole-patient <code>expire_all_for_patient</code>.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::is_token_active(id)</code> — <code>noexcept</code> bool for the inference hot loop; never throws, never allocates.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::active_purpose_count_for_patient(patient)</code>, <code>longest_lived_active_for_patient(patient)</code> — cardinality without the vector · per-patient longest-active sibling.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::input_size()</code>, <code>output_size()</code> — post-policy byte lengths read from the committed ledger body.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::recent_inferences(n)</code>, <code>can_serve(patient, purpose)</code>, <code>warm_caches()</code> — last-n tail · composite admission-gate predicate · cold-path warm-up before traffic.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.3</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Compact attestations, hard-delete consent, verbose runtime

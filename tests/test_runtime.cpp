@@ -2925,3 +2925,277 @@ TEST_CASE("was_committed_after: integration — partitions a stream of inference
     CHECK(!i1.value().was_committed_after(checkpoint));
     CHECK( i2.value().was_committed_after(checkpoint));
 }
+
+// ============== input_size / output_size =================================
+
+TEST_CASE("input_size/output_size: invalid_argument before run") {
+    auto rt_ = fresh_runtime("size_pre"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_size_pre");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+
+    auto in_sz  = inf.value().input_size();
+    auto out_sz = inf.value().output_size();
+    REQUIRE(!in_sz);
+    REQUIRE(!out_sz);
+    CHECK(in_sz.error().code()  == ErrorCode::invalid_argument);
+    CHECK(out_sz.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("input_size/output_size: ok run records both, matches post-policy bytes") {
+    auto rt_ = fresh_runtime("size_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_size_ok");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+
+    // Echo callback — post-policy input == post-policy output for an
+    // empty policy chain, so sizes should match the input string.
+    const std::string in_str = "hello world";
+    auto r = inf.value().run(in_str,
+        [](std::string s) -> Result<std::string> { return s; });
+    REQUIRE(r);
+    CHECK(r.value() == in_str);
+
+    auto in_sz  = inf.value().input_size();
+    auto out_sz = inf.value().output_size();
+    REQUIRE(in_sz);
+    REQUIRE(out_sz);
+    CHECK(in_sz.value()  == in_str.size());
+    CHECK(out_sz.value() == in_str.size());
+}
+
+TEST_CASE("output_size: not_found when status != ok (timeout path)") {
+    auto rt_ = fresh_runtime("size_to"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_size_to");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+
+    const std::string in_str = "needs_timing";
+    auto r = inf.value().run_with_timeout(in_str,
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{200});
+            return s;
+        },
+        std::chrono::milliseconds{20});
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::deadline_exceeded);
+
+    // input_size IS recorded on the timeout path (input was hashed).
+    auto in_sz = inf.value().input_size();
+    REQUIRE(in_sz);
+    CHECK(in_sz.value() == in_str.size());
+
+    // output_size is NOT — no canonical output landed.
+    auto out_sz = inf.value().output_size();
+    REQUIRE(!out_sz);
+    CHECK(out_sz.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("input_size/output_size: blocked.input run still rejects output_size") {
+    auto rt_ = fresh_runtime("size_blkin"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_length_limit(/*input_max=*/4, 1024));
+    auto pid = PatientId::pseudonymous("p_size_blkin");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+
+    auto r = inf.value().run("this input is too long",
+        [](std::string s) -> Result<std::string> { return s; });
+    REQUIRE(!r);
+
+    // No input_hash was written (blocked before hashing) — input_size
+    // returns not_found, NOT invalid_argument (the run completed).
+    auto in_sz  = inf.value().input_size();
+    auto out_sz = inf.value().output_size();
+    REQUIRE(!in_sz);
+    REQUIRE(!out_sz);
+    CHECK(in_sz.error().code()  == ErrorCode::not_found);
+    CHECK(out_sz.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("input_size: cancellation records size when cancel happens after input policy") {
+    auto rt_ = fresh_runtime("size_cancel"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_size_cx");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+
+    CancelToken token;
+    const std::string in_str = "abcdef";
+    std::thread killer([&]{
+        std::this_thread::sleep_for(std::chrono::milliseconds{20});
+        token.cancel();
+    });
+    auto r = inf.value().run_cancellable(in_str,
+        [](std::string s) -> Result<std::string> {
+            std::this_thread::sleep_for(std::chrono::milliseconds{200});
+            return s;
+        },
+        token,
+        std::chrono::milliseconds{2});
+    killer.join();
+    REQUIRE(!r);
+
+    auto in_sz  = inf.value().input_size();
+    auto out_sz = inf.value().output_size();
+    REQUIRE(in_sz);
+    CHECK(in_sz.value() == in_str.size());
+    REQUIRE(!out_sz);
+    CHECK(out_sz.error().code() == ErrorCode::not_found);
+}
+
+// ============== Runtime::recent_inferences ===============================
+
+TEST_CASE("recent_inferences: empty runtime returns empty vector") {
+    auto rt_ = fresh_runtime("recent_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto r = rt.recent_inferences(10);
+    REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("recent_inferences: n==0 returns empty without touching ledger") {
+    auto rt_ = fresh_runtime("recent_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rec0");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("x",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto r = rt.recent_inferences(0);
+    REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("recent_inferences: only inference.committed entries, bounded by n") {
+    auto rt_ = fresh_runtime("recent_n"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_recn");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+
+    for (int i = 0; i < 5; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("payload",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+
+    auto r = rt.recent_inferences(3);
+    REQUIRE(r);
+    CHECK(r.value().size() == 3);
+    for (const auto& e : r.value()) {
+        CHECK(e.header.event_type == "inference.committed");
+    }
+
+    // Asking for more than exist returns all of them.
+    auto all = rt.recent_inferences(100);
+    REQUIRE(all);
+    CHECK(all.value().size() == 5);
+}
+
+// ============== Runtime::can_serve =======================================
+
+TEST_CASE("can_serve: false when no consent has been granted") {
+    auto rt_ = fresh_runtime("cs_no"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_csno");
+    CHECK(!rt.can_serve(pid, Purpose::ambient_documentation));
+}
+
+TEST_CASE("can_serve: true after grant, mirrors has_consent_for") {
+    auto rt_ = fresh_runtime("cs_yes"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_csyes");
+    REQUIRE(rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h));
+    CHECK(rt.can_serve(pid, Purpose::ambient_documentation));
+    CHECK(rt.can_serve(pid, Purpose::ambient_documentation)
+          == rt.has_consent_for(pid, Purpose::ambient_documentation));
+}
+
+TEST_CASE("can_serve: purpose-specific — grant for one purpose doesn't authorise another") {
+    auto rt_ = fresh_runtime("cs_purpose"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cspurp");
+    REQUIRE(rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h));
+    CHECK( rt.can_serve(pid, Purpose::ambient_documentation));
+    CHECK(!rt.can_serve(pid, Purpose::diagnostic_suggestion));
+}
+
+TEST_CASE("can_serve: integration — predicts begin_inference outcome") {
+    auto rt_ = fresh_runtime("cs_int"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_csint");
+
+    // Before grant.
+    CHECK(!rt.can_serve(pid, Purpose::ambient_documentation));
+    auto r1 = rt.begin_inference({
+        .model     = ModelId{"m","v1"},
+        .actor     = ActorId::clinician("smith"),
+        .patient   = pid,
+        .encounter = EncounterId::make(),
+        .purpose   = Purpose::ambient_documentation,
+    });
+    CHECK(!r1);
+
+    // After grant.
+    REQUIRE(rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h));
+    CHECK(rt.can_serve(pid, Purpose::ambient_documentation));
+    auto r2 = rt.begin_inference({
+        .model     = ModelId{"m","v1"},
+        .actor     = ActorId::clinician("smith"),
+        .patient   = pid,
+        .encounter = EncounterId::make(),
+        .purpose   = Purpose::ambient_documentation,
+    });
+    CHECK(r2);
+}
+
+// ============== Runtime::warm_caches =====================================
+
+TEST_CASE("warm_caches: no-op completes without error on empty runtime") {
+    auto rt_ = fresh_runtime("warm_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.warm_caches();   // must not throw
+    CHECK(rt.ledger().length() == 0);
+}
+
+TEST_CASE("warm_caches: idempotent — repeated calls leave runtime unchanged") {
+    auto rt_ = fresh_runtime("warm_idem"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_warm");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("x",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+
+    auto len_before = rt.ledger().length();
+    auto head_before = rt.head_hash();
+    rt.warm_caches();
+    rt.warm_caches();
+    rt.warm_caches();
+    CHECK(rt.ledger().length() == len_before);
+    CHECK(rt.head_hash() == head_before);
+}
+
+TEST_CASE("warm_caches: callable before any inference, doesn't gate begin_inference") {
+    auto rt_ = fresh_runtime("warm_before"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.warm_caches();   // before any consent / inference
+
+    auto pid = PatientId::pseudonymous("p_warmpre");
+    REQUIRE(rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h));
+    auto inf = rt.begin_inference({
+        .model     = ModelId{"m","v1"},
+        .actor     = ActorId::clinician("smith"),
+        .patient   = pid,
+        .encounter = EncounterId::make(),
+        .purpose   = Purpose::ambient_documentation,
+    });
+    CHECK(inf);
+}

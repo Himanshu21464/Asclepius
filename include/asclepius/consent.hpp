@@ -134,6 +134,14 @@ public:
     // Useful for operator probes: "when does our oldest grant lapse?"
     Result<ConsentToken> longest_active() const;
 
+    // Per-patient mirror of longest_active(): the active (non-revoked,
+    // non-expired) token for `patient` with the latest expires_at.
+    // Returns Error::not_found when the patient has no active token.
+    // Tiebreak among equal expiries is unspecified. Useful for "when
+    // is this specific patient's longest grant going to lapse?"
+    Result<ConsentToken>
+    longest_lived_active_for_patient(const PatientId& patient) const;
+
     // Return the active (non-revoked, non-expired) token with the
     // smallest issued_at — i.e. the oldest grant still in force.
     // Returns Error::not_found when no active token exists. Tiebreak
@@ -266,6 +274,17 @@ public:
     // produced is independent so the audit chain shows the cascade.
     std::size_t expire_all_for_patient(const PatientId& patient);
 
+    // Narrower variant of expire_all_for_patient: revoke every active
+    // (non-revoked, non-expired) token belonging to `patient` whose
+    // purposes list contains `purpose`. Returns the number of tokens
+    // revoked. Fires the observer once per token revoked
+    // (Event::revoked), matching expire_all_for_patient. Same
+    // observer-after-lock-release pattern. Used to walk back a single
+    // purpose ("stop using this patient's data for research") without
+    // touching grants for unrelated purposes.
+    Result<std::size_t>
+    expire_purpose_for_patient(const PatientId& patient, Purpose purpose);
+
     // Install (or clear, by passing {}) the observer fired on grant/revoke.
     // Idempotent: repeat calls replace the previous observer.
     void set_observer(Observer obs);
@@ -280,6 +299,14 @@ public:
     // of revoked / expired state)? Useful for idempotent ledger replay
     // and for callers that want to avoid a copy-out via get(). noexcept.
     bool token_exists(std::string_view token_id) const noexcept;
+
+    // Cheap noexcept liveness check on a single token id: true iff a
+    // token with this id exists AND is not revoked AND has not expired.
+    // Distinct from token_exists() (which is true even for revoked /
+    // expired rows). Any internal failure is swallowed → false. Useful
+    // for hot-path gates that already hold the token id and just want
+    // a yes/no on whether it is currently in force.
+    bool is_token_active(std::string_view token_id) const noexcept;
 
     // Count of tokens that are not revoked but whose expires_at has passed.
     // O(n) over the registry. Distinct from active_count() which excludes
@@ -299,6 +326,13 @@ public:
     // callers can diff snapshots over time. Empty if no active grants.
     // Operator probe: "what can we currently do for this patient?"
     std::vector<Purpose> active_purposes_for_patient(const PatientId& patient) const;
+
+    // Count of distinct Purposes for which `patient` has at least one
+    // active (non-revoked, non-expired) token. Equivalent to
+    // active_purposes_for_patient(patient).size() but cheaper — no Purpose
+    // vector is materialized. O(n) over the registry, O(1) memory beyond
+    // a small fixed-capacity set sized to the Purpose enum.
+    std::size_t active_purpose_count_for_patient(const PatientId& patient) const;
 
     // Set the expiry of an existing token to a specific absolute time.
     // Rejects revoked tokens (denied), unknown ids (not_found), and a

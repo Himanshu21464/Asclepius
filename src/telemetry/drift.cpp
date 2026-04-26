@@ -94,6 +94,21 @@ double Histogram::median() const {
     return quantile(0.5);
 }
 
+void Histogram::clear() {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::fill(counts_.begin(), counts_.end(), 0);
+    total_ = 0;
+}
+
+std::size_t Histogram::nonzero_bin_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::size_t n = 0;
+    for (auto c : counts_) {
+        if (c > 0) ++n;
+    }
+    return n;
+}
+
 bool Histogram::is_empty() const noexcept {
     try {
         std::lock_guard<std::mutex> lk(mu_);
@@ -422,6 +437,71 @@ void DriftMonitor::set_alert_sink(AlertSink sink, DriftSeverity threshold) {
     std::lock_guard<std::mutex> lk(mu_);
     alert_sink_      = std::move(sink);
     alert_threshold_ = threshold;
+}
+
+bool DriftMonitor::has_alert_sink() const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        return static_cast<bool>(alert_sink_);
+    } catch (...) {
+        // Lock acquisition can theoretically throw. Contract is noexcept;
+        // degrade to "not installed" rather than propagate.
+        return false;
+    }
+}
+
+Result<void> DriftMonitor::observe_batch(std::string_view        feature,
+                                         std::span<const double> values) {
+    DriftReport report_to_emit;
+    bool        should_emit = false;
+    AlertSink   sink_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = features_.find(std::string{feature});
+        if (it == features_.end()) {
+            return Error::not_found(std::string{"unregistered feature: "} + std::string{feature});
+        }
+        // Empty span is a valid no-op: do nothing, don't fire the sink.
+        if (values.empty()) {
+            return Result<void>::ok();
+        }
+        for (double v : values) {
+            it->second->current->observe(v);
+        }
+
+        // Single post-batch severity evaluation. Fire at most once per
+        // call when severity strictly rises above the previous recorded
+        // severity AND meets the configured threshold.
+        if (alert_sink_) {
+            DriftReport r;
+            r.feature      = std::string{feature};
+            r.psi          = Histogram::psi(*it->second->reference, *it->second->current);
+            r.ks_statistic = Histogram::ks (*it->second->reference, *it->second->current);
+            r.emd          = Histogram::emd(*it->second->reference, *it->second->current);
+            r.severity     = classify(r.psi);
+            r.reference_n  = it->second->reference->total();
+            r.current_n    = it->second->current->total();
+            r.computed_at  = Time::now();
+
+            auto last_it = last_severity_.find(r.feature);
+            DriftSeverity prev = (last_it == last_severity_.end()
+                                  ? DriftSeverity::none
+                                  : last_it->second);
+            if (static_cast<int>(r.severity) > static_cast<int>(prev)
+             && static_cast<int>(r.severity) >= static_cast<int>(alert_threshold_)) {
+                last_severity_[r.feature] = r.severity;
+                report_to_emit = r;
+                should_emit    = true;
+                sink_copy      = alert_sink_;
+            } else {
+                last_severity_[r.feature] = r.severity;
+            }
+        }
+    }
+    if (should_emit) {
+        try { sink_copy(report_to_emit); } catch (...) { /* swallow */ }
+    }
+    return Result<void>::ok();
 }
 
 std::vector<DriftReport> DriftMonitor::report() const {

@@ -124,7 +124,9 @@ Result<std::string> Inference::run(std::string input, const ModelCallback& model
 
     impl_->ledger_body["status"]      = "ok";
     impl_->ledger_body["input_hash"]  = in_hash.hex();
+    impl_->ledger_body["input_size"]  = static_cast<std::uint64_t>(post_input.size());
     impl_->ledger_body["output_hash"] = out_hash.hex();
+    impl_->ledger_body["output_size"] = static_cast<std::uint64_t>(post_output.size());
     auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
     impl_->ledger_body["latency_ns"] = latency_ns;
 
@@ -190,6 +192,7 @@ Result<std::string> Inference::run_with_timeout(
         impl_->ledger_body["status"]     = "timeout";
         impl_->ledger_body["timeout_ms"] = static_cast<std::int64_t>(timeout.count());
         impl_->ledger_body["input_hash"] = in_hash.hex();
+        impl_->ledger_body["input_size"] = static_cast<std::uint64_t>(post_input.size());
         return Error::timeout("model_call exceeded "
             + std::to_string(timeout.count()) + "ms");
     }
@@ -216,7 +219,9 @@ Result<std::string> Inference::run_with_timeout(
 
     impl_->ledger_body["status"]      = "ok";
     impl_->ledger_body["input_hash"]  = in_hash.hex();
+    impl_->ledger_body["input_size"]  = static_cast<std::uint64_t>(post_input.size());
     impl_->ledger_body["output_hash"] = out_hash.hex();
+    impl_->ledger_body["output_size"] = static_cast<std::uint64_t>(post_output.size());
     auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
     impl_->ledger_body["latency_ns"] = latency_ns;
 
@@ -264,6 +269,7 @@ Result<std::string> Inference::run_cancellable(
         impl_->ledger_body["status"]     = "cancelled";
         impl_->ledger_body["cancel_phase"] = "pre_model";
         impl_->ledger_body["input_hash"] = in_hash.hex();
+        impl_->ledger_body["input_size"] = static_cast<std::uint64_t>(post_input.size());
         return Error::cancelled("cancelled before model_call dispatch");
     }
 
@@ -291,6 +297,7 @@ Result<std::string> Inference::run_cancellable(
             impl_->ledger_body["status"]      = "cancelled";
             impl_->ledger_body["cancel_phase"] = "model_inflight";
             impl_->ledger_body["input_hash"]  = in_hash.hex();
+            impl_->ledger_body["input_size"]  = static_cast<std::uint64_t>(post_input.size());
             return Error::cancelled("cancelled while model_call was running");
         }
     }
@@ -317,7 +324,9 @@ Result<std::string> Inference::run_cancellable(
 
     impl_->ledger_body["status"]      = "ok";
     impl_->ledger_body["input_hash"]  = in_hash.hex();
+    impl_->ledger_body["input_size"]  = static_cast<std::uint64_t>(post_input.size());
     impl_->ledger_body["output_hash"] = out_hash.hex();
+    impl_->ledger_body["output_size"] = static_cast<std::uint64_t>(post_output.size());
     auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
     impl_->ledger_body["latency_ns"] = latency_ns;
 
@@ -424,6 +433,39 @@ std::string Inference::output_hash() const {
     return it->get<std::string>();
 }
 
+Result<std::size_t> Inference::input_size() const {
+    if (!impl_ || !impl_->completed) {
+        return Error::invalid("input_size called before run");
+    }
+    auto it = impl_->ledger_body.find("input_size");
+    if (it == impl_->ledger_body.end() || !it->is_number_unsigned()) {
+        return Error::not_found("input_size not recorded for this run");
+    }
+    return static_cast<std::size_t>(it->get<std::uint64_t>());
+}
+
+Result<std::size_t> Inference::output_size() const {
+    if (!impl_ || !impl_->completed) {
+        return Error::invalid("output_size called before run");
+    }
+    // Symmetric with output_hash semantics: only the success path lands
+    // a canonical output. Surface that explicitly so callers don't have
+    // to disambiguate "size missing because the run failed" from "size
+    // missing because the field wasn't recorded."
+    auto status_it = impl_->ledger_body.find("status");
+    const bool ok = status_it != impl_->ledger_body.end() &&
+                    status_it->is_string() &&
+                    status_it->get_ref<const std::string&>() == "ok";
+    if (!ok) {
+        return Error::not_found("output_size only recorded on status=ok runs");
+    }
+    auto it = impl_->ledger_body.find("output_size");
+    if (it == impl_->ledger_body.end() || !it->is_number_unsigned()) {
+        return Error::not_found("output_size not recorded for this run");
+    }
+    return static_cast<std::size_t>(it->get<std::uint64_t>());
+}
+
 std::int64_t Inference::elapsed_ms() const noexcept {
     if (!impl_) return 0;
     auto ns = (Time::now() - impl_->ctx.started_at()).count();
@@ -471,10 +513,11 @@ Result<void> Inference::add_metadata(std::string_view key, nlohmann::json value)
     // bookkeeping. The reserved set matches the keys this file writes to
     // ledger_body directly. Any future addition of top-level fields must
     // be added here.
-    static const std::array<std::string_view, 12> kReserved = {
+    static const std::array<std::string_view, 14> kReserved = {
         "status", "input_hash", "output_hash", "latency_ns",
         "block_code", "block_msg", "error_msg", "timeout_ms",
         "cancel_phase", "inference_id", "model", "metadata",
+        "input_size", "output_size",
     };
     for (auto r : kReserved) {
         if (key == r) {

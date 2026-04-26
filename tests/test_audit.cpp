@@ -3526,3 +3526,228 @@ TEST_CASE("head_attestation_json: signature changes as the chain advances") {
     CHECK(j1.at("key_fingerprint").get<std::string>() ==
           j2.at("key_fingerprint").get<std::string>());
 }
+
+// ---- seq_range_for_tenant ------------------------------------------------
+
+TEST_CASE("seq_range_for_tenant: empty chain returns (0, 0)") {
+    auto p = tmp_db("seq_range_for_tenant_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    auto r = l.seq_range_for_tenant("acme");
+    REQUIRE(r);
+    CHECK(r.value().first  == 0u);
+    CHECK(r.value().second == 0u);
+}
+
+TEST_CASE("seq_range_for_tenant: bounds match interleaved tenants") {
+    auto p = tmp_db("seq_range_for_tenant_interleaved");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}, "acme"));   // seq 1
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 2}}, "globex")); // seq 2
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 3}}, "acme"));   // seq 3
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 4}}, "acme"));   // seq 4
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 5}}, "globex")); // seq 5
+
+    auto a = l.seq_range_for_tenant("acme");
+    REQUIRE(a);
+    CHECK(a.value().first  == 1u);
+    CHECK(a.value().second == 4u);
+
+    auto g = l.seq_range_for_tenant("globex");
+    REQUIRE(g);
+    CHECK(g.value().first  == 2u);
+    CHECK(g.value().second == 5u);
+
+    auto unknown = l.seq_range_for_tenant("nope");
+    REQUIRE(unknown);
+    CHECK(unknown.value().first  == 0u);
+    CHECK(unknown.value().second == 0u);
+}
+
+TEST_CASE("seq_range_for_tenant: empty tenant is its own scope") {
+    auto p = tmp_db("seq_range_for_tenant_empty_tenant");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}, ""));      // seq 1, ""
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 2}}, "acme"));  // seq 2
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 3}}, ""));      // seq 3, ""
+
+    auto empty = l.seq_range_for_tenant("");
+    REQUIRE(empty);
+    CHECK(empty.value().first  == 1u);
+    CHECK(empty.value().second == 3u);
+
+    auto acme = l.seq_range_for_tenant("acme");
+    REQUIRE(acme);
+    CHECK(acme.value().first  == 2u);
+    CHECK(acme.value().second == 2u);
+}
+
+// ---- distinct_event_types ------------------------------------------------
+
+TEST_CASE("distinct_event_types: empty chain returns empty vector") {
+    auto p = tmp_db("distinct_event_types_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    auto r = l.distinct_event_types();
+    REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("distinct_event_types: deduplicates and sorts alphabetically") {
+    auto p = tmp_db("distinct_event_types_sorted");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("zeta",   "a", nlohmann::json{{"i", 1}}));
+    REQUIRE(l.append("alpha",  "a", nlohmann::json{{"i", 2}}));
+    REQUIRE(l.append("zeta",   "a", nlohmann::json{{"i", 3}}));
+    REQUIRE(l.append("middle", "a", nlohmann::json{{"i", 4}}));
+    REQUIRE(l.append("alpha",  "a", nlohmann::json{{"i", 5}}));
+
+    auto r = l.distinct_event_types();
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 3u);
+    CHECK(r.value()[0] == "alpha");
+    CHECK(r.value()[1] == "middle");
+    CHECK(r.value()[2] == "zeta");
+}
+
+TEST_CASE("distinct_event_types: single event_type returns vector of one") {
+    auto p = tmp_db("distinct_event_types_one");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("only", "a", nlohmann::json{{"i", 1}}));
+    REQUIRE(l.append("only", "a", nlohmann::json{{"i", 2}}));
+    REQUIRE(l.append("only", "a", nlohmann::json{{"i", 3}}));
+
+    auto r = l.distinct_event_types();
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 1u);
+    CHECK(r.value()[0] == "only");
+}
+
+// ---- checksum_range ------------------------------------------------------
+
+TEST_CASE("checksum_range: empty chain and empty range return Hash::zero()") {
+    auto p = tmp_db("checksum_range_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    // empty chain
+    auto r0 = l.checksum_range(1, 1);
+    REQUIRE(r0);
+    CHECK(r0.value() == Hash::zero());
+
+    // populate
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}));
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 2}}));
+
+    // empty range over a populated chain
+    auto r1 = l.checksum_range(2, 2);
+    REQUIRE(r1);
+    CHECK(r1.value() == Hash::zero());
+}
+
+TEST_CASE("checksum_range: deterministic over identical content; sensitive to range") {
+    auto p = tmp_db("checksum_range_deterministic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}));
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 2}}));
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 3}}));
+
+    auto a = l.checksum_range(1, 4);
+    auto b = l.checksum_range(1, 4);
+    REQUIRE(a);
+    REQUIRE(b);
+    CHECK(a.value() == b.value());
+    CHECK(a.value() != Hash::zero());
+
+    // Different range -> different checksum (with overwhelming probability).
+    auto c = l.checksum_range(1, 3);
+    REQUIRE(c);
+    CHECK(c.value() != a.value());
+
+    // Single-entry range equals the entry's own entry_hash hashed once.
+    auto d = l.checksum_range(2, 3);
+    REQUIRE(d);
+    auto e2 = l.at(2); REQUIRE(e2);
+    Hasher h;
+    auto eh = e2.value().entry_hash();
+    h.update(Bytes{eh.bytes.data(), eh.bytes.size()});
+    CHECK(d.value() == h.finalize());
+}
+
+TEST_CASE("checksum_range: rejects bad bounds") {
+    auto p = tmp_db("checksum_range_bad");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}));
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 2}}));
+
+    // start > end
+    auto r1 = l.checksum_range(3, 1);
+    REQUIRE(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+
+    // end past chain
+    auto r2 = l.checksum_range(1, 99);
+    REQUIRE(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+
+    // start == 0 with non-empty range
+    auto r3 = l.checksum_range(0, 2);
+    REQUIRE(!r3);
+    CHECK(r3.error().code() == ErrorCode::invalid_argument);
+}
+
+// ---- has_event_after_seq -------------------------------------------------
+
+TEST_CASE("has_event_after_seq: empty chain returns false for any seq") {
+    auto p = tmp_db("has_event_after_seq_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    CHECK(l.has_event_after_seq(0)   == false);
+    CHECK(l.has_event_after_seq(1)   == false);
+    CHECK(l.has_event_after_seq(999) == false);
+}
+
+TEST_CASE("has_event_after_seq: true iff seq < length") {
+    auto p = tmp_db("has_event_after_seq_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}));
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 2}}));
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 3}}));
+
+    // length() == 3 — there's something past 0, 1, 2 but not past 3.
+    CHECK(l.has_event_after_seq(0) == true);
+    CHECK(l.has_event_after_seq(1) == true);
+    CHECK(l.has_event_after_seq(2) == true);
+    CHECK(l.has_event_after_seq(3) == false);
+    CHECK(l.has_event_after_seq(4) == false);
+}
+
+TEST_CASE("has_event_after_seq: tracks newly appended entries") {
+    auto p = tmp_db("has_event_after_seq_advance");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 1}}));
+    CHECK(l.has_event_after_seq(1) == false);  // caught up at seq=1
+
+    REQUIRE(l.append("e", "a", nlohmann::json{{"i", 2}}));
+    CHECK(l.has_event_after_seq(1) == true);   // a follower at 1 is now behind
+    CHECK(l.has_event_after_seq(2) == false);  // a follower at 2 is caught up
+}

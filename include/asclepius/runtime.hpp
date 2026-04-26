@@ -287,6 +287,23 @@ public:
     // by design — no canonical output was produced.
     std::string output_hash() const;
 
+    // Byte length of the post-policy input that was hashed into
+    // input_hash(). Companion to input_hash() for callers that need to
+    // know how much input was actually fed to the model without
+    // retaining the input itself. Reads from the pending ledger body
+    // populated by run() / run_with_timeout() / run_cancellable().
+    // Returns invalid_argument if no run has been performed yet,
+    // not_found if the run completed but no input_size was recorded
+    // (e.g. an older committed entry that predates the field).
+    Result<std::size_t> input_size() const;
+
+    // Byte length of the post-policy output that was hashed into
+    // output_hash(). Companion to output_hash(). Returns
+    // invalid_argument if no run has been performed yet, not_found if
+    // status() != "ok" — i.e. the run blocked / timed out / was
+    // cancelled / errored before a canonical output landed.
+    Result<std::size_t> output_size() const;
+
     // Wallclock milliseconds elapsed since started_at(). Convenience
     // sugar for sidecar dashboards that don't want to convert
     // chrono::nanoseconds manually each time.
@@ -402,6 +419,17 @@ public:
     // (which surfaces the specific consent_missing / expired error).
     bool has_consent_for(const PatientId& patient, Purpose purpose) const;
 
+    // Pre-flight: would begin_inference() succeed for this
+    // (patient, purpose) right now? Currently equivalent to
+    // has_consent_for() — that is the only gate begin_inference()
+    // applies for the well-formed-spec case. Sugar that lets sidecars
+    // express the intent ("can I serve this request?") rather than
+    // its current implementation ("is there a consent token?"). If
+    // begin_inference() ever grows additional gates (rate limiting,
+    // tenant scope, model availability), can_serve() will widen to
+    // mirror them — has_consent_for() will not.
+    bool can_serve(const PatientId& patient, Purpose purpose) const;
+
     // Wallclock duration since the oldest entry in the chain.
     // Returns std::chrono::nanoseconds::zero() on an empty chain
     // (and on any read error — diagnostics belong on health(), not
@@ -427,6 +455,16 @@ public:
     // attestations of the chain — the "self_attest" framing matches
     // operator vocabulary for "the runtime is signing its own head."
     LedgerCheckpoint self_attest() const;
+
+    // Last `n` ledger entries with event_type == "inference.committed".
+    // Sugar over ledger().tail_by_event_type("inference.committed", n)
+    // — a query callers re-implement repeatedly when assembling
+    // dashboards, audit summaries, or "last N inferences for this
+    // tenant" probes. Returns the entries oldest-to-newest within the
+    // window (matches Ledger::tail_by_event_type semantics). n == 0
+    // returns an empty vector. Errors propagate from the underlying
+    // ledger call.
+    Result<std::vector<LedgerEntry>> recent_inferences(std::size_t n) const;
 
     // Sugar over the ledger's signing-key fingerprint (an 8-byte
     // BLAKE2b hash of the public key, hex-encoded — same shape as
@@ -455,6 +493,16 @@ public:
     // want a sensible default without manually composing policies.
     // Returns ok unconditionally.
     Result<void> install_default_policies();
+
+    // Hint to the runtime that it should pre-touch any cold caches it
+    // owns (policy chain compilation, SQLite page cache, signing key
+    // material) so the first request after startup doesn't pay the
+    // cold-path cost. Currently a no-op placeholder — callers should
+    // treat this as a hint, NOT a contract. Idempotent and safe to
+    // call from any thread; future implementations may run bounded
+    // I/O (e.g. a single-row SELECT to warm the page cache) but will
+    // not block on unbounded work.
+    void warm_caches();
 
     // Asclepius runtime version string. Returns ASCLEPIUS_VERSION_STRING
     // when defined via target_compile_definitions, otherwise a stable

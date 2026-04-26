@@ -1849,3 +1849,221 @@ TEST_CASE("MetricRegistry::has integration — agrees with has_counter || has_hi
     static_assert(noexcept(std::declval<const MetricRegistry&>().has("x")),
                   "MetricRegistry::has must be noexcept");
 }
+
+// ---- Histogram::clear ---------------------------------------------------
+
+TEST_CASE("Histogram::clear empties counts and total but keeps bins/lo/hi") {
+    Histogram h{0.0, 1.0, 10};
+    for (int i = 0; i < 50; ++i) h.observe(0.25);
+    REQUIRE(h.total() == 50);
+    REQUIRE(h.bin_count() == 10);
+
+    h.clear();
+    CHECK(h.total() == 0);
+    CHECK(h.is_empty());
+    // Geometry preserved.
+    CHECK(h.bin_count() == 10);
+    CHECK(h.lo() == doctest::Approx(0.0));
+    CHECK(h.hi() == doctest::Approx(1.0));
+    // Normalized must be all zeros after clear (matches empty-histogram contract).
+    auto n = h.normalized();
+    REQUIRE(n.size() == 10);
+    for (auto v : n) CHECK(v == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::clear allows reuse — observations after clear count fresh") {
+    Histogram h{0.0, 1.0, 4};
+    for (int i = 0; i < 10; ++i) h.observe(0.1);  // bin 0
+    REQUIRE(h.total() == 10);
+
+    h.clear();
+    REQUIRE(h.total() == 0);
+
+    // Now observe into different bins; counts should reflect ONLY post-clear state.
+    h.observe(0.6);   // bin 2
+    h.observe(0.9);   // bin 3
+    h.observe(0.85);  // bin 3
+    CHECK(h.total() == 3);
+    CHECK(h.nonzero_bin_count() == 2);
+}
+
+TEST_CASE("Histogram::clear is idempotent on an already-empty histogram") {
+    Histogram h{-1.0, 1.0, 8};
+    REQUIRE(h.total() == 0);
+    h.clear();
+    CHECK(h.total() == 0);
+    CHECK(h.bin_count() == 8);
+    h.clear();  // again
+    CHECK(h.total() == 0);
+    CHECK(h.bin_count() == 8);
+    CHECK(h.lo() == doctest::Approx(-1.0));
+    CHECK(h.hi() == doctest::Approx(1.0));
+}
+
+// ---- Histogram::nonzero_bin_count ---------------------------------------
+
+TEST_CASE("Histogram::nonzero_bin_count returns 0 on empty histogram") {
+    Histogram h{0.0, 1.0, 16};
+    CHECK(h.nonzero_bin_count() == 0);
+}
+
+TEST_CASE("Histogram::nonzero_bin_count counts only bins with >=1 observation") {
+    Histogram h{0.0, 1.0, 10};
+    // Hit bin 0, bin 5, bin 9 — three distinct bins, multiple observations each.
+    for (int i = 0; i < 3; ++i) h.observe(0.05);
+    for (int i = 0; i < 7; ++i) h.observe(0.55);
+    h.observe(0.95);
+    CHECK(h.total() == 11);
+    CHECK(h.nonzero_bin_count() == 3);
+}
+
+TEST_CASE("Histogram::nonzero_bin_count saturates at bin_count when all bins hit") {
+    Histogram h{0.0, 1.0, 10};
+    // Observation at the midpoint of each bin guarantees one count per bin.
+    for (std::size_t i = 0; i < 10; ++i) {
+        const double mid = (static_cast<double>(i) + 0.5) / 10.0;
+        h.observe(mid);
+    }
+    CHECK(h.total() == 10);
+    CHECK(h.nonzero_bin_count() == h.bin_count());
+}
+
+// ---- MetricRegistry::counter_total --------------------------------------
+
+TEST_CASE("MetricRegistry::counter_total is 0 on empty registry") {
+    MetricRegistry m;
+    CHECK(m.counter_total() == 0);
+}
+
+TEST_CASE("MetricRegistry::counter_total sums all counter values") {
+    MetricRegistry m;
+    m.inc("a", 5);
+    m.inc("b", 7);
+    m.inc("c");      // +1
+    m.inc("c", 2);   // c=3
+    // total = 5 + 7 + 3 = 15
+    CHECK(m.counter_total() == 15);
+}
+
+TEST_CASE("MetricRegistry::counter_total ignores histograms and survives reset/clear") {
+    MetricRegistry m;
+    m.inc("x", 4);
+    m.observe("h", 0.1);   // histogram; must NOT contribute
+    m.observe("h", 0.5);
+    CHECK(m.counter_total() == 4);
+
+    m.inc("y", 6);
+    CHECK(m.counter_total() == 10);
+
+    // reset() zeroes one counter but leaves the name registered.
+    REQUIRE(m.reset("x"));
+    CHECK(m.counter_total() == 6);  // y=6, x=0
+
+    // clear() drops everything.
+    m.clear();
+    CHECK(m.counter_total() == 0);
+}
+
+// ---- DriftMonitor::observe_batch ----------------------------------------
+
+TEST_CASE("DriftMonitor::observe_batch records every value and matches per-call observe") {
+    DriftMonitor dm;
+    std::vector<double> baseline(100, 0.5);
+    REQUIRE(dm.register_feature("f", baseline, 0.0, 1.0, 10));
+
+    std::vector<double> batch{0.05, 0.15, 0.25, 0.35, 0.95};
+    REQUIRE(dm.observe_batch("f", std::span<const double>{batch}));
+
+    auto cnt = dm.observation_count("f");
+    REQUIRE(cnt);
+    CHECK(*cnt == batch.size());
+}
+
+TEST_CASE("DriftMonitor::observe_batch returns not_found for unknown feature") {
+    DriftMonitor dm;
+    std::vector<double> v{0.1, 0.2};
+    auto r = dm.observe_batch("missing", std::span<const double>{v});
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+
+    // Empty span on unknown feature also returns not_found — feature
+    // existence is checked before the early empty-span exit.
+    std::vector<double> empty;
+    auto r2 = dm.observe_batch("missing", std::span<const double>{empty});
+    REQUIRE_FALSE(r2);
+    CHECK(r2.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("DriftMonitor::observe_batch — empty span is a valid no-op") {
+    DriftMonitor dm;
+    std::vector<double> baseline(100, 0.5);
+    REQUIRE(dm.register_feature("f", baseline, 0.0, 1.0, 10));
+
+    int fires = 0;
+    dm.set_alert_sink([&](const DriftReport&) { ++fires; }, DriftSeverity::minor);
+
+    std::vector<double> empty;
+    REQUIRE(dm.observe_batch("f", std::span<const double>{empty}));
+
+    auto cnt = dm.observation_count("f");
+    REQUIRE(cnt);
+    CHECK(*cnt == 0);
+    CHECK(fires == 0);  // empty batch must not trigger the sink
+}
+
+TEST_CASE("DriftMonitor::observe_batch fires alert sink at most once per call") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("f", baseline, 0.0, 1.0, 10));
+
+    int fires = 0;
+    DriftSeverity last = DriftSeverity::none;
+    dm.set_alert_sink([&](const DriftReport& r) { ++fires; last = r.severity; },
+                      DriftSeverity::moder);
+
+    // 200 values clustered at 0.95 — should drive PSI well past moder/severe.
+    std::vector<double> batch(200, 0.95);
+    REQUIRE(dm.observe_batch("f", std::span<const double>{batch}));
+
+    CHECK(fires == 1);
+    CHECK(static_cast<int>(last) >= static_cast<int>(DriftSeverity::moder));
+
+    // A subsequent batch at the SAME severity must not re-fire (per-crossing
+    // semantics, just like observe()).
+    std::vector<double> batch2(200, 0.95);
+    REQUIRE(dm.observe_batch("f", std::span<const double>{batch2}));
+    CHECK(fires == 1);
+}
+
+// ---- DriftMonitor::has_alert_sink ---------------------------------------
+
+TEST_CASE("DriftMonitor::has_alert_sink false on a fresh monitor") {
+    DriftMonitor dm;
+    CHECK_FALSE(dm.has_alert_sink());
+}
+
+TEST_CASE("DriftMonitor::has_alert_sink true after set_alert_sink with non-empty fn") {
+    DriftMonitor dm;
+    dm.set_alert_sink([](const DriftReport&) {}, DriftSeverity::moder);
+    CHECK(dm.has_alert_sink());
+
+    // Also true for severe-only threshold.
+    DriftMonitor dm2;
+    dm2.set_alert_sink([](const DriftReport&) {}, DriftSeverity::severe);
+    CHECK(dm2.has_alert_sink());
+}
+
+TEST_CASE("DriftMonitor::has_alert_sink false after install of empty std::function") {
+    DriftMonitor dm;
+    // Install a real sink first → true.
+    dm.set_alert_sink([](const DriftReport&) {}, DriftSeverity::moder);
+    REQUIRE(dm.has_alert_sink());
+
+    // Install an empty std::function → no longer wired.
+    dm.set_alert_sink(DriftMonitor::AlertSink{}, DriftSeverity::moder);
+    CHECK_FALSE(dm.has_alert_sink());
+
+    // noexcept contract — call site must compile under noexcept.
+    static_assert(noexcept(std::declval<const DriftMonitor&>().has_alert_sink()),
+                  "DriftMonitor::has_alert_sink must be noexcept");
+}

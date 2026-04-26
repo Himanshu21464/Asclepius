@@ -702,6 +702,20 @@ Ledger::count_by_event_type() const {
     return out;
 }
 
+Result<std::vector<std::string>> Ledger::distinct_event_types() const {
+    std::unordered_map<std::string, std::uint8_t> seen;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        seen.emplace(e.header.event_type, 1);
+        return true;
+    });
+    if (!r) return r.error();
+    std::vector<std::string> out;
+    out.reserve(seen.size());
+    for (const auto& [t, _] : seen) out.push_back(t);
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
 Result<std::vector<LedgerEntry>>
 Ledger::tail_by_event_type(std::string_view event_type, std::size_t n) const {
     if (event_type.empty()) {
@@ -723,6 +737,28 @@ Ledger::tail_by_event_type(std::string_view event_type, std::size_t n) const {
     if (!r) return r.error();
     std::reverse(ring.begin(), ring.end());
     return ring;
+}
+
+Result<Hash> Ledger::checksum_range(std::uint64_t start, std::uint64_t end) const {
+    if (start > end) {
+        return Error::invalid("checksum_range: start > end");
+    }
+    const auto len = impl_->length.load();
+    if (end > len + 1) {
+        return Error::invalid("checksum_range: end exceeds chain length");
+    }
+    if (start == end || len == 0) return Hash::zero();
+    if (start == 0) {
+        return Error::invalid("checksum_range: start must be >= 1");
+    }
+    auto rng = impl_->storage->select_range(start, end);
+    if (!rng) return rng.error();
+    Hasher h;
+    for (const auto& e : rng.value()) {
+        auto eh = e.entry_hash();
+        h.update(Bytes{eh.bytes.data(), eh.bytes.size()});
+    }
+    return h.finalize();
 }
 
 Result<void> Ledger::verify_range(std::uint64_t start, std::uint64_t end) const {
@@ -1185,6 +1221,10 @@ bool Ledger::has_entry(std::uint64_t seq) const noexcept {
     return seq > 0 && seq <= impl_->length.load();
 }
 
+bool Ledger::has_event_after_seq(std::uint64_t seq) const {
+    return impl_->length.load() > seq;
+}
+
 std::string Ledger::Attestation::to_json() const {
     json j;
     j["length"]      = length;
@@ -1343,6 +1383,26 @@ Result<std::uint64_t> Ledger::byte_size_for_tenant(const std::string& tenant) co
         }
     }
     return total;
+}
+
+Result<std::pair<std::uint64_t, std::uint64_t>>
+Ledger::seq_range_for_tenant(const std::string& tenant) const {
+    const auto chain_len = impl_->length.load();
+    if (chain_len == 0) return std::pair<std::uint64_t, std::uint64_t>{0, 0};
+
+    constexpr std::uint64_t kChunk = 1024;
+    std::uint64_t oldest = 0;
+    std::uint64_t newest = 0;
+    for (std::uint64_t start = 1; start <= chain_len; start += kChunk) {
+        std::uint64_t end = std::min(chain_len + 1, start + kChunk);
+        auto rng = impl_->storage->select_range_for_tenant(tenant, start, end);
+        if (!rng) return rng.error();
+        for (const auto& e : rng.value()) {
+            if (oldest == 0) oldest = e.header.seq;
+            newest = e.header.seq;
+        }
+    }
+    return std::pair<std::uint64_t, std::uint64_t>{oldest, newest};
 }
 
 Result<Ledger::HistoricalHead> Ledger::head_at_time(Time t) const {

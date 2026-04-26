@@ -169,6 +169,15 @@ public:
                                                       std::uint64_t start,
                                                       std::uint64_t end) const;
 
+    // (oldest_seq, newest_seq) bounds of a tenant's entries within the chain.
+    // Returns (0, 0) if no entries match. The empty tenant ("") is its own
+    // scope. Useful for "show me where this tenant's chain lives" — callers
+    // can plan paginated reads without first loading every entry. Implemented
+    // via paginated tenant-scoped range queries (chunked at 1024) so memory
+    // stays bounded for large chains.
+    Result<std::pair<std::uint64_t, std::uint64_t>>
+        seq_range_for_tenant(const std::string& tenant) const;
+
     // Verify the entire chain: each entry's prev_hash matches the previous,
     // each signature matches the registered public key, payload_hash matches.
     // Streams through entries one at a time so memory usage is O(1) regardless
@@ -247,6 +256,14 @@ public:
     // unexpected event types from custom integrations.
     Result<std::unordered_map<std::string, std::uint64_t>>
         count_by_event_type() const;
+
+    // Sorted list of every distinct header.event_type that has ever been
+    // appended. O(n) scan via for_each into a set, copied to a sorted
+    // vector. Empty chain returns the empty vector. Companion to
+    // count_by_event_type — that one returns counts; this one is a cheap
+    // enumeration for dashboards that need to populate event-type filter
+    // dropdowns without also computing counts.
+    Result<std::vector<std::string>> distinct_event_types() const;
 
     // ---- Forensic lookup ------------------------------------------------
     //
@@ -427,6 +444,16 @@ public:
     // check). Returns invalid_argument if start >= end or end > length.
     Result<void> verify_range(std::uint64_t start, std::uint64_t end) const;
 
+    // Single BLAKE2b-256 digest summarizing entries in [start, end).
+    // Computed by feeding each entry's entry_hash() bytes (in seq-ascending
+    // order) into a streaming Hasher. Two ledgers with byte-identical
+    // content over the same range produce the same checksum, so replicas
+    // can confirm they're in sync without shipping the entries themselves.
+    // Returns invalid_argument for bad bounds (start >= end, end > length+1).
+    // The empty range (start == end) and an empty chain both return
+    // Hash::zero().
+    Result<Hash> checksum_range(std::uint64_t start, std::uint64_t end) const;
+
     // Find the chain head as it existed at-or-before time `t`. Returns
     // {seq=0, head_hash=zero} for empty chains or for a `t` earlier than
     // the first entry's timestamp. Used to anchor retroactive checkpoints
@@ -490,6 +517,12 @@ public:
     // chain currently holds an entry at `seq`. noexcept; never reads
     // the backend.
     bool has_entry(std::uint64_t seq) const noexcept;
+
+    // Cheap O(1) check: does the chain currently hold any entry whose
+    // seq > `seq`. Computed via length() comparison; never reads the
+    // backend. Used by replica-tail loops that want a "is there anything
+    // new?" probe before issuing the heavier events_after_seq query.
+    bool has_event_after_seq(std::uint64_t seq) const;
 
     // Compact attestation of the current chain head. Bundles the
     // length, head_hash, signing key id, and the key fingerprint

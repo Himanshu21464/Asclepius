@@ -248,6 +248,25 @@ Result<ConsentToken> ConsentRegistry::longest_active() const {
     return *best;
 }
 
+Result<ConsentToken>
+ConsentRegistry::longest_lived_active_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    const ConsentToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.patient != patient) continue;
+        if (best == nullptr || t.expires_at > best->expires_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no active consent tokens for patient");
+    }
+    return *best;
+}
+
 Result<ConsentToken> ConsentRegistry::oldest_active() const {
     std::lock_guard<std::mutex> lk(mu_);
     const auto now = Time::now();
@@ -409,9 +428,50 @@ std::size_t ConsentRegistry::expire_all_for_patient(const PatientId& patient) {
     return revoked_now.size();
 }
 
+Result<std::size_t>
+ConsentRegistry::expire_purpose_for_patient(const PatientId& patient,
+                                            Purpose          purpose) {
+    std::vector<ConsentToken> revoked_now;
+    Observer obs_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        const auto now = Time::now();
+        for (auto& [_, t] : by_id_) {
+            if (t.revoked)            continue;
+            if (t.expires_at <= now)  continue;
+            if (t.patient != patient) continue;
+            if (std::find(t.purposes.begin(), t.purposes.end(), purpose)
+                == t.purposes.end()) {
+                continue;
+            }
+            t.revoked = true;
+            revoked_now.push_back(t);
+        }
+        obs_copy = observer_;
+    }
+    if (obs_copy) {
+        for (const auto& t : revoked_now) obs_copy(Event::revoked, t);
+    }
+    return revoked_now.size();
+}
+
 bool ConsentRegistry::token_exists(std::string_view token_id) const noexcept {
     std::lock_guard<std::mutex> lk(mu_);
     return by_id_.find(std::string{token_id}) != by_id_.end();
+}
+
+bool ConsentRegistry::is_token_active(std::string_view token_id) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = by_id_.find(std::string{token_id});
+        if (it == by_id_.end()) return false;
+        const auto& t = it->second;
+        if (t.revoked) return false;
+        if (t.expires_at <= Time::now()) return false;
+        return true;
+    } catch (...) {
+        return false;
+    }
 }
 
 std::size_t ConsentRegistry::expired_count() const {
@@ -491,6 +551,29 @@ ConsentRegistry::active_purposes_for_patient(const PatientId& patient) const {
                          static_cast<std::uint8_t>(b);
               });
     return out;
+}
+
+std::size_t
+ConsentRegistry::active_purpose_count_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    // Purpose enum values fit in a uint8_t; an 8-element bitset covers all
+    // current Purposes with O(1) extra memory regardless of token count.
+    bool seen[256] = {};
+    std::size_t n = 0;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.patient != patient) continue;
+        for (auto p : t.purposes) {
+            auto code = static_cast<std::uint8_t>(p);
+            if (!seen[code]) {
+                seen[code] = true;
+                n++;
+            }
+        }
+    }
+    return n;
 }
 
 Result<ConsentToken> ConsentRegistry::extend_to(std::string_view token_id,

@@ -2273,3 +2273,273 @@ TEST_CASE("tokens_granted_within: empty registry returns empty vector") {
     CHECK(r.tokens_granted_within(1h).empty());
     CHECK(r.tokens_granted_within(24h).empty());
 }
+
+// ---- active_purpose_count_for_patient ------------------------------------
+
+TEST_CASE("active_purpose_count_for_patient: zero for unknown patient and empty registry") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("apc_unknown");
+    CHECK(r.active_purpose_count_for_patient(p) == 0u);
+
+    auto other = PatientId::pseudonymous("apc_other");
+    REQUIRE(r.grant(other, {Purpose::triage}, 1h));
+    CHECK(r.active_purpose_count_for_patient(p) == 0u);
+}
+
+TEST_CASE("active_purpose_count_for_patient: counts distinct purposes across multiple tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("apc_distinct");
+    // Token 1: triage + ambient_documentation
+    REQUIRE(r.grant(p, {Purpose::triage, Purpose::ambient_documentation}, 1h));
+    // Token 2: ambient_documentation (overlap) + research
+    REQUIRE(r.grant(p, {Purpose::ambient_documentation, Purpose::research}, 1h));
+    // Token 3: triage again (overlap)
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+
+    // Distinct purposes: triage, ambient_documentation, research → 3.
+    CHECK(r.active_purpose_count_for_patient(p) == 3u);
+}
+
+TEST_CASE("active_purpose_count_for_patient: ignores revoked / expired and matches active_purposes_for_patient size") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("apc_filter");
+
+    auto live = r.grant(p, {Purpose::triage, Purpose::medication_review}, 1h);
+    REQUIRE(live);
+
+    auto rev = r.grant(p, {Purpose::research, Purpose::operations}, 1h);
+    REQUIRE(rev);
+    REQUIRE(r.revoke(rev.value().token_id));
+
+    // Ingest an expired token with a purpose not present in the live one.
+    ConsentToken expired;
+    expired.token_id   = "ct_apc_expired";
+    expired.patient    = p;
+    expired.purposes   = {Purpose::quality_improvement};
+    expired.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    expired.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(expired));
+
+    // Only triage + medication_review should remain active for p.
+    CHECK(r.active_purpose_count_for_patient(p) == 2u);
+    CHECK(r.active_purpose_count_for_patient(p)
+          == r.active_purposes_for_patient(p).size());
+}
+
+// ---- is_token_active -----------------------------------------------------
+
+TEST_CASE("is_token_active: true for live token, false for unknown id") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ita_basic");
+    auto t = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t);
+
+    CHECK(r.is_token_active(t.value().token_id));
+    CHECK_FALSE(r.is_token_active("ct_does_not_exist"));
+    CHECK_FALSE(r.is_token_active(""));
+}
+
+TEST_CASE("is_token_active: false for revoked token, distinct from token_exists") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ita_revoked");
+    auto t = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t);
+    REQUIRE(r.revoke(t.value().token_id));
+
+    CHECK_FALSE(r.is_token_active(t.value().token_id));
+    // Row still present — token_exists() is the historical view.
+    CHECK(r.token_exists(t.value().token_id));
+}
+
+TEST_CASE("is_token_active: false for expired token") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ita_expired");
+    ConsentToken expired;
+    expired.token_id   = "ct_ita_expired";
+    expired.patient    = p;
+    expired.purposes   = {Purpose::triage};
+    expired.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    expired.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(expired));
+
+    CHECK_FALSE(r.is_token_active("ct_ita_expired"));
+    CHECK(r.token_exists("ct_ita_expired"));
+}
+
+// ---- expire_purpose_for_patient ------------------------------------------
+
+TEST_CASE("expire_purpose_for_patient: revokes only tokens whose purposes contain the target") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("epfp_basic");
+
+    auto with_research    = r.grant(p, {Purpose::triage, Purpose::research}, 1h);
+    auto without_research = r.grant(p, {Purpose::triage, Purpose::medication_review}, 1h);
+    auto research_only    = r.grant(p, {Purpose::research}, 1h);
+    REQUIRE(with_research);
+    REQUIRE(without_research);
+    REQUIRE(research_only);
+
+    auto n = r.expire_purpose_for_patient(p, Purpose::research);
+    REQUIRE(n);
+    CHECK(n.value() == 2u);
+
+    // Revoked: with_research, research_only. Untouched: without_research.
+    auto a = r.get(with_research.value().token_id);
+    REQUIRE(a);
+    CHECK(a.value().revoked);
+
+    auto b = r.get(research_only.value().token_id);
+    REQUIRE(b);
+    CHECK(b.value().revoked);
+
+    auto c = r.get(without_research.value().token_id);
+    REQUIRE(c);
+    CHECK_FALSE(c.value().revoked);
+}
+
+TEST_CASE("expire_purpose_for_patient: scoped to patient and ignores revoked/expired tokens") {
+    ConsentRegistry r;
+    auto p1 = PatientId::pseudonymous("epfp_p1");
+    auto p2 = PatientId::pseudonymous("epfp_p2");
+
+    auto p1_research = r.grant(p1, {Purpose::research}, 1h);
+    auto p2_research = r.grant(p2, {Purpose::research}, 1h);
+    REQUIRE(p1_research);
+    REQUIRE(p2_research);
+
+    // Pre-revoked token for p1: should not be re-counted.
+    auto p1_already = r.grant(p1, {Purpose::research}, 1h);
+    REQUIRE(p1_already);
+    REQUIRE(r.revoke(p1_already.value().token_id));
+
+    auto n = r.expire_purpose_for_patient(p1, Purpose::research);
+    REQUIRE(n);
+    CHECK(n.value() == 1u);
+
+    // p2's token untouched.
+    auto p2_after = r.get(p2_research.value().token_id);
+    REQUIRE(p2_after);
+    CHECK_FALSE(p2_after.value().revoked);
+}
+
+TEST_CASE("expire_purpose_for_patient: fires observer once per token revoked") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("epfp_obs");
+
+    std::atomic<std::size_t> revoked_events{0};
+    std::atomic<std::size_t> granted_events{0};
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken&) {
+        if (e == ConsentRegistry::Event::revoked) revoked_events++;
+        else                                       granted_events++;
+    });
+
+    REQUIRE(r.grant(p, {Purpose::research, Purpose::triage}, 1h));
+    REQUIRE(r.grant(p, {Purpose::research}, 1h));
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));  // not affected
+
+    granted_events = 0;  // reset to count only revokes from the next call
+
+    auto n = r.expire_purpose_for_patient(p, Purpose::research);
+    REQUIRE(n);
+    CHECK(n.value() == 2u);
+    CHECK(revoked_events.load() == 2u);
+    CHECK(granted_events.load() == 0u);
+}
+
+TEST_CASE("expire_purpose_for_patient: zero when no matching tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("epfp_zero");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+
+    auto n = r.expire_purpose_for_patient(p, Purpose::research);
+    REQUIRE(n);
+    CHECK(n.value() == 0u);
+
+    auto n2 = r.expire_purpose_for_patient(
+        PatientId::pseudonymous("epfp_unknown"), Purpose::triage);
+    REQUIRE(n2);
+    CHECK(n2.value() == 0u);
+}
+
+// ---- longest_lived_active_for_patient ------------------------------------
+
+TEST_CASE("longest_lived_active_for_patient: not_found when no active token") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("llafp_empty");
+
+    auto miss = r.longest_lived_active_for_patient(p);
+    CHECK_FALSE(miss);
+    CHECK(miss.error().code() == ErrorCode::not_found);
+
+    // Revoked-only patient still gets not_found.
+    auto t = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t);
+    REQUIRE(r.revoke(t.value().token_id));
+    auto still_miss = r.longest_lived_active_for_patient(p);
+    CHECK_FALSE(still_miss);
+    CHECK(still_miss.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("longest_lived_active_for_patient: returns the token with the latest expires_at") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("llafp_pick");
+
+    auto short_t  = r.grant(p, {Purpose::triage}, 1h);
+    auto medium_t = r.grant(p, {Purpose::triage}, 6h);
+    auto long_t   = r.grant(p, {Purpose::triage}, 24h);
+    REQUIRE(short_t);
+    REQUIRE(medium_t);
+    REQUIRE(long_t);
+
+    auto best = r.longest_lived_active_for_patient(p);
+    REQUIRE(best);
+    CHECK(best.value().token_id == long_t.value().token_id);
+}
+
+TEST_CASE("longest_lived_active_for_patient: scoped to patient — distinct from longest_active()") {
+    ConsentRegistry r;
+    auto p1 = PatientId::pseudonymous("llafp_p1");
+    auto p2 = PatientId::pseudonymous("llafp_p2");
+
+    auto p1_short = r.grant(p1, {Purpose::triage}, 1h);
+    auto p2_long  = r.grant(p2, {Purpose::triage}, 24h);
+    REQUIRE(p1_short);
+    REQUIRE(p2_long);
+
+    auto global_best = r.longest_active();
+    REQUIRE(global_best);
+    CHECK(global_best.value().token_id == p2_long.value().token_id);
+
+    auto p1_best = r.longest_lived_active_for_patient(p1);
+    REQUIRE(p1_best);
+    CHECK(p1_best.value().token_id == p1_short.value().token_id);
+}
+
+TEST_CASE("longest_lived_active_for_patient: skips revoked and expired tokens for the patient") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("llafp_filter");
+
+    // Active short-lived token.
+    auto live = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(live);
+
+    // Revoked token with would-be-longest expiry.
+    auto rev = r.grant(p, {Purpose::triage}, 24h);
+    REQUIRE(rev);
+    REQUIRE(r.revoke(rev.value().token_id));
+
+    // Ingest an expired token with a far-future-but-already-passed
+    // expires_at (it's "expired" because expires_at <= now). We just
+    // make it expired at time of grant.
+    ConsentToken expired;
+    expired.token_id   = "ct_llafp_expired";
+    expired.patient    = p;
+    expired.purposes   = {Purpose::triage};
+    expired.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    expired.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(expired));
+
+    auto best = r.longest_lived_active_for_patient(p);
+    REQUIRE(best);
+    CHECK(best.value().token_id == live.value().token_id);
+}

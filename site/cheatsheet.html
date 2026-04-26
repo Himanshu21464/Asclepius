@@ -561,6 +561,24 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 81 <small>replica checksums · bulk drift · purpose-scoped revoke</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.seq_range_for_tenant(t)</code></dt><dd>oldest + newest seq for one tenant in one query</dd>
+        <dt><code>ledger.checksum_range(start, end)</code></dt><dd>single BLAKE2b over a range — replica-diff in 32 bytes</dd>
+        <dt><code>ledger.distinct_event_types() · has_event_after_seq(s)</code></dt><dd>sorted set of event-type strings · O(1) follower-poll predicate</dd>
+        <dt><code>hist.clear() · nonzero_bin_count()</code></dt><dd>drop counts, keep bin shape · concentration probe</dd>
+        <dt><code>metrics.counter_total()</code></dt><dd>sum across every counter — the "how much has happened" line</dd>
+        <dt><code>drift.observe_batch(f, span)</code></dt><dd>bulk observations; <em>at most one</em> alert across the batch</dd>
+        <dt><code>drift.has_alert_sink()</code></dt><dd>"is anyone listening?" — distinguishes silence from quiet</dd>
+        <dt><code>consent.expire_purpose_for_patient(p, x)</code></dt><dd><strong>emergency revoke</strong>, surgical — one purpose, others untouched</dd>
+        <dt><code>consent.is_token_active(id) · active_purpose_count_for_patient(p)</code></dt><dd>noexcept hot-loop bool · cardinality without the vector</dd>
+        <dt><code>consent.longest_lived_active_for_patient(p)</code></dt><dd>"this person is consented through August"</dd>
+        <dt><code>inf.input_size() · output_size()</code></dt><dd>post-policy byte lengths from the committed body</dd>
+        <dt><code>rt.recent_inferences(n) · can_serve(p, x) · warm_caches()</code></dt><dd>last-n tail · admission-gate bool · startup warm-up</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Round 80 <small>tenant slices · hard-delete · attestation JSON</small></h2>
       <dl class="pair">
         <dt><code>ledger.oldest_n_for_tenant(t, n)</code></dt><dd>head-end mirror of <code>tail_for_patient</code>, scoped to one tenant</dd>

@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -100,6 +101,14 @@ public:
     // want to gate work without computing a full snapshot.
     bool is_empty() const noexcept;
 
+    // Drop all observations: zero counts and total_, but keep bins/lo/hi
+    // intact. Distinct from rotating into a new histogram — same
+    // instance, just emptied. Locked.
+    void clear();
+
+    // Number of bins with at least one observation. Locked.
+    std::size_t nonzero_bin_count() const;
+
     // Cumulative distribution function: for each bin i, the fraction of
     // total observations that fall at or below that bin's upper edge.
     // Length == bin_count(). The last entry is 1.0 for any non-empty
@@ -171,6 +180,14 @@ public:
     // Record an observation against a registered feature.
     Result<void> observe(std::string_view feature, double value);
 
+    // Bulk observation: equivalent to calling observe() once per value,
+    // but holds the lock once for the whole batch. The alert sink fires
+    // at most ONCE per call (after the batch lands), based on the
+    // post-batch severity. Returns not_found if the feature was never
+    // registered. An empty span is a valid no-op.
+    Result<void> observe_batch(std::string_view          feature,
+                               std::span<const double>   values);
+
     // Compute drift reports for all registered features at the current moment.
     std::vector<DriftReport> report() const;
 
@@ -188,6 +205,10 @@ public:
     // automatically; libraries can use it for paging or dashboards.
     using AlertSink = std::function<void(const DriftReport&)>;
     void set_alert_sink(AlertSink sink, DriftSeverity threshold = DriftSeverity::moder);
+
+    // True iff a non-empty AlertSink is currently installed. Used for
+    // "is this monitor wired to the ledger?" checks. Locked.
+    bool has_alert_sink() const noexcept;
 
     // Names of all registered features, in unspecified order. Used by
     // dashboards to enumerate what the monitor is watching without
@@ -354,6 +375,10 @@ public:
     // values, just the count of distinct names). Useful for health
     // probes that want to assert "telemetry is wired up."
     std::size_t counter_count() const;
+
+    // Sum of all counter values across the registry. Used as a "global
+    // event count" probe for liveness dashboards. Locked.
+    std::uint64_t counter_total() const;
 
     // Number of registered histograms. Named `_total` to avoid clashing
     // with the existing histogram_count(name) reader, which returns the

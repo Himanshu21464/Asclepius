@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T15:39:07Z",
+  "generated_at": "2026-04-26T16:00:56Z",
   "count": 50,
   "pages": [
     {
@@ -159,6 +159,7 @@
         "What not to expect",
         "Site keyboard shortcuts",
         "Round 78 patient · window · replication",
+        "Round 81 replica checksums · bulk drift · purpose-scoped revoke",
         "Round 80 tenant slices · hard-delete · attestation JSON",
         "Round 79 inclusion proofs · drift ranking · per-patient stats",
         "Where things live"

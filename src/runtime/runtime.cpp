@@ -376,6 +376,30 @@ bool Runtime::has_consent_for(const PatientId& patient, Purpose purpose) const {
     return impl_->consent.permits(patient, purpose).value_or(false);
 }
 
+bool Runtime::can_serve(const PatientId& patient, Purpose purpose) const {
+    // Today this mirrors has_consent_for() — consent is the only gate
+    // begin_inference() applies once the spec is well-formed. Kept as
+    // a separate method so future gates (rate-limiting, model registry
+    // lookup, tenant allowlist) can widen this without churning every
+    // pre-flight call site.
+    return has_consent_for(patient, purpose);
+}
+
+Result<std::vector<LedgerEntry>>
+Runtime::recent_inferences(std::size_t n) const {
+    if (n == 0) return std::vector<LedgerEntry>{};
+    return impl_->ledger.tail_by_event_type("inference.committed", n);
+}
+
+void Runtime::warm_caches() {
+    // Placeholder. Future implementations may pre-touch the SQLite page
+    // cache (e.g. a single-row SELECT against the head), pre-resolve
+    // policy objects, or eagerly load the signing key. Callers must
+    // treat this as a hint, not a contract — there is no guarantee
+    // that the next request will be faster, and no error path. Safe
+    // to call from any thread; safe to call repeatedly.
+}
+
 std::chrono::nanoseconds Runtime::ledger_age() const {
     if (impl_->ledger.length() == 0) {
         return std::chrono::nanoseconds::zero();

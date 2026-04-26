@@ -351,6 +351,14 @@
       <dd><pre>std::string attestation_json()</pre><p>Canonical JSON of the current signed head snapshot — head, length, key id, timestamp, signature — without going through <code>attest()</code>+<code>to_json()</code>. Pin into a public timestamping service in one call.</p></dd>
       <dt><code>head_attestation_json</code></dt>
       <dd><pre>std::string head_attestation_json()</pre><p>Compact one-line head attestation — <code>length</code>, <code>head</code>, <code>key_id</code>, <code>fingerprint</code>, <code>signature</code> on a single JSON line, no trailing newline. The shape a status badge or webhook payload wants; cheaper than the multi-line <code>attestation_json()</code> and grep-friendly in logs.</p></dd>
+      <dt><code>seq_range_for_tenant</code></dt>
+      <dd><pre>std::optional&lt;std::pair&lt;std::uint64_t, std::uint64_t&gt;&gt; seq_range_for_tenant(const TenantId&amp; tenant)</pre><p>Oldest and newest seq scoped to one tenant in a single query, or <code>nullopt</code> when the tenant has no entries. The bracketing primitive a per-tenant slice operator actually wants — one round-trip, no composing two endpoint queries.</p></dd>
+      <dt><code>distinct_event_types</code></dt>
+      <dd><pre>std::vector&lt;std::string&gt; distinct_event_types()</pre><p>Sorted set of every event-type string ever appended. Backs dashboard pickers and the "what kinds of events does this chain carry?" introspection question without scanning the chain by hand.</p></dd>
+      <dt><code>checksum_range</code></dt>
+      <dd><pre>Hash checksum_range(std::uint64_t start, std::uint64_t end)</pre><p>Single BLAKE2b digest over the entry hashes in <code>[start, end]</code>. The replica-diff primitive: two replicas exchange one 32-byte hash to confirm a range agrees byte-for-byte before a full sync.</p></dd>
+      <dt><code>has_event_after_seq</code></dt>
+      <dd><pre>bool has_event_after_seq(std::uint64_t seq)</pre><p>O(1) predicate — true iff the chain has at least one entry beyond <code>seq</code>. The follower's "is there anything new?" poll without materializing a row or computing the head.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -471,6 +479,14 @@
       <dd><pre>std::vector&lt;ConsentToken&gt; find_by_purpose(const PatientId&amp; patient, Purpose purpose)</pre><p>Tokens for one patient that grant a specific purpose — the patient × purpose intersection in one call. Backs the "show me every consent for ambient_documentation on patient X" UI.</p></dd>
       <dt><code>tokens_granted_within</code></dt>
       <dd><pre>std::vector&lt;ConsentToken&gt; tokens_granted_within(std::chrono::seconds horizon)</pre><p>Tokens whose <code>granted_at</code> falls inside the past <code>horizon</code>. The "what consent landed today?" view — pairs with <code>recently_revoked</code> as the symmetric grant-side queue.</p></dd>
+      <dt><code>active_purpose_count_for_patient</code></dt>
+      <dd><pre>std::size_t active_purpose_count_for_patient(const PatientId&amp; patient)</pre><p>How many distinct purposes are currently granted to one patient. Cardinality without materializing the full <code>active_purposes_for_patient</code> vector — backs the "this patient consents to N things" cell on a compliance row.</p></dd>
+      <dt><code>is_token_active</code></dt>
+      <dd><pre>bool is_token_active(std::string_view token_id) noexcept</pre><p><code>noexcept</code> bool — true iff the token exists, has not expired, and has not been revoked. The cheapest predicate on the inference hot loop; never throws, never allocates.</p></dd>
+      <dt><code>expire_purpose_for_patient</code></dt>
+      <dd><pre>Result&lt;std::size_t&gt; expire_purpose_for_patient(const PatientId&amp; patient, Purpose purpose)</pre><p>Emergency revoke scoped to one purpose: force-expire every active token that grants <code>purpose</code> to <code>patient</code>, leaving other purposes untouched. Returns count touched. Distinct from <code>expire_all_for_patient</code> (whole-patient withdrawal) — this is the surgical "stop ambient documentation but keep coding assistance" path.</p></dd>
+      <dt><code>longest_lived_active_for_patient</code></dt>
+      <dd><pre>std::optional&lt;ConsentToken&gt; longest_lived_active_for_patient(const PatientId&amp; patient)</pre><p>Active token with the latest expiry, scoped to one patient. Per-patient sibling of <code>longest_active</code> — the "this person is consented through August" cell without scanning every active token.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -776,6 +792,10 @@
       <dd><pre>std::string actor_str()</pre><p>Stable string form of the actor that began this inference (e.g., <code>clinician:dr.smith</code>). The string a CLI prints; cheaper than reaching through <code>tenant()</code> + spec for log lines.</p></dd>
       <dt><code>was_committed_after</code></dt>
       <dd><pre>bool was_committed_after(Time t)</pre><p>True iff this inference reached a terminal commit and did so after wall time <code>t</code>. Backs "did this row land in the current verification window?" without re-reading the ledger.</p></dd>
+      <dt><code>input_size</code></dt>
+      <dd><pre>std::optional&lt;std::size_t&gt; input_size()</pre><p>Byte length of the post-policy input the model actually saw, read from the committed ledger body. <code>nullopt</code> before commit. Pairs with <code>output_size</code> for "what shape was this inference?" without re-fetching the body.</p></dd>
+      <dt><code>output_size</code></dt>
+      <dd><pre>std::optional&lt;std::size_t&gt; output_size()</pre><p>Byte length of the post-policy output recorded in the ledger body. <code>nullopt</code> before commit. The cheap cell a per-inference dashboard wants alongside <code>elapsed_ms</code>.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -854,6 +874,12 @@
       <dd><pre>bool has_consent_for(const PatientId&amp; patient, Purpose purpose)</pre><p>Cheap predicate — true iff the consent registry currently permits <code>purpose</code> for <code>patient</code>. Runtime-level shortcut over <code>consent().has_purpose_for_patient(...)</code>; the call a pre-flight gate actually wants.</p></dd>
       <dt><code>summary_string</code></dt>
       <dd><pre>std::string summary_string()</pre><p>Multi-line human-readable composite — version, ledger length, key id, drift summary, consent counts, dispatched inferences. The block a CLI prints in one go; richer than <code>quick_status()</code>, cheaper than <code>system_summary()</code>, and not JSON.</p></dd>
+      <dt><code>recent_inferences</code></dt>
+      <dd><pre>std::vector&lt;LedgerEntry&gt; recent_inferences(std::size_t n)</pre><p>The last <code>n</code> committed inferences across every tenant, newest first. Runtime-level shortcut over <code>ledger().tail_by_event_type("inference.committed", n)</code> — the "what just ran?" view a CLI tail-mode wants without composing two accessors.</p></dd>
+      <dt><code>can_serve</code></dt>
+      <dd><pre>bool can_serve(const PatientId&amp; patient, Purpose purpose)</pre><p>Composite pre-flight predicate: <code>is_healthy()</code> and <code>has_consent_for(patient, purpose)</code> in one call. The single bool a queue admission gate or load-balancer health check actually wants — cheaper than two round-trips and clearer at the call site.</p></dd>
+      <dt><code>warm_caches</code></dt>
+      <dd><pre>void warm_caches()</pre><p>Touch every component's cold path — preload SQLite pages for the head, prime the consent index, fault in the keystore. The startup-warmup hook before traffic; turns a cold-run cliff into the steady-state latency profile.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -924,6 +950,10 @@
       <dd><pre>double median()</pre><p>Convenience over <code>quantile(0.5)</code> — the central tendency dashboards expect alongside <code>mean()</code>. Robust to tails the mean is not.</p></dd>
       <dt><code>is_empty</code></dt>
       <dd><pre>bool is_empty()</pre><p>Cheap predicate — true iff no observations have landed. Pairs with <code>has_histogram()</code> on dashboards that want to render "n/a" rather than zero.</p></dd>
+      <dt><code>clear</code></dt>
+      <dd><pre>void clear()</pre><p>Drop every recorded count while keeping bin shape (<code>lo</code>, <code>hi</code>, bin count). The right reset between epochs — bins survive, observations do not. Distinct from a fresh <code>Histogram</code>: no re-registration on the registry.</p></dd>
+      <dt><code>nonzero_bin_count</code></dt>
+      <dd><pre>std::size_t nonzero_bin_count()</pre><p>How many bins have at least one observation. Pairs with the bin total for "this distribution is concentrating into a single bucket" detection — the cheap predicate ahead of a full PSI report.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -963,6 +993,10 @@
       <dd><pre>void clear_alerts()</pre><p>Reset the alert latch on every registered feature without rotating windows or wiping baselines. Use after on-call has acknowledged a <code>drift.crossed</code> incident — the underlying observations remain, the "you have unacknowledged severe drift" flag does not.</p></dd>
       <dt><code>feature_severity</code></dt>
       <dd><pre>DriftSeverity feature_severity(std::string_view feature)</pre><p>One feature&#x27;s current severity band without computing the full <code>report()</code>. Pairs with <code>most_drifted_feature</code> for the "show me only this one" drill-down.</p></dd>
+      <dt><code>observe_batch</code></dt>
+      <dd><pre>Result&lt;void&gt; observe_batch(std::string_view feature, std::span&lt;const double&gt; values)</pre><p>Bulk-record many observations against one feature in a single call. Fires <em>at most one</em> alert across the batch — the right shape for backfills, replays, and end-of-window flushes that would otherwise page the on-call once per observation.</p></dd>
+      <dt><code>has_alert_sink</code></dt>
+      <dd><pre>bool has_alert_sink()</pre><p>Cheap predicate — true iff an alert sink has been wired. The startup-gate "did wiring actually take?" check; pairs with <code>any_severe()</code> to distinguish "no alerts because nothing is severe" from "no alerts because nobody is listening."</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1015,6 +1049,8 @@
       <dd><pre>void increment_or_create(std::string_view name, std::uint64_t delta = 1)</pre><p>Atomic upsert: register the counter if absent, then add <code>delta</code>. The single call ad-hoc instrumentation actually wants — no <code>has_counter</code> guard, no race between register and inc.</p></dd>
       <dt><code>has</code></dt>
       <dd><pre>bool has(std::string_view name)</pre><p>Cheap kind-agnostic predicate — true iff a counter <em>or</em> histogram is registered under <code>name</code>. Use when you don't care which kind, only existence.</p></dd>
+      <dt><code>counter_total</code></dt>
+      <dd><pre>std::uint64_t counter_total()</pre><p>Sum of every counter currently registered, in one pass. The "how much has happened on this runtime, period?" line a status page wants without enumerating <code>counter_snapshot</code> and folding by hand.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>
