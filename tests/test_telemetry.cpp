@@ -3,7 +3,9 @@
 #include <doctest/doctest.h>
 
 #include "asclepius/telemetry.hpp"
+#include "asclepius/asclepius.hpp"
 
+#include <filesystem>
 #include <random>
 
 using namespace asclepius;
@@ -154,6 +156,69 @@ TEST_CASE("MetricRegistry observe() records into a real histogram") {
     // _sum and _count present.
     CHECK(out.find("asclepius_inference_latency_seconds_count 5")  != std::string::npos);
     CHECK(out.find("asclepius_inference_latency_seconds_sum ")     != std::string::npos);
+}
+
+TEST_CASE("DriftMonitor alert sink fires when severity rises past threshold") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("f", baseline, 0.0, 1.0, 10));
+
+    int    fires       = 0;
+    DriftSeverity last = DriftSeverity::none;
+    dm.set_alert_sink([&](const DriftReport& r) { ++fires; last = r.severity; },
+                      DriftSeverity::moder);
+
+    // Observe a wildly different distribution: 200 values at 0.95.
+    // PSI between baseline (clustered at 0.5) and current (clustered at 0.95)
+    // should easily cross moder/severe.
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("f", 0.95));
+
+    CHECK(fires >= 1);
+    CHECK(static_cast<int>(last) >= static_cast<int>(DriftSeverity::moder));
+}
+
+TEST_CASE("DriftMonitor alert fires only on rising edge, not every observation") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("f", baseline, 0.0, 1.0, 10));
+
+    int fires = 0;
+    dm.set_alert_sink([&](const DriftReport&) { ++fires; },
+                      DriftSeverity::moder);
+
+    // Push severity to moder/severe with one batch...
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("f", 0.95));
+    int after_first = fires;
+
+    // ...continuing to observe at the same severity must not re-fire.
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("f", 0.95));
+    CHECK(fires == after_first);
+}
+
+TEST_CASE("Runtime::open wires drift.crossed events into the ledger") {
+    auto p = std::filesystem::temp_directory_path()
+           / ("asc_drift_bridge_" + std::to_string(std::random_device{}()) + ".db");
+    std::filesystem::remove(p);
+    std::filesystem::remove(std::filesystem::path{p}.replace_extension(".key"));
+
+    auto rt = Runtime::open(p);
+    REQUIRE(rt);
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(rt.value().drift().register_feature("f", baseline, 0.0, 1.0, 10));
+
+    std::uint64_t pre = rt.value().ledger().length();
+    for (int i = 0; i < 200; ++i) REQUIRE(rt.value().drift().observe("f", 0.95));
+
+    // The bridge should have appended at least one drift.crossed event.
+    auto after = rt.value().ledger().length();
+    CHECK(after > pre);
+    auto tail = rt.value().ledger().tail(after - pre);
+    REQUIRE(tail);
+    bool found = false;
+    for (const auto& e : tail.value()) {
+        if (e.header.event_type == "drift.crossed") { found = true; break; }
+    }
+    CHECK(found);
 }
 
 TEST_CASE("MetricRegistry counters and histograms coexist in Prometheus output") {

@@ -130,13 +130,60 @@ Result<void> DriftMonitor::register_feature(std::string         name,
 }
 
 Result<void> DriftMonitor::observe(std::string_view feature, double value) {
-    std::lock_guard<std::mutex> lk(mu_);
-    auto it = features_.find(std::string{feature});
-    if (it == features_.end()) {
-        return Error::not_found(std::string{"unregistered feature: "} + std::string{feature});
+    DriftReport report_to_emit;
+    bool        should_emit = false;
+    AlertSink   sink_copy;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = features_.find(std::string{feature});
+        if (it == features_.end()) {
+            return Error::not_found(std::string{"unregistered feature: "} + std::string{feature});
+        }
+        it->second->current->observe(value);
+
+        // If an alert sink is registered, evaluate the new severity. We
+        // fire only when the severity STRICTLY RISES above the previous
+        // recorded severity AND meets the configured threshold. Falling
+        // severity does not re-fire (a return-to-normal is a separate kind
+        // of event we don't model yet).
+        if (alert_sink_) {
+            DriftReport r;
+            r.feature      = std::string{feature};
+            r.psi          = Histogram::psi(*it->second->reference, *it->second->current);
+            r.ks_statistic = Histogram::ks (*it->second->reference, *it->second->current);
+            r.emd          = Histogram::emd(*it->second->reference, *it->second->current);
+            r.severity     = classify(r.psi);
+            r.reference_n  = it->second->reference->total();
+            r.current_n    = it->second->current->total();
+            r.computed_at  = Time::now();
+
+            auto last_it = last_severity_.find(r.feature);
+            DriftSeverity prev = (last_it == last_severity_.end()
+                                  ? DriftSeverity::none
+                                  : last_it->second);
+            if (static_cast<int>(r.severity) > static_cast<int>(prev)
+             && static_cast<int>(r.severity) >= static_cast<int>(alert_threshold_)) {
+                last_severity_[r.feature] = r.severity;
+                report_to_emit = r;
+                should_emit    = true;
+                sink_copy      = alert_sink_;
+            } else {
+                last_severity_[r.feature] = r.severity;
+            }
+        }
     }
-    it->second->current->observe(value);
+    // Call the sink without holding mu_ so it can do anything (including
+    // appending to a Ledger which has its own mutex).
+    if (should_emit) {
+        try { sink_copy(report_to_emit); } catch (...) { /* swallow */ }
+    }
     return Result<void>::ok();
+}
+
+void DriftMonitor::set_alert_sink(AlertSink sink, DriftSeverity threshold) {
+    std::lock_guard<std::mutex> lk(mu_);
+    alert_sink_      = std::move(sink);
+    alert_threshold_ = threshold;
 }
 
 std::vector<DriftReport> DriftMonitor::report() const {

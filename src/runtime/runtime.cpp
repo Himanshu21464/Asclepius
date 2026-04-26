@@ -50,6 +50,25 @@ struct Runtime::Impl {
     MetricRegistry      metrics;
 
     Impl(Ledger l) : ledger(std::move(l)), evaluation(ledger, drift) {}
+
+    // Wire the DriftMonitor's alert sink to append a drift.crossed
+    // event to the ledger whenever a feature's severity rises past
+    // the configured threshold. The audit chain becomes the canonical
+    // record of drift breaches, not just an in-process metric.
+    void install_drift_to_ledger_bridge() {
+        drift.set_alert_sink([this](const DriftReport& r) {
+            nlohmann::json body;
+            body["feature"]      = r.feature;
+            body["psi"]          = r.psi;
+            body["ks_statistic"] = r.ks_statistic;
+            body["emd"]          = r.emd;
+            body["severity"]     = std::string{to_string(r.severity)};
+            body["reference_n"]  = r.reference_n;
+            body["current_n"]    = r.current_n;
+            ledger.append("drift.crossed", "system:drift_monitor", body);
+            metrics.inc("drift.crossings");
+        }, DriftSeverity::moder);
+    }
 };
 
 Runtime::Runtime() = default;
@@ -62,6 +81,7 @@ Result<Runtime> Runtime::open(std::filesystem::path db_path) {
     if (!led) return led.error();
     Runtime rt;
     rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    rt.impl_->install_drift_to_ledger_bridge();
     return rt;
 }
 
@@ -70,6 +90,7 @@ Result<Runtime> Runtime::open(std::filesystem::path db_path, KeyStore key) {
     if (!led) return led.error();
     Runtime rt;
     rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    rt.impl_->install_drift_to_ledger_bridge();
     return rt;
 }
 
@@ -78,6 +99,7 @@ Result<Runtime> Runtime::open_uri(const std::string& uri) {
     if (!led) return led.error();
     Runtime rt;
     rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    rt.impl_->install_drift_to_ledger_bridge();
     return rt;
 }
 
@@ -86,6 +108,7 @@ Result<Runtime> Runtime::open_uri(const std::string& uri, KeyStore key) {
     if (!led) return led.error();
     Runtime rt;
     rt.impl_ = std::make_unique<Impl>(std::move(led).value());
+    rt.impl_->install_drift_to_ledger_bridge();
     return rt;
 }
 

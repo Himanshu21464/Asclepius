@@ -4,6 +4,7 @@
 #define ASCLEPIUS_TELEMETRY_HPP
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -106,10 +107,24 @@ public:
     // Severity classification thresholds (exposed for tests/calibration).
     static DriftSeverity classify(double psi) noexcept;
 
+    // Alert sink: callback fired whenever a feature's classified severity
+    // CROSSES (rises above) a threshold during observe(). Once-per-crossing,
+    // not once-per-observation — the monitor remembers the last reported
+    // severity and only fires when the new severity is strictly higher.
+    // The runtime uses this to append drift.crossed entries to the ledger
+    // automatically; libraries can use it for paging or dashboards.
+    using AlertSink = std::function<void(const DriftReport&)>;
+    void set_alert_sink(AlertSink sink, DriftSeverity threshold = DriftSeverity::moder);
+
 private:
     struct FeatureState;
     std::unordered_map<std::string, std::unique_ptr<FeatureState>> features_;
     mutable std::mutex                                             mu_;
+
+    // Alert sink + threshold + last-fired severity per feature.
+    AlertSink                                       alert_sink_;
+    DriftSeverity                                   alert_threshold_ = DriftSeverity::moder;
+    std::unordered_map<std::string, DriftSeverity>  last_severity_;
 };
 
 // ---- Generic counters / histograms registry ----------------------------
