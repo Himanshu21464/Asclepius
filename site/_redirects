@@ -56,6 +56,7 @@
 /use-cases        /use-cases.html        301
 /validate         /validate.html         301
 /verify-bundle    /verify-bundle.html    301
+/walkthrough      /walkthrough.html      301
 
 # ── well-known shorthand ─────────────────────────────────────────────────
 /security.txt     /.well-known/security.txt     301

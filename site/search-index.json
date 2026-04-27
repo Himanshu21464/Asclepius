@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-27T16:33:29Z",
-  "count": 50,
+  "generated_at": "2026-04-27T16:43:39Z",
+  "count": 51,
   "pages": [
     {
       "url": "accessibility.html",
@@ -880,6 +880,25 @@
         "Match every file to its hash.",
         "Walk the ledger excerpt.",
         "Read the metrics."
+      ]
+    },
+    {
+      "url": "walkthrough.html",
+      "title": "Walkthrough — Asclepius in motion",
+      "description": "A nine-scene scrollytelling tour of the Asclepius substrate: wrap, ledger, drift, consent, evidence. Animated, narrated, no marketing.",
+      "headings": [
+        "Hospital floor, 2026.",
+        "A thin layer between.",
+        "Four filters, one trace.",
+        "Five rows, one chain.",
+        "Watch the distribution shift.",
+        "The token defines the door.",
+        "Hand it over, signed.",
+        "Three files. Sixty seconds.",
+        "asclepius",
+        "ledger.db",
+        "signer.key",
+        "Three doors. Pick one."
       ]
     }
   ]

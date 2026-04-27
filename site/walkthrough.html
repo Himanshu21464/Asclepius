@@ -1,0 +1,1188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>Walkthrough — Asclepius in motion</title>
+<meta name="description" content="A nine-scene scrollytelling tour of the Asclepius substrate: wrap, ledger, drift, consent, evidence. Animated, narrated, no marketing.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/walkthrough.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — Walkthrough in motion">
+<meta property="og:description"  content="A nine-scene scrollytelling tour of the substrate: wrap, ledger, drift, consent, evidence. Animated. No marketing.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta property="og:url"          content="https://asclepius.health/walkthrough.html">
+<meta property="og:site_name"    content="Asclepius">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  /* ── canvas ── */
+  .wt { padding: 0; }
+  .wt__hero {
+    padding: clamp(3rem, 7vw, 6rem) 0 1.4rem;
+    max-width: 64ch;
+    margin: 0 auto;
+  }
+  .wt__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .wt__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.6rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .wt__hero h1 i { color: var(--primary); font-style: italic; }
+  .wt__hero p {
+    color: var(--ink-mute); font-family: var(--font-prose);
+    font-size: 1.08rem; line-height: 1.65; margin: 0 0 1rem;
+  }
+  .wt__hero p em { color: var(--primary); font-style: italic; }
+
+  /* ── sticky control bar ── */
+  .wt-bar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background: color-mix(in oklab, var(--bg) 82%, transparent);
+    border-bottom: 1px solid var(--rule);
+    padding: .55rem 1.2rem;
+    display: flex; flex-wrap: wrap;
+    align-items: center; gap: .55rem 1rem;
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    color: var(--ink-mute);
+  }
+  .wt-bar__label {
+    color: var(--accent);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    font-size: .68rem;
+  }
+  .wt-bar__btns { display: flex; gap: .35rem; }
+  .wt-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink); font-family: var(--font-mono);
+    font-size: .76rem; line-height: 1;
+    padding: .42rem .65rem; border-radius: 3px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .wt-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .wt-btn[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); background: var(--primary-glow); }
+  .wt-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .wt-bar__dots { display: flex; gap: .32rem; flex: 1 1 auto; justify-content: center; flex-wrap: wrap; }
+  .wt-dot {
+    appearance: none;
+    width: 1.6rem; height: 1.4rem;
+    background: transparent; border: 0; padding: 0;
+    cursor: pointer;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: .58rem; letter-spacing: .04em;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 2px;
+  }
+  .wt-dot::before {
+    content: ""; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--ink-ghost);
+    transition: background .2s, transform .2s;
+  }
+  .wt-dot[aria-current="true"]::before { background: var(--primary); transform: scale(1.4); }
+  .wt-dot:hover::before { background: var(--primary); }
+  .wt-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .wt-bar__keys { font-size: .68rem; color: var(--ink-faint); }
+  .wt-bar__keys kbd {
+    font-family: var(--font-mono); font-size: .66rem;
+    background: var(--surface-2); border: 1px solid var(--rule);
+    border-radius: 2px; padding: 1px 5px; color: var(--ink-warm);
+    margin-right: 1px;
+  }
+
+  /* ── stage: each scene one screen tall ── */
+  .wt-scene {
+    min-height: 100vh;
+    padding: clamp(2rem, 6vw, 4rem) clamp(1.2rem, 4vw, 3rem);
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    gap: 1.4rem;
+    position: relative;
+  }
+  .wt-scene:last-of-type { border-bottom: 0; }
+  .wt-scene__head {
+    display: flex; align-items: baseline;
+    gap: .8rem; flex-wrap: wrap;
+    margin-bottom: .4rem;
+  }
+  .wt-scene__num {
+    font-family: var(--font-mono); font-size: .7rem;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--primary);
+  }
+  .wt-scene__name {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .wt-scene h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    line-height: 1.05; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0;
+    max-width: 22ch;
+  }
+  .wt-scene h2 i { color: var(--primary); font-style: italic; }
+  .wt-scene__lede {
+    font-family: var(--font-prose); font-size: 1.08rem;
+    line-height: 1.65; color: var(--ink); max-width: 56ch;
+    margin: .4rem 0 0;
+  }
+  .wt-scene__lede em { color: var(--primary); font-style: italic; }
+  .wt-scene__body {
+    margin-top: 1rem;
+  }
+
+  /* ── per-scene visuals ── */
+
+  /* §01 type-on */
+  .wt-typeon {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    color: var(--ink-warm);
+    max-width: 32ch;
+    border-right: 2px solid var(--primary);
+    overflow: hidden;
+    white-space: nowrap;
+    width: 0;
+    margin-top: 1.4rem;
+  }
+  .is-active .wt-typeon { animation: wt-type 2.6s steps(56, end) 0.2s forwards, wt-caret 0.9s step-end 0.2s 4; }
+  @keyframes wt-type { from { width: 0; } to { width: 28ch; } }
+  @keyframes wt-caret { 50% { border-color: transparent; } }
+
+  /* §02 substrate appears */
+  .wt-stack {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .8rem;
+    max-width: 540px;
+    margin-top: 1.6rem;
+  }
+  .wt-stack__row {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: space-between;
+    opacity: 0; transform: translateY(8px);
+  }
+  .wt-stack__row b { color: var(--ink-warm); }
+  .wt-stack__row span { color: var(--ink-faint); font-size: .72rem; }
+  .is-active .wt-stack__row { animation: wt-fadein .55s var(--ease-out) forwards; }
+  .is-active .wt-stack__row:nth-child(1) { animation-delay: .15s; }
+  .is-active .wt-stack__row:nth-child(2) { animation-delay: .55s; }
+  .is-active .wt-stack__row:nth-child(3) { animation-delay: 1.1s; }
+  .wt-stack__row--mid { border-color: var(--primary); background: var(--primary-glow); }
+  .wt-stack__row--mid b { color: var(--primary); font-style: italic; font-family: var(--font-serif); font-size: 1.4rem; font-weight: 400; }
+  .wt-stack__row--mid span { color: var(--ink); font-style: italic; font-family: var(--font-prose); font-size: .92rem; }
+  @keyframes wt-fadein { to { opacity: 1; transform: translateY(0); } }
+
+  /* §03 policy chain stroke-draw */
+  .wt-policy {
+    margin-top: 1.6rem;
+    width: 100%; max-width: 720px;
+  }
+  .wt-policy svg { width: 100%; height: auto; display: block; }
+  .wt-policy__rect { fill: var(--surface); stroke: var(--ink-faint); stroke-width: 1.2; }
+  .wt-policy__path {
+    fill: none; stroke: var(--primary); stroke-width: 1.5;
+    stroke-dasharray: 600; stroke-dashoffset: 600;
+  }
+  .wt-policy__label {
+    font-family: var(--font-mono); font-size: 11px; fill: var(--ink-warm);
+  }
+  .wt-policy__sub {
+    font-family: var(--font-mono); font-size: 9px; fill: var(--ink-faint);
+  }
+  .wt-policy__node { opacity: 0; }
+  .is-active .wt-policy__node { animation: wt-fadein .5s var(--ease-out) forwards; }
+  .is-active .wt-policy__node:nth-of-type(1) { animation-delay: .1s; }
+  .is-active .wt-policy__node:nth-of-type(2) { animation-delay: .5s; }
+  .is-active .wt-policy__node:nth-of-type(3) { animation-delay: .9s; }
+  .is-active .wt-policy__node:nth-of-type(4) { animation-delay: 1.3s; }
+  .is-active .wt-policy__path { animation: wt-draw 2s ease-in-out 1.6s forwards; }
+  @keyframes wt-draw { to { stroke-dashoffset: 0; } }
+
+  /* §04 chain blocks */
+  .wt-chain {
+    margin-top: 1.6rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: .8rem;
+    max-width: 880px;
+  }
+  .wt-block {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    border-radius: 5px;
+    padding: .8rem .9rem;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    color: var(--ink-mute);
+    line-height: 1.55;
+    opacity: 0; transform: translateY(6px);
+    position: relative;
+  }
+  .wt-block::after {
+    content: "→";
+    position: absolute;
+    right: -.85rem; top: 50%; transform: translateY(-50%);
+    color: var(--primary); font-size: 1rem;
+    opacity: 0;
+  }
+  .wt-block:not(:last-child)::after { animation: wt-fadein .4s ease-out forwards; }
+  .wt-block b {
+    display: block; color: var(--primary);
+    font-size: .66rem; letter-spacing: .12em;
+    text-transform: uppercase; margin-bottom: .35rem;
+  }
+  .wt-block .seq { color: var(--ink-warm); }
+  .wt-block .hash { color: var(--ink); word-break: break-all; }
+  .wt-block .sig { color: var(--accent); }
+  .is-active .wt-block { animation: wt-fadein .5s var(--ease-out) forwards; }
+  .is-active .wt-block:nth-child(1) { animation-delay: .1s; }
+  .is-active .wt-block:nth-child(2) { animation-delay: .5s; }
+  .is-active .wt-block:nth-child(3) { animation-delay: .9s; }
+  .is-active .wt-block:nth-child(4) { animation-delay: 1.3s; }
+  .is-active .wt-block:nth-child(5) { animation-delay: 1.7s; }
+  .is-active .wt-block:nth-child(1)::after { animation-delay: .9s; }
+  .is-active .wt-block:nth-child(2)::after { animation-delay: 1.3s; }
+  .is-active .wt-block:nth-child(3)::after { animation-delay: 1.7s; }
+  .is-active .wt-block:nth-child(4)::after { animation-delay: 2.1s; }
+
+  /* §05 drift histogram */
+  .wt-drift {
+    margin-top: 1.6rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.2rem;
+    max-width: 720px;
+  }
+  .wt-drift__chart svg { width: 100%; height: auto; display: block; }
+  .wt-drift__bar { fill: var(--accent); transition: y .8s ease-in-out, height .8s ease-in-out, fill .8s; }
+  .wt-drift__axis { stroke: var(--rule); stroke-width: 1; }
+  .wt-drift__tick { font-family: var(--font-mono); font-size: 9px; fill: var(--ink-faint); }
+  .wt-drift__readouts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .6rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+  }
+  .wt-readout {
+    padding: .7rem .9rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    border-radius: 4px;
+    color: var(--ink-mute);
+    display: flex; flex-direction: column; gap: .25rem;
+  }
+  .wt-readout b { font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); }
+  .wt-readout span { color: var(--ink-warm); font-size: 1.1rem; }
+  .wt-pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+    transition: border-color .4s, color .4s, background .4s;
+  }
+  .wt-pill[data-state="severe"] {
+    border-color: #F87171;
+    color: #FCA5A5;
+    background: rgba(248, 113, 113, .14);
+  }
+
+  /* §06 consent */
+  .wt-consent {
+    margin-top: 1.6rem;
+    display: grid;
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    gap: 1.2rem;
+    max-width: 760px;
+  }
+  .wt-token {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    color: var(--ink-mute);
+    line-height: 1.6;
+  }
+  .wt-token b {
+    display: block;
+    color: var(--accent);
+    font-size: .62rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-bottom: .5rem;
+  }
+  .wt-token .row { display: flex; justify-content: space-between; gap: .6rem; padding: .14rem 0; border-bottom: 1px dotted var(--rule-soft); }
+  .wt-token .row:last-of-type { border-bottom: 0; }
+  .wt-token .row dt { color: var(--ink-faint); }
+  .wt-token .row dd { color: var(--ink); margin: 0; }
+  .wt-token ul {
+    list-style: none; padding: 0; margin: .35rem 0 0;
+    display: flex; flex-wrap: wrap; gap: .3rem;
+  }
+  .wt-token ul li {
+    font-size: .7rem;
+    padding: 1px 6px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    color: var(--ink-warm);
+  }
+  .wt-actions {
+    display: grid; gap: .5rem;
+  }
+  .wt-action {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: .65rem .9rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    color: var(--ink);
+    display: flex; justify-content: space-between; gap: .8rem;
+    align-items: center;
+    transition: opacity .4s, color .4s, border-color .4s;
+  }
+  .wt-action__verb { color: var(--ink-warm); }
+  .wt-action__purpose { color: var(--ink-mute); font-size: .7rem; }
+  .wt-action__status {
+    font-size: .66rem; letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .is-active .wt-action--ok    { animation: wt-fadein .55s var(--ease-out) .2s forwards; opacity: 0; }
+  .is-active .wt-action--block { animation: wt-fadein .55s var(--ease-out) 1.2s forwards, wt-strike .6s ease-in-out 1.7s forwards; opacity: 0; }
+  .wt-action--block .wt-action__status { color: #FCA5A5; }
+  @keyframes wt-strike {
+    0%   { color: var(--ink); text-decoration-color: transparent; }
+    100% { color: var(--ink-faint); text-decoration: line-through; text-decoration-color: #F87171; }
+  }
+  .wt-action--block .wt-action__verb { transition: text-decoration .3s, color .3s; }
+
+  /* §07 evidence bundle */
+  .wt-bundle {
+    margin-top: 1.6rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 1.2rem 1.4rem;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    color: var(--ink);
+    max-width: 600px;
+    line-height: 1.65;
+  }
+  .wt-bundle__title { color: var(--primary); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; margin-bottom: .8rem; }
+  .wt-bundle__file { display: flex; justify-content: space-between; gap: 1rem; padding: .25rem 0; opacity: 0; }
+  .is-active .wt-bundle__file { animation: wt-fadein .4s var(--ease-out) forwards; }
+  .is-active .wt-bundle__file:nth-of-type(1) { animation-delay: .2s; }
+  .is-active .wt-bundle__file:nth-of-type(2) { animation-delay: .55s; }
+  .is-active .wt-bundle__file:nth-of-type(3) { animation-delay: .9s; }
+  .is-active .wt-bundle__file:nth-of-type(4) { animation-delay: 1.25s; }
+  .is-active .wt-bundle__file:nth-of-type(5) { animation-delay: 1.6s; }
+  .wt-bundle__file dt { color: var(--ink-warm); margin: 0; }
+  .wt-bundle__file dd { color: var(--ink-faint); margin: 0; font-size: .72rem; }
+  .wt-bundle__seal {
+    margin-top: 1rem;
+    padding-top: .9rem;
+    border-top: 1px solid var(--rule);
+    display: flex; align-items: center; gap: .6rem;
+    color: var(--accent);
+    font-size: .9rem;
+    opacity: 0;
+  }
+  .is-active .wt-bundle__seal { animation: wt-fadein .55s var(--ease-out) 2.0s forwards; }
+  .wt-bundle__seal svg { width: 24px; height: 24px; }
+
+  /* §08 deploy */
+  .wt-deploy {
+    margin-top: 1.6rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: .9rem;
+    max-width: 760px;
+  }
+  .wt-thing {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 1.1rem 1.2rem;
+    border-radius: 5px;
+    text-align: left;
+  }
+  .wt-thing b {
+    display: block; font-family: var(--font-mono);
+    font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--primary); margin-bottom: .5rem;
+  }
+  .wt-thing h3 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.2rem; color: var(--ink-warm);
+    margin: 0 0 .35rem;
+  }
+  .wt-thing h3 i { color: var(--primary); font-style: italic; }
+  .wt-thing p {
+    font-family: var(--font-prose);
+    font-size: .92rem; line-height: 1.55; color: var(--ink-mute);
+    margin: 0;
+  }
+
+  /* §09 next */
+  .wt-next {
+    list-style: none; padding: 0; margin: 1.4rem 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: .8rem;
+    max-width: 760px;
+  }
+  .wt-next a {
+    display: block;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, transform .15s;
+  }
+  .wt-next a:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .wt-next b {
+    display: block;
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 1.15rem; color: var(--ink-warm);
+    margin-bottom: .3rem;
+  }
+  .wt-next b i { color: var(--primary); font-style: italic; }
+  .wt-next em {
+    display: block;
+    font-family: var(--font-mono); font-size: .7rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint); font-style: normal;
+  }
+
+  .wt-coda {
+    margin: 2.6rem auto 1.2rem;
+    max-width: 64ch;
+    padding: 0 clamp(1.2rem, 4vw, 3rem) 2rem;
+    font-family: var(--font-prose);
+    color: var(--ink-mute);
+    font-size: .98rem;
+    line-height: 1.65;
+  }
+  .wt-coda em { color: var(--primary); font-style: italic; }
+
+  /* ── prefers-reduced-motion: collapse all animation ── */
+  @media (prefers-reduced-motion: reduce) {
+    .is-active .wt-typeon,
+    .is-active .wt-stack__row,
+    .is-active .wt-policy__node,
+    .is-active .wt-policy__path,
+    .is-active .wt-block,
+    .is-active .wt-block::after,
+    .is-active .wt-action--ok,
+    .is-active .wt-action--block,
+    .is-active .wt-bundle__file,
+    .is-active .wt-bundle__seal {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+      width: auto !important;
+      stroke-dashoffset: 0 !important;
+    }
+    .wt-typeon { white-space: normal; border-right: 0; width: auto !important; }
+    .wt-action--block .wt-action__verb { text-decoration: line-through; color: var(--ink-faint); }
+    .wt-drift__bar { transition: none !important; }
+  }
+
+  /* light-mode pill tuning */
+  [data-theme="light"] .wt-pill[data-state="severe"] {
+    border-color: #B91C1C; color: #B91C1C; background: rgba(185, 28, 28, .08);
+  }
+  [data-theme="light"] .wt-action__status { color: var(--accent); }
+  [data-theme="light"] .wt-action--block .wt-action__status { color: #B91C1C; }
+  [data-theme="light"] .wt-action--block .wt-action__verb { text-decoration-color: #B91C1C; }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",        "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "Walkthrough", "item": "https://asclepius.health/walkthrough.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-walkthrough">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<!-- ─── status strip ─────────────────────────────────────────────────────── -->
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="index.html#manifesto">manifesto</a>
+      <a href="explained.html">explained</a>
+      <a href="walkthrough.html" class="is-active" aria-current="page">walkthrough</a>
+      <a href="docs.html">docs</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<noscript>
+  <div style="background:#1B1729;border-bottom:1px solid #2A2438;padding:.9rem 1.4rem;font-family:JetBrains Mono,monospace;font-size:.8rem;color:#9A92A8;text-align:center;">
+    JavaScript is disabled — the walkthrough still reads end-to-end as static prose. The <a href="explained.html" style="color:#34D399">explainer</a> covers the same ground without animation.
+  </div>
+</noscript>
+
+<main id="main" class="wt">
+
+  <header class="wt__hero">
+    <span class="kbd">walkthrough&nbsp;·&nbsp;nine&nbsp;scenes&nbsp;·&nbsp;~3&nbsp;min</span>
+    <h1>Asclepius, <i>in motion</i>.</h1>
+    <p>
+      What the substrate does, scene by scene. Wrap an inference, sign the row, watch
+      drift cross threshold, scope a consent token, emit a verifiable bundle. <em>Every byte audited.</em>
+    </p>
+    <p>
+      Auto-progresses on scroll. Use the bar below to play, pause, jump, or restart. <em>Reduced-motion</em>
+      collapses all animation; the page reads as prose either way.
+    </p>
+  </header>
+
+  <!-- ─── sticky control bar ───────────────────────────────────────────── -->
+  <div class="wt-bar" role="region" aria-label="walkthrough controls">
+    <span class="wt-bar__label">scene <span data-wt-cursor>01</span> / 09</span>
+    <div class="wt-bar__btns">
+      <button class="wt-btn" data-wt-action="play" aria-pressed="false" aria-keyshortcuts="Space" type="button">play</button>
+      <button class="wt-btn" data-wt-action="prev" aria-keyshortcuts="K" type="button" aria-label="previous scene">&#8676;</button>
+      <button class="wt-btn" data-wt-action="next" aria-keyshortcuts="J" type="button" aria-label="next scene">&#8677;</button>
+      <button class="wt-btn" data-wt-action="restart" aria-keyshortcuts="R" type="button">restart</button>
+    </div>
+    <div class="wt-bar__dots" role="tablist" aria-label="scene jump">
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="0" aria-label="scene 01 the frame" aria-current="true">01</button>
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="1" aria-label="scene 02 the substrate">02</button>
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="2" aria-label="scene 03 wrap an inference">03</button>
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="3" aria-label="scene 04 the signed ledger">04</button>
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="4" aria-label="scene 05 drift detection">05</button>
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="5" aria-label="scene 06 consent scoped">06</button>
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="6" aria-label="scene 07 evidence bundle">07</button>
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="7" aria-label="scene 08 what you deploy">08</button>
+      <button class="wt-dot" role="tab" type="button" data-wt-jump="8" aria-label="scene 09 next">09</button>
+    </div>
+    <span class="wt-bar__keys"><kbd>space</kbd> play <kbd>j</kbd>/<kbd>k</kbd> step <kbd>r</kbd> restart</span>
+  </div>
+
+  <!-- ─── §01 the frame ─────────────────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-01" data-wt-scene="0">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§01</span>
+      <span class="wt-scene__name">the frame</span>
+    </div>
+    <h2>Hospital floor, <i>2026</i>.</h2>
+    <p class="wt-scene__lede">
+      An ambient scribe transcribes 1,200 visits today. A radiology CNN reads
+      9,000 chest X-rays. A denial model decides 4,800 prior auths. <em>Where is the audit?</em>
+    </p>
+    <div class="wt-scene__body">
+      <p class="wt-typeon" aria-label="the question on the wall">Where is the audit?</p>
+    </div>
+  </section>
+
+  <!-- ─── §02 the substrate appears ────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-02" data-wt-scene="1">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§02</span>
+      <span class="wt-scene__name">the substrate appears</span>
+    </div>
+    <h2>A thin layer <i>between</i>.</h2>
+    <p class="wt-scene__lede">
+      Drop one C++ binary between every clinical-AI tool and the EHR it speaks to.
+      The tool keeps its model. The EHR keeps its workflow. <em>Asclepius keeps the record.</em>
+    </p>
+    <div class="wt-scene__body">
+      <div class="wt-stack">
+        <div class="wt-stack__row"><b>AI tool</b><span>scribe@v3 · radiology CNN · denial model</span></div>
+        <div class="wt-stack__row wt-stack__row--mid"><b>every byte audited</b><span>asclepius runtime · ~12k SLOC</span></div>
+        <div class="wt-stack__row"><b>EHR / operator</b><span>epic · cerner · clinician console</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── §03 wrap an inference ────────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-03" data-wt-scene="2">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§03</span>
+      <span class="wt-scene__name">wrap an inference</span>
+    </div>
+    <h2>Four filters, <i>one trace</i>.</h2>
+    <p class="wt-scene__lede">
+      Each call passes the same chain: <em>scrub PHI, validate schema, enforce length, observe drift</em>.
+      Composable, reorderable, tracked per row.
+    </p>
+    <div class="wt-scene__body">
+      <div class="wt-policy" aria-label="policy chain stroke draw">
+        <svg viewBox="0 0 720 130" role="img" aria-labelledby="wt-policy-t">
+          <title id="wt-policy-t">Policy chain: PHI scrubber, schema validator, length limit, drift observer.</title>
+          <path class="wt-policy__path" d="M 60 65 L 200 65 M 220 65 L 360 65 M 380 65 L 520 65 M 540 65 L 680 65"/>
+          <g class="wt-policy__node">
+            <rect class="wt-policy__rect" x="20" y="38" width="160" height="54" rx="4"/>
+            <text class="wt-policy__label" x="100" y="62" text-anchor="middle">phi_scrubber</text>
+            <text class="wt-policy__sub"   x="100" y="78" text-anchor="middle">ssn · email · mrn</text>
+          </g>
+          <g class="wt-policy__node">
+            <rect class="wt-policy__rect" x="200" y="38" width="160" height="54" rx="4"/>
+            <text class="wt-policy__label" x="280" y="62" text-anchor="middle">schema_validator</text>
+            <text class="wt-policy__sub"   x="280" y="78" text-anchor="middle">draft 2020-12</text>
+          </g>
+          <g class="wt-policy__node">
+            <rect class="wt-policy__rect" x="380" y="38" width="160" height="54" rx="4"/>
+            <text class="wt-policy__label" x="460" y="62" text-anchor="middle">length_limit</text>
+            <text class="wt-policy__sub"   x="460" y="78" text-anchor="middle">≤ 16 KiB</text>
+          </g>
+          <g class="wt-policy__node">
+            <rect class="wt-policy__rect" x="560" y="38" width="140" height="54" rx="4"/>
+            <text class="wt-policy__label" x="630" y="62" text-anchor="middle">drift_observer</text>
+            <text class="wt-policy__sub"   x="630" y="78" text-anchor="middle">psi · ks · emd</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── §04 signed ledger ────────────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-04" data-wt-scene="3">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§04</span>
+      <span class="wt-scene__name">the signed ledger</span>
+    </div>
+    <h2>Five rows, <i>one chain</i>.</h2>
+    <p class="wt-scene__lede">
+      Each row is BLAKE2b-256 of the canonical body, Ed25519-signed, and
+      <em>prev_hash</em>-chained to the row before it. Walk it offline; flip a byte and the chain breaks.
+    </p>
+    <div class="wt-scene__body">
+      <div class="wt-chain" aria-label="five chained ledger entries">
+        <div class="wt-block">
+          <b>seq <span class="seq">0x1A4B</span></b>
+          <div class="hash">3f9c1ad8…0e7d21</div>
+          <div class="sig">ed25519&nbsp;ok</div>
+        </div>
+        <div class="wt-block">
+          <b>seq <span class="seq">0x1A4C</span></b>
+          <div class="hash">8e510bf4…21b04a</div>
+          <div class="sig">ed25519&nbsp;ok</div>
+        </div>
+        <div class="wt-block">
+          <b>seq <span class="seq">0x1A4D</span></b>
+          <div class="hash">0c7a44e2…48b1f0</div>
+          <div class="sig">ed25519&nbsp;ok</div>
+        </div>
+        <div class="wt-block">
+          <b>seq <span class="seq">0x1A4E</span></b>
+          <div class="hash">b201ff37…c918a2</div>
+          <div class="sig">ed25519&nbsp;ok</div>
+        </div>
+        <div class="wt-block">
+          <b>seq <span class="seq">0x1A4F</span></b>
+          <div class="hash">d6e82cb1…f4a059</div>
+          <div class="sig">ed25519&nbsp;ok</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── §05 drift detection ──────────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-05" data-wt-scene="4">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§05</span>
+      <span class="wt-scene__name">drift detection live</span>
+    </div>
+    <h2>Watch the distribution <i>shift</i>.</h2>
+    <p class="wt-scene__lede">
+      A live PSI counter compares today's input distribution against the deployment baseline.
+      <em>0.05 is calm. 0.42 is severe.</em> The pill flips before anyone files a complaint.
+    </p>
+    <div class="wt-scene__body">
+      <div class="wt-drift">
+        <div class="wt-drift__chart" aria-label="histogram baseline vs live drifted">
+          <svg viewBox="0 0 480 160" role="img" aria-labelledby="wt-drift-t">
+            <title id="wt-drift-t">Histogram of input feature distribution; bars shift from baseline to drifted.</title>
+            <line class="wt-drift__axis" x1="20"  y1="140" x2="460" y2="140"/>
+            <line class="wt-drift__axis" x1="20"  y1="20"  x2="20"  y2="140"/>
+            <text class="wt-drift__tick" x="14" y="142" text-anchor="end">0</text>
+            <text class="wt-drift__tick" x="14" y="80"  text-anchor="end">.5</text>
+            <text class="wt-drift__tick" x="14" y="22"  text-anchor="end">1</text>
+            <rect class="wt-drift__bar" data-bar="0" x="40"  y="60"  width="40" height="80"/>
+            <rect class="wt-drift__bar" data-bar="1" x="100" y="40"  width="40" height="100"/>
+            <rect class="wt-drift__bar" data-bar="2" x="160" y="50"  width="40" height="90"/>
+            <rect class="wt-drift__bar" data-bar="3" x="220" y="70"  width="40" height="70"/>
+            <rect class="wt-drift__bar" data-bar="4" x="280" y="90"  width="40" height="50"/>
+            <rect class="wt-drift__bar" data-bar="5" x="340" y="100" width="40" height="40"/>
+            <rect class="wt-drift__bar" data-bar="6" x="400" y="110" width="40" height="30"/>
+          </svg>
+        </div>
+        <div class="wt-drift__readouts">
+          <div class="wt-readout"><b>psi</b><span data-wt-psi>0.05</span></div>
+          <div class="wt-readout"><b>ks</b><span data-wt-ks>0.04</span></div>
+          <div class="wt-readout"><b>state</b><span class="wt-pill" data-wt-pill data-state="none">none</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── §06 consent ──────────────────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-06" data-wt-scene="5">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§06</span>
+      <span class="wt-scene__name">consent, scoped</span>
+    </div>
+    <h2>The token <i>defines the door</i>.</h2>
+    <p class="wt-scene__lede">
+      Every consent is a token: patient, purpose set, expiry. Calls outside the purpose set
+      get <em>consent_missing</em> and never reach the model.
+    </p>
+    <div class="wt-scene__body">
+      <div class="wt-consent">
+        <div class="wt-token" aria-label="a consent token">
+          <b>consent token</b>
+          <div class="row"><dt>patient</dt><dd>pat:9f1a-…-c20e</dd></div>
+          <div class="row"><dt>tenant</dt><dd>kp-northwest</dd></div>
+          <div class="row"><dt>expires</dt><dd>2026-12-31</dd></div>
+          <div class="row"><dt>purposes</dt><dd></dd></div>
+          <ul>
+            <li>ambient_documentation</li>
+            <li>diagnostic_assistance</li>
+          </ul>
+        </div>
+        <div class="wt-actions">
+          <div class="wt-action wt-action--ok" role="status">
+            <div>
+              <div class="wt-action__verb">scribe.transcribe()</div>
+              <div class="wt-action__purpose">purpose=ambient_documentation</div>
+            </div>
+            <span class="wt-action__status">allowed</span>
+          </div>
+          <div class="wt-action wt-action--ok" role="status">
+            <div>
+              <div class="wt-action__verb">cnn.read_xray()</div>
+              <div class="wt-action__purpose">purpose=diagnostic_assistance</div>
+            </div>
+            <span class="wt-action__status">allowed</span>
+          </div>
+          <div class="wt-action wt-action--block" role="status">
+            <div>
+              <div class="wt-action__verb">marketing.send_email()</div>
+              <div class="wt-action__purpose">purpose=outreach</div>
+            </div>
+            <span class="wt-action__status">consent_missing</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── §07 evidence bundle ──────────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-07" data-wt-scene="6">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§07</span>
+      <span class="wt-scene__name">evidence bundle</span>
+    </div>
+    <h2>Hand it over, <i>signed</i>.</h2>
+    <p class="wt-scene__lede">
+      One command writes a USTAR tar with the manifest, the ledger excerpt, the drift snapshot,
+      and the runtime's signature. <em>Verifiable offline, on a laptop.</em>
+    </p>
+    <div class="wt-scene__body">
+      <div class="wt-bundle" role="region" aria-label="evidence bundle contents">
+        <div class="wt-bundle__title">out.tar · ustar · 217 entries</div>
+        <div class="wt-bundle__file"><dt>manifest.json</dt><dd>462 bytes</dd></div>
+        <div class="wt-bundle__file"><dt>ledger.ndjson</dt><dd>184.3 KiB · seq 0x01A4F → 0x01B22</dd></div>
+        <div class="wt-bundle__file"><dt>drift-snapshot.json</dt><dd>14.8 KiB</dd></div>
+        <div class="wt-bundle__file"><dt>consent-state.json</dt><dd>3.2 KiB</dd></div>
+        <div class="wt-bundle__file"><dt>signature.ed25519</dt><dd>64 bytes · key a1f2…74e6</dd></div>
+        <div class="wt-bundle__seal">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="M3 12 l6 6 l12 -12"/>
+          </svg>
+          <span><em>verifiable offline</em> · chain intact · 217 / 217 signatures ok</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── §08 what you deploy ──────────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-08" data-wt-scene="7">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§08</span>
+      <span class="wt-scene__name">what you actually deploy</span>
+    </div>
+    <h2>Three files. <i>Sixty seconds</i>.</h2>
+    <p class="wt-scene__lede">
+      No SaaS. No call-home. No new platform. Drop the binary on a node next to the AI,
+      hand it the SQLite path and the keypair, and <em>start writing rows</em>.
+    </p>
+    <div class="wt-scene__body">
+      <div class="wt-deploy">
+        <div class="wt-thing">
+          <b>binary</b>
+          <h3>asclepius</h3>
+          <p>One C++20 ELF. Statically linked libsodium + sqlite. ≈ 12k SLOC of substrate.</p>
+        </div>
+        <div class="wt-thing">
+          <b>state</b>
+          <h3>ledger.<i>db</i></h3>
+          <p>Single SQLite file, WAL mode. Append-only ledger, indexed by seq + actor + tenant.</p>
+        </div>
+        <div class="wt-thing">
+          <b>identity</b>
+          <h3>signer.<i>key</i></h3>
+          <p>Ed25519 keypair on disk, or HSM if you have one. Public half ships in every bundle.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── §09 next ─────────────────────────────────────────────────────── -->
+  <section class="wt-scene" id="scene-09" data-wt-scene="8">
+    <div class="wt-scene__head">
+      <span class="wt-scene__num">§09</span>
+      <span class="wt-scene__name">where to next</span>
+    </div>
+    <h2>Three doors. <i>Pick one</i>.</h2>
+    <p class="wt-scene__lede">
+      The walkthrough was the shape. The detail lives below: a plain-words explainer,
+      a 60-second quickstart, a live in-browser playground.
+    </p>
+    <div class="wt-scene__body">
+      <ul class="wt-next">
+        <li>
+          <a href="explained.html">
+            <b>The <i>explainer</i></b>
+            <em>plain words · /explained</em>
+          </a>
+        </li>
+        <li>
+          <a href="quickstart.html">
+            <b>The <i>quickstart</i></b>
+            <em>60 seconds · /quickstart</em>
+          </a>
+        </li>
+        <li>
+          <a href="demo.html">
+            <b>The <i>playground</i></b>
+            <em>build a chain in-browser · /demo</em>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="wt-coda">
+    <em>Motion is exposition.</em> Everything in this walkthrough is also true in the
+    <a href="spec.html">spec</a>, the <a href="architecture.html">architecture</a>, and the
+    <a href="https://github.com/Himanshu21464/Asclepius">source tree</a>. The animation is
+    pedagogy, not promise.
+  </p>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — walkthrough.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>start here</b>
+        <a href="explained.html">explained</a>
+        <a href="walkthrough.html">walkthrough</a>
+        <a href="quickstart.html">quickstart</a>
+        <a href="index.html#manifesto">manifesto</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="api.html">API reference</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="governance.html">governance</a>
+        <a href="principles.html">principles</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press kit</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/Himanshu21464/Asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/*  walkthrough scene controller — vanilla, ~180 lines.
+
+    Responsibilities:
+      · IntersectionObserver flips .is-active on each scene as it enters,
+        which the CSS keys all per-scene animations off of.
+      · Sticky control bar provides play / pause / prev / next / restart.
+      · Keyboard chords: space, j/k, r.
+      · Scene 05 runs an rAF tween that morphs the histogram bars and ticks
+        the PSI / KS readouts from baseline to drifted while the scene is
+        active; resets on re-entry.
+      · prefers-reduced-motion short-circuits the auto-progress loop and the
+        rAF tween — the page reads as static prose.
+*/
+(function () {
+  'use strict';
+
+  var scenes  = Array.prototype.slice.call(document.querySelectorAll('[data-wt-scene]'));
+  var dots    = Array.prototype.slice.call(document.querySelectorAll('[data-wt-jump]'));
+  var cursor  = document.querySelector('[data-wt-cursor]');
+  var btnPlay = document.querySelector('[data-wt-action="play"]');
+
+  var current   = 0;
+  var playing   = false;
+  var autoTimer = null;
+  var reduce    = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── intersection observer: flag the dominant scene .is-active ────────
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        var i = parseInt(e.target.getAttribute('data-wt-scene'), 10);
+        if (e.isIntersecting && e.intersectionRatio > 0.45) {
+          setCurrent(i, /* scrollTo */ false);
+          e.target.classList.add('is-active');
+        }
+      });
+    }, { threshold: [0.0, 0.45, 0.85] });
+    scenes.forEach(function (s) { io.observe(s); });
+  } else {
+    // very old browsers: just mark all active so nothing is hidden
+    scenes.forEach(function (s) { s.classList.add('is-active'); });
+  }
+
+  function setCurrent(i, scrollTo) {
+    if (i < 0 || i >= scenes.length) return;
+    if (i === current && !scrollTo) {
+      if (cursor) cursor.textContent = pad(i + 1);
+      dots.forEach(function (d, j) {
+        d.setAttribute('aria-current', j === i ? 'true' : 'false');
+      });
+      if (i === 4) startDrift();
+      return;
+    }
+    current = i;
+    if (cursor) cursor.textContent = pad(i + 1);
+    dots.forEach(function (d, j) {
+      d.setAttribute('aria-current', j === i ? 'true' : 'false');
+    });
+    if (scrollTo) {
+      scenes[i].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    }
+    // re-trigger animation by toggling .is-active
+    scenes[i].classList.remove('is-active');
+    void scenes[i].offsetWidth;
+    scenes[i].classList.add('is-active');
+    if (i === 4) startDrift();
+  }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  // ── play / pause auto-advance ────────────────────────────────────────
+  function setPlaying(state) {
+    playing = state;
+    if (btnPlay) {
+      btnPlay.setAttribute('aria-pressed', state ? 'true' : 'false');
+      btnPlay.textContent = state ? 'pause' : 'play';
+    }
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    if (state) tickAdvance();
+  }
+  function tickAdvance() {
+    autoTimer = setTimeout(function () {
+      if (!playing) return;
+      if (current >= scenes.length - 1) { setPlaying(false); return; }
+      setCurrent(current + 1, true);
+      tickAdvance();
+    }, reduce ? 1200 : 6500);
+  }
+
+  // ── controls ─────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-wt-action]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var a = b.getAttribute('data-wt-action');
+      if (a === 'play')    setPlaying(!playing);
+      if (a === 'next')    setCurrent(current + 1, true);
+      if (a === 'prev')    setCurrent(current - 1, true);
+      if (a === 'restart') { setPlaying(false); setCurrent(0, true); }
+    });
+  });
+  dots.forEach(function (d) {
+    d.addEventListener('click', function () {
+      setPlaying(false);
+      setCurrent(parseInt(d.getAttribute('data-wt-jump'), 10), true);
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === ' ')      { e.preventDefault(); setPlaying(!playing); }
+    else if (e.key === 'j') { e.preventDefault(); setCurrent(current + 1, true); }
+    else if (e.key === 'k') { e.preventDefault(); setCurrent(current - 1, true); }
+    else if (e.key === 'r') { e.preventDefault(); setPlaying(false); setCurrent(0, true); }
+  });
+
+  // ── §05 drift tween: bars + readouts from baseline to drifted ────────
+  var bars   = Array.prototype.slice.call(document.querySelectorAll('[data-bar]'));
+  var psiEl  = document.querySelector('[data-wt-psi]');
+  var ksEl   = document.querySelector('[data-wt-ks]');
+  var pill   = document.querySelector('[data-wt-pill]');
+  // baseline (calm, near-uniform-ish) and drifted (peaks shifted right)
+  var BASELINE = [0.40, 0.50, 0.45, 0.35, 0.25, 0.20, 0.15];
+  var DRIFTED  = [0.06, 0.08, 0.12, 0.18, 0.42, 0.62, 0.72];
+  var driftToken = 0;
+  function paintBars(values) {
+    bars.forEach(function (b, i) {
+      var v = values[i];
+      var h = Math.max(2, Math.round(v * 120));
+      b.setAttribute('y',      String(140 - h));
+      b.setAttribute('height', String(h));
+      b.setAttribute('fill',   v > 0.55 ? '#F87171' : 'var(--accent)');
+    });
+  }
+  function startDrift() {
+    if (!bars.length) return;
+    var token = ++driftToken;
+    paintBars(BASELINE);
+    if (psiEl)  psiEl.textContent = '0.05';
+    if (ksEl)   ksEl.textContent  = '0.04';
+    if (pill)   { pill.setAttribute('data-state', 'none'); pill.textContent = 'none'; }
+    if (reduce) {
+      paintBars(DRIFTED);
+      if (psiEl) psiEl.textContent = '0.42';
+      if (ksEl)  ksEl.textContent  = '0.31';
+      if (pill)  { pill.setAttribute('data-state', 'severe'); pill.textContent = 'severe'; }
+      return;
+    }
+    var start = null;
+    var dur   = 4200;
+    function frame(t) {
+      if (token !== driftToken) return;       // a newer entry started; stop
+      if (!start) start = t;
+      var raw = (t - start) / dur;
+      var k   = Math.min(1, Math.max(0, raw));
+      var blend = BASELINE.map(function (b, i) { return b + (DRIFTED[i] - b) * k; });
+      paintBars(blend);
+      var psi = 0.05 + (0.42 - 0.05) * k;
+      var ks  = 0.04 + (0.31 - 0.04) * k;
+      if (psiEl) psiEl.textContent = psi.toFixed(2);
+      if (ksEl)  ksEl.textContent  = ks.toFixed(2);
+      if (pill) {
+        var state = psi < 0.10 ? 'none' : psi < 0.25 ? 'minor' : psi < 0.50 ? 'moder' : 'severe';
+        if (pill.getAttribute('data-state') !== state) {
+          pill.setAttribute('data-state', state === 'severe' ? 'severe' : 'none');
+          pill.textContent = state;
+        }
+      }
+      if (k < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ensure the very first scene is marked active on load (above the fold)
+  if (scenes[0]) scenes[0].classList.add('is-active');
+})();
+</script>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+</body>
+</html>
