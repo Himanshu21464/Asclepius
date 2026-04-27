@@ -138,6 +138,16 @@ public:
     // Cost: one Ledger::tail(lookback) call per commit; bounded.
     Result<void> commit_idempotent(std::size_t lookback = 200);
 
+    // Idempotent in-handle commit: if not yet committed, call commit();
+    // if already committed, return ok() without touching the ledger.
+    // Different shape from commit_idempotent() — this never scans the
+    // chain; it just folds the not-committed -> commit flow into one
+    // call. Used by sidecars that want a "save it if you haven't
+    // already" guarantee in graceful-shutdown loops, where the same
+    // handle may have been committed earlier on a fast path or left
+    // hanging on a slow path.
+    Result<void> ensure_committed();
+
     // Attach an arbitrary key/value pair to the inference's ledger body.
     // Stored under a "metadata" sub-object so it can't collide with the
     // runtime's reserved fields (status, input_hash, output_hash, etc.).
@@ -171,6 +181,14 @@ public:
     // Use before commit() when the caller wants to retract a value
     // they staged earlier in the same handle's lifetime.
     void clear_metadata(std::string_view key) noexcept;
+
+    // Sugar over add_metadata("tag", label) — the value is stored as a
+    // JSON string. Used by sidecars to bucket inferences (cohort name,
+    // experiment slug, queue lane) without inventing a metadata key per
+    // call site. Empty label is rejected with invalid_argument; the
+    // same reserved-key / post-commit / replace-on-duplicate semantics
+    // as add_metadata apply (under the fixed key "tag").
+    Result<void> tag(std::string_view label);
 
     // Capture a clinician override of the model's output. Stored with the
     // inference id so prospective evaluation can join later.
@@ -390,6 +408,19 @@ public:
     const PolicyChain&  policies() const;
     const Ledger&       ledger()   const;
 
+    // Direct ledger append for caller-driven events that aren't part of
+    // the inference lifecycle (begin / committed / aborted). Sugar over
+    // ledger().append(...). Used by sidecars to record their own
+    // operational events into the same chain — for example
+    // "config.reloaded", "shutdown.initiated", "key.rotated". Forwards
+    // verbatim to the ledger; the runtime adds no implicit fields. The
+    // tenant argument defaults to empty (untenanted), matching the
+    // Ledger::append default.
+    Result<LedgerEntry> record_event(std::string event_type,
+                                     std::string actor,
+                                     nlohmann::json body,
+                                     std::string tenant = "");
+
     // ---- Health snapshot ------------------------------------------------
     //
     // A single-call summary of the runtime's overall liveness. Designed
@@ -435,6 +466,16 @@ public:
     // length; never errors. The middle dot (·) separator is U+00B7
     // — the same character the website uses in eyebrow lines.
     std::string quick_status() const;
+
+    // Single-line ASCII summary suitable for a /healthz Plain-Text
+    // endpoint or a `--banner` CLI mode. Format:
+    //   "asclepius v<ver> \xc2\xb7 ledger=<length> \xc2\xb7 key=<key_id>
+    //    \xc2\xb7 policies=<n> \xc2\xb7 drift_features=<n>
+    //    \xc2\xb7 active_consent=<n>"
+    // Distinct from Health::to_json() — this is plain text for shell
+    // pipelines and dashboards that prefer a single line over JSON.
+    // Pulls from version() + health(); never errors.
+    std::string status_line() const;
 
     // Multi-line, human-readable runtime summary. Distinct from
     // quick_status() — that's a single line for log eyebrows, this
@@ -560,6 +601,14 @@ public:
     // from the backend collapse to "not idle" so an unhealthy ledger
     // never lies its way to a fast shutdown.
     bool is_idle(std::chrono::milliseconds threshold) const;
+
+    // Negation of is_idle(threshold) — true iff at least one ledger
+    // entry has landed within the last `threshold` milliseconds. Empty
+    // chain is trivially not busy. Cheap sugar that reads more
+    // naturally at some call sites ("if (rt.is_busy(50ms)) ..."). Same
+    // backend cost as is_idle: one tail(1) lookup. Errors collapse to
+    // "not busy" so an unhealthy ledger never falsely claims activity.
+    bool is_busy(std::chrono::milliseconds threshold) const;
 
     // Convenience: clear() the policy chain and push the standard
     // production set — make_phi_scrubber() and a reasonable

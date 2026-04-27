@@ -2694,3 +2694,401 @@ TEST_CASE("Histogram::bin_at integration — sum across bins equals total()") {
         CHECK(static_cast<double>(r.value()) == doctest::Approx(expected));
     }
 }
+
+// ---- Histogram::p99 -----------------------------------------------------
+
+TEST_CASE("Histogram::p99 basic — agrees with percentile(99.0)") {
+    Histogram h{0.0, 1.0, 100};
+    std::mt19937 rng{42};
+    std::uniform_real_distribution<double> d{0.0, 1.0};
+    for (int i = 0; i < 1000; ++i) h.observe(d(rng));
+
+    // Sugar wrapper: must be bit-for-bit identical to percentile(99.0)
+    // since both call quantile(0.99) under the hood with the same lock.
+    CHECK(h.p99() == doctest::Approx(h.percentile(99.0)));
+    // And that's identical to quantile(0.99).
+    CHECK(h.p99() == doctest::Approx(h.quantile(0.99)));
+}
+
+TEST_CASE("Histogram::p99 edge — empty histogram returns 0.0") {
+    Histogram h{0.0, 1.0, 10};
+    REQUIRE(h.is_empty());
+    // Empty histogram contract from quantile(): returns 0.0.
+    CHECK(h.p99() == doctest::Approx(0.0));
+
+    // Negative-domain empty histogram still returns 0.0 (the sentinel,
+    // not lo()) — this matches percentile()'s documented contract.
+    Histogram hn{-5.0, 5.0, 10};
+    CHECK(hn.p99() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::p99 integration — monotone with percentile, agrees with quantile(0.99)") {
+    Histogram h{0.0, 1.0, 100};
+    // 90% of mass low, 10% in the upper tail — p99 should land in the
+    // upper-tail region by construction.
+    for (int i = 0; i < 900; ++i) h.observe(0.10);
+    for (int i = 0; i < 100; ++i) h.observe(0.92);
+    REQUIRE(h.total() == 1000);
+
+    const double m   = h.median();
+    const double p99 = h.p99();
+    // Median should sit near the 0.10 cluster (where 90% of mass is).
+    CHECK(m < 0.2);
+    // p99 sits above the median — by construction the top 1% of mass
+    // lives in the 0.92 cluster, so p99 must reach into that region.
+    CHECK(p99 > m);
+    CHECK(p99 >= 0.5);
+    // Monotone in p: p99 >= p50 >= p01 always.
+    CHECK(h.p99() >= h.percentile(50.0));
+    CHECK(h.percentile(50.0) >= h.percentile(1.0));
+    // p99 must agree exactly with quantile(0.99) — it's literally a
+    // sugar wrapper, no rounding path between them.
+    CHECK(h.p99() == doctest::Approx(h.quantile(0.99)));
+}
+
+// ---- Histogram::nth_largest_bin -----------------------------------------
+
+TEST_CASE("Histogram::nth_largest_bin basic — picks bin with highest count") {
+    Histogram h{0.0, 1.0, 5};
+    // Bin 0: 3 hits, bin 1: 1 hit, bin 2: 7 hits, bin 3: 2 hits, bin 4: 0.
+    for (int i = 0; i < 3; ++i) h.observe(0.05);
+    h.observe(0.25);
+    for (int i = 0; i < 7; ++i) h.observe(0.45);
+    for (int i = 0; i < 2; ++i) h.observe(0.65);
+
+    CHECK(h.nth_largest_bin() == 2);
+
+    // Adding more to a different bin should change the answer.
+    for (int i = 0; i < 10; ++i) h.observe(0.85);  // bin 4 now has 10
+    CHECK(h.nth_largest_bin() == 4);
+}
+
+TEST_CASE("Histogram::nth_largest_bin edge — empty histogram returns 0; ties → smallest index") {
+    // Empty histogram: every bin has count 0, smallest index wins.
+    Histogram empty{0.0, 1.0, 8};
+    REQUIRE(empty.is_empty());
+    CHECK(empty.nth_largest_bin() == 0);
+
+    // Tie-breaking: bins 1 and 3 both have count 5, bin 0 has count 4.
+    // Smallest index among the tied maxes wins → bin 1.
+    Histogram h{0.0, 1.0, 5};
+    for (int i = 0; i < 4; ++i) h.observe(0.05);   // bin 0 → 4
+    for (int i = 0; i < 5; ++i) h.observe(0.25);   // bin 1 → 5
+    for (int i = 0; i < 5; ++i) h.observe(0.65);   // bin 3 → 5
+    CHECK(h.nth_largest_bin() == 1);
+
+    // Three-way tie at 2 in bins 0, 2, 4: smallest index is 0.
+    Histogram h3{0.0, 1.0, 5};
+    for (int i = 0; i < 2; ++i) h3.observe(0.05);
+    for (int i = 0; i < 2; ++i) h3.observe(0.45);
+    for (int i = 0; i < 2; ++i) h3.observe(0.85);
+    CHECK(h3.nth_largest_bin() == 0);
+}
+
+TEST_CASE("Histogram::nth_largest_bin integration — agrees with bin_at scan") {
+    Histogram h{0.0, 1.0, 10};
+    std::mt19937 rng{99};
+    std::normal_distribution<double> nd{0.6, 0.1};
+    for (int i = 0; i < 500; ++i) h.observe(std::clamp(nd(rng), 0.0, 1.0));
+    REQUIRE(h.total() == 500);
+
+    // Reference impl: scan bins via bin_at and pick smallest-index max.
+    std::size_t best_idx = 0;
+    std::uint64_t best_count = 0;
+    {
+        auto r0 = h.bin_at(0);
+        REQUIRE(r0);
+        best_count = r0.value();
+    }
+    for (std::size_t i = 1; i < h.bin_count(); ++i) {
+        auto r = h.bin_at(i);
+        REQUIRE(r);
+        if (r.value() > best_count) {
+            best_count = r.value();
+            best_idx   = i;
+        }
+    }
+    CHECK(h.nth_largest_bin() == best_idx);
+
+    // The picked bin must have count >= every other bin.
+    auto rb = h.bin_at(h.nth_largest_bin());
+    REQUIRE(rb);
+    for (std::size_t i = 0; i < h.bin_count(); ++i) {
+        auto r = h.bin_at(i);
+        REQUIRE(r);
+        CHECK(rb.value() >= r.value());
+    }
+}
+
+// ---- MetricRegistry::sum_counters_with_prefix ---------------------------
+
+TEST_CASE("MetricRegistry::sum_counters_with_prefix basic — sums matching counters") {
+    MetricRegistry m;
+    m.inc("inferences_total",        7);
+    m.inc("inferences_blocked",      3);
+    m.inc("inferences_failed",       2);
+    m.inc("policy_violations_total", 11);
+    m.inc("audit_appends",           5);
+
+    CHECK(m.sum_counters_with_prefix("inferences_") == 12);  // 7 + 3 + 2
+    CHECK(m.sum_counters_with_prefix("policy_")     == 11);
+    CHECK(m.sum_counters_with_prefix("audit_")      == 5);
+    // No matches → 0.
+    CHECK(m.sum_counters_with_prefix("missing_")    == 0);
+}
+
+TEST_CASE("MetricRegistry::sum_counters_with_prefix edge — empty prefix matches all") {
+    MetricRegistry m;
+    // Empty registry → 0 regardless of prefix.
+    CHECK(m.sum_counters_with_prefix("")    == 0);
+    CHECK(m.sum_counters_with_prefix("any") == 0);
+
+    m.inc("a", 1);
+    m.inc("b", 2);
+    m.inc("c", 3);
+    // Empty prefix is the "match every counter" sentinel → equivalent
+    // to counter_total().
+    CHECK(m.sum_counters_with_prefix("") == m.counter_total());
+    CHECK(m.sum_counters_with_prefix("") == 6);
+
+    // Histograms must NOT contribute (counters and histograms are
+    // independent name spaces).
+    m.observe("z_hist", 0.1);
+    CHECK(m.sum_counters_with_prefix("") == 6);
+    CHECK(m.sum_counters_with_prefix("z") == 0);
+}
+
+TEST_CASE("MetricRegistry::sum_counters_with_prefix integration — agrees with manual snapshot scan") {
+    MetricRegistry m;
+    m.inc("svc_a_requests", 10);
+    m.inc("svc_a_errors",    1);
+    m.inc("svc_b_requests", 20);
+    m.inc("svc_b_errors",    4);
+
+    auto snap = m.counter_snapshot();
+    // Reference impl: iterate the snapshot and sum matching keys.
+    std::uint64_t expected = 0;
+    for (const auto& [k, v] : snap) {
+        if (std::string_view{k}.starts_with("svc_a_")) expected += v;
+    }
+    CHECK(m.sum_counters_with_prefix("svc_a_") == expected);
+    CHECK(m.sum_counters_with_prefix("svc_a_") == 11);
+
+    // Whole-registry sum via empty prefix matches counter_total().
+    CHECK(m.sum_counters_with_prefix("") == m.counter_total());
+}
+
+// ---- MetricRegistry::counter_max ----------------------------------------
+
+TEST_CASE("MetricRegistry::counter_max basic — returns the largest value") {
+    MetricRegistry m;
+    m.inc("a", 3);
+    m.inc("b", 17);
+    m.inc("c", 1);
+    m.inc("d", 9);
+
+    CHECK(m.counter_max() == 17);
+
+    // Adding a strictly larger counter shifts the max.
+    m.inc("e", 100);
+    CHECK(m.counter_max() == 100);
+
+    // Adding a smaller value does not change the max.
+    m.inc("f", 4);
+    CHECK(m.counter_max() == 100);
+}
+
+TEST_CASE("MetricRegistry::counter_max edge — 0 on empty registry / on histograms-only") {
+    MetricRegistry m;
+    // Empty registry → 0, matching counter_total() on empty.
+    CHECK(m.counter_max() == 0);
+    CHECK(m.counter_max() == m.counter_total());
+
+    // A registered counter at 0 still exists; max stays at 0.
+    m.inc("zeroed", 0);
+    CHECK(m.counter_max() == 0);
+
+    // Histograms must NOT contribute to counter_max.
+    m.observe("latency", 0.5);
+    m.observe("latency", 0.8);
+    CHECK(m.counter_max() == 0);
+
+    // Once a real counter exists, the max reflects it.
+    m.inc("real", 7);
+    CHECK(m.counter_max() == 7);
+    // After clear the registry is empty again → max returns to 0.
+    m.clear();
+    CHECK(m.counter_max() == 0);
+}
+
+TEST_CASE("MetricRegistry::counter_max integration — bounded by counter_total, ≥ each counter_value") {
+    MetricRegistry m;
+    m.inc("alpha", 5);
+    m.inc("beta",  12);
+    m.inc("gamma", 8);
+
+    const auto cmax = m.counter_max();
+    // counter_max is always <= counter_total (sum dominates per-element
+    // max for non-negative values).
+    CHECK(cmax <= m.counter_total());
+    // counter_max is >= every individual counter_value.
+    for (const auto& name : m.list_counters()) {
+        auto v = m.counter_value(name);
+        REQUIRE(v);
+        CHECK(v.value() <= cmax);
+    }
+    // For this fixture the max equals 12 (the beta counter).
+    CHECK(cmax == 12);
+}
+
+// ---- DriftMonitor::is_registered ----------------------------------------
+
+TEST_CASE("DriftMonitor::is_registered basic — true after register, false otherwise") {
+    DriftMonitor dm;
+    CHECK_FALSE(dm.is_registered("score"));
+
+    REQUIRE(dm.register_feature("score", std::vector<double>(50, 0.4)));
+    CHECK(dm.is_registered("score"));
+    CHECK_FALSE(dm.is_registered("other"));
+}
+
+TEST_CASE("DriftMonitor::is_registered edge — agrees with has_feature, noexcept compile-time") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", std::vector<double>(20, 0.1)));
+    REQUIRE(dm.register_feature("b", std::vector<double>(20, 0.5)));
+
+    // is_registered is a sugar wrapper over has_feature: same answer
+    // for every name we probe (registered, unregistered, empty).
+    for (const auto& name : {"a", "b", "missing", ""}) {
+        CHECK(dm.is_registered(name) == dm.has_feature(name));
+    }
+
+    // noexcept contract — verified at compile time. Match the existing
+    // has_feature/has pattern: pass a string_view literal so the call
+    // is unconditionally noexcept on libc++ and libstdc++.
+    using namespace std::literals::string_view_literals;
+    static_assert(noexcept(std::declval<const DriftMonitor&>().is_registered("x"sv)),
+                  "DriftMonitor::is_registered must be noexcept");
+}
+
+TEST_CASE("DriftMonitor::is_registered integration — survives observe/reset, false after rotate? no — feature stays registered") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("score", std::vector<double>(100, 0.3)));
+    CHECK(dm.is_registered("score"));
+
+    // observe() does not unregister.
+    for (int i = 0; i < 50; ++i) REQUIRE(dm.observe("score", 0.4));
+    CHECK(dm.is_registered("score"));
+
+    // reset(name) clears the current window but keeps registration.
+    REQUIRE(dm.reset("score"));
+    CHECK(dm.is_registered("score"));
+
+    // rotate() also keeps registration (it just rebuilds the current
+    // window for every feature).
+    dm.rotate();
+    CHECK(dm.is_registered("score"));
+}
+
+// ---- DriftMonitor::reset_all --------------------------------------------
+
+TEST_CASE("DriftMonitor::reset_all basic — clears every feature's current window") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", std::vector<double>(100, 0.2)));
+    REQUIRE(dm.register_feature("b", std::vector<double>(100, 0.7)));
+
+    for (int i = 0; i < 50; ++i) REQUIRE(dm.observe("a", 0.5));
+    for (int i = 0; i < 30; ++i) REQUIRE(dm.observe("b", 0.5));
+    {
+        auto ca = dm.observation_count("a");
+        auto cb = dm.observation_count("b");
+        REQUIRE(ca);
+        REQUIRE(cb);
+        CHECK(ca.value() == 50);
+        CHECK(cb.value() == 30);
+    }
+
+    dm.reset_all();
+    {
+        auto ca = dm.observation_count("a");
+        auto cb = dm.observation_count("b");
+        REQUIRE(ca);
+        REQUIRE(cb);
+        CHECK(ca.value() == 0);
+        CHECK(cb.value() == 0);
+    }
+    // Baselines untouched — registrations preserved.
+    CHECK(dm.is_registered("a"));
+    CHECK(dm.is_registered("b"));
+    auto ba = dm.baseline_count("a");
+    auto bb = dm.baseline_count("b");
+    REQUIRE(ba);
+    REQUIRE(bb);
+    CHECK(ba.value() == 100);
+    CHECK(bb.value() == 100);
+}
+
+TEST_CASE("DriftMonitor::reset_all edge — clears last_severity_ so alert sink re-fires from bottom") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("score", std::vector<double>(500, 0.2), 0.0, 1.0, 10));
+
+    int fire_count = 0;
+    dm.set_alert_sink(
+        [&](const DriftReport&) { ++fire_count; },
+        DriftSeverity::moder);
+
+    // Drive severity from none → severe; sink fires exactly once.
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("score", 0.85));
+    CHECK(fire_count == 1);
+
+    // reset_all clears BOTH the current window AND the last_severity_
+    // map. After the reset, the next batch that drives severity back up
+    // from the freshly-empty current window must fire the sink again
+    // (the recorded "previous" severity has been forgotten — distinct
+    // from rotate(), which only rebuilds histograms and leaves
+    // last_severity_ intact).
+    dm.reset_all();
+    {
+        auto c = dm.observation_count("score");
+        REQUIRE(c);
+        CHECK(c.value() == 0);
+    }
+
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("score", 0.85));
+    CHECK(fire_count == 2);
+}
+
+TEST_CASE("DriftMonitor::reset_all integration — distinct from rotate(): rotate keeps last_severity_") {
+    // rotate() rebuilds current histograms but does NOT clear
+    // last_severity_. Verify the contrast: after rotate(), driving back
+    // up to severe does NOT re-fire the sink (the last recorded severity
+    // is still "severe"); after reset_all(), it DOES re-fire.
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("rot", std::vector<double>(500, 0.2), 0.0, 1.0, 10));
+
+    int fire_count = 0;
+    dm.set_alert_sink(
+        [&](const DriftReport&) { ++fire_count; },
+        DriftSeverity::moder);
+
+    // Initial rise: none → severe.
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("rot", 0.85));
+    REQUIRE(fire_count == 1);
+
+    // rotate() — current windows clear, but last_severity_ stays at
+    // severe. New observations that re-establish severe must NOT fire.
+    dm.rotate();
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("rot", 0.85));
+    CHECK(fire_count == 1);  // unchanged — rotate did NOT clear alerts
+
+    // reset_all() — clears both windows AND last_severity_. New rise
+    // back to severe is a fresh crossing → sink fires again.
+    dm.reset_all();
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("rot", 0.85));
+    CHECK(fire_count == 2);
+
+    // No-op safety: reset_all on a monitor with no features must not crash.
+    DriftMonitor empty;
+    empty.reset_all();
+    CHECK(empty.feature_count() == 0);
+}

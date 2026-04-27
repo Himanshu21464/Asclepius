@@ -197,6 +197,14 @@ public:
     // of chain length.
     Result<void> verify() const;
 
+    // True iff the chain has no gaps: every seq from 1 to length() is
+    // present and prev_hash linkage is intact (no signature work). Wraps
+    // verify() for callers who only want the bool — backend errors and
+    // integrity failures both surface as false. Empty chains return true
+    // (no gaps to find). Used by status pages and feature gates that
+    // need a one-line health probe without a Result branch.
+    bool is_chain_continuous() const;
+
     // Multi-threaded verify. Streams entries, verifies signatures and
     // payload-hash recomputation in parallel across `threads` workers,
     // then walks the chain sequentially in the calling thread to check
@@ -269,6 +277,14 @@ public:
     // WAL. Empty chain returns 0.
     Result<std::uint64_t> cumulative_body_bytes() const;
 
+    // Entries-per-second across the chain, measured as
+    // (length - 1) / ((newest_ts - oldest_ts) seconds). Returns 0.0 when
+    // length < 2 (no rate computable from a single point). Useful for
+    // "how busy is this ledger?" probes and capacity dashboards. Two
+    // single-row lookups (oldest + newest); cheap regardless of chain
+    // length.
+    Result<double> seq_density() const;
+
     // Count entries grouped by event_type. Returns a map keyed by the
     // header.event_type string. O(n) scan over the chain via for_each;
     // O(1) memory aside from the result map. Useful for dashboards
@@ -305,6 +321,22 @@ public:
     // (cheap no-op).
     Result<std::vector<LedgerEntry>> tail_by_actor(std::string_view actor,
                                                    std::size_t      n) const;
+
+    // Most recent (largest seq) entry whose header.actor matches the
+    // supplied string. Sugar over tail_by_actor(actor, 1). Empty actor
+    // returns invalid_argument; no match returns not_found. Used by
+    // dashboards that just want the latest-touch row per actor without
+    // unpacking a single-element vector.
+    Result<LedgerEntry> most_recent_for_actor(std::string_view actor) const;
+
+    // Earliest (smallest seq) entry whose header.actor matches the
+    // supplied string. Mirror of most_recent_for_actor; stops the
+    // for_each scan on the first hit so cost is O(k) where k is the seq
+    // of the first match. Empty actor returns invalid_argument; no
+    // match returns not_found. Used by dashboards that show "first
+    // seen" timestamps per actor and by replay paths anchored on an
+    // actor's genesis row.
+    Result<LedgerEntry> find_first_for_actor(std::string_view actor) const;
 
     // Return entries whose header.event_type matches `event_type`,
     // ordered by seq ascending. O(n) scan via for_each. Empty
@@ -408,6 +440,13 @@ public:
     // dashboards to populate actor-filter dropdowns and by forensic tools
     // that need to enumerate "who has done anything in this ledger".
     Result<std::vector<std::string>> actors() const;
+
+    // Count of distinct header.actor values across the chain. Streams
+    // via for_each into a set; O(distinct actors) memory. Empty chain
+    // returns 0. Counterpart to actors() — that returns the names; this
+    // returns just the cardinality, cheaper for status pages and probes
+    // that only need the number.
+    Result<std::uint64_t> distinct_actors_count() const;
 
     // Inference-committed entries whose body's "model" field equals
     // `model_id`. O(n) scan; cheap substring prefilter before JSON parse,

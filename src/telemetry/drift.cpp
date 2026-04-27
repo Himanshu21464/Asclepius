@@ -136,6 +136,35 @@ double Histogram::percentile(double p) const {
     return quantile(pc / 100.0);
 }
 
+double Histogram::p99() const {
+    // Sugar over percentile(99.0). percentile() takes its own lock and
+    // handles the empty case (returns 0.0 via quantile()). The 99th
+    // percentile is common enough on operator dashboards that giving
+    // it its own name keeps call sites self-documenting — `h.p99()`
+    // reads as the tail-latency cutoff rather than a magic number.
+    return percentile(99.0);
+}
+
+std::size_t Histogram::nth_largest_bin() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    // Empty histogram → every bin has count 0, smallest index wins
+    // (which is index 0). Since constructor pads bins to at least 1,
+    // the iteration below also returns 0 in that case; we just
+    // short-circuit to make the contract obvious.
+    if (counts_.empty()) return 0;
+    std::size_t best_idx = 0;
+    std::uint64_t best_count = counts_[0];
+    for (std::size_t i = 1; i < counts_.size(); ++i) {
+        // Strict greater-than: ties broken by smallest index, so we
+        // only update when the new bin is strictly larger.
+        if (counts_[i] > best_count) {
+            best_count = counts_[i];
+            best_idx   = i;
+        }
+    }
+    return best_idx;
+}
+
 std::vector<double> Histogram::cdf() const {
     std::lock_guard<std::mutex> lk(mu_);
     std::vector<double> out(counts_.size(), 0.0);
@@ -637,6 +666,22 @@ Result<void> DriftMonitor::reset(std::string_view feature) {
     return Result<void>::ok();
 }
 
+void DriftMonitor::reset_all() {
+    // All-features analogue of reset(name). Like reset(), this clears
+    // the per-feature current window AND the last_severity_ tracking
+    // map — distinct from rotate(), which only rebuilds the current
+    // histograms and leaves alert tracking intact. The combined
+    // semantics let an operator declare a fresh start: data window
+    // empty AND alert ladder reset, so the sink can re-fire from the
+    // bottom on the next observation that crosses the threshold.
+    std::lock_guard<std::mutex> lk(mu_);
+    for (auto& [_, fs] : features_) {
+        fs->current = std::make_unique<Histogram>(
+            fs->current->lo(), fs->current->hi(), fs->current->bin_count());
+    }
+    last_severity_.clear();
+}
+
 std::vector<std::string> DriftMonitor::list_features() const {
     std::lock_guard<std::mutex> lk(mu_);
     std::vector<std::string> out;
@@ -660,6 +705,16 @@ bool DriftMonitor::has_feature(std::string_view name) const noexcept {
         // propagate.
         return false;
     }
+}
+
+bool DriftMonitor::is_registered(std::string_view feature) const noexcept {
+    // Sugar wrapper: identical semantics to has_feature(), exposed under
+    // a name that reads naturally as a registration predicate. Callers
+    // that frame the question as "did register_feature() run for this
+    // name?" reach for this; callers that frame it as "does the monitor
+    // own this name?" reach for has_feature(). Both swallow internal
+    // errors → false, matching the noexcept contract.
+    return has_feature(feature);
 }
 
 Result<std::uint64_t> DriftMonitor::observation_count(std::string_view feature) const {

@@ -4276,3 +4276,241 @@ TEST_CASE("any_actor_matches: agrees with range_by_actor presence") {
     check("bob");
     check("ghost");
 }
+
+// ============== Ledger::most_recent_for_actor ============================
+
+TEST_CASE("most_recent_for_actor returns the largest-seq matching entry") {
+    auto p = tmp_db("mrfa_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json{{"i", 2}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 3}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 4}}, ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json{{"i", 5}}, ""));
+    auto r = l.most_recent_for_actor("alice"); REQUIRE(r);
+    CHECK(r.value().header.seq == 4);
+    auto body = nlohmann::json::parse(r.value().body_json);
+    CHECK(body["i"] == 4);
+}
+
+TEST_CASE("most_recent_for_actor: empty actor rejected; missing returns not_found") {
+    auto p = tmp_db("mrfa_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    auto r1 = l.most_recent_for_actor("");
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.most_recent_for_actor("ghost");
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("most_recent_for_actor on empty ledger returns not_found") {
+    auto p = tmp_db("mrfa_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().most_recent_for_actor("alice");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("most_recent_for_actor matches tail_by_actor[0]") {
+    auto p = tmp_db("mrfa_consistent");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 12; i++) {
+        REQUIRE(l.append("e", (i % 3 == 0) ? "alice" : "bob",
+                         nlohmann::json{{"i", i}}, ""));
+    }
+    auto tail = l.tail_by_actor("alice", 1); REQUIRE(tail);
+    REQUIRE(!tail.value().empty());
+    auto top = l.most_recent_for_actor("alice"); REQUIRE(top);
+    CHECK(top.value().header.seq == tail.value().front().header.seq);
+}
+
+// ============== Ledger::distinct_actors_count ============================
+
+TEST_CASE("distinct_actors_count returns the cardinality of distinct actors") {
+    auto p = tmp_db("dac_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice",                nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "bob",                  nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "alice",                nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "system:drift_monitor", nlohmann::json::object(), ""));
+    auto r = l.distinct_actors_count(); REQUIRE(r);
+    CHECK(r.value() == 3u);
+}
+
+TEST_CASE("distinct_actors_count: empty chain returns 0") {
+    auto p = tmp_db("dac_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().distinct_actors_count(); REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("distinct_actors_count agrees with actors().size()") {
+    auto p = tmp_db("dac_parity");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 25; i++) {
+        // Five distinct actors, repeated.
+        std::string a = "actor_" + std::to_string(i % 5);
+        REQUIRE(l.append("e", a, nlohmann::json{{"i", i}}, ""));
+    }
+    auto names = l.actors(); REQUIRE(names);
+    auto count = l.distinct_actors_count(); REQUIRE(count);
+    CHECK(count.value() == names.value().size());
+    CHECK(count.value() == 5u);
+}
+
+// ============== Ledger::seq_density ======================================
+
+TEST_CASE("seq_density: empty and single-entry chains return 0.0") {
+    auto p = tmp_db("sd_short");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r0 = l.seq_density(); REQUIRE(r0);
+    CHECK(r0.value() == 0.0);
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r1 = l.seq_density(); REQUIRE(r1);
+    CHECK(r1.value() == 0.0);
+}
+
+TEST_CASE("seq_density: roughly matches (length-1)/elapsed for a paced chain") {
+    auto p = tmp_db("sd_paced");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    constexpr int N = 6;
+    for (int i = 0; i < N; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    }
+    auto r = l.seq_density(); REQUIRE(r);
+    // Strict positive density and bounded by the manual span.
+    CHECK(r.value() > 0.0);
+    auto oldest = l.at(1);            REQUIRE(oldest);
+    auto newest = l.at(l.length());   REQUIRE(newest);
+    auto span_ns = newest.value().header.ts - oldest.value().header.ts;
+    auto seconds = static_cast<double>(span_ns.count()) / 1e9;
+    REQUIRE(seconds > 0.0);
+    auto expected = static_cast<double>(N - 1) / seconds;
+    CHECK(r.value() == doctest::Approx(expected));
+}
+
+TEST_CASE("seq_density: scales inversely with elapsed time between bursts") {
+    auto p = tmp_db("sd_scaling");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Tightly-packed: high density.
+    for (int i = 0; i < 10; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto fast = l.seq_density(); REQUIRE(fast);
+    // After a deliberate pause and one more entry, density drops.
+    std::this_thread::sleep_for(std::chrono::milliseconds{30});
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto slow = l.seq_density(); REQUIRE(slow);
+    CHECK(fast.value() > 0.0);
+    CHECK(slow.value() > 0.0);
+    // Inserting an extra delay between the last two appends should not
+    // raise density above the pre-pause snapshot.
+    CHECK(slow.value() <= fast.value());
+}
+
+// ============== Ledger::find_first_for_actor =============================
+
+TEST_CASE("find_first_for_actor returns the oldest matching entry") {
+    auto p = tmp_db("ffa_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "bob",   nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 2}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 3}}, ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json{{"i", 4}}, ""));
+    auto r = l.find_first_for_actor("alice"); REQUIRE(r);
+    CHECK(r.value().header.seq == 2);
+    auto body = nlohmann::json::parse(r.value().body_json);
+    CHECK(body["i"] == 2);
+}
+
+TEST_CASE("find_first_for_actor: empty actor rejected; missing returns not_found") {
+    auto p = tmp_db("ffa_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    auto r1 = l.find_first_for_actor("");
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.find_first_for_actor("ghost");
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_first_for_actor on empty ledger returns not_found") {
+    auto p = tmp_db("ffa_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().find_first_for_actor("alice");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_first_for_actor matches range_by_actor[0]") {
+    auto p = tmp_db("ffa_consistent");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 12; i++) {
+        REQUIRE(l.append("e", (i % 4 == 0) ? "alice" : "bob",
+                         nlohmann::json{{"i", i}}, ""));
+    }
+    auto rng = l.range_by_actor("alice"); REQUIRE(rng);
+    REQUIRE(!rng.value().empty());
+    auto first = l.find_first_for_actor("alice"); REQUIRE(first);
+    CHECK(first.value().header.seq == rng.value().front().header.seq);
+}
+
+// ============== Ledger::is_chain_continuous ==============================
+
+TEST_CASE("is_chain_continuous: clean chain reports true; empty chain reports true") {
+    auto p = tmp_db("icc_clean");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain — no gaps.
+    CHECK(l.is_chain_continuous());
+    for (int i = 0; i < 8; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    CHECK(l.is_chain_continuous());
+}
+
+TEST_CASE("is_chain_continuous: detects tampered prev_hash as discontinuous") {
+    auto p = tmp_db("icc_break");
+    {
+        auto led = Ledger::open(p); REQUIRE(led);
+        auto& l  = led.value();
+        REQUIRE(l.append("e", "actor", nlohmann::json{{"x", 1}}, ""));
+        REQUIRE(l.append("e", "actor", nlohmann::json{{"x", 2}}, ""));
+    }
+    // Zero out prev_hash on entry 2 to fabricate a chain break.
+    sqlite3* db = nullptr;
+    REQUIRE(sqlite3_open(p.string().c_str(), &db) == SQLITE_OK);
+    REQUIRE(sqlite3_exec(db,
+        "UPDATE asclepius_ledger SET prev_hash = zeroblob(32) WHERE seq = 2;",
+        nullptr, nullptr, nullptr) == SQLITE_OK);
+    sqlite3_close(db);
+
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    CHECK_FALSE(l_.value().is_chain_continuous());
+}
+
+TEST_CASE("is_chain_continuous: agrees with verify().has_value()") {
+    auto p = tmp_db("icc_parity");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto v = l.verify();
+    CHECK(l.is_chain_continuous() == v.has_value());
+}

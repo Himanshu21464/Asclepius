@@ -100,6 +100,20 @@ public:
     // Empty histograms return 0.0 (matching quantile()).
     double percentile(double p) const;
 
+    // Convenience wrapper over percentile(99.0). The 99th percentile is
+    // the canonical "tail latency" cutoff that operator dashboards lean
+    // on; it deserves its own name so call sites read self-documenting
+    // rather than as a magic number. Empty histograms return 0.0
+    // (matching quantile()).
+    double p99() const;
+
+    // Index of the bin with the highest count (the modal bin). Ties are
+    // broken by smallest index. Returns 0 on an empty histogram (since
+    // every bin has count 0, the smallest index wins). Useful for
+    // dashboards that want to highlight the most-populated band of a
+    // distribution without unpacking the full counts vector.
+    std::size_t nth_largest_bin() const;
+
     // Convenience wrapper over quantile(0.5). Returns 0.0 on an empty
     // histogram (matching quantile()).
     double median() const;
@@ -248,6 +262,14 @@ public:
     // registered. Locked, but does not allocate or compute drift.
     bool has_feature(std::string_view name) const noexcept;
 
+    // Sugar wrapper over has_feature(). Reads more naturally on call
+    // sites that frame registration as the predicate ("is this feature
+    // registered?") rather than ownership ("does the monitor have this
+    // feature?"). noexcept; on internal failure (lock or string
+    // construction throw) returns false rather than propagating —
+    // matching has_feature().
+    bool is_registered(std::string_view feature) const noexcept;
+
     // Returns the current-window observation count for a feature. Returns
     // not_found if the feature was never registered. Useful for sidecars
     // that want to gate report() on a minimum sample size.
@@ -286,6 +308,20 @@ public:
     // which clears all features. Returns not_found if the feature was
     // never registered.
     Result<void> reset(std::string_view feature);
+
+    // Reset every feature's current window AND clear the per-feature
+    // last_severity_ tracking map. This is the all-features analogue of
+    // reset(name): both clear the current window, and reset_all() also
+    // clears alert tracking so the alert sink can re-fire from the
+    // bottom of the threshold ladder.
+    //
+    // Distinct from rotate(): rotate() only rebuilds the current
+    // histograms (preserving baselines) but DOES NOT clear
+    // last_severity_, so a feature that was already at "severe" stays
+    // marked as severe until clear_alerts() is called separately. Use
+    // reset_all() when an operator wants a full fresh start — both data
+    // and alert state — rather than just rotating the data window.
+    void reset_all();
 
     // Reset the internal last_severity_ tracking map. Used after an
     // operator acknowledges drift alerts so the alert sink can fire
@@ -427,6 +463,20 @@ public:
     // Sum of all counter values across the registry. Used as a "global
     // event count" probe for liveness dashboards. Locked.
     std::uint64_t counter_total() const;
+
+    // Sum of all counter values whose name starts with `prefix`. An
+    // empty prefix matches every counter, which makes this equivalent
+    // to counter_total(). Useful for "all *_total counters" or
+    // "everything under this subsystem prefix" dashboards that want a
+    // single scalar without enumerating names. Locked.
+    std::uint64_t sum_counters_with_prefix(std::string_view prefix) const;
+
+    // Largest counter value across the registry. Returns 0 on an empty
+    // registry (consistent with counter_total()). Pairs with
+    // counter_total() as a "what's the worst single counter saying?"
+    // probe for sidecars that want to gate on a hot counter without
+    // enumerating the full snapshot.
+    std::uint64_t counter_max() const;
 
     // Number of registered histograms. Named `_total` to avoid clashing
     // with the existing histogram_count(name) reader, which returns the

@@ -300,6 +300,30 @@ std::uint64_t MetricRegistry::counter_total() const {
     return s;
 }
 
+std::uint64_t MetricRegistry::sum_counters_with_prefix(std::string_view prefix) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    // Empty prefix is the "match every counter" sentinel — equivalent
+    // to counter_total(). std::string_view::starts_with(""sv) is
+    // unconditionally true, so the branch falls out naturally; we
+    // don't need a special case here.
+    std::uint64_t s = 0;
+    for (const auto& [name, v] : counters_) {
+        if (std::string_view{name}.starts_with(prefix)) {
+            s += v;
+        }
+    }
+    return s;
+}
+
+std::uint64_t MetricRegistry::counter_max() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::uint64_t best = 0;
+    for (const auto& [_, v] : counters_) {
+        if (v > best) best = v;
+    }
+    return best;
+}
+
 std::size_t MetricRegistry::histogram_count_total() const {
     std::lock_guard<std::mutex> lk(mu_);
     return histograms_.size();

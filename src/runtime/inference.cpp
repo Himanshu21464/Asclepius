@@ -556,6 +556,24 @@ Result<void> Inference::commit_idempotent(std::size_t lookback) {
     return commit();
 }
 
+Result<void> Inference::ensure_committed() {
+    // Idempotent in-handle commit. commit() is itself idempotent
+    // within the lifetime of a single handle (a second call on a
+    // committed handle returns ok), so this is essentially that path
+    // expressed once at the call site. The distinct method exists so
+    // sidecar shutdown loops can write `inf.ensure_committed()` and
+    // not have to know whether they already committed earlier on the
+    // fast path — different shape from commit_idempotent(), which
+    // pays for a chain scan to dedupe across handles.
+    if (!impl_) {
+        return Error::invalid("ensure_committed called on null handle");
+    }
+    if (impl_->committed) {
+        return Result<void>::ok();
+    }
+    return commit();
+}
+
 Result<void> Inference::add_metadata(std::string_view key, nlohmann::json value) {
     if (key.empty()) {
         return Error::invalid("metadata key is empty");
@@ -619,6 +637,18 @@ void Inference::clear_metadata(std::string_view key) noexcept {
     auto md = impl_->ledger_body.find("metadata");
     if (md == impl_->ledger_body.end() || !md->is_object()) return;
     md->erase(std::string{key});
+}
+
+Result<void> Inference::tag(std::string_view label) {
+    // Sugar — equivalent to add_metadata("tag", <label as JSON string>).
+    // Empty label is rejected here so the diagnostic names the right
+    // method ("tag", not "metadata"). All other rules — reserved-key
+    // semantics, post-commit rejection, replace-on-duplicate — fall out
+    // of forwarding to add_metadata under the fixed key "tag".
+    if (label.empty()) {
+        return Error::invalid("tag label is empty");
+    }
+    return add_metadata("tag", nlohmann::json(std::string{label}));
 }
 
 Result<void> Inference::capture_override(std::string rationale, nlohmann::json corrected) {

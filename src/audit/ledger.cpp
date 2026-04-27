@@ -511,6 +511,11 @@ Result<void> Ledger::verify() const {
     return Result<void>::ok();
 }
 
+bool Ledger::is_chain_continuous() const {
+    auto r = verify();
+    return r.has_value();
+}
+
 Hash          Ledger::head()       const { return impl_->head; }
 std::uint64_t Ledger::length()     const { return impl_->length.load(); }
 std::array<std::uint8_t, KeyStore::pk_bytes> Ledger::public_key() const { return impl_->public_key; }
@@ -862,6 +867,16 @@ Result<std::vector<std::string>> Ledger::actors() const {
     for (const auto& [a, _] : seen) out.push_back(a);
     std::sort(out.begin(), out.end());
     return out;
+}
+
+Result<std::uint64_t> Ledger::distinct_actors_count() const {
+    std::unordered_map<std::string, std::uint8_t> seen;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        seen.emplace(e.header.actor, 1);
+        return true;
+    });
+    if (!r) return r.error();
+    return static_cast<std::uint64_t>(seen.size());
 }
 
 Result<std::vector<LedgerEntry>>
@@ -1507,6 +1522,41 @@ Ledger::tail_by_actor(std::string_view actor, std::size_t n) const {
     return ring;
 }
 
+Result<LedgerEntry>
+Ledger::most_recent_for_actor(std::string_view actor) const {
+    if (actor.empty()) {
+        return Error::invalid("most_recent_for_actor requires non-empty actor");
+    }
+    auto r = tail_by_actor(actor, 1);
+    if (!r) return r.error();
+    if (r.value().empty()) {
+        return Error::not_found(fmt::format(
+            "no ledger entry matches actor '{}'", actor));
+    }
+    return std::move(r.value().front());
+}
+
+Result<LedgerEntry>
+Ledger::find_first_for_actor(std::string_view actor) const {
+    if (actor.empty()) {
+        return Error::invalid("find_first_for_actor requires non-empty actor");
+    }
+    std::optional<LedgerEntry> hit;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.actor == actor) {
+            hit = e;
+            return false;  // stop scanning on first match
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    if (!hit) {
+        return Error::not_found(fmt::format(
+            "no ledger entry matches actor '{}'", actor));
+    }
+    return std::move(*hit);
+}
+
 Result<LedgerEntry> Ledger::find_by_inference_id(std::string_view id) const {
     if (id.empty()) {
         return Error::invalid("find_by_inference_id requires non-empty id");
@@ -1601,6 +1651,19 @@ Result<std::uint64_t> Ledger::cumulative_body_bytes() const {
     });
     if (!r) return r.error();
     return total;
+}
+
+Result<double> Ledger::seq_density() const {
+    const auto len = impl_->length.load();
+    if (len < 2) return 0.0;
+    auto oldest = impl_->storage->select_at(1);
+    if (!oldest) return oldest.error();
+    auto newest = impl_->storage->select_at(len);
+    if (!newest) return newest.error();
+    auto span_ns = newest.value().header.ts - oldest.value().header.ts;
+    auto seconds = static_cast<double>(span_ns.count()) / 1e9;
+    if (!(seconds > 0.0)) return 0.0;
+    return static_cast<double>(len - 1) / seconds;
 }
 
 Result<std::vector<LedgerEntry>>

@@ -222,6 +222,22 @@ MetricRegistry&    Runtime::metrics()         { return impl_->metrics; }
 const PolicyChain& Runtime::policies() const  { return impl_->policies; }
 const Ledger&      Runtime::ledger()   const  { return impl_->ledger; }
 
+Result<LedgerEntry> Runtime::record_event(std::string event_type,
+                                          std::string actor,
+                                          nlohmann::json body,
+                                          std::string tenant) {
+    // Direct sugar over Ledger::append. The runtime adds no implicit
+    // fields — sidecars use this to record their own operational
+    // events ("config.reloaded", "shutdown.initiated") into the same
+    // chain that carries the inference lifecycle, so a single audit
+    // walk covers both. Forwards verbatim, errors propagate from the
+    // backend.
+    return impl_->ledger.append(std::move(event_type),
+                                std::move(actor),
+                                std::move(body),
+                                std::move(tenant));
+}
+
 std::size_t Runtime::ledger_length() const noexcept {
     return static_cast<std::size_t>(impl_->ledger.length());
 }
@@ -263,6 +279,15 @@ bool Runtime::is_idle(std::chrono::milliseconds threshold) const {
     const auto& last = t.value().front();
     auto since = Time::now() - last.header.ts;
     return since > std::chrono::duration_cast<std::chrono::nanoseconds>(threshold);
+}
+
+bool Runtime::is_busy(std::chrono::milliseconds threshold) const {
+    // Pure negation of is_idle(threshold). Same backend cost (one
+    // tail(1) lookup); same backend-hiccup collapse to a "safer"
+    // verdict — there, "safer" was "not idle"; here, "safer" is
+    // "not busy" (a sidecar that asks `is_busy()` is usually gating
+    // a piece of work it would skip if uncertain about activity).
+    return !is_idle(threshold);
 }
 
 std::string Runtime::generate_trace_id() const {
@@ -376,6 +401,39 @@ std::string Runtime::quick_status() const {
     out += kDot;
     out += std::to_string(h.policy_count);
     out += " policies";
+    return out;
+}
+
+std::string Runtime::status_line() const {
+    // Single-line ASCII summary for /healthz text endpoints and CLI
+    // banner modes. Mirrors quick_status()'s middle-dot separator
+    // (U+00B7, UTF-8 0xC2 0xB7) — strictly, that makes this UTF-8
+    // rather than 7-bit ASCII, but it matches the rest of the
+    // runtime's shell-friendly summaries and renders in every
+    // terminal we've seen. Pulls from version() + health(); never
+    // errors. Built with reserve() to keep this allocation-light
+    // for /healthz hot paths.
+    auto h = health();
+    constexpr const char* kDot = " \xC2\xB7 ";
+    std::string out;
+    out.reserve(160);
+    out += "asclepius v";
+    out += version();
+    out += kDot;
+    out += "ledger=";
+    out += std::to_string(h.ledger_length);
+    out += kDot;
+    out += "key=";
+    out += h.ledger_key_id;
+    out += kDot;
+    out += "policies=";
+    out += std::to_string(h.policy_count);
+    out += kDot;
+    out += "drift_features=";
+    out += std::to_string(h.drift_features);
+    out += kDot;
+    out += "active_consent=";
+    out += std::to_string(h.active_consent_tokens);
     return out;
 }
 

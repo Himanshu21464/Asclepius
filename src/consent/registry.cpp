@@ -725,6 +725,83 @@ Result<ConsentToken> ConsentRegistry::most_recently_granted() const {
     return *best;
 }
 
+Result<ConsentToken>
+ConsentRegistry::most_recently_revoked_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const ConsentToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (!t.revoked)           continue;
+        if (t.patient != patient) continue;
+        if (best == nullptr || t.issued_at > best->issued_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no revoked consent tokens for patient");
+    }
+    return *best;
+}
+
+Result<std::chrono::nanoseconds>
+ConsentRegistry::age_of_oldest_active() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    const ConsentToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        if (best == nullptr || t.issued_at < best->issued_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no active consent tokens");
+    }
+    return now - best->issued_at;
+}
+
+std::unordered_map<std::string, std::size_t>
+ConsentRegistry::token_count_by_patient() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::unordered_map<std::string, std::size_t> out;
+    out.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        out[std::string{t.patient.str()}]++;
+    }
+    return out;
+}
+
+std::size_t
+ConsentRegistry::tokens_expiring_soon(std::chrono::seconds horizon) const {
+    if (horizon.count() <= 0) {
+        return 0;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now      = Time::now();
+    const auto deadline = now + std::chrono::nanoseconds{horizon};
+    std::size_t n = 0;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.expires_at < deadline) {
+            n++;
+        }
+    }
+    return n;
+}
+
+bool ConsentRegistry::has_revoked_tokens() const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        for (const auto& [_, t] : by_id_) {
+            if (t.revoked) return true;
+        }
+        return false;
+    } catch (...) {
+        return false;
+    }
+}
+
 std::unordered_map<Purpose, std::size_t>
 ConsentRegistry::tokens_count_by_purpose() const {
     std::lock_guard<std::mutex> lk(mu_);

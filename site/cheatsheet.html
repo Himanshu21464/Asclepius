@@ -561,6 +561,25 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 84 <small>status banners · actor history · busy-vs-idle</small></h2>
+      <dl class="pair">
+        <dt><code>rt.status_line()</code></dt><dd>one-line ASCII banner — <code>asclepius v… · ledger=N · key=… · policies=N · drift_features=N · active_consent=N</code></dd>
+        <dt><code>rt.is_busy(ms)</code></dt><dd>negation of <code>is_idle</code> — admission-shed gate</dd>
+        <dt><code>rt.record_event(type, actor, body, tenant)</code></dt><dd>caller-driven ledger append for non-inference events — no policy chain, no consent gate</dd>
+        <dt><code>ledger.most_recent_for_actor(a) · find_first_for_actor(a)</code></dt><dd>newest · earliest entry per actor without a tail vector</dd>
+        <dt><code>ledger.distinct_actors_count() · seq_density()</code></dt><dd>cardinality without the vector · entries-per-second over chain lifespan</dd>
+        <dt><code>ledger.is_chain_continuous()</code></dt><dd>boolean sugar over <code>verify()</code> — deploy-gate / replica-promotion bool</dd>
+        <dt><code>hist.p99() · nth_largest_bin(n)</code></dt><dd>operator-vocabulary p99 · n-th-densest bin for multi-modality detection</dd>
+        <dt><code>metrics.sum_counters_with_prefix(prefix) · counter_max()</code></dt><dd>namespace-scoped fold (<code>policy.*</code>) · busiest single counter</dd>
+        <dt><code>drift.is_registered(f) · reset_all()</code></dt><dd>noexcept startup-gate bool · clears windows AND alert tracking, distinct from <code>rotate()</code></dd>
+        <dt><code>consent.most_recently_revoked_for_patient(p)</code></dt><dd>per-patient sibling of <code>recently_revoked(window)</code> — no full vector</dd>
+        <dt><code>consent.age_of_oldest_active() · token_count_by_patient()</code></dt><dd>oldest active token age (<code>chrono::ns</code>) · per-patient totals map</dd>
+        <dt><code>consent.tokens_expiring_soon(h) · has_revoked_tokens()</code></dt><dd>renewal-queue depth · noexcept "any withdrawal ever?"</dd>
+        <dt><code>inf.tag(label) · ensure_committed()</code></dt><dd>sugar over <code>add_metadata("tag", …)</code> · idempotent commit-if-not-committed</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Round 83 <small>composite filters · lifecycle states · trace plumbing</small></h2>
       <dl class="pair">
         <dt><code>ledger.range_for_actor_in_window(a, t0, t1)</code></dt><dd>composite filter — actor + time-window in one query</dd>

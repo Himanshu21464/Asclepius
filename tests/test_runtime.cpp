@@ -3713,3 +3713,318 @@ TEST_CASE("observe_drift_named: equivalent to observe_drift across many calls") 
     CHECK(std::find(features.begin(), features.end(), "equiv")
           != features.end());
 }
+
+// ============== Inference::tag ============================================
+
+TEST_CASE("tag: writes label under metadata as a JSON string") {
+    auto rt_ = fresh_runtime("tag_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tag_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().tag("cohort_a"));
+    auto got = inf.value().get_metadata("tag");
+    REQUIRE(got);
+    REQUIRE(got.value().is_string());
+    CHECK(got.value().get<std::string>() == "cohort_a");
+}
+
+TEST_CASE("tag: empty label is rejected with invalid_argument") {
+    auto rt_ = fresh_runtime("tag_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tag_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto r = inf.value().tag("");
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+    // No metadata side-effect from a rejected call.
+    auto h = inf.value().has_metadata("tag");
+    REQUIRE(h);
+    CHECK(!h.value());
+}
+
+TEST_CASE("tag: replace-on-duplicate; rejected after commit") {
+    auto rt_ = fresh_runtime("tag_dup"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tag_d");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().tag("first"));
+    REQUIRE(inf.value().tag("second"));
+    auto got = inf.value().get_metadata("tag");
+    REQUIRE(got);
+    CHECK(got.value().get<std::string>() == "second");
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // After commit, tag() inherits add_metadata's "metadata after commit"
+    // contract.
+    auto post = inf.value().tag("third");
+    REQUIRE(!post);
+    CHECK(post.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("tag: bucketed inferences appear in the committed ledger body") {
+    auto rt_ = fresh_runtime("tag_commit"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tag_c");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().tag("lane_b"));
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    auto recent = rt.recent_inferences(1);
+    REQUIRE(recent);
+    REQUIRE(!recent.value().empty());
+    auto j = nlohmann::json::parse(recent.value().front().body_json);
+    REQUIRE(j.contains("metadata"));
+    REQUIRE(j["metadata"].contains("tag"));
+    CHECK(j["metadata"]["tag"].get<std::string>() == "lane_b");
+}
+
+// ============== Runtime::record_event =====================================
+
+TEST_CASE("record_event: appends a caller-driven event to the ledger") {
+    auto rt_ = fresh_runtime("rec_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    const auto before = rt.ledger().length();
+    nlohmann::json body;
+    body["reason"] = "rotation";
+    auto e = rt.record_event("config.reloaded",
+                             "system:sidecar",
+                             body);
+    REQUIRE(e);
+    CHECK(e.value().header.event_type == "config.reloaded");
+    CHECK(rt.ledger().length() == before + 1);
+    REQUIRE(rt.ledger().verify());
+}
+
+TEST_CASE("record_event: forwards body and tenant verbatim to the ledger") {
+    auto rt_ = fresh_runtime("rec_tenant"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    nlohmann::json body;
+    body["seq"]    = 7;
+    body["nested"] = nlohmann::json::object({{"k", "v"}});
+    auto e = rt.record_event("shutdown.initiated",
+                             "system:supervisor",
+                             body,
+                             "tenant_xyz");
+    REQUIRE(e);
+    auto fetched = rt.ledger().at(e.value().header.seq);
+    REQUIRE(fetched);
+    CHECK(fetched.value().header.tenant == "tenant_xyz");
+    auto j = nlohmann::json::parse(fetched.value().body_json);
+    CHECK(j["seq"].get<int>() == 7);
+    CHECK(j["nested"]["k"].get<std::string>() == "v");
+}
+
+TEST_CASE("record_event: many sidecar events interleave with inference.committed") {
+    auto rt_ = fresh_runtime("rec_mix"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rec_m");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // Interleave some custom events around an inference commit so we
+    // can verify they all land in the same chain without breaking it.
+    REQUIRE(rt.record_event("custom.before",
+                            "system:s",
+                            nlohmann::json::object({{"i", 0}})));
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    REQUIRE(rt.record_event("custom.after",
+                            "system:s",
+                            nlohmann::json::object({{"i", 1}})));
+    REQUIRE(rt.ledger().verify());
+    // Events of our custom type are addressable via tail_by_event_type.
+    auto found_before = rt.ledger().tail_by_event_type("custom.before", 4);
+    REQUIRE(found_before);
+    CHECK(found_before.value().size() == 1);
+    auto found_after = rt.ledger().tail_by_event_type("custom.after", 4);
+    REQUIRE(found_after);
+    CHECK(found_after.value().size() == 1);
+}
+
+// ============== Runtime::is_busy ==========================================
+
+TEST_CASE("is_busy: empty chain is never busy") {
+    auto rt_ = fresh_runtime("busy_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.is_chain_empty());
+    CHECK(!rt.is_busy(std::chrono::milliseconds{0}));
+    CHECK(!rt.is_busy(std::chrono::milliseconds{500}));
+}
+
+TEST_CASE("is_busy: true right after a recent commit, false after threshold elapses") {
+    auto rt_ = fresh_runtime("busy_recent"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_busy_r");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    CHECK(rt.is_busy(std::chrono::milliseconds{1000}));
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    CHECK(!rt.is_busy(std::chrono::milliseconds{5}));
+}
+
+TEST_CASE("is_busy: exact negation of is_idle across a sample of thresholds") {
+    auto rt_ = fresh_runtime("busy_neg"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_busy_n");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    for (auto th : {std::chrono::milliseconds{0},
+                    std::chrono::milliseconds{1},
+                    std::chrono::milliseconds{50},
+                    std::chrono::milliseconds{500},
+                    std::chrono::milliseconds{5000}}) {
+        CHECK(rt.is_busy(th) != rt.is_idle(th));
+    }
+}
+
+// ============== Runtime::status_line ======================================
+
+TEST_CASE("status_line: contains every expected field on a fresh runtime") {
+    auto rt_ = fresh_runtime("sl_fresh"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto line = rt.status_line();
+    // Contains the asclepius prefix + version.
+    CHECK(line.find("asclepius v") != std::string::npos);
+    CHECK(line.find(rt.version()) != std::string::npos);
+    // Each labelled segment.
+    CHECK(line.find("ledger=") != std::string::npos);
+    CHECK(line.find("key=")    != std::string::npos);
+    CHECK(line.find("policies=") != std::string::npos);
+    CHECK(line.find("drift_features=") != std::string::npos);
+    CHECK(line.find("active_consent=") != std::string::npos);
+    // Single-line: no embedded newline.
+    CHECK(line.find('\n') == std::string::npos);
+    // Distinct from the JSON-shaped to_json() — must not start with '{'.
+    CHECK(!line.empty());
+    CHECK(line.front() != '{');
+}
+
+TEST_CASE("status_line: numeric segments reflect health() exactly") {
+    auto rt_ = fresh_runtime("sl_numbers"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_phi_scrubber());
+    REQUIRE(rt.drift().register_feature("sl_feat", {0.1}, 0.0, 1.0, 4));
+    auto pid = PatientId::pseudonymous("p_sl_n");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h);
+    REQUIRE(tok);
+    auto h = rt.health();
+    auto line = rt.status_line();
+    CHECK(line.find("ledger=" + std::to_string(h.ledger_length))
+          != std::string::npos);
+    CHECK(line.find("policies=" + std::to_string(h.policy_count))
+          != std::string::npos);
+    CHECK(line.find("drift_features=" + std::to_string(h.drift_features))
+          != std::string::npos);
+    CHECK(line.find("active_consent=" +
+                    std::to_string(h.active_consent_tokens))
+          != std::string::npos);
+    CHECK(line.find("key=" + h.ledger_key_id) != std::string::npos);
+}
+
+TEST_CASE("status_line: stable across calls and distinct from to_json()") {
+    auto rt_ = fresh_runtime("sl_stable"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto a = rt.status_line();
+    auto b = rt.status_line();
+    CHECK(a == b);
+    // The JSON form is a different shape — at the very least, status_line
+    // is a single line and to_json() starts with '{'.
+    auto js = rt.health().to_json();
+    CHECK(js.front() == '{');
+    CHECK(a != js);
+}
+
+// ============== Inference::ensure_committed ===============================
+
+TEST_CASE("ensure_committed: commits a never-committed handle") {
+    auto rt_ = fresh_runtime("ec_first"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ec_f");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(!inf.value().is_committed());
+    const auto before = rt.ledger().length();
+    REQUIRE(inf.value().ensure_committed());
+    CHECK(inf.value().is_committed());
+    CHECK(rt.ledger().length() == before + 1);
+}
+
+TEST_CASE("ensure_committed: no-op on an already-committed handle") {
+    auto rt_ = fresh_runtime("ec_idem"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ec_i");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    const auto first_seq = inf.value().seq();
+    REQUIRE(first_seq);
+    const auto length_after_commit = rt.ledger().length();
+    // Repeat ensure_committed several times — none should re-append.
+    REQUIRE(inf.value().ensure_committed());
+    REQUIRE(inf.value().ensure_committed());
+    REQUIRE(inf.value().ensure_committed());
+    CHECK(rt.ledger().length() == length_after_commit);
+    auto seq_after = inf.value().seq();
+    REQUIRE(seq_after);
+    CHECK(seq_after.value() == first_seq.value());
+}
+
+TEST_CASE("ensure_committed: surfaces commit errors, propagates run-not-called") {
+    auto rt_ = fresh_runtime("ec_norun"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ec_n");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // Without a prior run(), commit() returns invalid_argument; ensure_committed
+    // delegates to commit() and so must surface the same error.
+    auto r = inf.value().ensure_committed();
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("ensure_committed: chain stays well-formed across mixed shutdown loop") {
+    auto rt_ = fresh_runtime("ec_loop"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ec_l");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // Simulate a graceful-shutdown loop: some inferences already committed
+    // on the fast path, others left hanging. ensure_committed() should
+    // close the gap without duplicating the committed ones.
+    constexpr int kN = 6;
+    std::vector<Inference> handles;
+    handles.reserve(kN);
+    for (int i = 0; i < kN; ++i) {
+        auto h = begin(rt, pid, tok.token_id);
+        REQUIRE(h);
+        REQUIRE(h.value().run("hi",
+            [](std::string s) -> Result<std::string> { return s; }));
+        if (i % 2 == 0) {
+            REQUIRE(h.value().commit());
+        }
+        handles.emplace_back(std::move(h.value()));
+    }
+    const auto before = rt.ledger().length();
+    for (auto& h : handles) {
+        REQUIRE(h.ensure_committed());
+        CHECK(h.is_committed());
+    }
+    // Only the previously-uncommitted half (3 of 6) should have appended.
+    CHECK(rt.ledger().length() == before + 3);
+    REQUIRE(rt.ledger().verify());
+}

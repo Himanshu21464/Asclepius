@@ -186,7 +186,7 @@
   <div class="container">
     <span class="kbd">api · auto-generated · 2026-04-26</span>
     <h1>Every public symbol, <i>from the source.</i></h1>
-    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 240+ public symbols after rounds 57–75. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
+    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 290+ public symbols after rounds 57–84. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
   </div>
 </section>
 
@@ -194,16 +194,16 @@
 <section class="api-toc">
   <ul>
     <li><a href="#hdr-asclepius-hpp"><code>asclepius.hpp</code> <em>0 symbols</em></a></li>
-    <li><a href="#hdr-audit-hpp"><code>audit.hpp</code> <em>54 symbols</em></a></li>
-    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>32 symbols</em></a></li>
+    <li><a href="#hdr-audit-hpp"><code>audit.hpp</code> <em>59 symbols</em></a></li>
+    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>37 symbols</em></a></li>
     <li><a href="#hdr-core-hpp"><code>core.hpp</code> <em>19 symbols</em></a></li>
     <li><a href="#hdr-evaluation-hpp"><code>evaluation.hpp</code> <em>6 symbols</em></a></li>
     <li><a href="#hdr-hashing-hpp"><code>hashing.hpp</code> <em>11 symbols</em></a></li>
     <li><a href="#hdr-identity-hpp"><code>identity.hpp</code> <em>14 symbols</em></a></li>
     <li><a href="#hdr-fhir-hpp"><code>interop/fhir.hpp</code> <em>5 symbols</em></a></li>
     <li><a href="#hdr-policy-hpp"><code>policy.hpp</code> <em>17 symbols</em></a></li>
-    <li><a href="#hdr-runtime-hpp"><code>runtime.hpp</code> <em>39 symbols</em></a></li>
-    <li><a href="#hdr-telemetry-hpp"><code>telemetry.hpp</code> <em>48 symbols</em></a></li>
+    <li><a href="#hdr-runtime-hpp"><code>runtime.hpp</code> <em>44 symbols</em></a></li>
+    <li><a href="#hdr-telemetry-hpp"><code>telemetry.hpp</code> <em>54 symbols</em></a></li>
     <li><a href="#hdr-version-hpp"><code>version.hpp</code> <em>2 symbols</em></a></li>
   </ul>
 </section>
@@ -377,6 +377,16 @@
       <dd><pre>Result&lt;std::uint64_t&gt; body_byte_size_at(std::uint64_t seq)</pre><p>Logical body content size for one entry, without re-hashing or re-decoding. Pairs with <code>cumulative_body_bytes()</code> for "is this one row a giant?" outlier hunts.</p></dd>
       <dt><code>any_actor_matches</code></dt>
       <dd><pre>bool any_actor_matches(const ActorId&amp; actor)</pre><p>Cheap bool — true iff at least one entry on the chain names this actor. Avoids materializing <code>tail_by_actor</code> when only existence matters.</p></dd>
+      <dt><code>most_recent_for_actor</code></dt>
+      <dd><pre>Result&lt;LedgerEntry&gt; most_recent_for_actor(const ActorId&amp; actor)</pre><p>The newest entry an actor authored — the "what did clinician X do most recently?" cell on a per-actor row, without paying for the full <code>tail_by_actor(actor, 1)</code> vector materialization. Returns <code>not_found</code> when the actor has never appeared on the chain.</p></dd>
+      <dt><code>find_first_for_actor</code></dt>
+      <dd><pre>Result&lt;LedgerEntry&gt; find_first_for_actor(const ActorId&amp; actor)</pre><p>The earliest entry an actor authored — head-end mirror of <code>most_recent_for_actor</code>. Useful when reconstructing the moment a clinician first appeared on the chain, or the first system-actor event after onboarding. <code>not_found</code> when the actor is unknown.</p></dd>
+      <dt><code>distinct_actors_count</code></dt>
+      <dd><pre>std::size_t distinct_actors_count()</pre><p>Cardinality of <code>actors()</code> without paying for the full vector. The cheap "how many distinct actors has this chain ever seen?" cell on a fleet-overview row.</p></dd>
+      <dt><code>seq_density</code></dt>
+      <dd><pre>double seq_density()</pre><p>Entries-per-second rate over the chain's lifespan — <code>length() / age_of_oldest_seconds()</code>. Pairs with <code>length()</code> for the "how dense is this chain?" line a status page reads alongside age. Returns <code>0.0</code> on an empty chain.</p></dd>
+      <dt><code>is_chain_continuous</code></dt>
+      <dd><pre>bool is_chain_continuous()</pre><p>Boolean sugar over <code>verify()</code> — true iff the chain verifies cleanly end-to-end, false on any hash, signature, or seq discontinuity. The single bool a deploy-gate or replica-promotion check actually wants without unwrapping a <code>Result&lt;void&gt;</code>.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -523,6 +533,16 @@
       <dd><pre>Result&lt;TokenLifecycle&gt; token_lifecycle(std::string_view token_id)</pre><p>Lifecycle struct for one token — <code>state</code> (active / revoked / expired), the timestamps that drove that classification, and the <code>State</code> enum value the runtime currently treats it as. Priority is <em>revoked &gt; expired &gt; active</em>: a revoked-then-expired token reads as <code>revoked</code>, the verb the patient invoked.</p></dd>
       <dt><code>has_active_token</code></dt>
       <dd><pre>bool has_active_token(const PatientId&amp; patient) noexcept</pre><p><code>noexcept</code> bool — true iff this patient currently holds at least one active token. Cheaper than <code>permits_any_purpose</code> when the question is "any consent at all?" rather than "any purpose at all?"; never throws, never allocates.</p></dd>
+      <dt><code>most_recently_revoked_for_patient</code></dt>
+      <dd><pre>std::optional&lt;ConsentToken&gt; most_recently_revoked_for_patient(const PatientId&amp; patient)</pre><p>The single most recently revoked token for one patient, or <code>nullopt</code> when no revocation has landed for them. Per-patient sibling of the chain-wide <code>recently_revoked(window)</code> queue — the "when did this person last withdraw consent?" cell a per-patient compliance row reads without materializing every revoked token.</p></dd>
+      <dt><code>age_of_oldest_active</code></dt>
+      <dd><pre>Result&lt;std::chrono::nanoseconds&gt; age_of_oldest_active()</pre><p>Wall-clock distance between now and the <code>granted_at</code> of the oldest currently-active token. The "how long has this consent been running?" line a registry-health probe reads without composing <code>oldest_active</code> with <code>token_age</code>. Returns <code>not_found</code> when no active tokens exist.</p></dd>
+      <dt><code>token_count_by_patient</code></dt>
+      <dd><pre>std::map&lt;PatientId, std::size_t&gt; token_count_by_patient()</pre><p>Total token count (active, expired, revoked combined) grouped by patient. Pairs with <code>patient_with_most_tokens()</code> for the "who is churning consent?" dashboard view — one map, one pass; fold by hand only when a custom rank is needed.</p></dd>
+      <dt><code>tokens_expiring_soon</code></dt>
+      <dd><pre>std::size_t tokens_expiring_soon(std::chrono::seconds horizon)</pre><p>Cardinality without the vector — count of active tokens whose expiry falls inside the next <code>horizon</code>. Cheap sibling of <code>tokens_expiring_within(horizon)</code> when only the number is wanted (renewal-queue depth on a status page) rather than the full token list.</p></dd>
+      <dt><code>has_revoked_tokens</code></dt>
+      <dd><pre>bool has_revoked_tokens() noexcept</pre><p><code>noexcept</code> bool — true iff at least one token in the registry has been revoked. The cheap "has anyone ever withdrawn?" predicate; pairs with <code>recently_revoked(window)</code> as the windowed counterpart. Never throws, never allocates.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -844,6 +864,10 @@
       <dd><pre>std::string trace_summary()</pre><p>Single-line trace string for log emission: <code>inf=&lt;id&gt; patient=&lt;patient&gt; model=&lt;model&gt; status=&lt;status&gt; elapsed=&lt;ms&gt;ms</code>. The shape an APM index or a grep-able log line wants; cheaper than <code>body_snapshot()</code> and grep-friendly across runs.</p></dd>
       <dt><code>observe_drift_named</code></dt>
       <dd><pre>Result&lt;void&gt; observe_drift_named(std::string_view feature, double value)</pre><p>Sugar over <code>observe_drift</code> — same effect, named for the call site that wants the explicit "this drift observation has a name" vocabulary. The wrapper also makes a future signature change (e.g., adding labels) backwards-compatible at the named call site.</p></dd>
+      <dt><code>tag</code></dt>
+      <dd><pre>Result&lt;void&gt; tag(std::string label)</pre><p>Sugar over <code>add_metadata("tag", ...)</code> — attach a single-string label to the inference event without spelling out the metadata key at every call site. The "mark this row" verb a backfill or a per-shift slicer reaches for; hashed into the entry like any other metadata.</p></dd>
+      <dt><code>ensure_committed</code></dt>
+      <dd><pre>Result&lt;void&gt; ensure_committed()</pre><p>Idempotent commit-if-not-committed sugar — calls <code>commit()</code> only when <code>is_committed()</code> is false; returns <code>ok</code> otherwise. The "make sure this row landed, don't care whether I just committed it or someone else did" verb retry / shutdown / RAII-tail logic actually wants without composing the predicate with the action by hand.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -940,6 +964,12 @@
       <dd><pre>bool is_idle(std::uint64_t threshold_ms)</pre><p>Composite predicate — true iff the last committed inference's wall-clock distance to now exceeds <code>threshold_ms</code> and no inferences are currently in-flight. The "is this runtime quiet enough to spin down or run a maintenance task?" gate.</p></dd>
       <dt><code>generate_trace_id</code></dt>
       <dd><pre>std::string generate_trace_id()</pre><p>Hex-encoded 16-character trace id from libsodium <code>randombytes_buf</code> — the cheap, CSPRNG-backed correlation id a request handler stamps on the way in. Keeps trace ids consistent with the rest of the substrate's randomness rather than reaching for a separate UUID library.</p></dd>
+      <dt><code>record_event</code></dt>
+      <dd><pre>Result&lt;void&gt; record_event(std::string_view type, const ActorId&amp; actor, nlohmann::json body, const TenantId&amp; tenant)</pre><p>Caller-driven ledger append for non-inference events — system-actor heartbeats, governance ceremonies, third-party integration lifecycle. Distinct from <code>begin_inference</code>: no policy chain, no consent gate, no drift observation; one append, one signature, one entry. The escape hatch a sidecar uses to land custom audit rows without faking an inference handle.</p></dd>
+      <dt><code>is_busy</code></dt>
+      <dd><pre>bool is_busy(std::uint64_t threshold_ms)</pre><p>Negation of <code>is_idle(threshold_ms)</code> — true iff an inference has committed within the last <code>threshold_ms</code> or any handle is in-flight. The "should I shed traffic away from this runtime?" gate a load balancer reads naturally, without inverting the spin-down predicate at the call site.</p></dd>
+      <dt><code>status_line</code></dt>
+      <dd><pre>std::string status_line()</pre><p>One-line ASCII status string — <code>asclepius v&lt;ver&gt; · ledger=&lt;n&gt; · key=&lt;id&gt; · policies=&lt;n&gt; · drift_features=&lt;n&gt; · active_consent=&lt;n&gt;</code>. The single banner a CLI startup prints, a status-bar widget reads, or a health probe greps. Cheaper than <code>summary_string()</code> (multi-line) and <code>quick_status()</code> (no consent / policy counts); the densest one-line shape for "what's on this runtime, right now?"</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1018,6 +1048,10 @@
       <dd><pre>void reset_to(const Histogram&amp; other)</pre><p>Deep copy: replace this histogram's bins, counts, and shape with <code>other</code>'s. The "freeze a current window as the new baseline" primitive — distinct from <code>clear()</code> (which preserves shape but drops counts) and from a fresh <code>Histogram</code> (which would re-register on the registry).</p></dd>
       <dt><code>bin_at</code></dt>
       <dd><pre>Result&lt;std::uint64_t&gt; bin_at(std::size_t i)</pre><p>Single-bin introspection — count of observations that landed in bin <code>i</code>, without materializing the full <code>normalized()</code> vector. The cheap cell a "what's in bucket 7?" tooltip or a sparkline renderer wants.</p></dd>
+      <dt><code>p99</code></dt>
+      <dd><pre>double p99()</pre><p>Convenience over <code>percentile(99.0)</code> — the operator vocabulary every dashboard cell wants without spelling out the percentile argument. Sibling of <code>median()</code> for the central-tendency-vs-tail pair a latency row reads in one line.</p></dd>
+      <dt><code>nth_largest_bin</code></dt>
+      <dd><pre>Result&lt;std::size_t&gt; nth_largest_bin(std::size_t n)</pre><p>Index of the bin with the <code>n</code>-th largest observation count — <code>n=0</code> returns the densest bin, <code>n=1</code> the runner-up, and so on. The "where is the mass concentrating, after the mode?" probe ahead of a full PSI report; pairs with <code>nonzero_bin_count</code> for the "is this distribution multi-modal?" investigation. Returns <code>not_found</code> when <code>n</code> exceeds <code>nonzero_bin_count()</code>.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1067,6 +1101,10 @@
       <dd><pre>Result&lt;void&gt; observe_uniform(std::string_view feature, double value, std::size_t n)</pre><p>Bulk-record <code>n</code> identical observations against one feature, silently — no alert fires, no observer callback. The "this feature was constant for the whole window" backfill path; useful for replays where the recorded values are known to be flat and repeated alerting would page on-call falsely.</p></dd>
       <dt><code>trend_for_feature</code></dt>
       <dd><pre>std::vector&lt;double&gt; trend_for_feature(std::string_view feature, std::size_t n)</pre><p>PSI-trend vector for one feature — the recent-history shape an on-call wants to see "is this feature getting worse, or did it just spike?" Currently returns a single-snapshot vector (the present PSI repeated, capped at <code>n</code>); future versions will buffer rotated windows so callers see actual rolling history without changing the call site.</p></dd>
+      <dt><code>is_registered</code></dt>
+      <dd><pre>bool is_registered(std::string_view feature) noexcept</pre><p><code>noexcept</code> bool — true iff <code>feature</code> has been registered with a baseline. Sibling of <code>has_feature</code> with the explicit "registered" vocabulary a startup-gate or dashboard row reads naturally; never throws, never allocates.</p></dd>
+      <dt><code>reset_all</code></dt>
+      <dd><pre>void reset_all()</pre><p>Clear the current window <em>and</em> the last-severity tracking on every registered feature in one call. Distinct from <code>rotate()</code>, which leaves alert tracking intact: <code>reset_all</code> is the deliberate "we are starting from a clean slate, ack any pending alerts" verb after a baseline-recalibration ceremony or a planned downtime. Pairs with <code>clear_alerts()</code> when only the alert latch needs resetting.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1131,6 +1169,10 @@
       <dd><pre>std::uint64_t counter_diff_total(const MetricRegistry&amp; baseline)</pre><p>Sum of absolute deltas across every counter against another registry. Pairs with <code>diff()</code>: <code>diff</code> hands back signed per-counter values; <code>counter_diff_total</code> hands back one number — "how much movement, total, between these two epochs?"</p></dd>
       <dt><code>is_empty</code></dt>
       <dd><pre>bool is_empty() noexcept</pre><p><code>noexcept</code> bool — true iff no counters and no histograms are registered. The cheap startup-gate predicate; never throws, never allocates.</p></dd>
+      <dt><code>sum_counters_with_prefix</code></dt>
+      <dd><pre>std::uint64_t sum_counters_with_prefix(std::string_view prefix)</pre><p>Sum of every counter whose name starts with <code>prefix</code>. The "all <code>policy.*</code> counters folded together" view a SLO row reads without composing <code>counter_snapshot()</code> with a manual filter — pairs with <code>counter_total()</code> when only one namespace is wanted, not the entire registry.</p></dd>
+      <dt><code>counter_max</code></dt>
+      <dd><pre>std::pair&lt;std::string, std::uint64_t&gt; counter_max()</pre><p>Name and value of the highest-valued counter in one call — the "what is the busiest single counter on this runtime?" cell a dashboard reads. Returns an empty name with zero on an empty registry; pairs with <code>counter_total()</code> for the "what dominates the total?" investigation.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>

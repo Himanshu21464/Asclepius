@@ -315,6 +315,46 @@ public:
     // grant we've recorded?"
     Result<ConsentToken> most_recently_granted() const;
 
+    // Per-patient mirror of most_recently_granted(), but scoped to the
+    // revoked subset: the token belonging to `patient` that is revoked
+    // and has the largest issued_at. We do not currently track a
+    // distinct revoked_at timestamp, so issued_at is the proxy — newest
+    // grant among revoked rows wins. Returns Error::not_found if the
+    // patient has no revoked tokens on file. Tiebreak among equal
+    // issued_at values is unspecified. Useful for ops probes: "what
+    // was the most recent thing we walked back for this patient?"
+    Result<ConsentToken>
+    most_recently_revoked_for_patient(const PatientId& patient) const;
+
+    // Duration from the earliest active (non-revoked, non-expired)
+    // token's issued_at to now() — i.e. the wall-clock age of our
+    // longest-standing live grant. Returns Error::not_found when no
+    // active tokens exist. Operator probe: "how old is the oldest
+    // consent we are currently relying on?"
+    Result<std::chrono::nanoseconds> age_of_oldest_active() const;
+
+    // Map of {patient.str() (raw id string): total token count across
+    // all states (active + revoked + expired)}. Patients with zero
+    // tokens do not appear. Used by ops dashboards that want a
+    // per-patient breakdown of the registry's footprint without paying
+    // for a copy of every token.
+    std::unordered_map<std::string, std::size_t>
+    token_count_by_patient() const;
+
+    // Cheap count-only mirror of tokens_expiring_within: number of
+    // active (non-revoked, non-expired) tokens whose expires_at falls
+    // within [now, now + horizon). Sugar for callers that only need
+    // the count, no token copies. horizon <= 0 returns 0 (a
+    // non-positive horizon has no "soon" window).
+    std::size_t
+    tokens_expiring_soon(std::chrono::seconds horizon) const;
+
+    // True iff at least one token in the registry has the revoked flag
+    // set. noexcept; any internal failure is swallowed -> false.
+    // Operator probe: "have we ever walked back a grant in this
+    // registry's lifetime?"
+    bool has_revoked_tokens() const noexcept;
+
     // Active (non-revoked, non-expired) tokens whose expires_at - now()
     // is <= horizon — i.e. "what's about to lapse?" Used by ops
     // dashboards that want to nudge clinicians to re-consent before a

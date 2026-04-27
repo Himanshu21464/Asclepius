@@ -285,7 +285,83 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.6</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.7</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Status banners, actor history, busy-vs-idle.</em>
+            Round 84 lands the verbs the substrate kept reaching for —
+            a one-line ASCII status banner the CLI prints at startup,
+            an actor-axis sibling of the per-patient history accessors,
+            and the negation predicate every load-balancer asks for
+            without inverting <code>is_idle</code> at the call site.
+            Audit grows <code>most_recent_for_actor(actor)</code> and
+            <code>find_first_for_actor(actor)</code> as the
+            cheap-cell-per-actor row that <code>tail_by_actor(a, 1)</code>
+            would round-trip a vector for; <code>distinct_actors_count()</code>
+            as the cardinality cell paired with <code>actors()</code>;
+            <code>seq_density()</code> as the entries-per-second rate
+            over chain lifespan; and <code>is_chain_continuous()</code>
+            as the boolean sugar a deploy-gate or replica-promotion
+            check actually wants without unwrapping <code>verify()</code>'s
+            <code>Result&lt;void&gt;</code>. Telemetry adds
+            <code>Histogram::p99()</code> as the operator vocabulary
+            sibling of <code>median()</code>, <code>nth_largest_bin(n)</code>
+            for multi-modality investigation,
+            <code>MetricRegistry::sum_counters_with_prefix(prefix)</code>
+            as the namespace-scoped fold,
+            <code>MetricRegistry::counter_max()</code> for the
+            "what dominates the total?" cell,
+            <code>DriftMonitor::is_registered(feature)</code>
+            (<code>noexcept</code>), and a deliberate
+            <code>DriftMonitor::reset_all()</code> that clears current
+            windows <em>and</em> last-severity tracking — distinct from
+            <code>rotate()</code>, which leaves alert tracking intact.
+            Consent grows <code>most_recently_revoked_for_patient(p)</code>
+            as the per-patient sibling of the chain-wide
+            <code>recently_revoked(window)</code>;
+            <code>age_of_oldest_active()</code>
+            (<code>Result&lt;chrono::ns&gt;</code>);
+            <code>token_count_by_patient()</code> as the
+            <code>{patient: count}</code> map;
+            <code>tokens_expiring_soon(horizon)</code> as the
+            cardinality-only cousin of <code>tokens_expiring_within</code>;
+            and <code>has_revoked_tokens()</code> as the cheap
+            <code>noexcept</code> "has anyone ever withdrawn?" probe.
+            Inference picks up <code>tag(label)</code> as sugar over
+            <code>add_metadata("tag", …)</code> and
+            <code>ensure_committed()</code> as the idempotent
+            commit-if-not-committed sugar shutdown / RAII tails reach for.
+            Runtime sugar: <code>record_event(type, actor, body, tenant)</code>
+            as the caller-driven ledger append for non-inference events —
+            no policy chain, no consent gate, no drift —
+            <code>is_busy(threshold)</code> as the negation of
+            <code>is_idle</code>, and <code>status_line()</code> emitting
+            the one-line ASCII banner
+            <code>asclepius v&lt;ver&gt; · ledger=&lt;n&gt; · key=&lt;id&gt; · policies=&lt;n&gt; · drift_features=&lt;n&gt; · active_consent=&lt;n&gt;</code>.
+            No on-disk format changes; nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::most_recent_for_actor(actor)</code>, <code>find_first_for_actor(actor)</code> — newest · earliest entry per actor without a <code>tail_by_actor(actor, 1)</code> vector materialization.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::distinct_actors_count()</code>, <code>seq_density()</code>, <code>is_chain_continuous()</code> — actors-cardinality cell · entries-per-second rate over lifespan · boolean sugar over <code>verify()</code> for deploy gates and replica-promotion checks.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::p99()</code>, <code>nth_largest_bin(n)</code> — operator-vocabulary p99 sugar · n-th densest bin for multi-modality detection.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::sum_counters_with_prefix(prefix)</code>, <code>counter_max()</code> — namespace-scoped counter fold (e.g., all <code>policy.*</code>) · busiest single counter as <code>{name, value}</code>.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::is_registered(feature)</code> — <code>noexcept</code> bool sibling of <code>has_feature</code> with explicit "registered" vocabulary.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::reset_all()</code> — clears current windows <em>and</em> last-severity tracking on every registered feature. Distinct from <code>rotate()</code>, which leaves alert tracking intact; the deliberate "starting clean" verb after baseline-recalibration ceremonies.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::most_recently_revoked_for_patient(patient)</code> — per-patient sibling of the chain-wide <code>recently_revoked(window)</code>; <code>nullopt</code> when no revocation has landed for them.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::age_of_oldest_active()</code> — <code>Result&lt;chrono::nanoseconds&gt;</code>; wall-clock distance from the oldest active token's <code>granted_at</code> to now. <code>not_found</code> when no active tokens exist.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::token_count_by_patient()</code> — <code>{patient: count}</code> map combining active, expired, and revoked tokens. Pairs with <code>patient_with_most_tokens()</code> for the "who is churning consent?" view.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::tokens_expiring_soon(horizon)</code>, <code>has_revoked_tokens()</code> — cardinality-only cousin of <code>tokens_expiring_within</code> (renewal-queue depth) · <code>noexcept</code> "has anyone ever withdrawn?" probe.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::tag(label)</code> — sugar over <code>add_metadata("tag", …)</code>; the "mark this row" verb without spelling out the metadata key at every call site.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::ensure_committed()</code> — idempotent commit-if-not-committed sugar; the "make sure this row landed" verb shutdown / RAII tails reach for without composing the predicate with the action.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::record_event(type, actor, body, tenant)</code> — caller-driven ledger append for non-inference events. No policy chain, no consent gate, no drift; one append, one signature, one entry. The escape hatch a sidecar uses to land custom audit rows without faking an inference handle.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::is_busy(threshold_ms)</code> — negation of <code>is_idle(threshold_ms)</code>. The "should I shed traffic?" gate a load balancer reads naturally without inverting the spin-down predicate at the call site.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::status_line()</code> — one-line ASCII banner: <code>asclepius v&lt;ver&gt; · ledger=&lt;n&gt; · key=&lt;id&gt; · policies=&lt;n&gt; · drift_features=&lt;n&gt; · active_consent=&lt;n&gt;</code>. The densest one-line shape for "what's on this runtime, right now?"; cheaper than <code>summary_string()</code> and richer than <code>quick_status()</code>.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.6</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Composite filters, lifecycle states, trace plumbing.</em>
