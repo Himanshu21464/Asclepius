@@ -96,6 +96,35 @@ Result<void> ConsentRegistry::revoke(std::string_view token_id) {
     return Result<void>::ok();
 }
 
+Result<void> ConsentRegistry::force_revoke(std::string_view token_id) {
+    // Idempotent revoke: short-circuit when the token is already
+    // revoked (no observer fires, no double-write to the ledger),
+    // otherwise behave like revoke(). not_found is preserved as a
+    // hard failure — the caller asked us to revoke a row that does
+    // not exist, which is a different bug from "already revoked."
+    ConsentToken snapshot;
+    Observer     obs_copy;
+    bool         was_already_revoked = false;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = by_id_.find(std::string{token_id});
+        if (it == by_id_.end()) {
+            return Error::not_found("consent token not found");
+        }
+        if (it->second.revoked) {
+            was_already_revoked = true;
+        } else {
+            it->second.revoked = true;
+            snapshot = it->second;
+            obs_copy = observer_;
+        }
+    }
+    if (!was_already_revoked && obs_copy) {
+        obs_copy(Event::revoked, snapshot);
+    }
+    return Result<void>::ok();
+}
+
 void ConsentRegistry::set_observer(Observer obs) {
     std::lock_guard<std::mutex> lk(mu_);
     observer_ = std::move(obs);
@@ -246,6 +275,38 @@ ConsentRegistry::tokens_with_purpose(Purpose p) const {
             out.push_back(t);
         }
     }
+    return out;
+}
+
+std::vector<PatientId>
+ConsentRegistry::patients_with_purpose(Purpose p) const {
+    // Distinct PatientIds with at least one active token granting `p`.
+    // Dedup via a string set keyed on patient.str() (the underlying
+    // body string) so two PatientIds with the same body collapse to
+    // one row. Sort the output by patient.str() so callers can diff
+    // snapshots over time.
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::unordered_set<std::string> seen;
+    seen.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        if (std::find(t.purposes.begin(), t.purposes.end(), p)
+            == t.purposes.end()) {
+            continue;
+        }
+        seen.insert(std::string{t.patient.str()});
+    }
+    std::vector<PatientId> out;
+    out.reserve(seen.size());
+    for (auto& s : seen) {
+        out.emplace_back(std::move(s));
+    }
+    std::sort(out.begin(), out.end(),
+              [](const PatientId& a, const PatientId& b) {
+                  return a.str() < b.str();
+              });
     return out;
 }
 
@@ -594,6 +655,32 @@ ConsentRegistry::active_purpose_count_for_patient(const PatientId& patient) cons
     return n;
 }
 
+std::size_t
+ConsentRegistry::count_distinct_purposes_for_patient(const PatientId& patient) const {
+    // Synonym of active_purpose_count_for_patient — same algorithm,
+    // independently implemented so callers can pick the spelling that
+    // reads best at the call site without paying a function-call hop
+    // through the synonym. O(1) extra memory via a fixed bitset over
+    // the Purpose enum's uint8_t code space.
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    bool seen[256] = {};
+    std::size_t n = 0;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.patient != patient) continue;
+        for (auto p : t.purposes) {
+            auto code = static_cast<std::uint8_t>(p);
+            if (!seen[code]) {
+                seen[code] = true;
+                n++;
+            }
+        }
+    }
+    return n;
+}
+
 Result<ConsentToken> ConsentRegistry::extend_to(std::string_view token_id,
                                                 Time absolute_expires_at) {
     ConsentToken snapshot;
@@ -881,6 +968,24 @@ bool ConsentRegistry::has_revoked_tokens() const noexcept {
     }
 }
 
+bool ConsentRegistry::has_been_revoked(const PatientId& patient) const noexcept {
+    // Per-patient mirror of has_revoked_tokens: scan only this patient's
+    // tokens and return true on the first revoked row. Hard-deleted
+    // tokens (via remove()) are invisible — that's intentional, the
+    // ledger is the source of truth for permanent history; this method
+    // reports what is currently on file.
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        for (const auto& [_, t] : by_id_) {
+            if (t.patient != patient) continue;
+            if (t.revoked) return true;
+        }
+        return false;
+    } catch (...) {
+        return false;
+    }
+}
+
 std::unordered_map<Purpose, std::size_t>
 ConsentRegistry::tokens_count_by_purpose() const {
     std::lock_guard<std::mutex> lk(mu_);
@@ -1158,6 +1263,36 @@ std::string ConsentRegistry::summary_string() const {
     auto s = summary();
     return fmt::format("total={} active={} revoked={} expired={} patients={}",
                        s.total, s.active, s.revoked, s.expired, s.patients);
+}
+
+std::vector<std::pair<std::string, std::string>>
+ConsentRegistry::list_states_summary() const {
+    // Per-token state breakdown. Compute the state under the same
+    // priority TokenLifecycle uses (revoked > expired > active) so a
+    // revoked-and-expired token reports as "revoked" — the token is
+    // gone for the same reason regardless of how the timestamps line
+    // up, and we want callers to see one canonical state string.
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::vector<std::pair<std::string, std::string>> out;
+    out.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        const char* state = nullptr;
+        if (t.revoked) {
+            state = "revoked";
+        } else if (t.expires_at <= now) {
+            state = "expired";
+        } else {
+            state = "active";
+        }
+        out.emplace_back(t.token_id, std::string{state});
+    }
+    std::sort(out.begin(), out.end(),
+              [](const std::pair<std::string, std::string>& a,
+                 const std::pair<std::string, std::string>& b) {
+                  return a.first < b.first;
+              });
+    return out;
 }
 
 std::vector<Purpose> ConsentRegistry::distinct_purposes_in_use() const {

@@ -4104,3 +4104,340 @@ TEST_CASE("count_active_for_patients: result bounded by cohort size, ignores ext
     std::vector<PatientId> cohort = {a, b};
     CHECK(r.count_active_for_patients(std::span<const PatientId>{cohort}) == 2);
 }
+
+// ============== patients_with_purpose ===================================
+
+TEST_CASE("patients_with_purpose: empty registry returns empty vector") {
+    ConsentRegistry r;
+    auto out = r.patients_with_purpose(Purpose::research);
+    CHECK(out.empty());
+}
+
+TEST_CASE("patients_with_purpose: returns sorted distinct patients with active grant") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("pwp_alpha");
+    auto b = PatientId::pseudonymous("pwp_bravo");
+    auto c = PatientId::pseudonymous("pwp_charlie");
+
+    // Grant to b, then a, then c (insertion order intentionally
+    // scrambled vs. the eventual sort order).
+    REQUIRE(r.grant(b, {Purpose::research, Purpose::triage}, 1h));
+    REQUIRE(r.grant(a, {Purpose::research}, 1h));
+    REQUIRE(r.grant(c, {Purpose::research}, 1h));
+    // d only has medication_review — must not appear.
+    auto d = PatientId::pseudonymous("pwp_delta");
+    REQUIRE(r.grant(d, {Purpose::medication_review}, 1h));
+
+    auto out = r.patients_with_purpose(Purpose::research);
+    REQUIRE(out.size() == 3);
+    // Sorted by patient.str(): "pat:pwp_alpha" < "pat:pwp_bravo" <
+    // "pat:pwp_charlie" lexicographically.
+    CHECK(out[0] == a);
+    CHECK(out[1] == b);
+    CHECK(out[2] == c);
+}
+
+TEST_CASE("patients_with_purpose: dedupes patients across multiple matching tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("pwp_dup");
+
+    // Two tokens, both granting research, for the same patient.
+    REQUIRE(r.grant(p, {Purpose::research}, 1h));
+    REQUIRE(r.grant(p, {Purpose::research, Purpose::triage}, 1h));
+
+    auto out = r.patients_with_purpose(Purpose::research);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0] == p);
+}
+
+TEST_CASE("patients_with_purpose: ignores revoked and expired tokens") {
+    ConsentRegistry r;
+    auto live    = PatientId::pseudonymous("pwp_live");
+    auto revoked = PatientId::pseudonymous("pwp_revoked");
+
+    auto t_live    = r.grant(live,    {Purpose::triage}, 1h);
+    auto t_revoked = r.grant(revoked, {Purpose::triage}, 1h);
+    REQUIRE(t_live); REQUIRE(t_revoked);
+
+    REQUIRE(r.revoke(t_revoked.value().token_id));
+
+    // Force expired via ingest of a token whose expires_at is in the past.
+    // (A grant() always gives a fresh TTL, so we can't make a "naturally
+    // expired" token without ingest.)
+    ConsentToken stale;
+    stale.token_id   = "pwp_stale_token";
+    stale.patient    = PatientId::pseudonymous("pwp_stale");
+    stale.purposes   = {Purpose::triage};
+    stale.issued_at  = Time::now() - std::chrono::nanoseconds{2h};
+    stale.expires_at = Time::now() - std::chrono::nanoseconds{1h};
+    stale.revoked    = false;
+    REQUIRE(r.ingest(stale));
+
+    auto out = r.patients_with_purpose(Purpose::triage);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0] == live);
+}
+
+// ============== has_been_revoked ========================================
+
+TEST_CASE("has_been_revoked: false for unknown patient / empty registry") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("hbr_unknown");
+    CHECK(!r.has_been_revoked(p));
+}
+
+TEST_CASE("has_been_revoked: true after at least one of the patient's tokens is revoked") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("hbr_p1");
+    auto t1 = r.grant(p, {Purpose::triage}, 1h);
+    auto t2 = r.grant(p, {Purpose::research}, 1h);
+    REQUIRE(t1); REQUIRE(t2);
+
+    // Two active tokens, none revoked yet.
+    CHECK(!r.has_been_revoked(p));
+
+    REQUIRE(r.revoke(t1.value().token_id));
+    CHECK(r.has_been_revoked(p));
+
+    // Stays true even though the other token is still active.
+    CHECK(r.has_been_revoked(p));
+}
+
+TEST_CASE("has_been_revoked: scoped to patient — other patients' revocations don't bleed in") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("hbr_alice");
+    auto b = PatientId::pseudonymous("hbr_bob");
+
+    auto t_a = r.grant(a, {Purpose::triage}, 1h);
+    auto t_b = r.grant(b, {Purpose::triage}, 1h);
+    REQUIRE(t_a); REQUIRE(t_b);
+
+    REQUIRE(r.revoke(t_a.value().token_id));
+
+    CHECK(r.has_been_revoked(a));
+    CHECK(!r.has_been_revoked(b));
+}
+
+TEST_CASE("has_been_revoked: sees ingested revoked tokens (replay path)") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("hbr_replay");
+
+    ConsentToken t;
+    t.token_id   = "hbr_replay_token";
+    t.patient    = p;
+    t.purposes   = {Purpose::operations};
+    t.issued_at  = Time::now();
+    t.expires_at = Time::now() + std::chrono::nanoseconds{1h};
+    t.revoked    = true;
+    REQUIRE(r.ingest(std::move(t)));
+
+    CHECK(r.has_been_revoked(p));
+}
+
+// ============== force_revoke ============================================
+
+TEST_CASE("force_revoke: revokes an active token like revoke()") {
+    ConsentRegistry r;
+    auto p  = PatientId::pseudonymous("fr_active");
+    auto tk = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(tk);
+
+    REQUIRE(r.force_revoke(tk.value().token_id));
+    CHECK(r.is_revoked(tk.value().token_id));
+}
+
+TEST_CASE("force_revoke: idempotent — second call returns ok without firing observer") {
+    ConsentRegistry r;
+    int revoked_events = 0;
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken&) {
+        if (e == ConsentRegistry::Event::revoked) revoked_events++;
+    });
+
+    auto p  = PatientId::pseudonymous("fr_idem");
+    auto tk = r.grant(p, {Purpose::operations}, 1h);
+    REQUIRE(tk);
+
+    REQUIRE(r.force_revoke(tk.value().token_id));
+    CHECK(revoked_events == 1);
+
+    // Second force_revoke on the same id is a no-op observer-wise:
+    // returns ok but does not re-fire the revoked event.
+    REQUIRE(r.force_revoke(tk.value().token_id));
+    CHECK(revoked_events == 1);
+
+    // Token is still revoked (state unchanged).
+    CHECK(r.is_revoked(tk.value().token_id));
+}
+
+TEST_CASE("force_revoke: returns not_found for unknown token id") {
+    ConsentRegistry r;
+    auto a = r.force_revoke("ct_does_not_exist");
+    CHECK(!a);
+    CHECK(a.error().code() == ErrorCode::not_found);
+
+    auto b = r.force_revoke("");
+    CHECK(!b);
+    CHECK(b.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("force_revoke: fires observer exactly once on first transition") {
+    ConsentRegistry r;
+    int revoked_events = 0;
+    std::string seen_token;
+    r.set_observer([&](ConsentRegistry::Event e, const ConsentToken& t) {
+        if (e == ConsentRegistry::Event::revoked) {
+            revoked_events++;
+            seen_token = t.token_id;
+        }
+    });
+
+    auto p  = PatientId::pseudonymous("fr_fire");
+    auto tk = r.grant(p, {Purpose::research}, 1h);
+    REQUIRE(tk);
+
+    REQUIRE(r.force_revoke(tk.value().token_id));
+    CHECK(revoked_events == 1);
+    CHECK(seen_token == tk.value().token_id);
+}
+
+// ============== list_states_summary =====================================
+
+TEST_CASE("list_states_summary: empty registry returns empty vector") {
+    ConsentRegistry r;
+    auto out = r.list_states_summary();
+    CHECK(out.empty());
+}
+
+TEST_CASE("list_states_summary: covers every token with active/revoked/expired") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("lss_p");
+
+    auto live = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(live);
+    auto rev  = r.grant(p, {Purpose::research}, 1h);
+    REQUIRE(rev);
+    REQUIRE(r.revoke(rev.value().token_id));
+
+    // Force an expired-but-not-revoked token via ingest.
+    ConsentToken stale;
+    stale.token_id   = "lss_stale_token";
+    stale.patient    = p;
+    stale.purposes   = {Purpose::operations};
+    stale.issued_at  = Time::now() - std::chrono::nanoseconds{2h};
+    stale.expires_at = Time::now() - std::chrono::nanoseconds{1h};
+    stale.revoked    = false;
+    REQUIRE(r.ingest(stale));
+
+    auto out = r.list_states_summary();
+    REQUIRE(out.size() == 3);
+
+    // Confirm sorted by token_id.
+    for (std::size_t i = 1; i < out.size(); ++i) {
+        CHECK(out[i - 1].first <= out[i].first);
+    }
+
+    // Build a map for state lookup independent of sort order.
+    std::unordered_map<std::string, std::string> by_id;
+    for (const auto& kv : out) by_id[kv.first] = kv.second;
+    CHECK(by_id[live.value().token_id]    == "active");
+    CHECK(by_id[rev.value().token_id]     == "revoked");
+    CHECK(by_id["lss_stale_token"]        == "expired");
+}
+
+TEST_CASE("list_states_summary: revoked-and-expired prefers 'revoked' over 'expired'") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("lss_rae");
+
+    // A token that is both revoked AND past its expires_at must
+    // report as "revoked" — TokenLifecycle's State priority.
+    ConsentToken doomed;
+    doomed.token_id   = "lss_rae_token";
+    doomed.patient    = p;
+    doomed.purposes   = {Purpose::quality_improvement};
+    doomed.issued_at  = Time::now() - std::chrono::nanoseconds{2h};
+    doomed.expires_at = Time::now() - std::chrono::nanoseconds{1h};
+    doomed.revoked    = true;
+    REQUIRE(r.ingest(std::move(doomed)));
+
+    auto out = r.list_states_summary();
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].first  == "lss_rae_token");
+    CHECK(out[0].second == "revoked");
+}
+
+TEST_CASE("list_states_summary: state strings are exactly active|revoked|expired") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("lss_strings");
+
+    auto t1 = r.grant(p, {Purpose::triage}, 1h);
+    auto t2 = r.grant(p, {Purpose::research}, 1h);
+    REQUIRE(t1); REQUIRE(t2);
+    REQUIRE(r.revoke(t2.value().token_id));
+
+    auto out = r.list_states_summary();
+    REQUIRE(out.size() == 2);
+    for (const auto& [_, s] : out) {
+        bool ok = (s == "active") || (s == "revoked") || (s == "expired");
+        CHECK(ok);
+    }
+}
+
+// ============== count_distinct_purposes_for_patient =====================
+
+TEST_CASE("count_distinct_purposes_for_patient: zero on empty registry / unknown patient") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("cdpfp_unknown");
+    CHECK(r.count_distinct_purposes_for_patient(p) == 0);
+}
+
+TEST_CASE("count_distinct_purposes_for_patient: counts union across tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("cdpfp_union");
+
+    REQUIRE(r.grant(p, {Purpose::triage, Purpose::research}, 1h));
+    REQUIRE(r.grant(p, {Purpose::research, Purpose::operations}, 1h));
+    // Union of {triage, research} ∪ {research, operations} = 3 distinct.
+    CHECK(r.count_distinct_purposes_for_patient(p) == 3);
+}
+
+TEST_CASE("count_distinct_purposes_for_patient: ignores revoked / expired and matches synonym") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("cdpfp_states");
+
+    auto live = r.grant(p, {Purpose::triage, Purpose::research}, 1h);
+    auto gone = r.grant(p, {Purpose::medication_review}, 1h);
+    REQUIRE(live); REQUIRE(gone);
+    REQUIRE(r.revoke(gone.value().token_id));
+
+    // Force expired token granting yet another distinct purpose.
+    ConsentToken stale;
+    stale.token_id   = "cdpfp_stale_token";
+    stale.patient    = p;
+    stale.purposes   = {Purpose::operations};
+    stale.issued_at  = Time::now() - std::chrono::nanoseconds{2h};
+    stale.expires_at = Time::now() - std::chrono::nanoseconds{1h};
+    stale.revoked    = false;
+    REQUIRE(r.ingest(stale));
+
+    // Only the live token contributes — its 2 distinct purposes.
+    CHECK(r.count_distinct_purposes_for_patient(p) == 2);
+    // Synonym agreement: same number, by spec.
+    CHECK(r.count_distinct_purposes_for_patient(p) ==
+          r.active_purpose_count_for_patient(p));
+}
+
+TEST_CASE("count_distinct_purposes_for_patient: scoped per patient") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("cdpfp_alice");
+    auto b = PatientId::pseudonymous("cdpfp_bob");
+
+    REQUIRE(r.grant(a, {Purpose::triage, Purpose::research}, 1h));
+    REQUIRE(r.grant(b, {Purpose::medication_review}, 1h));
+
+    CHECK(r.count_distinct_purposes_for_patient(a) == 2);
+    CHECK(r.count_distinct_purposes_for_patient(b) == 1);
+
+    // Unknown patient still reports 0 even when others are populated.
+    auto c = PatientId::pseudonymous("cdpfp_carol");
+    CHECK(r.count_distinct_purposes_for_patient(c) == 0);
+}

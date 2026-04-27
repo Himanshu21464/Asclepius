@@ -5079,3 +5079,432 @@ TEST_CASE("tail_summary_string: n larger than length emits one line per entry") 
     REQUIRE(p4 != std::string::npos);
     CHECK(p1 < p4);
 }
+
+// ============== Ledger::recent_failures =================================
+
+TEST_CASE("recent_failures: empty chain returns empty vector") {
+    auto p = tmp_db("rf_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r = l.recent_failures(10);
+    REQUIRE(r);
+    CHECK(r.value().empty());
+    // n=0 is a cheap no-op even on a populated chain.
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "blocked.input"}}, ""));
+    auto r0 = l.recent_failures(0);
+    REQUIRE(r0);
+    CHECK(r0.value().empty());
+}
+
+TEST_CASE("recent_failures: returns non-ok inference.committed entries most-recent first") {
+    auto p = tmp_db("rf_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Mix of ok / non-ok inference.committed and unrelated event types.
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "ok"}, {"i", 1}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "blocked.input"}, {"i", 2}}, ""));
+    REQUIRE(l.append("drift.crossed", "sys",
+                     nlohmann::json{{"status", "blocked.output"}, {"i", 3}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "model_error"}, {"i", 4}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "ok"}, {"i", 5}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "timeout"}, {"i", 6}}, ""));
+
+    auto r = l.recent_failures(10);
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 3u);
+    // Most-recent first: seq=6 (timeout), seq=4 (model_error), seq=2 (blocked.input).
+    CHECK(r.value()[0].header.seq == 6u);
+    CHECK(r.value()[1].header.seq == 4u);
+    CHECK(r.value()[2].header.seq == 2u);
+    // All are inference.committed; the drift.crossed entry was excluded
+    // even though its body had a non-ok status.
+    for (const auto& e : r.value()) {
+        CHECK(e.header.event_type == "inference.committed");
+    }
+}
+
+TEST_CASE("recent_failures: bounded ring buffer keeps the last n matches") {
+    auto p = tmp_db("rf_ring");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Twelve failures interleaved with ok entries.
+    for (int i = 0; i < 12; ++i) {
+        REQUIRE(l.append("inference.committed", "sys",
+                         nlohmann::json{{"status", "blocked.input"}, {"i", i}},
+                         ""));
+        REQUIRE(l.append("inference.committed", "sys",
+                         nlohmann::json{{"status", "ok"}, {"i", i + 100}}, ""));
+    }
+    auto r = l.recent_failures(3);
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 3u);
+    // The last three failures are the i=9, 10, 11 entries — most recent
+    // first means the i=11 failure leads.
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    auto b2 = nlohmann::json::parse(r.value()[2].body_json);
+    CHECK(b0["i"] == 11);
+    CHECK(b1["i"] == 10);
+    CHECK(b2["i"] == 9);
+}
+
+TEST_CASE("recent_failures: covers every documented non-ok status") {
+    auto p = tmp_db("rf_statuses");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Every status from src/runtime/inference.cpp except "ok".
+    const char* statuses[] = {
+        "blocked.input", "blocked.output", "model_error",
+        "timeout", "cancelled", "aborted",
+    };
+    for (const char* s : statuses) {
+        REQUIRE(l.append("inference.committed", "sys",
+                         nlohmann::json{{"status", s}}, ""));
+    }
+    // One ok entry that must be skipped.
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "ok"}}, ""));
+
+    auto r = l.recent_failures(20);
+    REQUIRE(r);
+    CHECK(r.value().size() == 6u);
+}
+
+// ============== Ledger::events_in_window_by_type ========================
+
+TEST_CASE("events_in_window_by_type: empty chain and empty window return empty map") {
+    auto p = tmp_db("eiwbt_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r0 = l.events_in_window_by_type(
+        Time{0}, Time::now() + std::chrono::seconds(60));
+    REQUIRE(r0);
+    CHECK(r0.value().empty());
+
+    REQUIRE(l.append("a", "x", nlohmann::json::object(), ""));
+    auto t = Time::now() + std::chrono::hours(24);
+    auto r1 = l.events_in_window_by_type(t, t + std::chrono::seconds(1));
+    REQUIRE(r1);
+    CHECK(r1.value().empty());
+}
+
+TEST_CASE("events_in_window_by_type: from > to returns invalid_argument") {
+    auto p = tmp_db("eiwbt_inv");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("a", "x", nlohmann::json::object(), ""));
+    auto t1 = Time::now();
+    auto t0 = t1 - std::chrono::seconds(1);
+    auto r = l.events_in_window_by_type(t1, t0);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+    // from == to is a valid (empty) window, not an error.
+    auto rz = l.events_in_window_by_type(t1, t1);
+    REQUIRE(rz);
+    CHECK(rz.value().empty());
+}
+
+TEST_CASE("events_in_window_by_type: groups by event_type within [from, to)") {
+    auto p = tmp_db("eiwbt_groups");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Pre-window noise (must not appear in the result).
+    for (int i = 0; i < 3; ++i) {
+        REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    auto from = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    // In-window events: 4 alphas, 2 betas, 1 gamma.
+    for (int i = 0; i < 4; ++i) {
+        REQUIRE(l.append("alpha", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    for (int i = 0; i < 2; ++i) {
+        REQUIRE(l.append("beta", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    REQUIRE(l.append("gamma", "x", nlohmann::json::object(), ""));
+    auto to = Time::now() + std::chrono::seconds(60);
+
+    auto r = l.events_in_window_by_type(from, to);
+    REQUIRE(r);
+    CHECK(r.value().size() == 3u);
+    CHECK(r.value().at("alpha") == 4u);
+    CHECK(r.value().at("beta")  == 2u);
+    CHECK(r.value().at("gamma") == 1u);
+    // Pre-window alphas must not contribute.
+    auto everything = l.count_by_event_type();
+    REQUIRE(everything);
+    CHECK(everything.value().at("alpha") == 7u);  // 3 pre + 4 in window
+}
+
+TEST_CASE("events_in_window_by_type: half-open upper bound excludes equal-ts entry") {
+    auto p = tmp_db("eiwbt_halfopen");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto e3 = l.at(3); REQUIRE(e3);
+    // Window is [epoch, e3.ts) — e3 itself is excluded.
+    auto r = l.events_in_window_by_type(Time{0}, e3.value().header.ts);
+    REQUIRE(r);
+    CHECK(r.value().at("e") == 2u);  // entries 1 and 2 only
+}
+
+// ============== Ledger::active_tenants_count ============================
+
+TEST_CASE("active_tenants_count: empty chain returns 0") {
+    auto p = tmp_db("atc_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().active_tenants_count();
+    REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("active_tenants_count: counts distinct tenants including the empty one") {
+    auto p = tmp_db("atc_distinct");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // alpha, beta, gamma, plus the empty tenant — four distinct values.
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, "alpha"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 2}}, "beta"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 3}}, "gamma"));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 4}}, ""));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 5}}, "alpha"));  // dup
+    auto r = l.active_tenants_count();
+    REQUIRE(r);
+    CHECK(r.value() == 4u);
+    // Agrees with tenants().size().
+    auto ts = l.tenants();
+    REQUIRE(ts);
+    CHECK(ts.value().size() == r.value());
+}
+
+TEST_CASE("active_tenants_count: single-tenant chain returns 1") {
+    auto p = tmp_db("atc_single");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 8; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, "only"));
+    }
+    auto r = l.active_tenants_count();
+    REQUIRE(r);
+    CHECK(r.value() == 1u);
+}
+
+TEST_CASE("active_tenants_count: empty tenant alone counts as one") {
+    auto p = tmp_db("atc_empty_only");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto r = l.active_tenants_count();
+    REQUIRE(r);
+    CHECK(r.value() == 1u);
+}
+
+// ============== Ledger::any_blocked_in_window ===========================
+
+TEST_CASE("any_blocked_in_window: empty chain and empty window return false") {
+    auto p = tmp_db("abiw_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r0 = l.any_blocked_in_window(
+        Time{0}, Time::now() + std::chrono::seconds(60));
+    REQUIRE(r0);
+    CHECK(r0.value() == false);
+
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "blocked.input"}}, ""));
+    // Window in the future excludes the only entry.
+    auto far = Time::now() + std::chrono::hours(24);
+    auto r1 = l.any_blocked_in_window(far, far + std::chrono::seconds(1));
+    REQUIRE(r1);
+    CHECK(r1.value() == false);
+}
+
+TEST_CASE("any_blocked_in_window: from > to returns invalid_argument") {
+    auto p = tmp_db("abiw_inv");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "ok"}}, ""));
+    auto t1 = Time::now();
+    auto t0 = t1 - std::chrono::seconds(1);
+    auto r = l.any_blocked_in_window(t1, t0);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("any_blocked_in_window: detects a blocked.* entry inside the window") {
+    auto p = tmp_db("abiw_hit");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto from = Time::now();
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "ok"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "blocked.output"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "ok"}}, ""));
+    auto to = Time::now() + std::chrono::seconds(60);
+    auto r = l.any_blocked_in_window(from, to);
+    REQUIRE(r);
+    CHECK(r.value() == true);
+}
+
+TEST_CASE("any_blocked_in_window: ignores blocked.* entries outside the window") {
+    auto p = tmp_db("abiw_outside");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Pre-window blocked entry (must not trigger a hit).
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "blocked.input"}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    auto from = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    // In-window: only ok entries.
+    for (int i = 0; i < 3; ++i) {
+        REQUIRE(l.append("inference.committed", "sys",
+                         nlohmann::json{{"status", "ok"}}, ""));
+    }
+    auto to = Time::now() + std::chrono::seconds(60);
+    auto r = l.any_blocked_in_window(from, to);
+    REQUIRE(r);
+    CHECK(r.value() == false);
+}
+
+// ============== Ledger::head_attestation_hex ============================
+
+TEST_CASE("head_attestation_hex: shape <hash>:<key16>:<sig16> on a non-empty chain") {
+    auto p = tmp_db("hah_shape");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 3; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto r = l.head_attestation_hex(); REQUIRE(r);
+    auto s = r.value();
+    // Two ':' separators producing three fields.
+    auto first  = s.find(':');
+    REQUIRE(first != std::string::npos);
+    auto second = s.find(':', first + 1);
+    REQUIRE(second != std::string::npos);
+    CHECK(s.find(':', second + 1) == std::string::npos);
+
+    auto head_field = s.substr(0, first);
+    auto key_field  = s.substr(first + 1, second - first - 1);
+    auto sig_field  = s.substr(second + 1);
+
+    // head: full 64-char hex, equal to live head.
+    CHECK(head_field.size() == Hash::size * 2);
+    CHECK(head_field == l.head().hex());
+    // key_id is exactly 16 chars (KeyStore::key_id is 16; we clamp).
+    CHECK(key_field.size() == 16u);
+    CHECK(key_field == l.key_id().substr(0, 16));
+    // sig is 16 hex chars (the leading bytes of the full ed25519 sig).
+    CHECK(sig_field.size() == 16u);
+    // Distinct from head_attestation_json output.
+    CHECK(s != l.head_attestation_json());
+    // No JSON syntax — pure colon-separated hex/text.
+    CHECK(s.find('{') == std::string::npos);
+    CHECK(s.find('}') == std::string::npos);
+    CHECK(s.find('\n') == std::string::npos);
+}
+
+TEST_CASE("head_attestation_hex: empty chain emits all-zero head with a real signature prefix") {
+    auto p = tmp_db("hah_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r = l.head_attestation_hex(); REQUIRE(r);
+    auto s = r.value();
+    // First field is the all-zero head hex.
+    auto colon = s.find(':');
+    REQUIRE(colon != std::string::npos);
+    CHECK(s.substr(0, colon) == Hash::zero().hex());
+    // The full string is well-formed: <64>:<16>:<16> = 64 + 1 + 16 + 1 + 16 = 98.
+    CHECK(s.size() == Hash::size * 2 + 1 + 16 + 1 + 16);
+    // The sig prefix (last 16 chars) must match the leading 16 of the
+    // full Ed25519 signature over the zero head bytes — i.e. the same
+    // prefix that head_attestation_json reports.
+    auto j = nlohmann::json::parse(l.head_attestation_json());
+    auto full_sig_hex = j.at("head_signature").get<std::string>();
+    CHECK(s.substr(s.size() - 16) == full_sig_hex.substr(0, 16));
+}
+
+TEST_CASE("head_attestation_hex: head field advances as the chain advances; key stays stable") {
+    auto p = tmp_db("hah_advance");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+    auto r1 = l.head_attestation_hex(); REQUIRE(r1);
+    auto s1 = r1.value();
+
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, ""));
+    auto r2 = l.head_attestation_hex(); REQUIRE(r2);
+    auto s2 = r2.value();
+
+    auto head1 = s1.substr(0, s1.find(':'));
+    auto head2 = s2.substr(0, s2.find(':'));
+    CHECK(head1 != head2);
+
+    // key_id field — middle slice — is identical across appends.
+    auto colon1_a = s1.find(':');
+    auto colon1_b = s1.find(':', colon1_a + 1);
+    auto colon2_a = s2.find(':');
+    auto colon2_b = s2.find(':', colon2_a + 1);
+    auto key1 = s1.substr(colon1_a + 1, colon1_b - colon1_a - 1);
+    auto key2 = s2.substr(colon2_a + 1, colon2_b - colon2_a - 1);
+    CHECK(key1 == key2);
+    CHECK(key1 == l.key_id().substr(0, 16));
+}
+
+TEST_CASE("head_attestation_hex: signature prefix verifies as a prefix of the real Ed25519 sig") {
+    auto p = tmp_db("hah_sig");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+
+    auto compact = l.head_attestation_hex(); REQUIRE(compact);
+    auto cstr = compact.value();
+    auto colon_a = cstr.find(':');
+    auto colon_b = cstr.find(':', colon_a + 1);
+    REQUIRE(colon_a != std::string::npos);
+    REQUIRE(colon_b != std::string::npos);
+    auto sig_prefix = cstr.substr(colon_b + 1);
+
+    // The full sig from head_attestation_json must verify, and our
+    // compact form must be its first 16 hex chars (= 8 leading bytes).
+    auto j = nlohmann::json::parse(l.head_attestation_json());
+    auto full = j.at("head_signature").get<std::string>();
+    CHECK(full.substr(0, 16) == sig_prefix);
+
+    // Tampering any nibble of the leading bytes invalidates the
+    // reconstructed signature — sanity check that the prefix really
+    // came from the live signing key.
+    std::array<std::uint8_t, KeyStore::sig_bytes> sig{};
+    REQUIRE(hex_to_bytes(full, sig));
+    auto head = l.head();
+    auto pk   = l.public_key();
+    CHECK(KeyStore::verify(
+        Bytes{head.bytes.data(), head.bytes.size()},
+        std::span<const std::uint8_t, KeyStore::sig_bytes>{sig.data(), sig.size()},
+        std::span<const std::uint8_t, KeyStore::pk_bytes>{pk.data(),   pk.size()}));
+    sig[0] ^= 0xFFu;
+    CHECK(!KeyStore::verify(
+        Bytes{head.bytes.data(), head.bytes.size()},
+        std::span<const std::uint8_t, KeyStore::sig_bytes>{sig.data(), sig.size()},
+        std::span<const std::uint8_t, KeyStore::pk_bytes>{pk.data(),   pk.size()}));
+}

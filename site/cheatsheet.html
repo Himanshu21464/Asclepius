@@ -561,6 +561,27 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 88 <small>failures filter · severe-only drift · idempotent revoke</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.recent_failures(n)</code></dt><dd>last n inferences with status &ne; <code>ok</code> — the dead-letter tail an on-call reads first</dd>
+        <dt><code>ledger.events_in_window_by_type(t0, t1)</code></dt><dd><code>Result&lt;map&lt;event_type, count&gt;&gt;</code> — windowed event-type histogram in one query</dd>
+        <dt><code>ledger.active_tenants_count() · any_blocked_in_window(t0, t1)</code></dt><dd>distinct-tenant cardinality without the vector · cheap incident-triage bool over <code>policy.blocked</code></dd>
+        <dt><code>ledger.head_attestation_hex()</code></dt><dd>compact <code>&lt;head_hex&gt;:&lt;key_id_first_16&gt;:&lt;sig_hex_first_16&gt;</code> — no JSON, no newline</dd>
+        <dt><code>hist.clone() · with_added(other)</code></dt><dd>explicit deep copy (move ctor exists from r86) · non-mutating sum, mirror of <code>merge</code></dd>
+        <dt><code>metrics.counter_names_with_prefix(p)</code></dt><dd>sorted names — names-axis sibling of <code>sum_counters_with_prefix</code></dd>
+        <dt><code>drift.list_severe_features() · has_any_severe()</code></dt><dd>sorted vector of severe features · noexcept "is anything on fire?"</dd>
+        <dt><code>consent.patients_with_purpose(x)</code></dt><dd>sorted PatientIds with active grant for purpose</dd>
+        <dt><code>consent.has_been_revoked(p) · force_revoke(id)</code></dt><dd>noexcept "did this person ever withdraw?" · idempotent revoke, ok if already revoked, no observer</dd>
+        <dt><code>consent.list_states_summary()</code></dt><dd>vector of <code>{token_id, state_string}</code> sorted by token_id</dd>
+        <dt><code>consent.count_distinct_purposes_for_patient(p)</code></dt><dd>cardinality of distinct active purposes per patient</dd>
+        <dt><code>inf.elapsed_seconds()</code></dt><dd>coarser-grained sibling of <code>elapsed_ms()</code> — <code>chrono::seconds</code></dd>
+        <dt><code>inf.input_hash_hex() · output_hash_hex()</code></dt><dd>hex BLAKE2b-256 strings — <code>not_found</code> when status &ne; ok on output</dd>
+        <dt><code>rt.wait_for_quiet(period, timeout)</code></dt><dd>graceful-shutdown blocker — <code>ok</code> on quiet period reached, <code>timeout</code> on expiry</dd>
+        <dt><code>rt.current_load_metric()</code></dt><dd>inferences-per-second over the last 60s — autoscaler / load-balancer cell</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Round 86 <small>disjunctive consent · drift-to-metrics · body-size histograms</small></h2>
       <dl class="pair">
         <dt><code>ledger.body_size_histogram(bins)</code></dt><dd><code>Result&lt;Histogram&gt;</code> — body-size distribution; motivated the explicit <code>Histogram</code> move ctor + move assignment</dd>

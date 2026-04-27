@@ -365,6 +365,17 @@ public:
     Result<std::vector<LedgerEntry>>
         tail_by_event_type(std::string_view event_type, std::size_t n) const;
 
+    // Last `n` inference.committed entries whose body's "status" field is
+    // not "ok" — i.e. blocked.* (blocked_by_policy, blocked_by_consent,
+    // blocked_pre_inference, etc.), model_error, timeout, cancelled,
+    // aborted. Most-recent first. Used by incident-triage dashboards
+    // ("show me the last failures") that don't care about the specific
+    // failure class. Cheap substring prefilter on "inference.committed"
+    // before pulling the body; bounded ring buffer of `n` keeps memory
+    // at O(min(n, matches)). Empty chain returns the empty vector.
+    Result<std::vector<LedgerEntry>>
+        recent_failures(std::size_t n) const;
+
     // Longest consecutive run of `event_type` entries in the chain (in
     // seq-ascending order). Useful for detecting bursts ("we had 50
     // drift.crossed events in a row"). Returns 0 if no entries match.
@@ -459,6 +470,15 @@ public:
     // that need to fan out per-tenant work without an a-priori tenant list.
     Result<std::vector<std::string>> tenants() const;
 
+    // Count of distinct header.tenant values across the chain. The empty
+    // tenant ("") counts as its own scope if any entries carry it.
+    // Streams via for_each into a set; O(distinct tenants) memory. Empty
+    // chain returns 0. Counterpart to tenants() — that returns the names;
+    // this returns just the cardinality, cheaper for status pages and
+    // probes that only need the number, in the same spirit as
+    // distinct_actors_count.
+    Result<std::size_t> active_tenants_count() const;
+
     // Cheap O(n)-worst-case existence check: does the chain hold any
     // entry with header.tenant == tenant. Stops the scan on the first
     // hit. The empty tenant ("") is its own scope (matching the existing
@@ -503,6 +523,17 @@ public:
     // chain length. Returns invalid_argument if from > to.
     Result<std::uint64_t> events_in_window_count(Time from, Time to) const;
 
+    // Count of entries whose ts ∈ [from, to), grouped by header.event_type.
+    // Half-open interval. Useful for "what kinds of activity happened
+    // during that incident?" forensic queries — pairs with
+    // events_in_window_count (which gives the totals) for dashboards that
+    // want the breakdown. O(n) scan via for_each into a result map;
+    // O(distinct event_types in window) memory. Returns invalid_argument
+    // if from > to. Empty window (no entries match) returns the empty
+    // map.
+    Result<std::unordered_map<std::string, std::uint64_t>>
+        events_in_window_by_type(Time from, Time to) const;
+
     // First `n` entries (oldest), seq-ascending, scoped to a tenant.
     // Complement to tail_for_tenant (which is most-recent-first). The
     // empty tenant ("") is its own scope. n=0 returns the empty vector
@@ -520,6 +551,16 @@ public:
     // hour, with bodies?").
     Result<std::vector<LedgerEntry>>
         events_between(Time from, Time to, std::string_view event_type) const;
+
+    // True iff any entry in [from, to) has a body containing the
+    // substring `"status":"blocked` — i.e. a blocked.* outcome from an
+    // inference or policy action. Half-open interval. Useful for
+    // incident-triage probes ("did anything get blocked while the
+    // pager was firing?") that don't need the entries themselves.
+    // Stops the scan on the first hit so cost is O(k) where k is the
+    // first match. Returns invalid_argument if from > to. Empty
+    // window or no-match returns false.
+    Result<bool> any_blocked_in_window(Time from, Time to) const;
 
     // Cheap O(n)-worst-case existence check: would
     // find_by_inference_id(id) succeed? Stops the scan on the first
@@ -566,6 +607,16 @@ public:
     // attestation_json() (includes a real Ed25519 signature over the
     // current head bytes).
     std::string head_attestation_json() const;
+
+    // Compact, single-string head attestation:
+    //     <head_hex_full>:<key_id_first_16>:<sig_hex_first_16>
+    // where sig is the ed25519 signature of head.bytes by the runtime's
+    // signing key. Same proof as head_attestation_json — Ed25519 signature
+    // over the current head bytes — but in a format meant to slot into
+    // log lines, badge embeds, and TTY status panels without a JSON
+    // parser. Empty chain emits an all-zero head plus a real signature
+    // over those zero bytes, so the field shape is constant.
+    Result<std::string> head_attestation_hex() const;
 
     // Sum of body_json sizes (bytes) grouped by header.tenant. O(n) scan
     // via for_each; result map memory is O(distinct tenants). The empty

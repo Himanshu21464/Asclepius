@@ -4618,3 +4618,296 @@ TEST_CASE("subscribe_logging: destroying the subscription stops further callback
     REQUIRE(rt.record_event("z", "test", nlohmann::json::object()));
     CHECK(hits.load() == before);
 }
+
+// ============== Inference::elapsed_seconds ================================
+
+TEST_CASE("elapsed_seconds: zero on a freshly-begun handle (sub-second)") {
+    auto rt_ = fresh_runtime("es_fresh"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_es_f");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // A handle just begun has elapsed << 1 second; truncating division
+    // collapses to chrono::seconds::zero().
+    auto s = inf.value().elapsed_seconds();
+    CHECK(s == std::chrono::seconds::zero());
+    static_assert(
+        noexcept(std::declval<const Inference&>().elapsed_seconds()),
+        "elapsed_seconds must be noexcept");
+}
+
+TEST_CASE("elapsed_seconds: tracks elapsed_ms / 1000 after a sleep") {
+    auto rt_ = fresh_runtime("es_track"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_es_t");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // Sleep just over one second so the truncated seconds count must
+    // be at least 1. The exact equality elapsed_ms/1000 == seconds
+    // is racy across the boundary (the two reads happen at slightly
+    // different wall times), so we assert the weaker invariant
+    // |seconds - elapsed_ms/1000| <= 1.
+    std::this_thread::sleep_for(std::chrono::milliseconds{1050});
+    auto sec = inf.value().elapsed_seconds().count();
+    auto ms  = inf.value().elapsed_ms();
+    CHECK(sec >= 1);
+    auto delta = (ms / 1000) - sec;
+    CHECK(delta >= -1);
+    CHECK(delta <= 1);
+}
+
+TEST_CASE("elapsed_seconds: monotonically nondecreasing across two reads") {
+    auto rt_ = fresh_runtime("es_mono"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_es_m");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto a = inf.value().elapsed_seconds();
+    std::this_thread::sleep_for(std::chrono::milliseconds{1100});
+    auto b = inf.value().elapsed_seconds();
+    CHECK(b >= a);
+    CHECK((b - a) >= std::chrono::seconds{1});
+}
+
+// ============== Runtime::wait_for_quiet ===================================
+
+TEST_CASE("wait_for_quiet: empty chain returns true once `period` elapses") {
+    auto rt_ = fresh_runtime("wfq_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.ledger().length() == 0);
+    auto t0 = std::chrono::steady_clock::now();
+    bool ok = rt.wait_for_quiet(20ms, 500ms);
+    auto dt = std::chrono::steady_clock::now() - t0;
+    CHECK(ok);
+    // Should take at least `period` (= 20ms) to satisfy. 5ms slack
+    // for the steady_clock rounding on the boundary.
+    CHECK(dt >= 15ms);
+    // And not vastly more — anything past ~250ms means polling broke.
+    CHECK(dt < 250ms);
+}
+
+TEST_CASE("wait_for_quiet: returns true when the chain is idle long enough") {
+    auto rt_ = fresh_runtime("wfq_idle"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_wfq_i");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // Let the chain settle so the most recent ts is already older
+    // than `period` when we start waiting; the very first poll cycle
+    // should observe the quiet condition.
+    std::this_thread::sleep_for(40ms);
+    auto t0 = std::chrono::steady_clock::now();
+    bool ok = rt.wait_for_quiet(15ms, 500ms);
+    auto dt = std::chrono::steady_clock::now() - t0;
+    CHECK(ok);
+    // Already-quiet condition should resolve quickly (one poll tick
+    // plus the steady_clock anchor catch-up).
+    CHECK(dt < 200ms);
+}
+
+TEST_CASE("wait_for_quiet: returns false when commits keep arriving") {
+    auto rt_ = fresh_runtime("wfq_busy"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // A background thread keeps appending events at 10ms intervals so
+    // the runtime never goes quiet for the requested 50ms period. We
+    // use record_event() directly (no inference handle needed) — the
+    // contract is about ledger growth, not inference shape.
+    std::atomic<bool> stop{false};
+    std::thread bg([&]() {
+        while (!stop.load(std::memory_order_acquire)) {
+            (void)rt.record_event("noise", "system:test", nlohmann::json::object());
+            std::this_thread::sleep_for(10ms);
+        }
+    });
+    auto t0 = std::chrono::steady_clock::now();
+    bool ok = rt.wait_for_quiet(50ms, 200ms);
+    auto dt = std::chrono::steady_clock::now() - t0;
+    stop.store(true, std::memory_order_release);
+    bg.join();
+    CHECK(!ok);
+    // Should have waited approximately the full timeout.
+    CHECK(dt >= 180ms);
+    CHECK(dt < 600ms);
+}
+
+TEST_CASE("wait_for_quiet: detects late-arriving commit and restarts the window") {
+    auto rt_ = fresh_runtime("wfq_late"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Background thread emits a single commit ~30ms in, then goes
+    // silent. wait_for_quiet(40ms, 500ms) must not return true before
+    // that commit lands and 40ms has elapsed afterward.
+    std::thread bg([&]() {
+        std::this_thread::sleep_for(30ms);
+        (void)rt.record_event("late", "system:test", nlohmann::json::object());
+    });
+    auto t0 = std::chrono::steady_clock::now();
+    bool ok = rt.wait_for_quiet(40ms, 500ms);
+    auto dt = std::chrono::steady_clock::now() - t0;
+    bg.join();
+    CHECK(ok);
+    // The window had to restart after the late commit at ~30ms in;
+    // total wait must be at least 30ms + 40ms = 70ms (with slack).
+    CHECK(dt >= 65ms);
+    CHECK(dt < 500ms);
+}
+
+// ============== Inference::input_hash_hex / output_hash_hex ===============
+
+TEST_CASE("input_hash_hex: not_found before run") {
+    auto rt_ = fresh_runtime("ihx_pre"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ihx_p");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto r = inf.value().input_hash_hex();
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("input_hash_hex: returns hex string after successful run") {
+    auto rt_ = fresh_runtime("ihx_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ihx_o");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("payload",
+        [](std::string s) -> Result<std::string> { return s; }));
+    auto r = inf.value().input_hash_hex();
+    REQUIRE(r);
+    // BLAKE2b-256 hex is 64 chars; matches what input_hash() returns.
+    CHECK(r.value().size() == 64);
+    CHECK(r.value() == inf.value().input_hash());
+}
+
+TEST_CASE("input_hash_hex: not_found when input policy blocks before hashing") {
+    auto rt_ = fresh_runtime("ihx_blk"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_length_limit(/*input_max=*/4, /*output_max=*/0));
+    auto pid = PatientId::pseudonymous("p_ihx_blk");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto out = inf.value().run("this is way too long for the limit",
+        [](std::string s) -> Result<std::string> { return s; });
+    REQUIRE(!out);
+    auto r = inf.value().input_hash_hex();
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("output_hash_hex: not_found before run") {
+    auto rt_ = fresh_runtime("ohx_pre"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ohx_p");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto r = inf.value().output_hash_hex();
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("output_hash_hex: returns hex string when status == ok") {
+    auto rt_ = fresh_runtime("ohx_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ohx_o");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s + "-out"; }));
+    auto r = inf.value().output_hash_hex();
+    REQUIRE(r);
+    CHECK(r.value().size() == 64);
+    CHECK(r.value() == inf.value().output_hash());
+}
+
+TEST_CASE("output_hash_hex: not_found when status != ok (model_error)") {
+    auto rt_ = fresh_runtime("ohx_err"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ohx_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto out = inf.value().run("hi",
+        [](std::string) -> Result<std::string> {
+            return Error::internal("model exploded");
+        });
+    REQUIRE(!out);
+    CHECK(inf.value().status() == "model_error");
+    auto r = inf.value().output_hash_hex();
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("output_hash_hex: not_found when status == blocked.output") {
+    auto rt_ = fresh_runtime("ohx_bo"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_length_limit(/*input_max=*/0, /*output_max=*/4));
+    auto pid = PatientId::pseudonymous("p_ohx_bo");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto out = inf.value().run("hi",
+        [](std::string) -> Result<std::string> {
+            return std::string{"output is too long"};
+        });
+    REQUIRE(!out);
+    CHECK(inf.value().status() == "blocked.output");
+    auto r = inf.value().output_hash_hex();
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+// ============== Runtime::current_load_metric ==============================
+
+TEST_CASE("current_load_metric: 0.0 on a fresh empty runtime") {
+    auto rt_ = fresh_runtime("clm_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.ledger().length() == 0);
+    CHECK(rt.current_load_metric() == doctest::Approx(0.0));
+}
+
+TEST_CASE("current_load_metric: 0.0 when chain has no inference.committed entries") {
+    auto rt_ = fresh_runtime("clm_other"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Append a non-inference event; load should still be 0.
+    REQUIRE(rt.record_event("custom.ping", "system:test",
+                             nlohmann::json::object()));
+    REQUIRE(rt.ledger().length() >= 1);
+    CHECK(rt.current_load_metric() == doctest::Approx(0.0));
+}
+
+TEST_CASE("current_load_metric: counts recent inference.committed entries / 60") {
+    auto rt_ = fresh_runtime("clm_recent"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_clm_r");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    constexpr int kRuns = 3;
+    for (int i = 0; i < kRuns; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("hi",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    // Three commits within the trailing 60-second window → 3/60 = 0.05.
+    auto m = rt.current_load_metric();
+    CHECK(m == doctest::Approx(static_cast<double>(kRuns) / 60.0));
+}
+
+TEST_CASE("current_load_metric: ignores non-inference events in the same window") {
+    auto rt_ = fresh_runtime("clm_mix"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_clm_mix");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // One inference.committed entry...
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // ...and a handful of non-inference events that must NOT be counted.
+    for (int i = 0; i < 5; ++i) {
+        REQUIRE(rt.record_event("noise", "system:test",
+                                 nlohmann::json{{"i", i}}));
+    }
+    auto m = rt.current_load_metric();
+    CHECK(m == doctest::Approx(1.0 / 60.0));
+}

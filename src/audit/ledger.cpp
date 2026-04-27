@@ -763,6 +763,42 @@ Ledger::tail_by_event_type(std::string_view event_type, std::size_t n) const {
     return ring;
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::recent_failures(std::size_t n) const {
+    if (n == 0) return std::vector<LedgerEntry>{};
+
+    // Ring buffer of the last `n` matches, oldest-first; reversed on
+    // return so callers see most-recent-first. Mirrors tail_by_event_type
+    // but adds a body-status filter on top of the event_type prefilter.
+    std::vector<LedgerEntry> ring;
+    ring.reserve(n);
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Only inference.committed entries carry a "status" body field.
+        if (e.header.event_type != "inference.committed") return true;
+        // Cheap substring prefilter: if the body doesn't even mention
+        // "status", it can't be a failure.
+        if (e.body_json.find("\"status\"") == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("status");
+            if (it == j.end() || !it->is_string()) return true;
+            if (it->get<std::string>() == "ok") return true;
+        } catch (...) {
+            return true;
+        }
+        if (ring.size() < n) {
+            ring.push_back(e);
+        } else {
+            std::move(ring.begin() + 1, ring.end(), ring.begin());
+            ring.back() = e;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    std::reverse(ring.begin(), ring.end());
+    return ring;
+}
+
 Result<Hash> Ledger::checksum_range(std::uint64_t start, std::uint64_t end) const {
     if (start > end) {
         return Error::invalid("checksum_range: start > end");
@@ -854,6 +890,19 @@ Result<std::vector<std::string>> Ledger::tenants() const {
     for (const auto& [t, _] : seen) out.push_back(t);
     std::sort(out.begin(), out.end());
     return out;
+}
+
+Result<std::size_t> Ledger::active_tenants_count() const {
+    // Same shape as distinct_actors_count: stream into a dedup map and
+    // return the cardinality. The empty tenant ("") is its own scope and
+    // counts if any entries carry it.
+    std::unordered_map<std::string, std::uint8_t> seen;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        seen.emplace(e.header.tenant, 1);
+        return true;
+    });
+    if (!r) return r.error();
+    return seen.size();
 }
 
 bool Ledger::has_tenant(std::string_view tenant) const {
@@ -993,6 +1042,28 @@ Ledger::events_between(Time from, Time to, std::string_view event_type) const {
     return out;
 }
 
+Result<bool> Ledger::any_blocked_in_window(Time from, Time to) const {
+    if (from > to) {
+        return Error::invalid("any_blocked_in_window: from > to");
+    }
+    bool found = false;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Half-open [from, to): include from, exclude to.
+        if (e.header.ts < from) return true;
+        if (!(e.header.ts < to)) return true;
+        // Substring prefilter — any blocked.* outcome marshalled by the
+        // runtime carries the literal substring "status":"blocked.
+        // Stops the scan on the first hit.
+        if (e.body_json.find("\"status\":\"blocked") != std::string::npos) {
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    return found;
+}
+
 bool Ledger::has_inference_id(std::string_view id) const {
     if (id.empty()) return false;
     bool found = false;
@@ -1060,6 +1131,36 @@ std::string Ledger::head_attestation_json() const {
     j["key_fingerprint"] = impl_->signer.fingerprint();
     j["head_signature"]  = sig_hex;
     return j.dump();
+}
+
+Result<std::string> Ledger::head_attestation_hex() const {
+    // Compact peer of head_attestation_json(): same Ed25519 signature
+    // over head.bytes by the runtime's signing key, but encoded as
+    //     <head_hex_full>:<key_id_first_16>:<sig_hex_first_16>
+    // for log lines and TTY status panels. Empty chain still emits a
+    // well-formed string with all-zero head and a real signature over
+    // those zero bytes.
+    const auto& head = impl_->head;
+    auto sig = impl_->signer.sign(
+        Bytes{head.bytes.data(), head.bytes.size()});
+
+    static const char* d = "0123456789abcdef";
+    std::string sig_hex;
+    sig_hex.resize(sig.size() * 2);
+    for (std::size_t i = 0; i < sig.size(); ++i) {
+        sig_hex[2 * i + 0] = d[(sig[i] >> 4) & 0xF];
+        sig_hex[2 * i + 1] = d[(sig[i] >> 0) & 0xF];
+    }
+
+    // Truncate the key_id and sig_hex to their first 16 chars. The
+    // runtime convention (KeyStore::key_id) is already 16 hex chars,
+    // but we clamp defensively so the output shape is stable for
+    // callers swapping in alternate stores.
+    std::string kid = impl_->key_id;
+    if (kid.size() > 16) kid.resize(16);
+    if (sig_hex.size() > 16) sig_hex.resize(16);
+
+    return head.hex() + ":" + kid + ":" + sig_hex;
 }
 
 std::string Ledger::summary_string() const {
@@ -1135,6 +1236,23 @@ Ledger::events_in_window_count(Time from, Time to) const {
     });
     if (!r) return r.error();
     return n;
+}
+
+Result<std::unordered_map<std::string, std::uint64_t>>
+Ledger::events_in_window_by_type(Time from, Time to) const {
+    if (from > to) {
+        return Error::invalid("events_in_window_by_type: from > to");
+    }
+    std::unordered_map<std::string, std::uint64_t> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Half-open [from, to): include from, exclude to.
+        if (e.header.ts < from) return true;
+        if (!(e.header.ts < to)) return true;
+        out[e.header.event_type] += 1;
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
 }
 
 Result<std::vector<LedgerEntry>>

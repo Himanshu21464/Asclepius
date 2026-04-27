@@ -476,6 +476,51 @@ std::string Inference::output_hash() const {
     return it->get<std::string>();
 }
 
+Result<std::string> Inference::input_hash_hex() const {
+    // Result-shaped sugar over input_hash(). The empty-string sentinel
+    // returned by input_hash() collapses two distinct cases — "no run
+    // yet" and "input policy blocked before hashing." Both surface as
+    // not_found here; sidecars threading through Result<T,Error>
+    // pipelines get a uniform error shape without inspecting an empty
+    // string. Reads from the same pending body as input_hash().
+    if (!impl_) {
+        return Error::not_found("input_hash_hex: null inference handle");
+    }
+    auto it = impl_->ledger_body.find("input_hash");
+    if (it == impl_->ledger_body.end() || !it->is_string()) {
+        return Error::not_found("input_hash_hex: no run or hash missing");
+    }
+    const auto& s = it->get_ref<const std::string&>();
+    if (s.empty()) {
+        return Error::not_found("input_hash_hex: hash is empty");
+    }
+    return s;
+}
+
+Result<std::string> Inference::output_hash_hex() const {
+    // Result-shaped sugar over output_hash(). Output hash is only
+    // landed on the success path (status="ok"); blocked.output,
+    // model_error, timeout, and cancelled all leave it absent. Mirror
+    // output_size() by gating explicitly on status == "ok" so callers
+    // get the same "not_found unless ok" verdict for both fields.
+    if (!impl_) {
+        return Error::not_found("output_hash_hex: null inference handle");
+    }
+    auto status_it = impl_->ledger_body.find("status");
+    const bool ok = status_it != impl_->ledger_body.end() &&
+                    status_it->is_string() &&
+                    status_it->get_ref<const std::string&>() == "ok";
+    if (!ok) {
+        return Error::not_found(
+            "output_hash_hex: only available when status == ok");
+    }
+    auto it = impl_->ledger_body.find("output_hash");
+    if (it == impl_->ledger_body.end() || !it->is_string()) {
+        return Error::not_found("output_hash_hex: hash missing");
+    }
+    return it->get<std::string>();
+}
+
 Result<std::size_t> Inference::input_size() const {
     if (!impl_ || !impl_->completed) {
         return Error::invalid("input_size called before run");
@@ -521,6 +566,16 @@ std::int64_t Inference::age_ms() const noexcept {
     // "elapsed since started_at." Forwards directly so the two stay
     // in lockstep if elapsed_ms() ever grows a different floor / clamp.
     return elapsed_ms();
+}
+
+std::chrono::seconds Inference::elapsed_seconds() const noexcept {
+    // Truncating sugar over elapsed_ms(). Integer division by 1000
+    // matches the elapsed_ms() floor — sub-second elapsed values
+    // collapse to chrono::seconds::zero() rather than rounding up,
+    // so a freshly-begun handle never reports "1s" prematurely.
+    // Forwards through elapsed_ms() so any future floor/clamp on
+    // that accessor is inherited automatically.
+    return std::chrono::seconds{elapsed_ms() / 1000};
 }
 
 Result<void> Inference::commit_idempotent(std::size_t lookback) {

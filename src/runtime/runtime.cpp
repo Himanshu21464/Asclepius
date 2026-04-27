@@ -308,6 +308,78 @@ bool Runtime::is_busy(std::chrono::milliseconds threshold) const {
     return !is_idle(threshold);
 }
 
+bool Runtime::wait_for_quiet(std::chrono::milliseconds period,
+                              std::chrono::milliseconds timeout) const {
+    // Block until the runtime has been idle for at least `period`, or
+    // until `timeout` expires. "Idle" here means: the most-recent
+    // ledger entry's wall-clock timestamp is older than `period`, and
+    // the chain length has not changed since the last poll. We poll
+    // length() and tail(1) every 5 ms so cancellation latency stays
+    // bounded; the same step matches wait_until_chain_grows for
+    // consistency.
+    //
+    // Empty-chain handling: a chain with zero entries is trivially
+    // quiet, but we still need `period` of wall time to elapse from
+    // the call's start before declaring victory — otherwise a fresh
+    // runtime would report "quiet" on the very first tick, which
+    // breaks shutdown loops that expect to observe at least one
+    // poll cycle. We capture the call-start time as the empty-chain
+    // anchor.
+    constexpr auto kStep = std::chrono::milliseconds{5};
+    const auto t0       = std::chrono::steady_clock::now();
+    const auto deadline = t0 + timeout;
+
+    auto last_length = impl_->ledger.length();
+    // Anchor for the "no new commits" window. Initially set to t0 so
+    // the empty-chain case can satisfy the contract once `period` has
+    // elapsed since the call started.
+    auto last_change = t0;
+
+    while (true) {
+        const auto now = std::chrono::steady_clock::now();
+        const auto cur_length = impl_->ledger.length();
+        if (cur_length != last_length) {
+            // A new entry landed since the last tick; restart the
+            // quiet window from this moment.
+            last_length = cur_length;
+            last_change = now;
+        }
+
+        // Determine whether the runtime has been quiet long enough.
+        // We use the steady_clock anchor (last_change) for the "no
+        // change since" window so the comparison is monotonic and
+        // immune to wall-clock skew. Additionally, we require the
+        // most-recent entry's wall-clock ts (if any) to be older than
+        // `period` — this defends against the case where a commit
+        // landed during the brief gap between two polls and was then
+        // immediately flushed by another, which steady_clock alone
+        // would miss. Both conditions must hold.
+        bool quiet_steady = (now - last_change) >= period;
+        bool quiet_wall   = true;
+        if (cur_length > 0) {
+            auto t = impl_->ledger.tail(1);
+            if (!t || t.value().empty()) {
+                // Backend hiccup — collapse to "not quiet" so the
+                // shutdown caller never tears down the runtime on a
+                // false-positive.
+                quiet_wall = false;
+            } else {
+                auto since_last_entry =
+                    Time::now() - t.value().front().header.ts;
+                quiet_wall = since_last_entry >=
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(period);
+            }
+        }
+        if (quiet_steady && quiet_wall) return true;
+
+        if (now >= deadline) return false;
+
+        // Sleep until the next tick, but never past the deadline.
+        const auto remaining = deadline - now;
+        std::this_thread::sleep_for(remaining < kStep ? remaining : kStep);
+    }
+}
+
 bool Runtime::wait_until_chain_grows(std::uint64_t min_seq,
                                      std::chrono::milliseconds timeout) const {
     // Polling wait. Fast-path the trivial "already satisfied" case
@@ -371,6 +443,42 @@ std::string Runtime::version() const {
 #else
     return std::string{"0.0.0-dev"};
 #endif
+}
+
+double Runtime::current_load_metric() const {
+    // Inferences-per-second over the trailing 60 s window.
+    // Approach: pull entries via tail_after_time(now - 60s, n) so we
+    // bound the cost (n caps the in-memory copy) while letting the
+    // backend filter on ts. We then count those whose event_type ==
+    // "inference.committed" — tail_after_time returns every event
+    // type, not just inferences, so the post-filter is needed. The
+    // 60-second window divisor is fixed; partial windows (a runtime
+    // that's been alive for < 60 s) still divide by 60.0 so the rate
+    // gauge behaves continuously rather than reporting an inflated
+    // "burst rate" against a fractional denominator.
+    //
+    // Empty-chain fast path: skip the read entirely. Backend errors
+    // (denormalised tail, transient SQLite failure) collapse to 0.0 —
+    // a load-balancer reading current_load_metric() prefers a
+    // numeric "no load" verdict over an exception, matching the
+    // documented contract.
+    if (impl_->ledger.length() == 0) return 0.0;
+    constexpr auto kWindow = std::chrono::seconds{60};
+    auto cutoff = Time::now() - std::chrono::duration_cast<
+        std::chrono::nanoseconds>(kWindow);
+    // Cap the number of entries we pull back. A 60-second burst is
+    // not expected to exceed a few thousand commits in practice; the
+    // cap protects against pathological floods without losing
+    // accuracy at typical loads. tail_after_time keeps memory
+    // bounded at min(n, matches).
+    constexpr std::size_t kCap = 100'000;
+    auto entries = impl_->ledger.tail_after_time(cutoff, kCap);
+    if (!entries) return 0.0;
+    std::uint64_t commits = 0;
+    for (const auto& e : entries.value()) {
+        if (e.header.event_type == "inference.committed") ++commits;
+    }
+    return static_cast<double>(commits) / 60.0;
 }
 
 std::size_t Runtime::active_inference_count() const {

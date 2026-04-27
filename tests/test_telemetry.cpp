@@ -3954,3 +3954,374 @@ TEST_CASE("Histogram::scale_by integration — preserves geometry; downsample-th
     // remainders accumulated below the per-bucket boundary.
     CHECK(h.total() == 7);
 }
+
+// ============== Histogram::clone =========================================
+
+TEST_CASE("Histogram::clone produces a deep copy with identical content") {
+    Histogram src{0.0, 1.0, 8};
+    for (int i = 0; i < 10; ++i) src.observe(0.1);
+    for (int i = 0; i < 5;  ++i) src.observe(0.6);
+    REQUIRE(src.total() == 15);
+
+    Histogram dst = src.clone();
+    CHECK(dst.lo()        == doctest::Approx(src.lo()));
+    CHECK(dst.hi()        == doctest::Approx(src.hi()));
+    CHECK(dst.bin_count() == src.bin_count());
+    CHECK(dst.total()     == src.total());
+
+    // Bin-wise content equal.
+    for (std::size_t i = 0; i < src.bin_count(); ++i) {
+        auto a = src.bin_at(i); REQUIRE(a);
+        auto b = dst.bin_at(i); REQUIRE(b);
+        CHECK(a.value() == b.value());
+    }
+}
+
+TEST_CASE("Histogram::clone: source is unchanged after clone (distinct from move)") {
+    Histogram src{-1.0, 1.0, 4};
+    for (int i = 0; i < 7; ++i) src.observe(0.5);
+    REQUIRE(src.total() == 7);
+
+    Histogram dst = src.clone();
+
+    // Source still observable, still has its observations.
+    CHECK(src.total() == 7);
+    src.observe(0.5);
+    CHECK(src.total() == 8);
+    // Mutating source did NOT touch the clone.
+    CHECK(dst.total() == 7);
+}
+
+TEST_CASE("Histogram::clone: clone is independently mutable") {
+    Histogram src{0.0, 1.0, 4};
+    for (int i = 0; i < 4; ++i) src.observe(0.125);  // bin 0
+    for (int i = 0; i < 4; ++i) src.observe(0.875);  // bin 3
+
+    Histogram dst = src.clone();
+    REQUIRE(dst.total() == 8);
+
+    // Clearing the clone leaves the source intact.
+    dst.clear();
+    CHECK(dst.total() == 0);
+    CHECK(src.total() == 8);
+
+    // Scaling the clone leaves the source intact.
+    Histogram dst2 = src.clone();
+    REQUIRE(dst2.scale_by(0.5));
+    CHECK(dst2.total() == 4);   // floor(4*0.5)+floor(4*0.5)=2+2=4
+    CHECK(src.total()  == 8);   // untouched
+}
+
+TEST_CASE("Histogram::clone of an empty histogram preserves geometry") {
+    Histogram src{2.0, 5.0, 6};
+    Histogram dst = src.clone();
+    CHECK(dst.lo()        == doctest::Approx(2.0));
+    CHECK(dst.hi()        == doctest::Approx(5.0));
+    CHECK(dst.bin_count() == 6);
+    CHECK(dst.total()     == 0);
+    CHECK(dst.is_empty());
+}
+
+// ============== Histogram::with_added ====================================
+
+TEST_CASE("Histogram::with_added returns bin-wise sum, leaves both inputs unchanged") {
+    Histogram a{0.0, 1.0, 4};
+    Histogram b{0.0, 1.0, 4};
+    for (int i = 0; i < 3; ++i) a.observe(0.1);   // bin 0
+    for (int i = 0; i < 5; ++i) a.observe(0.6);   // bin 2
+    for (int i = 0; i < 2; ++i) b.observe(0.1);   // bin 0
+    for (int i = 0; i < 4; ++i) b.observe(0.85);  // bin 3
+    REQUIRE(a.total() == 8);
+    REQUIRE(b.total() == 6);
+
+    Histogram c = a.with_added(b);
+
+    // a + b totals.
+    CHECK(c.total() == 14);
+    // Bin-wise sums.
+    auto c0 = c.bin_at(0); REQUIRE(c0); CHECK(c0.value() == 5);  // 3+2
+    auto c1 = c.bin_at(1); REQUIRE(c1); CHECK(c1.value() == 0);
+    auto c2 = c.bin_at(2); REQUIRE(c2); CHECK(c2.value() == 5);  // 5+0
+    auto c3 = c.bin_at(3); REQUIRE(c3); CHECK(c3.value() == 4);  // 0+4
+
+    // Inputs untouched (this is the contract that distinguishes
+    // with_added() from merge()).
+    CHECK(a.total() == 8);
+    CHECK(b.total() == 6);
+}
+
+TEST_CASE("Histogram::with_added on geometry mismatch returns empty with this's geometry") {
+    Histogram a{0.0, 1.0, 4};
+    Histogram b{0.0, 1.0, 8};   // different bin count
+    for (int i = 0; i < 3; ++i) a.observe(0.5);
+    for (int i = 0; i < 7; ++i) b.observe(0.5);
+    REQUIRE(a.total() == 3);
+    REQUIRE(b.total() == 7);
+
+    Histogram c = a.with_added(b);
+
+    // Empty histogram with a's geometry.
+    CHECK(c.lo()        == doctest::Approx(a.lo()));
+    CHECK(c.hi()        == doctest::Approx(a.hi()));
+    CHECK(c.bin_count() == a.bin_count());
+    CHECK(c.total()     == 0);
+    CHECK(c.is_empty());
+
+    // Inputs still untouched.
+    CHECK(a.total() == 3);
+    CHECK(b.total() == 7);
+
+    // Same geometry mismatch via lo/hi.
+    Histogram d{1.0, 2.0, 4};   // same bins, different lo/hi
+    Histogram e = a.with_added(d);
+    CHECK(e.lo()        == doctest::Approx(a.lo()));
+    CHECK(e.hi()        == doctest::Approx(a.hi()));
+    CHECK(e.bin_count() == a.bin_count());
+    CHECK(e.total()     == 0);
+}
+
+TEST_CASE("Histogram::with_added with self returns doubled counts") {
+    Histogram a{0.0, 1.0, 4};
+    for (int i = 0; i < 6; ++i) a.observe(0.125);
+    REQUIRE(a.total() == 6);
+
+    Histogram c = a.with_added(a);
+
+    CHECK(c.total() == 12);
+    auto c0 = c.bin_at(0); REQUIRE(c0); CHECK(c0.value() == 12);
+    // Source unchanged.
+    CHECK(a.total() == 6);
+}
+
+TEST_CASE("Histogram::with_added composes with merge — equivalent results") {
+    Histogram a{0.0, 1.0, 4};
+    Histogram b{0.0, 1.0, 4};
+    for (int i = 0; i < 5; ++i) a.observe(0.125);
+    for (int i = 0; i < 3; ++i) b.observe(0.625);
+
+    // Path 1: with_added (non-mutating).
+    Histogram fused = a.with_added(b);
+
+    // Path 2: clone + merge (mutating into a copy).
+    Histogram fused2 = a.clone();
+    REQUIRE(fused2.merge(b));
+
+    // The two routes must produce the same totals + per-bin counts.
+    CHECK(fused.total() == fused2.total());
+    for (std::size_t i = 0; i < fused.bin_count(); ++i) {
+        auto x = fused.bin_at(i);  REQUIRE(x);
+        auto y = fused2.bin_at(i); REQUIRE(y);
+        CHECK(x.value() == y.value());
+    }
+
+    // Inputs to the non-mutating path remain intact.
+    CHECK(a.total() == 5);
+    CHECK(b.total() == 3);
+}
+
+// ============== MetricRegistry::counter_names_with_prefix ================
+
+TEST_CASE("counter_names_with_prefix returns sorted names matching prefix") {
+    MetricRegistry m;
+    m.inc("policy.scrubber.hits");
+    m.inc("policy.length.violations");
+    m.inc("ledger.appends");
+    m.inc("policy.action.blocks");
+    m.inc("ledger.verifies");
+
+    auto names = m.counter_names_with_prefix("policy.");
+    REQUIRE(names.size() == 3);
+    // Alphabetical order.
+    CHECK(names[0] == "policy.action.blocks");
+    CHECK(names[1] == "policy.length.violations");
+    CHECK(names[2] == "policy.scrubber.hits");
+}
+
+TEST_CASE("counter_names_with_prefix: empty prefix returns every counter sorted") {
+    MetricRegistry m;
+    m.inc("zeta");
+    m.inc("alpha");
+    m.inc("mu");
+
+    auto names = m.counter_names_with_prefix("");
+    REQUIRE(names.size() == 3);
+    CHECK(names[0] == "alpha");
+    CHECK(names[1] == "mu");
+    CHECK(names[2] == "zeta");
+
+    // Equivalent to all_counter_names().
+    auto all = m.all_counter_names();
+    CHECK(names == all);
+}
+
+TEST_CASE("counter_names_with_prefix: no matches returns empty vector") {
+    MetricRegistry m;
+    m.inc("foo");
+    m.inc("bar");
+    auto names = m.counter_names_with_prefix("nope.");
+    CHECK(names.empty());
+
+    // An empty registry also returns empty for any prefix.
+    MetricRegistry empty;
+    CHECK(empty.counter_names_with_prefix("").empty());
+    CHECK(empty.counter_names_with_prefix("anything").empty());
+}
+
+TEST_CASE("counter_names_with_prefix ignores histograms") {
+    MetricRegistry m;
+    m.inc("policy.hits", 1);
+    m.observe("policy.latency_seconds", 0.05);  // histogram, NOT a counter
+
+    auto names = m.counter_names_with_prefix("policy.");
+    REQUIRE(names.size() == 1);
+    CHECK(names[0] == "policy.hits");
+}
+
+// ============== DriftMonitor::list_severe_features =======================
+
+TEST_CASE("list_severe_features empty when no features registered") {
+    DriftMonitor dm;
+    auto v = dm.list_severe_features();
+    CHECK(v.empty());
+}
+
+TEST_CASE("list_severe_features empty when no feature is severe") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("calm", baseline, 0.0, 1.0, 10));
+    // Observe values close to the baseline — PSI stays low.
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("calm", 0.5));
+
+    auto v = dm.list_severe_features();
+    CHECK(v.empty());
+}
+
+TEST_CASE("list_severe_features lists severe features in alphabetical order") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("zulu",  baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("alpha", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("mike",  baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("calm",  baseline, 0.0, 1.0, 10));
+
+    // Drift three features hard (PSI > 0.5 → severe). Feed "calm"
+    // baseline-matching observations so it stays at PSI ~ 0 (otherwise
+    // an empty current window classifies as severe via eps-clamped PSI).
+    for (int i = 0; i < 200; ++i) {
+        REQUIRE(dm.observe("zulu",  0.05));
+        REQUIRE(dm.observe("alpha", 0.05));
+        REQUIRE(dm.observe("mike",  0.05));
+        REQUIRE(dm.observe("calm",  0.5));
+    }
+
+    auto v = dm.list_severe_features();
+    REQUIRE(v.size() == 3);
+    // Alphabetical order — distinguishing this from list_features() (unspecified).
+    CHECK(v[0] == "alpha");
+    CHECK(v[1] == "mike");
+    CHECK(v[2] == "zulu");
+}
+
+TEST_CASE("list_severe_features matches report() filtered by severity == severe") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("a", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("b", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("c", baseline, 0.0, 1.0, 10));
+
+    // Only push "a" and "c" to severe.
+    for (int i = 0; i < 200; ++i) {
+        REQUIRE(dm.observe("a", 0.05));
+        REQUIRE(dm.observe("b", 0.5));   // stays calm
+        REQUIRE(dm.observe("c", 0.95));
+    }
+
+    auto severe_names = dm.list_severe_features();
+    auto rep          = dm.report();
+
+    // Pull severe names from report() into a sorted set for comparison.
+    std::vector<std::string> from_report;
+    for (const auto& r : rep) {
+        if (r.severity == DriftSeverity::severe) {
+            from_report.push_back(r.feature);
+        }
+    }
+    std::sort(from_report.begin(), from_report.end());
+
+    CHECK(severe_names == from_report);
+    REQUIRE(severe_names.size() == 2);
+    CHECK(severe_names[0] == "a");
+    CHECK(severe_names[1] == "c");
+}
+
+// ============== DriftMonitor::has_any_severe =============================
+
+TEST_CASE("has_any_severe is false on an empty monitor") {
+    DriftMonitor dm;
+    CHECK_FALSE(dm.has_any_severe());
+}
+
+TEST_CASE("has_any_severe is false when no feature classifies as severe") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("a", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("b", baseline, 0.0, 1.0, 10));
+    // Tiny perturbation; PSI stays well below the severe threshold.
+    for (int i = 0; i < 200; ++i) {
+        REQUIRE(dm.observe("a", 0.5));
+        REQUIRE(dm.observe("b", 0.5));
+    }
+    CHECK_FALSE(dm.has_any_severe());
+}
+
+TEST_CASE("has_any_severe is true when at least one feature is severe") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("calm",   baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("broken", baseline, 0.0, 1.0, 10));
+
+    // Push only "broken" past severe (PSI > 0.5).
+    for (int i = 0; i < 200; ++i) {
+        REQUIRE(dm.observe("calm",   0.5));
+        REQUIRE(dm.observe("broken", 0.05));
+    }
+    CHECK(dm.has_any_severe());
+
+    // And it agrees with list_severe_features() / any_severe().
+    CHECK(dm.any_severe());
+    CHECK_FALSE(dm.list_severe_features().empty());
+}
+
+TEST_CASE("has_any_severe is noexcept and consistent with list_severe_features") {
+    DriftMonitor dm;
+    // Compile-time noexcept assertion on the method's contract.
+    static_assert(noexcept(dm.has_any_severe()));
+
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("x", baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("y", baseline, 0.0, 1.0, 10));
+
+    // Step 1: feed baseline-matching observations to both → no severity.
+    // (Empty current windows would themselves classify as severe via the
+    // eps-clamped PSI; we observe the baseline value first to keep PSI
+    // low and isolate the "no severity" branch.)
+    for (int i = 0; i < 200; ++i) {
+        REQUIRE(dm.observe("x", 0.5));
+        REQUIRE(dm.observe("y", 0.5));
+    }
+    CHECK_FALSE(dm.has_any_severe());
+    CHECK(dm.list_severe_features().empty());
+
+    // Step 2: pivot y hard to one tail → bool flips, list contains y only.
+    REQUIRE(dm.reset("y"));
+    for (int i = 0; i < 200; ++i) REQUIRE(dm.observe("y", 0.05));
+    CHECK(dm.has_any_severe());
+    auto v = dm.list_severe_features();
+    REQUIRE(v.size() == 1);
+    CHECK(v[0] == "y");
+
+    // Step 3: bool agrees with the cheaper non-noexcept any_severe()
+    // and with !list_severe_features().empty(). Cross-check both.
+    CHECK(dm.has_any_severe() == dm.any_severe());
+    CHECK(dm.has_any_severe() == !dm.list_severe_features().empty());
+}

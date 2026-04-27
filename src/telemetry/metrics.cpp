@@ -304,6 +304,25 @@ std::vector<std::string> MetricRegistry::all_counter_names() const {
     return out;
 }
 
+std::vector<std::string>
+MetricRegistry::counter_names_with_prefix(std::string_view prefix) const {
+    // Mirror sum_counters_with_prefix()'s "empty prefix matches every
+    // counter" sentinel — std::string_view::starts_with(""sv) is
+    // unconditionally true, so the branch falls out naturally and an
+    // empty prefix degrades to all_counter_names(). Sort the result
+    // for stable output (dashboards / diff-friendly snapshots).
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<std::string> out;
+    out.reserve(counters_.size());
+    for (const auto& [name, _] : counters_) {
+        if (std::string_view{name}.starts_with(prefix)) {
+            out.push_back(name);
+        }
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
 void MetricRegistry::clear() {
     std::lock_guard<std::mutex> lk(mu_);
     counters_.clear();

@@ -269,7 +269,7 @@
 
         <article class="ch__rel ch__rel--unreleased h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.5.0</b><time class="dt-planned">target · 2026 Q3</time><span class="pill">planned</span>
+            <b class="p-name">v0.6.0</b><time class="dt-planned">target · 2026 Q3</time><span class="pill">planned</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Sidecar GA</em>. Java, Go, .NET hosts can deploy in production
@@ -285,7 +285,95 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.9</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.5.0</b><time class="dt-published" datetime="2026-04-27">2026-04-27</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Failures filter, severe-only drift, idempotent revoke.</em>
+            Round 88 lands the verbs the substrate kept reaching for —
+            an inference-failures tail distinct from the success-and-failure
+            blend <code>recent_inferences</code> hands back, a sorted set of
+            severe drift features so an on-call can drill in past
+            <code>most_drifted_feature</code>'s single pointer, and a
+            revocation that stays <code>ok</code> on the second call so
+            retry loops and shutdown sweeps stop fighting the registry.
+            Audit grows <code>recent_failures(n)</code>
+            (<code>Result&lt;vector&lt;LedgerEntry&gt;&gt;</code>) as the
+            dead-letter tail, <code>events_in_window_by_type(t0, t1)</code>
+            as the windowed event-type histogram in one query,
+            <code>active_tenants_count()</code> as the cardinality cell
+            without the vector, <code>any_blocked_in_window(t0, t1)</code>
+            as the cheap incident-triage bool, and
+            <code>head_attestation_hex()</code> as the compact
+            <code>&lt;head_hex&gt;:&lt;key_id_first_16&gt;:&lt;sig_hex_first_16&gt;</code>
+            string a status badge or a webhook payload wants where
+            even the trimmed JSON is too verbose. Telemetry:
+            <code>Histogram::clone()</code> as the explicit deep-copy
+            verb (the move ctor exists from round 86; this is the named
+            "snapshot, don't transfer ownership" companion),
+            <code>Histogram::with_added(other)</code> as the non-mutating
+            mirror of <code>merge</code>, <code>MetricRegistry::counter_names_with_prefix(prefix)</code>
+            as the names-axis sibling of <code>sum_counters_with_prefix</code>,
+            <code>DriftMonitor::list_severe_features()</code> as the sorted
+            vector of currently-severe features, and
+            <code>DriftMonitor::has_any_severe()</code>
+            (<code>noexcept</code>) as the cheap "is anything on fire?"
+            startup-gate predicate. Consent grows
+            <code>patients_with_purpose(purpose)</code> as the sorted
+            cohort cell, <code>has_been_revoked(patient)</code>
+            (<code>noexcept</code>) as the per-patient sibling of
+            <code>has_revoked_tokens</code>, <code>force_revoke(token_id)</code>
+            as the idempotent "make sure this token is dead, don't fire
+            twice" verb (no observer on the second call),
+            <code>list_states_summary()</code> as the grep-friendly
+            <code>{token_id, state_string}</code> dump sorted by token id,
+            and <code>count_distinct_purposes_for_patient(patient)</code>
+            as the explicit-distinct cardinality cell. Runtime / Inference:
+            <code>Inference::elapsed_seconds()</code> as the
+            <code>chrono::seconds</code> sibling of <code>elapsed_ms()</code>
+            for the multi-minute or queue-depth scanner that reads in
+            seconds; <code>Inference::input_hash_hex()</code> and
+            <code>output_hash_hex()</code>
+            (<code>Result&lt;string&gt;</code>) as the printable hex form
+            of the BLAKE2b-256 hashes — <code>not_found</code> on output
+            when <code>status() != ok</code>;
+            <code>Runtime::wait_for_quiet(period, timeout)</code> as the
+            graceful-shutdown blocker that returns <code>ok</code> when
+            no inference handles have been in-flight for at least
+            <code>period</code>, replacing the busy-loop on
+            <code>active_inference_count()</code>; and
+            <code>Runtime::current_load_metric()</code> as the
+            inferences-per-second rate over the last 60 seconds —
+            distinct from <code>seq_density()</code>'s lifetime average,
+            the rolling-window cell an autoscaler reads.
+            <em>No on-disk format changes; no API breaks</em>.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::recent_failures(n)</code> — <code>Result&lt;vector&lt;LedgerEntry&gt;&gt;</code>; the last <code>n</code> committed inferences with status &ne; <code>ok</code>, newest first. The dead-letter tail; pairs with <code>any_blocked_in_window</code> for the windowed predicate.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::events_in_window_by_type(from, to)</code> — <code>Result&lt;map&lt;string, uint64&gt;&gt;</code>; sorted event-type histogram across <code>[from, to]</code>. The "what kinds of events landed during the incident?" roll-up.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::active_tenants_count()</code> — distinct-tenant cardinality without materializing the <code>tenants()</code> vector. Sibling of <code>distinct_actors_count</code> on the tenant axis.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::any_blocked_in_window(from, to)</code> — cheap incident-triage bool over <code>policy.blocked</code> entries inside the window. Pairs with <code>recent_failures(n)</code> for the materialized companion.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::head_attestation_hex()</code> — compact <code>&lt;head_hex&gt;:&lt;key_id_first_16&gt;:&lt;sig_hex_first_16&gt;</code>; no JSON, no newline. The shape a status badge or webhook payload wants where even the trimmed <code>head_attestation_json()</code> is too verbose.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::clone()</code> — explicit deep copy. The move ctor exists from round 86; <code>clone()</code> is the named "snapshot, don't transfer ownership" companion the snapshot-and-baseline workflow reaches for.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::with_added(other)</code> — non-mutating sum, mirror of <code>merge(other)</code>. <code>merge</code> mutates in place; <code>with_added</code> returns a fresh value. Same shape contract: <code>invalid_argument</code> on bin-shape mismatch.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::counter_names_with_prefix(prefix)</code> — sorted vector of registered counter names starting with <code>prefix</code>. Names-axis sibling of <code>sum_counters_with_prefix</code>; pairs with it on the "what's registered under <code>policy.*</code>?" question.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::list_severe_features()</code> — sorted vector of every registered feature currently in the <code>severe</code> band. The "show me only the ones on fire" view ahead of <code>report()</code>; pairs with <code>most_drifted_feature()</code> when the question is the set, not the worst offender.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::has_any_severe()</code> — <code>noexcept</code> bool; sibling of <code>any_severe()</code> with explicit <em>any</em> vocabulary. Never throws, never allocates.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::patients_with_purpose(purpose)</code> — sorted vector of <code>PatientId</code>s currently holding at least one active token granting <code>purpose</code>. The cohort-extraction sibling of <code>tokens_with_purpose</code> on the patient axis.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::has_been_revoked(patient)</code> — <code>noexcept</code> bool; per-patient sibling of <code>has_revoked_tokens()</code>. The cheap "did this person ever withdraw consent?" predicate.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::force_revoke(token_id)</code> — idempotent revocation. Returns <code>ok</code> when the token is already revoked rather than re-firing the observer or raising an error. The verb a retry-loop or a shutdown sweep reaches for.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::list_states_summary()</code> — vector of <code>{token_id, state_string}</code> pairs sorted by token id; every token with its lifecycle state rendered as a string. The grep-friendly state dump.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::count_distinct_purposes_for_patient(patient)</code> — cardinality of distinct purposes currently granted to one patient by any active token. Explicit-distinct sibling of <code>active_purpose_count_for_patient</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::elapsed_seconds()</code> — wall-clock time since <code>begin_inference</code>, in <code>chrono::seconds</code>. Coarser-grained sibling of <code>elapsed_ms()</code> for the multi-minute or queue-depth scanner that reads in seconds.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::input_hash_hex()</code> — <code>Result&lt;string&gt;</code>; hex BLAKE2b-256 of the post-policy input. The printable string form for log lines and APM indexes.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::output_hash_hex()</code> — <code>Result&lt;string&gt;</code>; hex BLAKE2b-256 of the post-policy output. <code>not_found</code> when <code>status() != ok</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::wait_for_quiet(period, timeout)</code> — graceful-shutdown blocker. Returns <code>ok</code> when no inference handles have been in-flight for at least <code>period</code>, or <code>timeout</code> on expiry. Replaces busy-looping <code>active_inference_count()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::current_load_metric()</code> — inferences-per-second rate over the last 60 seconds. Distinct from <code>seq_density()</code>'s chain-lifetime average; the rolling-window cell a load balancer or an autoscaler reads.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.9</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Disjunctive consent, drift-to-metrics, body-size histograms.</em>

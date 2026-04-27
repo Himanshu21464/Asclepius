@@ -372,6 +372,23 @@ public:
     // by design — no canonical output was produced.
     std::string output_hash() const;
 
+    // Result-shaped sugar over input_hash(). Returns the hex string if
+    // a successful run has populated it; returns Error::not_found if
+    // no run has happened yet OR the input policy chain blocked
+    // before hashing (so input_hash is missing/empty). Used by sidecars
+    // that want to thread an Error through their own Result<T,Error>
+    // pipeline without inspecting an empty-string sentinel.
+    Result<std::string> input_hash_hex() const;
+
+    // Result-shaped sugar over output_hash(). Returns the hex string
+    // when status() == "ok" — output hash is only landed on the
+    // success path. Returns Error::not_found in every other case
+    // (handle hasn't run, blocked.input/output, model_error, timeout,
+    // cancelled), since no canonical output was produced. Mirrors the
+    // shape of output_size() so callers that already use it for the
+    // "ok-only" gate get matching semantics here.
+    Result<std::string> output_hash_hex() const;
+
     // Byte length of the post-policy input that was hashed into
     // input_hash(). Companion to input_hash() for callers that need to
     // know how much input was actually fed to the model without
@@ -399,6 +416,15 @@ public:
     // started_at" in some call sites (e.g. age-based GC or stale-handle
     // probes). Returns wallclock milliseconds since started_at().
     std::int64_t age_ms() const noexcept;
+
+    // Sugar over elapsed_ms() / 1000, returned as std::chrono::seconds.
+    // Used by sidecars and dashboards whose downstream metric is
+    // expressed in seconds (SLO budgets, capacity planners, second-
+    // resolution Prometheus gauges) rather than milliseconds. The
+    // truncation matches integer division — partial seconds are
+    // dropped. noexcept and total: a fresh handle (elapsed < 1s)
+    // returns chrono::seconds::zero().
+    std::chrono::seconds elapsed_seconds() const noexcept;
 
     const InferenceContext& ctx() const noexcept;
 
@@ -669,6 +695,18 @@ public:
     bool wait_until_chain_grows(std::uint64_t min_seq,
                                 std::chrono::milliseconds timeout) const;
 
+    // Block the calling thread until the runtime has been idle (no new
+    // ledger entries) for at least `period`, OR `timeout` expires.
+    // Returns true if the idle-for-period window was reached, false on
+    // timeout. Used by graceful-shutdown loops: drain in-flight work,
+    // then wait_for_quiet(grace, deadline) to confirm no further commits
+    // are landing before tearing down the backend. Polls length() and
+    // the most-recent entry's ts every 5 ms; bounded — not a chain
+    // scan. Empty chain trivially satisfies the contract on the first
+    // tick that has been quiet for `period` from the call's start.
+    bool wait_for_quiet(std::chrono::milliseconds period,
+                        std::chrono::milliseconds timeout) const;
+
     // Convenience: clear() the policy chain and push the standard
     // production set — make_phi_scrubber() and a reasonable
     // make_length_limit(64*1024, 64*1024). Used by sidecars that
@@ -706,6 +744,16 @@ public:
     // a strong real-time gauge — counters can be reset_metrics()'d out
     // from under it. Best-effort observability sugar for dashboards.
     std::size_t active_inference_count() const;
+
+    // Inferences-per-second rate over the trailing 60-second window —
+    // the count of inference.committed entries with header.ts >
+    // (now - 60s), divided by 60.0. Returns 0.0 on an empty chain and
+    // on any backend error (load-balancers / capacity probes prefer a
+    // numeric "no load" verdict over an exception). Sugar for capacity
+    // dashboards and load-shedding gates that need a single floating-
+    // point throughput estimate without manually composing
+    // tail_after_time / count_in_window calls.
+    double current_load_metric() const;
 
     // Size in bytes of the ledger backing storage — the on-disk size of
     // the .db file at the time of the call (subject to WAL checkpoint

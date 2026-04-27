@@ -68,6 +68,20 @@ public:
 
     Result<void> revoke(std::string_view token_id);
 
+    // Idempotent sibling of revoke(): mark the token revoked if it is not
+    // already, otherwise return ok without firing the observer. Returns
+    // Error::not_found if no token with this id exists. Useful for
+    // shutdown sweeps and reconciliation paths that walk a list of
+    // tokens to drain — callers want a "make this revoked, don't care if
+    // it already was" primitive without papering over not_found.
+    //
+    // Distinct from revoke() in two ways: revoke() always re-flips the
+    // bit (a no-op on the value but it always fires the observer);
+    // force_revoke() short-circuits when already revoked and stays
+    // silent on the observer side, so replay logs do not double-record
+    // the cleanup. The not_found contract matches revoke().
+    Result<void> force_revoke(std::string_view token_id);
+
     // HARD delete: erase the entry from the registry entirely. Distinct
     // from revoke(), which marks a token revoked but keeps the row so
     // the audit chain can still reconstruct the token's history. remove()
@@ -218,6 +232,15 @@ public:
     // effective grants cover this purpose?" Order is unspecified.
     std::vector<ConsentToken> tokens_with_purpose(Purpose p) const;
 
+    // Distinct PatientIds that have at least one active (non-revoked,
+    // non-expired) token granting `p`. Sorted by patient.str() for
+    // deterministic output so callers can diff snapshots over time.
+    // Empty registry returns empty. Distinct from tokens_with_purpose
+    // (which returns full token rows): this is the "who has consented
+    // to this purpose right now?" projection — useful for cohort
+    // assembly that wants the patient list without N tokens of payload.
+    std::vector<PatientId> patients_with_purpose(Purpose p) const;
+
     // Return the active (non-revoked, non-expired) token with the
     // latest expires_at. Returns Error::not_found when no active
     // token exists. Tiebreak among equal expiries is unspecified.
@@ -336,6 +359,18 @@ public:
     // the Summary struct themselves.
     std::string summary_string() const;
 
+    // Per-token state breakdown for ops dashboards: a sorted vector of
+    // {token_id, state_string} pairs covering every token in the
+    // registry. The state_string is one of "active", "revoked", or
+    // "expired", computed using TokenLifecycle's State priority
+    // (revoked > expired > active) so a revoked token whose expiry has
+    // also passed reports as "revoked". Sorted by token_id for
+    // deterministic output suitable for diffing two snapshots. Useful
+    // for tabular dashboards that want a flat row-per-token breakdown
+    // rather than an aggregate Summary.
+    std::vector<std::pair<std::string, std::string>>
+    list_states_summary() const;
+
     // Per-patient version of summary(). Same Summary struct, but counts
     // are scoped to a single patient. The `patients` field is 1 if the
     // patient has any tokens on file (active, expired, or revoked), else
@@ -434,6 +469,18 @@ public:
     // registry's lifetime?"
     bool has_revoked_tokens() const noexcept;
 
+    // Per-patient mirror of has_revoked_tokens(): true iff `patient` has
+    // ever had at least one token revoked (the token row may still be
+    // in the registry, may have been hard-deleted via remove()... wait,
+    // no — remove() drops the row, so hard-deleted revocations are
+    // invisible here). Concretely: true iff at least one token currently
+    // on file for `patient` has the revoked flag set. noexcept; any
+    // internal failure is swallowed → false. Useful for ops dashboards
+    // that want to flag patients who have walked back consent at any
+    // point — distinct from "do they currently have any active token?"
+    // which is the inverse.
+    bool has_been_revoked(const PatientId& patient) const noexcept;
+
     // Active (non-revoked, non-expired) tokens whose expires_at - now()
     // is <= horizon — i.e. "what's about to lapse?" Used by ops
     // dashboards that want to nudge clinicians to re-consent before a
@@ -529,6 +576,18 @@ public:
     // vector is materialized. O(n) over the registry, O(1) memory beyond
     // a small fixed-capacity set sized to the Purpose enum.
     std::size_t active_purpose_count_for_patient(const PatientId& patient) const;
+
+    // Synonym of active_purpose_count_for_patient: number of distinct
+    // Purposes covered (union) by `patient`'s currently-active
+    // (non-revoked, non-expired) tokens. Spelled with the
+    // "count_distinct_purposes" prefix to read naturally in callers
+    // asking "how broadly has this patient consented?" — kept
+    // separately from active_purpose_count_for_patient() for
+    // readability at call sites. Equivalent in observable behaviour.
+    // O(n) over the registry, O(1) extra memory beyond a small
+    // fixed-capacity bitset sized to the Purpose enum.
+    std::size_t
+    count_distinct_purposes_for_patient(const PatientId& patient) const;
 
     // Set the expiry of an existing token to a specific absolute time.
     // Rejects revoked tokens (denied), unknown ids (not_found), and a

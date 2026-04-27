@@ -469,6 +469,63 @@ Result<void> Histogram::merge(const Histogram& other) {
     return Result<void>::ok();
 }
 
+Histogram Histogram::clone() const {
+    // Explicit deep copy. The implicit copy constructor is deleted
+    // because Histogram holds a mutex (mutexes are non-copyable), so
+    // callers that want a snapshot need this verb. Lock the source
+    // under mu_ so the read of lo_/hi_/counts_/total_ is a consistent
+    // snapshot under concurrent observe(); the destination's mutex is
+    // default-constructed (mutexes are intentionally never copied —
+    // each Histogram owns its own).
+    std::lock_guard<std::mutex> lk(mu_);
+    Histogram out{lo_, hi_, counts_.size()};
+    // out's constructor zero-initialized counts_ and total_; overwrite
+    // them with the snapshotted state. We don't need to lock out.mu_
+    // because it was default-constructed in this function and is not
+    // visible to any other thread yet.
+    out.counts_ = counts_;
+    out.total_  = total_;
+    return out;
+}
+
+Histogram Histogram::with_added(const Histogram& other) const {
+    // Non-mutating mirror of merge(). Acquire both mutexes via
+    // std::scoped_lock to avoid the AB/BA deadlock a sequential lock
+    // would expose under concurrent with_added() between two
+    // histograms (h1.with_added(h2) on one thread, h2.with_added(h1)
+    // on another). std::scoped_lock invokes std::lock under the hood
+    // with the same deadlock-avoidance.
+    if (this == &other) {
+        // Self with_added: equivalent to clone() then merge(*this) —
+        // every bin doubled. Single lock, single pass.
+        std::lock_guard<std::mutex> lk(mu_);
+        Histogram out{lo_, hi_, counts_.size()};
+        for (std::size_t i = 0; i < counts_.size(); ++i) {
+            out.counts_[i] = counts_[i] + counts_[i];
+        }
+        out.total_ = total_ + total_;
+        return out;
+    }
+    std::scoped_lock lk(mu_, other.mu_);
+    if (counts_.size() != other.counts_.size()
+     || lo_ != other.lo_
+     || hi_ != other.hi_) {
+        // Geometry mismatch: return an empty histogram with *this's
+        // geometry rather than propagating an error. This matches
+        // scale_by(0)'s "preserve geometry, drop counts" pattern and
+        // keeps the call site exception-free for exploratory /
+        // dashboard code that probes "what would the merged shape look
+        // like?" without owning a transactional contract.
+        return Histogram{lo_, hi_, counts_.size()};
+    }
+    Histogram out{lo_, hi_, counts_.size()};
+    for (std::size_t i = 0; i < counts_.size(); ++i) {
+        out.counts_[i] = counts_[i] + other.counts_[i];
+    }
+    out.total_ = total_ + other.total_;
+    return out;
+}
+
 void Histogram::reset_to(const Histogram& other) {
     if (this == &other) {
         // Self-assignment is a content-preserving no-op.
@@ -902,6 +959,48 @@ bool DriftMonitor::any_severe() const {
         }
     }
     return false;
+}
+
+std::vector<std::string> DriftMonitor::list_severe_features() const {
+    // Sugar over report() filtered by severity == severe, returned in
+    // alphabetical order so dashboards / tests get deterministic output.
+    // We don't reuse report() directly because that would force two
+    // passes (build the reports vector, then filter); instead we walk
+    // features_ once under the lock and only allocate strings for the
+    // matching set. The resulting names are then sorted in place.
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<std::string> out;
+    out.reserve(features_.size());
+    for (const auto& [name, fs] : features_) {
+        const double psi = Histogram::psi(*fs->reference, *fs->current);
+        if (classify(psi) == DriftSeverity::severe) {
+            out.push_back(name);
+        }
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+bool DriftMonitor::has_any_severe() const noexcept {
+    // Cheap predicate that stops on the first severe feature, so it's
+    // strictly cheaper than !list_severe_features().empty() (no
+    // allocation, no full enumeration). Distinct from any_severe()
+    // only in the noexcept contract: any_severe() can theoretically
+    // propagate a lock or hash-map exception, while this swallows
+    // them and degrades to "no severe features" — matching the
+    // conservative degradation of has_alert_sink() / is_registered().
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        for (const auto& [_, fs] : features_) {
+            const double psi = Histogram::psi(*fs->reference, *fs->current);
+            if (classify(psi) == DriftSeverity::severe) {
+                return true;
+            }
+        }
+        return false;
+    } catch (...) {
+        return false;
+    }
 }
 
 Result<std::uint64_t> DriftMonitor::baseline_count(std::string_view feature) const {

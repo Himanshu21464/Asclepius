@@ -110,6 +110,28 @@ public:
     // Acquires both mutexes via std::lock to avoid deadlock.
     Result<void> merge(const Histogram& other);
 
+    // Explicit deep copy. Returns a NEW Histogram with the same lo/hi/
+    // bins/counts/total. Distinct from the move constructor — both
+    // operands stay valid afterwards. Useful when callers need a
+    // snapshot they can mutate without affecting the source (e.g. a
+    // dashboard that wants to scale_by() or merge() into a working
+    // copy without disturbing the live distribution). Locks the source
+    // under mu_ so the snapshot is consistent under concurrent
+    // observe(); the destination's mutex is default-constructed
+    // (mutexes are intentionally never copied).
+    Histogram clone() const;
+
+    // Returns a NEW Histogram = *this + other (bin-wise sum). Mirrors
+    // merge() (which mutates *this) — this version is non-mutating, so
+    // both operands stay unchanged. If bin layouts differ
+    // (bin_count/lo/hi mismatch) → returns an empty Histogram with
+    // *this's geometry (lo/hi/bins from *this, all-zero counts). This
+    // matches scale_by(0)'s "geometry preserved, counts dropped"
+    // semantics rather than propagating an Error, since the operation
+    // is informational/exploratory rather than transactional.
+    // Acquires both mutexes via std::scoped_lock to avoid deadlock.
+    Histogram with_added(const Histogram& other) const;
+
     // Replace this histogram's contents with a copy of `other`'s
     // (lo/hi/bins/counts/total). Acquires both mutexes via std::lock to
     // avoid deadlock. After this returns, *this == other content-wise.
@@ -365,6 +387,24 @@ public:
     // false on empty monitors. Locked.
     bool any_severe() const;
 
+    // Names of features whose CURRENT severity classifies as severe.
+    // Sugar over report() filtered by severity == DriftSeverity::severe,
+    // returned as an alphabetically-sorted vector so dashboards / tests
+    // get a deterministic order. Empty when no features are registered
+    // or when none classify as severe. Distinct from any_severe()
+    // (cheap bool) and from list_features() (every name regardless of
+    // severity).
+    std::vector<std::string> list_severe_features() const;
+
+    // Cheap predicate: any registered feature currently classifying as
+    // severe? Stops on the first severe feature rather than enumerating
+    // the full set, so it's strictly cheaper than
+    // !list_severe_features().empty(). noexcept; on internal failure
+    // (lock or PSI throw) returns false rather than propagating —
+    // matching the conservative degradation of has_alert_sink() /
+    // is_registered().
+    bool has_any_severe() const noexcept;
+
     // Reset just the current-window histogram for one feature, leaving
     // the reference (baseline) intact. Per-feature variant of rotate(),
     // which clears all features. Returns not_found if the feature was
@@ -509,6 +549,14 @@ public:
     // list_counters() (unspecified order), this is suitable for stable
     // JSON dumps and diff-friendly snapshots.
     std::vector<std::string> all_counter_names() const;
+
+    // Sorted vector of counter names whose name starts with `prefix`.
+    // An empty prefix matches every counter, which makes this
+    // equivalent to all_counter_names() (= list_counters() but sorted).
+    // Useful for "everything under this subsystem prefix" dashboards
+    // that want the names rather than the per-counter sum that
+    // sum_counters_with_prefix() returns. Locked.
+    std::vector<std::string> counter_names_with_prefix(std::string_view prefix) const;
 
     // Reset a single counter to zero. Used when a sidecar wants to
     // emit per-deploy metric resets (e.g. on restart). Returns not_found
