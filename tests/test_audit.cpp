@@ -5508,3 +5508,333 @@ TEST_CASE("head_attestation_hex: signature prefix verifies as a prefix of the re
         std::span<const std::uint8_t, KeyStore::sig_bytes>{sig.data(), sig.size()},
         std::span<const std::uint8_t, KeyStore::pk_bytes>{pk.data(),   pk.size()}));
 }
+
+// ============== Ledger::find_inference_by_input_hash =====================
+
+TEST_CASE("find_inference_by_input_hash locates the matching inference.committed entry") {
+    auto p = tmp_db("fibih_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 10; i++) {
+        REQUIRE(l.append("inference.committed", "system:rt",
+            nlohmann::json{{"inference_id", "inf_" + std::to_string(i)},
+                           {"input_hash",   "h_" + std::to_string(i)},
+                           {"status",       "ok"}}, ""));
+    }
+    auto e = l.find_inference_by_input_hash("h_4"); REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body["input_hash"]   == "h_4");
+    CHECK(body["inference_id"] == "inf_4");
+    CHECK(e.value().header.seq == 5u);  // 1-indexed
+    CHECK(e.value().header.event_type == "inference.committed");
+}
+
+TEST_CASE("find_inference_by_input_hash returns not_found for unknown hash") {
+    auto p = tmp_db("fibih_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "system:rt",
+        nlohmann::json{{"input_hash", "deadbeef"}, {"status", "ok"}}, ""));
+    auto r = l.find_inference_by_input_hash("never_recorded");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_inference_by_input_hash rejects empty hash_hex") {
+    auto p = tmp_db("fibih_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().find_inference_by_input_hash("");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("find_inference_by_input_hash returns first/oldest match if duplicates exist") {
+    auto p = tmp_db("fibih_dup");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "system:rt",
+        nlohmann::json{{"input_hash", "shared"}, {"v", 1}}, ""));
+    REQUIRE(l.append("inference.committed", "system:rt",
+        nlohmann::json{{"input_hash", "shared"}, {"v", 2}}, ""));
+    auto e = l.find_inference_by_input_hash("shared"); REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body["v"] == 1);  // first/oldest match
+    CHECK(e.value().header.seq == 1u);
+}
+
+TEST_CASE("find_inference_by_input_hash ignores non-inference.committed event types") {
+    auto p = tmp_db("fibih_noevt");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Decoy: another event_type that incidentally carries an
+    // input_hash field — should NOT match.
+    REQUIRE(l.append("custom.evt", "system:rt",
+        nlohmann::json{{"input_hash", "decoy"}}, ""));
+    REQUIRE(l.append("inference.committed", "system:rt",
+        nlohmann::json{{"input_hash", "real"}, {"i", 7}}, ""));
+    auto miss = l.find_inference_by_input_hash("decoy");
+    CHECK(!miss);
+    CHECK(miss.error().code() == ErrorCode::not_found);
+    auto hit = l.find_inference_by_input_hash("real"); REQUIRE(hit);
+    auto body = nlohmann::json::parse(hit.value().body_json);
+    CHECK(body["i"] == 7);
+}
+
+// ============== Ledger::tenant_event_counts =============================
+
+TEST_CASE("tenant_event_counts: empty chain returns empty map") {
+    auto p = tmp_db("tec_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().tenant_event_counts();
+    REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("tenant_event_counts: groups counts by (tenant, event_type)") {
+    auto p = tmp_db("tec_grp");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), "t1"));
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), "t1"));
+    REQUIRE(l.append("beta",  "x", nlohmann::json::object(), "t1"));
+    REQUIRE(l.append("alpha", "x", nlohmann::json::object(), "t2"));
+    REQUIRE(l.append("beta",  "x", nlohmann::json::object(), "t2"));
+    REQUIRE(l.append("beta",  "x", nlohmann::json::object(), "t2"));
+    auto r = l.tenant_event_counts(); REQUIRE(r);
+    auto& m = r.value();
+    REQUIRE(m.size() == 2);
+    CHECK(m.at("t1").at("alpha") == 2u);
+    CHECK(m.at("t1").at("beta")  == 1u);
+    CHECK(m.at("t2").at("alpha") == 1u);
+    CHECK(m.at("t2").at("beta")  == 2u);
+    // Counts in the inner map only contain matching event types — no
+    // zero-buckets for event types absent from a tenant.
+    CHECK(m.at("t1").size() == 2);
+    CHECK(m.at("t2").size() == 2);
+}
+
+TEST_CASE("tenant_event_counts: empty tenant has its own bucket") {
+    auto p = tmp_db("tec_emptytenant");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("evt", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("evt", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("evt", "x", nlohmann::json::object(), "named"));
+    auto r = l.tenant_event_counts(); REQUIRE(r);
+    auto& m = r.value();
+    REQUIRE(m.size() == 2);
+    CHECK(m.at("").at("evt")      == 2u);
+    CHECK(m.at("named").at("evt") == 1u);
+}
+
+TEST_CASE("tenant_event_counts: row-sum agrees with count_by_event_type and length") {
+    auto p = tmp_db("tec_sum");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 12; ++i) {
+        REQUIRE(l.append(i % 2 ? "alpha" : "beta",
+                         "x", nlohmann::json{{"i", i}},
+                         (i % 3 == 0) ? "t1" : "t2"));
+    }
+    auto tec = l.tenant_event_counts();   REQUIRE(tec);
+    auto cbe = l.count_by_event_type();   REQUIRE(cbe);
+
+    // Total over the nested map must equal length().
+    std::uint64_t total = 0;
+    for (const auto& [_, inner] : tec.value())
+        for (const auto& [__, n] : inner) total += n;
+    CHECK(total == l.length());
+
+    // Sum-by-event-type across tenants must agree with the global tally.
+    std::unordered_map<std::string, std::uint64_t> by_event;
+    for (const auto& [_, inner] : tec.value())
+        for (const auto& [evt, n] : inner) by_event[evt] += n;
+    CHECK(by_event == cbe.value());
+}
+
+// ============== Ledger::count_consent_events ============================
+
+TEST_CASE("count_consent_events: empty chain returns 0") {
+    auto p = tmp_db("cce_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().count_consent_events();
+    REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("count_consent_events: tallies consent.granted + consent.revoked + consent.* extensions") {
+    auto p = tmp_db("cce_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("consent.granted", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("consent.revoked", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("consent.granted", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("consent.future",  "x", nlohmann::json::object(), ""));
+    // Non-consent events are ignored.
+    REQUIRE(l.append("inference.committed", "x",
+                     nlohmann::json{{"status", "ok"}}, ""));
+    REQUIRE(l.append("drift.crossed", "x", nlohmann::json::object(), ""));
+    auto r = l.count_consent_events();
+    REQUIRE(r);
+    CHECK(r.value() == 4u);
+}
+
+TEST_CASE("count_consent_events: ignores prefix-similar event types like 'consent' or 'consents.*'") {
+    auto p = tmp_db("cce_strict");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("consent",           "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("consents.granted",  "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("preconsent.x",      "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("consent.granted",   "x", nlohmann::json::object(), ""));
+    auto r = l.count_consent_events();
+    REQUIRE(r);
+    CHECK(r.value() == 1u);  // only the dotted-prefix match
+}
+
+TEST_CASE("count_consent_events: agrees with manual count_by_event_type tally") {
+    auto p = tmp_db("cce_agree");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; ++i)
+        REQUIRE(l.append("consent.granted", "x", nlohmann::json::object(), ""));
+    for (int i = 0; i < 3; ++i)
+        REQUIRE(l.append("consent.revoked", "x", nlohmann::json::object(), ""));
+    for (int i = 0; i < 7; ++i)
+        REQUIRE(l.append("inference.committed", "x",
+                         nlohmann::json{{"status", "ok"}}, ""));
+    auto cce = l.count_consent_events();    REQUIRE(cce);
+    auto cbe = l.count_by_event_type();     REQUIRE(cbe);
+    auto manual = cbe.value().at("consent.granted")
+                + cbe.value().at("consent.revoked");
+    CHECK(cce.value() == manual);
+    CHECK(cce.value() == 8u);
+}
+
+// ============== Ledger::distinct_inference_ids_count ====================
+
+TEST_CASE("distinct_inference_ids_count: empty chain returns 0") {
+    auto p = tmp_db("dic_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().distinct_inference_ids_count();
+    REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("distinct_inference_ids_count: counts distinct ids, dedups duplicates") {
+    auto p = tmp_db("dic_dedup");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Two distinct ids with a dup; total entries = 5, distinct ids = 2.
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"inference_id", "inf_a"}, {"status", "ok"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"inference_id", "inf_b"}, {"status", "ok"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"inference_id", "inf_a"}, {"status", "ok"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"inference_id", "inf_a"}, {"status", "ok"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"inference_id", "inf_b"}, {"status", "ok"}}, ""));
+    auto r = l.distinct_inference_ids_count();
+    REQUIRE(r);
+    CHECK(r.value() == 2u);
+}
+
+TEST_CASE("distinct_inference_ids_count: ignores non-inference.committed entries and missing fields") {
+    auto p = tmp_db("dic_filter");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Decoy carrying inference_id under a different event_type — ignored.
+    REQUIRE(l.append("custom.evt", "sys",
+        nlohmann::json{{"inference_id", "decoy"}}, ""));
+    // Decoy missing the inference_id field.
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"status", "ok"}}, ""));
+    // Decoy carrying a non-string inference_id — ignored.
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"inference_id", 42}, {"status", "ok"}}, ""));
+    // Real distinct entries.
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"inference_id", "real_1"}, {"status", "ok"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"inference_id", "real_2"}, {"status", "ok"}}, ""));
+    auto r = l.distinct_inference_ids_count();
+    REQUIRE(r);
+    CHECK(r.value() == 2u);
+}
+
+TEST_CASE("distinct_inference_ids_count: survives reopen") {
+    auto p = tmp_db("dic_reopen");
+    {
+        auto l_ = Ledger::open(p); REQUIRE(l_);
+        for (int i = 0; i < 25; ++i) {
+            REQUIRE(l_.value().append("inference.committed", "sys",
+                nlohmann::json{{"inference_id", "inf_" + std::to_string(i % 5)},
+                               {"status", "ok"}}, ""));
+        }
+    }
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().distinct_inference_ids_count();
+    REQUIRE(r);
+    CHECK(r.value() == 5u);
+}
+
+// ============== Ledger::aborted_inference_count =========================
+
+TEST_CASE("aborted_inference_count: empty chain returns 0") {
+    auto p = tmp_db("aic_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().aborted_inference_count();
+    REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("aborted_inference_count: tallies inference.aborted and only inference.aborted") {
+    auto p = tmp_db("aic_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.aborted",  "sys",
+                     nlohmann::json{{"reason", "raii_drop"}}, ""));
+    REQUIRE(l.append("inference.aborted",  "sys",
+                     nlohmann::json{{"reason", "timeout"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "ok"}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+                     nlohmann::json{{"status", "aborted"}}, ""));  // body says "aborted" but event_type isn't
+    REQUIRE(l.append("drift.crossed", "sys", nlohmann::json::object(), ""));
+    auto r = l.aborted_inference_count();
+    REQUIRE(r);
+    CHECK(r.value() == 2u);
+}
+
+TEST_CASE("aborted_inference_count: agrees with count_by_event_type[\"inference.aborted\"]") {
+    auto p = tmp_db("aic_agree");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; ++i)
+        REQUIRE(l.append("inference.aborted", "sys",
+                         nlohmann::json::object(), ""));
+    for (int i = 0; i < 7; ++i)
+        REQUIRE(l.append("inference.committed", "sys",
+                         nlohmann::json{{"status", "ok"}}, ""));
+    auto aic = l.aborted_inference_count(); REQUIRE(aic);
+    auto cbe = l.count_by_event_type();     REQUIRE(cbe);
+    CHECK(aic.value() == cbe.value().at("inference.aborted"));
+    CHECK(aic.value() == 4u);
+}
+
+TEST_CASE("aborted_inference_count: substring 'aborted' in other event types does not match") {
+    auto p = tmp_db("aic_strict");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.aborted_run",  "sys",
+                     nlohmann::json::object(), ""));
+    REQUIRE(l.append("custom.aborted",          "sys",
+                     nlohmann::json::object(), ""));
+    REQUIRE(l.append("inference.aborted",       "sys",
+                     nlohmann::json::object(), ""));
+    auto r = l.aborted_inference_count();
+    REQUIRE(r);
+    CHECK(r.value() == 1u);
+}

@@ -166,6 +166,21 @@ public:
     // distribution without unpacking the full counts vector.
     std::size_t nth_largest_bin() const;
 
+    // Largest single-bin observation count. Returns 0 on an empty
+    // histogram. Distinct from nth_largest_bin() (which returns the
+    // modal bin's INDEX) — this returns the modal bin's COUNT. Pairs
+    // with total() to compute concentration ratios without two locks.
+    std::uint64_t observed_max_bin_count() const;
+
+    // Heuristic shape probe: true iff no single bin holds more than
+    // `max_share` of the total mass. Defaults to 0.4 (no bin has more
+    // than 40% of observations). max_share is clamped to [0, 1]. An
+    // empty histogram (total()==0) is vacuously balanced and returns
+    // true. Useful as a one-shot dashboard predicate to flag
+    // "everything is collapsing into one bin" pathologies without
+    // unpacking the counts vector.
+    bool is_balanced(double max_share = 0.4) const;
+
     // Convenience wrapper over quantile(0.5). Returns 0.0 on an empty
     // histogram (matching quantile()).
     double median() const;
@@ -371,6 +386,15 @@ public:
     // for dashboards and tests.
     Result<std::string> most_drifted_feature() const;
 
+    // (feature_name, full DriftReport) for the feature with the
+    // highest current PSI. Distinct from most_drifted_feature() which
+    // returns just the name — this returns the full report so dashboards
+    // can show severity, ks, emd, n's alongside the name without a
+    // second lookup. Returns Error::not_found if no features are
+    // registered. Ties on PSI broken by alphabetical name (matching
+    // most_drifted_feature() semantics) so the result is deterministic.
+    Result<std::pair<std::string, DriftReport>> worst_psi_feature() const;
+
     // Aggregate health snapshot for the monitor. total_observations is
     // the sum of current-window observation counts across all features.
     // max_severity is the worst current PSI severity across features
@@ -558,6 +582,16 @@ public:
     // sum_counters_with_prefix() returns. Locked.
     std::vector<std::string> counter_names_with_prefix(std::string_view prefix) const;
 
+    // Sorted vector of counter names whose value is STRICTLY GREATER
+    // than `threshold`. Used by "show me the noisy counters" probes —
+    // operators reach for this to narrow a snapshot down to the high-
+    // count entries without parsing the prometheus exposition or
+    // diff'ing a counter_snapshot(). A threshold of 0 returns every
+    // non-zero counter; std::uint64_t max() conceptually returns the
+    // empty set. Sorted alphabetically for stable / diff-friendly
+    // output. Locked.
+    std::vector<std::string> counters_above(std::uint64_t threshold) const;
+
     // Reset a single counter to zero. Used when a sidecar wants to
     // emit per-deploy metric resets (e.g. on restart). Returns not_found
     // if no such counter exists. Histograms are not affected.
@@ -612,10 +646,12 @@ public:
     // with a min-threshold check on the result.
     Result<std::uint64_t> counter_min() const;
 
-    // Number of registered histograms. Named `_total` to avoid clashing
-    // with the existing histogram_count(name) reader, which returns the
-    // observation count for a single histogram.
-    std::size_t histogram_count_total() const;
+    // Sum of histogram observation counts across all registered
+    // histograms. Distinct from counter_total() (which sums counter
+    // values) and from histogram_count(name) (which returns the
+    // observation count for a single histogram). Returns 0 on an empty
+    // registry or when every histogram has zero observations. Locked.
+    std::uint64_t histogram_count_total() const;
 
     // Snapshot of all counters as a map of {name: value}. O(n) copy;
     // suitable for diff'ing across two points in time without parsing

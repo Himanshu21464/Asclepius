@@ -256,6 +256,53 @@ std::size_t Histogram::nth_largest_bin() const {
     return best_idx;
 }
 
+std::uint64_t Histogram::observed_max_bin_count() const {
+    // Companion to nth_largest_bin() — that returns the modal bin's
+    // INDEX, this returns the modal bin's COUNT. Both are O(n) in
+    // bin_count() under a single lock; we don't compose this on top
+    // of nth_largest_bin() because that would require two locks (or a
+    // recursive mutex) and risk torn reads under concurrent observe().
+    std::lock_guard<std::mutex> lk(mu_);
+    std::uint64_t best = 0;
+    for (auto c : counts_) {
+        if (c > best) best = c;
+    }
+    return best;
+}
+
+bool Histogram::is_balanced(double max_share) const {
+    // Heuristic shape probe: max_bin_count / total < max_share. We
+    // clamp max_share to [0, 1] so callers passing negative or > 1
+    // values get well-defined behavior — negative collapses to 0 (no
+    // bin can hold less than 0% of mass, so every non-empty histogram
+    // is "imbalanced" under that cutoff), 1.0 is the "everything is
+    // balanced" sentinel (any histogram passes).
+    //
+    // Empty histogram is vacuously balanced — there's no bin holding
+    // more than max_share of the (zero) mass. This matches is_empty()'s
+    // / median()'s "no-data → trivially-OK" sentinel pattern and lets
+    // dashboards gate on is_balanced() without first checking total().
+    //
+    // Strict less-than (not <=): max_share == 1.0 must accept a
+    // histogram where every observation lands in one bin (share == 1.0
+    // would otherwise fail). We use the multiplicative form
+    // (max_count < max_share * total) instead of dividing to avoid
+    // FP precision issues at the boundary and to skip the divide.
+    const double share = std::clamp(max_share, 0.0, 1.0);
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0) return true;
+    std::uint64_t best = 0;
+    for (auto c : counts_) {
+        if (c > best) best = c;
+    }
+    // Compare best / total < share without dividing. Special-case
+    // share == 1.0 so we accept the "all in one bin" extreme (where
+    // best == total exactly) — the strict-less-than would otherwise
+    // miss it.
+    if (share >= 1.0) return true;
+    return static_cast<double>(best) < share * static_cast<double>(total_);
+}
+
 std::vector<double> Histogram::cdf() const {
     std::lock_guard<std::mutex> lk(mu_);
     std::vector<double> out(counts_.size(), 0.0);
@@ -1067,6 +1114,50 @@ Result<std::string> DriftMonitor::most_drifted_feature() const {
         }
     }
     return *best_name;
+}
+
+Result<std::pair<std::string, DriftReport>>
+DriftMonitor::worst_psi_feature() const {
+    // Single-pass companion to most_drifted_feature() that builds the
+    // full DriftReport for the winning feature instead of just its
+    // name. We can't compose this on top of most_drifted_feature() +
+    // report_for_feature() because each one takes its own lock — under
+    // concurrent observe(), the winning feature's PSI could shift
+    // between the two reads, producing an inconsistent (name, report)
+    // pair. Instead we walk features_ once under a single lock,
+    // tracking both the best name AND the best PSI value, then
+    // construct the full report from the same iterator's FeatureState
+    // before releasing the lock. Tie-breaking matches
+    // most_drifted_feature(): equal PSI broken by alphabetical name.
+    std::lock_guard<std::mutex> lk(mu_);
+    if (features_.empty()) {
+        return Error::not_found("no features registered");
+    }
+    using FsIt = decltype(features_)::const_iterator;
+    FsIt   best_it  = features_.end();
+    double best_psi = 0.0;
+    for (auto it = features_.begin(); it != features_.end(); ++it) {
+        const double psi = Histogram::psi(*it->second->reference,
+                                          *it->second->current);
+        if (best_it == features_.end()
+         || psi > best_psi
+         || (psi == best_psi && it->first < best_it->first)) {
+            best_it  = it;
+            best_psi = psi;
+        }
+    }
+    DriftReport r;
+    r.feature      = best_it->first;
+    r.psi          = best_psi;
+    r.ks_statistic = Histogram::ks (*best_it->second->reference,
+                                    *best_it->second->current);
+    r.emd          = Histogram::emd(*best_it->second->reference,
+                                    *best_it->second->current);
+    r.severity     = classify(r.psi);
+    r.reference_n  = best_it->second->reference->total();
+    r.current_n    = best_it->second->current->total();
+    r.computed_at  = Time::now();
+    return std::pair<std::string, DriftReport>{best_it->first, std::move(r)};
 }
 
 }  // namespace asclepius

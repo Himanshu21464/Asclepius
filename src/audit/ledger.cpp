@@ -740,6 +740,37 @@ Result<std::vector<std::string>> Ledger::distinct_event_types() const {
     return out;
 }
 
+Result<std::uint64_t> Ledger::count_consent_events() const {
+    // Counter loop over the chain — only entries whose event_type
+    // begins with "consent." (consent.granted, consent.revoked, …)
+    // contribute. O(1) memory, no allocation per match.
+    static constexpr std::string_view prefix = "consent.";
+    std::uint64_t n = 0;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        const auto& t = e.header.event_type;
+        if (t.size() >= prefix.size() &&
+            std::string_view{t.data(), prefix.size()} == prefix) {
+            ++n;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    return n;
+}
+
+Result<std::uint64_t> Ledger::aborted_inference_count() const {
+    // Tight counter peer of count_consent_events: tally entries whose
+    // header.event_type is exactly "inference.aborted" (the marker
+    // emitted by Inference::~Inference when no commit ran).
+    std::uint64_t n = 0;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.event_type == "inference.aborted") ++n;
+        return true;
+    });
+    if (!r) return r.error();
+    return n;
+}
+
 Result<std::vector<LedgerEntry>>
 Ledger::tail_by_event_type(std::string_view event_type, std::size_t n) const {
     if (event_type.empty()) {
@@ -1085,6 +1116,30 @@ bool Ledger::has_inference_id(std::string_view id) const {
     });
     (void)r;  // best-effort probe; backend errors are observable via verify()
     return found;
+}
+
+Result<std::uint64_t> Ledger::distinct_inference_ids_count() const {
+    // Stream into a set keyed on the body's "inference_id" string.
+    // Cheap event_type and substring prefilters cut the JSON parse for
+    // bodies that can't carry the field.
+    std::unordered_map<std::string, std::uint8_t> seen;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.event_type != "inference.committed") return true;
+        if (e.body_json.find("\"inference_id\"") == std::string::npos)
+            return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("inference_id");
+            if (it != j.end() && it->is_string()) {
+                seen.emplace(it->get<std::string>(), 1);
+            }
+        } catch (...) {
+            // body is not JSON — ignore; defensive against future event types.
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    return static_cast<std::uint64_t>(seen.size());
 }
 
 std::string Ledger::attestation_json() const {
@@ -1641,6 +1696,22 @@ Ledger::byte_size_per_tenant() const {
     return out;
 }
 
+Result<std::unordered_map<std::string,
+                          std::unordered_map<std::string, std::uint64_t>>>
+Ledger::tenant_event_counts() const {
+    // {tenant: {event_type: count}} — single-pass for_each into a
+    // nested map. Mirrors byte_size_per_tenant + count_by_event_type
+    // composed together so callers don't have to issue two scans.
+    std::unordered_map<std::string,
+                       std::unordered_map<std::string, std::uint64_t>> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        out[e.header.tenant][e.header.event_type] += 1;
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
 Result<std::vector<std::pair<std::string, std::uint64_t>>>
 Ledger::most_active_actors(std::size_t top_n) const {
     if (top_n == 0) return std::vector<std::pair<std::string, std::uint64_t>>{};
@@ -1889,6 +1960,49 @@ Result<LedgerEntry> Ledger::find_by_inference_id(std::string_view id) const {
     if (!r) return r.error();
     if (!hit) {
         return Error::not_found("no ledger entry matches inference_id");
+    }
+    return std::move(*hit);
+}
+
+Result<LedgerEntry>
+Ledger::find_inference_by_input_hash(std::string_view hash_hex) const {
+    if (hash_hex.empty()) {
+        return Error::invalid(
+            "find_inference_by_input_hash requires non-empty hash_hex");
+    }
+    // Build the full needle once: the canonical body shape produced by
+    // the runtime is `..."input_hash":"<hex>"...`. The substring
+    // prefilter rejects unrelated bodies before the JSON parse.
+    std::string needle;
+    needle.reserve(hash_hex.size() + 16);
+    needle.append("\"input_hash\":\"");
+    needle.append(hash_hex.data(), hash_hex.size());
+    needle.push_back('"');
+
+    std::optional<LedgerEntry> hit;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Only inference.committed entries carry an "input_hash" body
+        // field today. Cheap event_type filter before the substring
+        // prefilter, mirroring range_by_patient.
+        if (e.header.event_type != "inference.committed") return true;
+        if (e.body_json.find(needle) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("input_hash");
+            if (it != j.end() && it->is_string() &&
+                it->get<std::string>() == hash_hex) {
+                hit = e;
+                return false;  // stop scanning — first/oldest match wins
+            }
+        } catch (...) {
+            // body is not JSON — ignore; defensive against future event
+            // types.
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    if (!hit) {
+        return Error::not_found("no ledger entry matches input_hash");
     }
     return std::move(*hit);
 }

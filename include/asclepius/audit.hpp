@@ -314,6 +314,22 @@ public:
     // dropdowns without also computing counts.
     Result<std::vector<std::string>> distinct_event_types() const;
 
+    // Count of entries whose header.event_type starts with "consent." —
+    // i.e. consent.granted, consent.revoked, and any future
+    // consent.* extensions. Sugar over for_each + a cheap prefix check;
+    // O(1) memory. Empty chain returns 0. Used by audit dashboards that
+    // need the "consent activity" total without scanning two event-type
+    // names independently.
+    Result<std::uint64_t> count_consent_events() const;
+
+    // Count of inference.aborted entries — runs that started but never
+    // committed (timeout, cancellation, RAII drop without commit).
+    // Sugar peer of count_consent_events: tight counter loop, O(1)
+    // memory. Empty chain returns 0. Used by reliability dashboards
+    // that want the failure-class total without unpacking every
+    // inference.committed body for its status field.
+    Result<std::uint64_t> aborted_inference_count() const;
+
     // ---- Forensic lookup ------------------------------------------------
     //
     // Find the entry whose body contains "inference_id" == id. Used by
@@ -322,6 +338,17 @@ public:
     // not_found if no such entry exists. O(n) scan via for_each — bounded
     // by chain length, run off the hot path.
     Result<LedgerEntry> find_by_inference_id(std::string_view id) const;
+
+    // Find the inference.committed entry whose body's "input_hash" field
+    // matches the supplied hex digest. Returns the first match (smallest
+    // seq) or not_found if no entry matches. Empty hash_hex returns
+    // invalid_argument. Cheap substring prefilter on
+    // `"input_hash":"<hash>"` rejects non-matching bodies before the
+    // JSON parse. Used by de-duplication checks ("have we already
+    // recorded an inference for this input?") that anchor on the
+    // canonical hash of the request payload.
+    Result<LedgerEntry>
+        find_inference_by_input_hash(std::string_view hash_hex) const;
 
     // Return the last `n` entries whose header.actor matches the supplied
     // string, most-recent first. Used for "what did this clinician do
@@ -569,6 +596,15 @@ public:
     // itself.
     bool has_inference_id(std::string_view id) const;
 
+    // Count of distinct "inference_id" body-field values across every
+    // inference.committed entry in the chain. Streams via for_each
+    // into a set (cheap substring prefilter on "inference_id" rejects
+    // bodies that can't carry the field before the JSON parse).
+    // O(distinct ids) memory. Empty chain returns 0. Used by capacity
+    // dashboards and idempotency probes that want the cardinality of
+    // recorded inferences without enumerating them.
+    Result<std::uint64_t> distinct_inference_ids_count() const;
+
     // Compact JSON containing length, head_hash hex, key_id,
     // fingerprint, oldest_ts iso8601 (or "" if empty), newest_ts
     // iso8601 (or ""). Sugar for handing a third party a single
@@ -625,6 +661,18 @@ public:
     // single pass for capacity dashboards and per-tenant billing rollups.
     Result<std::unordered_map<std::string, std::uint64_t>>
         byte_size_per_tenant() const;
+
+    // Two-level breakdown: {tenant: {event_type: count}}. O(n) scan
+    // via for_each; outer map keyed by header.tenant, inner map keyed
+    // by header.event_type. The empty tenant ("") is its own bucket
+    // if any entries carry it. Memory is O(distinct (tenant, event_type)
+    // pairs). Empty chain returns the empty map. Pairs with
+    // count_by_event_type (which is global) and byte_size_per_tenant
+    // (which is bytes, not counts) for tenant-scoped activity
+    // dashboards that need the per-class breakdown.
+    Result<std::unordered_map<std::string,
+                              std::unordered_map<std::string, std::uint64_t>>>
+        tenant_event_counts() const;
 
     // Tenant with the largest entry count across the chain. The empty
     // tenant ("") is its own scope and competes alongside named tenants.

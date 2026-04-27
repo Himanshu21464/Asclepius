@@ -323,6 +323,27 @@ MetricRegistry::counter_names_with_prefix(std::string_view prefix) const {
     return out;
 }
 
+std::vector<std::string>
+MetricRegistry::counters_above(std::uint64_t threshold) const {
+    // Strictly greater than `threshold` — operators framing this as
+    // "show me the noisy counters above N" expect threshold itself to
+    // be the cutoff, not included. counters_above(0) returns every
+    // non-zero counter, mirroring the canonical "non-default" probe.
+    // Sorted alphabetically so dashboards / diff tests get stable
+    // output. Single lock for the whole pass so the snapshot is
+    // consistent under concurrent inc().
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<std::string> out;
+    out.reserve(counters_.size());
+    for (const auto& [name, v] : counters_) {
+        if (v > threshold) {
+            out.push_back(name);
+        }
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
 void MetricRegistry::clear() {
     std::lock_guard<std::mutex> lk(mu_);
     counters_.clear();
@@ -390,9 +411,21 @@ Result<std::uint64_t> MetricRegistry::counter_min() const {
     return best;
 }
 
-std::size_t MetricRegistry::histogram_count_total() const {
+std::uint64_t MetricRegistry::histogram_count_total() const {
+    // Sum of observation counts across every registered histogram.
+    // Distinct from counter_total() (which sums COUNTER values) and
+    // from histogram_count(name) (which returns one histogram's count).
+    // The "_total" suffix mirrors counter_total()'s "global event
+    // count" semantics — both answer "how much activity has the
+    // registry recorded?" but on the histogram side rather than the
+    // counter side. Locked once for the whole sweep so the returned
+    // value is a consistent snapshot under concurrent observe().
     std::lock_guard<std::mutex> lk(mu_);
-    return histograms_.size();
+    std::uint64_t s = 0;
+    for (const auto& [_, h] : histograms_) {
+        s += h.count;
+    }
+    return s;
 }
 
 bool MetricRegistry::has_counter(std::string_view name) const noexcept {

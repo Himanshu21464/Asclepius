@@ -579,7 +579,9 @@ TEST_CASE("MetricRegistry::clear drops all counters and histograms") {
     m.observe("lat", 0.2);
 
     REQUIRE(m.counter_count() == 2);
-    REQUIRE(m.histogram_count_total() == 1);
+    // histogram_count_total = sum of observations across all histograms.
+    // "lat" got 2 observe()s.
+    REQUIRE(m.histogram_count_total() == 2);
 
     m.clear();
 
@@ -638,15 +640,17 @@ TEST_CASE("MetricRegistry::counter_count tracks distinct counter names") {
     CHECK(m.counter_count() == 2);
 }
 
-TEST_CASE("MetricRegistry::histogram_count_total tracks distinct histogram names") {
+TEST_CASE("MetricRegistry::histogram_count_total sums observations across histograms") {
     MetricRegistry m;
     CHECK(m.histogram_count_total() == 0);
     m.observe("svc.latency", 0.1);
+    // One histogram, one observation → 1.
     CHECK(m.histogram_count_total() == 1);
-    m.observe("svc.latency", 0.2);  // same histogram
-    CHECK(m.histogram_count_total() == 1);
-    m.observe("queue.depth", 7.0);  // different histogram
+    m.observe("svc.latency", 0.2);  // same histogram, second obs
     CHECK(m.histogram_count_total() == 2);
+    m.observe("queue.depth", 7.0);  // different histogram, one obs
+    // 2 ("svc.latency") + 1 ("queue.depth") == 3.
+    CHECK(m.histogram_count_total() == 3);
 }
 
 TEST_CASE("MetricRegistry counter_count and histogram_count_total are independent") {
@@ -658,10 +662,12 @@ TEST_CASE("MetricRegistry counter_count and histogram_count_total are independen
     m.observe("h2", 2.0);
 
     CHECK(m.counter_count() == 3);
+    // h1 and h2 each got one observation → 2 total observations.
     CHECK(m.histogram_count_total() == 2);
 
     // After reset() of one counter, counter_count must remain unchanged
-    // (reset zeroes the value, doesn't drop the entry).
+    // (reset zeroes the value, doesn't drop the entry). Histograms
+    // also untouched, so their observation total stays at 2.
     REQUIRE(m.reset("c1"));
     CHECK(m.counter_count() == 3);
     CHECK(m.histogram_count_total() == 2);
@@ -831,7 +837,8 @@ TEST_CASE("MetricRegistry::reset_histograms drops histograms but keeps counters"
     m.observe("inference_latency_seconds", 0.10);
 
     REQUIRE(m.counter_count() == 2);
-    REQUIRE(m.histogram_count_total() == 1);
+    // 2 observations of "inference_latency_seconds" → sum-of-obs == 2.
+    REQUIRE(m.histogram_count_total() == 2);
 
     m.reset_histograms();
 
@@ -840,7 +847,7 @@ TEST_CASE("MetricRegistry::reset_histograms drops histograms but keeps counters"
     CHECK(m.count("inferences_total") == 42);
     CHECK(m.count("policy_violations_total") == 3);
 
-    // Histograms are gone.
+    // Histograms are gone — sum of observations is 0.
     CHECK(m.histogram_count_total() == 0);
     auto hc = m.histogram_count("inference_latency_seconds");
     CHECK(!hc);
@@ -3487,7 +3494,8 @@ TEST_CASE("MetricRegistry::reset_all_counters edge — distinct from clear(), do
     m.observe("hist", 0.2);
     m.observe("hist", 0.3);
     REQUIRE(m.counter_count() == 1);
-    REQUIRE(m.histogram_count_total() == 1);
+    // 3 observations of "hist" → sum-of-obs == 3 under the new contract.
+    REQUIRE(m.histogram_count_total() == 3);
 
     m.reset_all_counters();
 
@@ -3496,8 +3504,8 @@ TEST_CASE("MetricRegistry::reset_all_counters edge — distinct from clear(), do
     CHECK(m.has_counter("ctr"));
     CHECK(m.count("ctr") == 0);
 
-    // Histogram untouched: name AND observations preserved.
-    CHECK(m.histogram_count_total() == 1);
+    // Histogram untouched: name AND observations preserved (sum still 3).
+    CHECK(m.histogram_count_total() == 3);
     CHECK(m.has_histogram("hist"));
     auto hc = m.histogram_count("hist");
     REQUIRE(hc);
@@ -4324,4 +4332,303 @@ TEST_CASE("has_any_severe is noexcept and consistent with list_severe_features")
     // and with !list_severe_features().empty(). Cross-check both.
     CHECK(dm.has_any_severe() == dm.any_severe());
     CHECK(dm.has_any_severe() == !dm.list_severe_features().empty());
+}
+
+// ============== MetricRegistry::counters_above ==========================
+
+TEST_CASE("MetricRegistry::counters_above filters by strict-greater threshold") {
+    MetricRegistry m;
+    m.inc("low",   3);
+    m.inc("mid",   10);
+    m.inc("high",  42);
+    m.inc("zero",  0);  // Counter exists but value 0.
+
+    // threshold=0 → every NON-ZERO counter (strict >); "zero" omitted.
+    auto above0 = m.counters_above(0);
+    REQUIRE(above0.size() == 3);
+    // Sorted alphabetically: "high", "low", "mid".
+    CHECK(above0[0] == "high");
+    CHECK(above0[1] == "low");
+    CHECK(above0[2] == "mid");
+
+    // threshold=10 → strict-greater means "mid" (==10) is omitted, only "high".
+    auto above10 = m.counters_above(10);
+    REQUIRE(above10.size() == 1);
+    CHECK(above10[0] == "high");
+
+    // threshold=100 → no counter exceeds 100.
+    auto above100 = m.counters_above(100);
+    CHECK(above100.empty());
+}
+
+TEST_CASE("MetricRegistry::counters_above returns empty on empty registry") {
+    MetricRegistry m;
+    CHECK(m.counters_above(0).empty());
+    CHECK(m.counters_above(1000).empty());
+
+    // Add and remove → still empty.
+    m.inc("only_one");
+    REQUIRE(m.reset("only_one"));   // value 0 now
+    auto v = m.counters_above(0);
+    CHECK(v.empty());               // strictly above 0 → none
+}
+
+TEST_CASE("MetricRegistry::counters_above output is alphabetically sorted") {
+    MetricRegistry m;
+    // Insert in a non-alphabetical order; result must still be sorted.
+    m.inc("zeta",  5);
+    m.inc("alpha", 5);
+    m.inc("mu",    5);
+    m.inc("beta",  5);
+
+    auto v = m.counters_above(0);
+    REQUIRE(v.size() == 4);
+    CHECK(v[0] == "alpha");
+    CHECK(v[1] == "beta");
+    CHECK(v[2] == "mu");
+    CHECK(v[3] == "zeta");
+}
+
+TEST_CASE("MetricRegistry::counters_above ignores histograms") {
+    MetricRegistry m;
+    m.inc("ctr", 100);
+    m.observe("hist", 0.5);     // histogram, not a counter
+    m.observe("hist", 0.6);
+
+    auto v = m.counters_above(0);
+    REQUIRE(v.size() == 1);
+    CHECK(v[0] == "ctr");       // "hist" is a histogram, must not appear
+}
+
+// ============== Histogram::observed_max_bin_count =======================
+
+TEST_CASE("Histogram::observed_max_bin_count returns 0 on empty histogram") {
+    Histogram h{0.0, 1.0, 10};
+    CHECK(h.observed_max_bin_count() == 0);
+
+    Histogram other{-5.0, 5.0, 50};
+    CHECK(other.observed_max_bin_count() == 0);
+}
+
+TEST_CASE("Histogram::observed_max_bin_count returns count of the heaviest bin") {
+    Histogram h{0.0, 10.0, 10};
+    // bin 0 (mid=0.5) gets 7 obs, bin 5 (mid=5.5) gets 3 obs, others 0.
+    for (int i = 0; i < 7; ++i) h.observe(0.5);
+    for (int i = 0; i < 3; ++i) h.observe(5.5);
+
+    CHECK(h.observed_max_bin_count() == 7);
+    // Cross-check against the modal bin's index — they should agree on
+    // which bin is heaviest.
+    CHECK(h.nth_largest_bin() == 0);
+}
+
+TEST_CASE("Histogram::observed_max_bin_count tracks shifting modal bin under observe") {
+    Histogram h{0.0, 10.0, 10};
+    // Initially every observation in bin 1 (mid=1.5).
+    for (int i = 0; i < 5; ++i) h.observe(1.5);
+    CHECK(h.observed_max_bin_count() == 5);
+
+    // Pile a larger amount into a different bin.
+    for (int i = 0; i < 12; ++i) h.observe(7.5);  // bin 7
+    CHECK(h.observed_max_bin_count() == 12);
+    CHECK(h.nth_largest_bin() == 7);
+
+    // Add still more to the original bin so it overtakes.
+    for (int i = 0; i < 20; ++i) h.observe(1.5);  // bin 1 → 25 obs total
+    CHECK(h.observed_max_bin_count() == 25);
+    CHECK(h.nth_largest_bin() == 1);
+}
+
+TEST_CASE("Histogram::observed_max_bin_count <= total()") {
+    // Invariant: the heaviest bin can't have more observations than total.
+    Histogram h{0.0, 1.0, 5};
+    for (double v : {0.05, 0.05, 0.45, 0.95, 0.95, 0.95}) h.observe(v);
+    CHECK(h.observed_max_bin_count() <= h.total());
+    CHECK(h.observed_max_bin_count() == 3);  // three obs at 0.95 → bin 4
+    CHECK(h.total() == 6);
+}
+
+// ============== DriftMonitor::worst_psi_feature =========================
+
+TEST_CASE("DriftMonitor::worst_psi_feature returns not_found on empty monitor") {
+    DriftMonitor dm;
+    auto r = dm.worst_psi_feature();
+    REQUIRE_FALSE(r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("DriftMonitor::worst_psi_feature picks the highest-PSI feature") {
+    DriftMonitor dm;
+    std::vector<double> baseline(500, 0.5);
+    REQUIRE(dm.register_feature("calm",  baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("noisy", baseline, 0.0, 1.0, 10));
+
+    // "calm" stays close to baseline.
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("calm", 0.5));
+    // "noisy" drifts hard to a different mode.
+    for (int i = 0; i < 500; ++i) REQUIRE(dm.observe("noisy", 0.95));
+
+    auto r = dm.worst_psi_feature();
+    REQUIRE(r);
+    CHECK(r->first == "noisy");
+    // The returned report must agree with the feature name.
+    CHECK(r->second.feature == "noisy");
+    // PSI should be elevated (well above the calm-feature's PSI).
+    CHECK(r->second.psi > 0.25);
+    // Severity classification matches what classify(psi) would produce.
+    CHECK(r->second.severity == DriftMonitor::classify(r->second.psi));
+    // Sample-size fields populated.
+    CHECK(r->second.reference_n == 500);
+    CHECK(r->second.current_n   == 500);
+}
+
+TEST_CASE("DriftMonitor::worst_psi_feature breaks PSI ties alphabetically") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    // Two features registered with identical baseline AND identical
+    // observation pattern → identical PSI → alphabetical tiebreak.
+    REQUIRE(dm.register_feature("zeta",  baseline, 0.0, 1.0, 10));
+    REQUIRE(dm.register_feature("alpha", baseline, 0.0, 1.0, 10));
+    for (int i = 0; i < 200; ++i) {
+        REQUIRE(dm.observe("zeta",  0.5));
+        REQUIRE(dm.observe("alpha", 0.5));
+    }
+
+    auto r = dm.worst_psi_feature();
+    REQUIRE(r);
+    // Equal PSI → alphabetical name wins.
+    CHECK(r->first == "alpha");
+    CHECK(r->second.feature == "alpha");
+
+    // worst_psi_feature() must agree with most_drifted_feature() on the
+    // winning name (the report-vs-name distinction is the only difference).
+    auto md = dm.most_drifted_feature();
+    REQUIRE(md);
+    CHECK(*md == r->first);
+}
+
+TEST_CASE("DriftMonitor::worst_psi_feature single-feature monitor") {
+    DriftMonitor dm;
+    std::vector<double> baseline(300, 0.3);
+    REQUIRE(dm.register_feature("only", baseline, 0.0, 1.0, 10));
+    for (int i = 0; i < 300; ++i) REQUIRE(dm.observe("only", 0.3));
+
+    auto r = dm.worst_psi_feature();
+    REQUIRE(r);
+    CHECK(r->first == "only");
+    CHECK(r->second.feature == "only");
+    // With current ≈ baseline, PSI should be small but the function still
+    // returns the only registered feature.
+    CHECK(r->second.psi < 0.25);
+}
+
+// ============== Histogram::is_balanced ==================================
+
+TEST_CASE("Histogram::is_balanced is true on empty (vacuously)") {
+    Histogram h{0.0, 1.0, 10};
+    // Empty → vacuously balanced under any threshold.
+    CHECK(h.is_balanced());
+    CHECK(h.is_balanced(0.0));
+    CHECK(h.is_balanced(0.5));
+    CHECK(h.is_balanced(1.0));
+}
+
+TEST_CASE("Histogram::is_balanced default 0.4 threshold rejects single-bin collapse") {
+    Histogram h{0.0, 1.0, 10};
+    // Pile 10 observations into bin 5 → 100% mass in one bin.
+    for (int i = 0; i < 10; ++i) h.observe(0.55);
+    CHECK_FALSE(h.is_balanced());                 // default 0.4
+    CHECK_FALSE(h.is_balanced(0.4));
+    CHECK_FALSE(h.is_balanced(0.99));
+    // 1.0 is the "everything passes" sentinel.
+    CHECK(h.is_balanced(1.0));
+}
+
+TEST_CASE("Histogram::is_balanced accepts evenly-spread distributions") {
+    Histogram h{0.0, 1.0, 10};
+    // 100 observations spread evenly across bins → max share ~10%.
+    for (int i = 0; i < 10; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            // 10 observations per bin: lo + bin_w * (i + 0.5) keeps us on midpoints.
+            h.observe(0.05 + 0.1 * static_cast<double>(i));
+        }
+    }
+    CHECK(h.is_balanced());            // 0.1 < 0.4 → true
+    CHECK(h.is_balanced(0.5));         // even more permissive
+    CHECK(h.is_balanced(0.11));        // just above 10% share
+    CHECK_FALSE(h.is_balanced(0.05));  // 5% threshold too tight
+}
+
+TEST_CASE("Histogram::is_balanced clamps max_share to [0, 1]") {
+    Histogram h{0.0, 1.0, 4};
+    // Half the observations in one bin, half in another → max share == 0.5.
+    for (int i = 0; i < 4; ++i) h.observe(0.1);  // bin 0
+    for (int i = 0; i < 4; ++i) h.observe(0.6);  // bin 2
+
+    // max_share above 1.0 clamps to 1.0 → always true.
+    CHECK(h.is_balanced(2.0));
+    CHECK(h.is_balanced(100.0));
+    // max_share below 0.0 clamps to 0.0 → never true on a non-empty hist.
+    CHECK_FALSE(h.is_balanced(-1.0));
+    CHECK_FALSE(h.is_balanced(-0.01));
+    // At exactly the boundary share == 0.5 with strict less-than:
+    // max_count (==4) < 0.5 * total (==4) → false.
+    CHECK_FALSE(h.is_balanced(0.5));
+    // Just above the share boundary → true.
+    CHECK(h.is_balanced(0.51));
+}
+
+// ============== MetricRegistry::histogram_count_total (new semantics) ==
+
+TEST_CASE("MetricRegistry::histogram_count_total returns 0 on empty registry") {
+    MetricRegistry m;
+    CHECK(m.histogram_count_total() == 0);
+
+    // Adding only counters does not move the histogram total.
+    m.inc("c1", 100);
+    m.inc("c2", 50);
+    CHECK(m.histogram_count_total() == 0);
+}
+
+TEST_CASE("MetricRegistry::histogram_count_total sums across multiple histograms") {
+    MetricRegistry m;
+    // Three histograms with different observation counts.
+    for (int i = 0; i < 4;  ++i) m.observe("a", 0.1);   // 4 obs
+    for (int i = 0; i < 7;  ++i) m.observe("b", 0.5);   // 7 obs
+    for (int i = 0; i < 11; ++i) m.observe("c", 1.5);   // 11 obs
+
+    // 4 + 7 + 11 = 22.
+    CHECK(m.histogram_count_total() == 22);
+    // Distinct from counter_total() which is unrelated to histograms.
+    CHECK(m.counter_total() == 0);
+}
+
+TEST_CASE("MetricRegistry::histogram_count_total is distinct from counter_total") {
+    MetricRegistry m;
+    m.inc("ctr", 1000);
+    m.observe("hist", 0.5);
+    m.observe("hist", 0.6);
+    m.observe("hist", 0.7);
+
+    // counter_total: sum of counter VALUES.
+    CHECK(m.counter_total()          == 1000);
+    // histogram_count_total: sum of histogram OBSERVATIONS, not values.
+    CHECK(m.histogram_count_total()  == 3);
+    // The two values must not be conflated.
+    CHECK(m.counter_total() != m.histogram_count_total());
+}
+
+TEST_CASE("MetricRegistry::histogram_count_total drops to 0 after reset_histograms") {
+    MetricRegistry m;
+    m.observe("h1", 0.1);
+    m.observe("h1", 0.2);
+    m.observe("h2", 0.5);
+    REQUIRE(m.histogram_count_total() == 3);
+
+    m.reset_histograms();
+    CHECK(m.histogram_count_total() == 0);
+
+    // After reset, fresh observations are visible.
+    m.observe("h3", 0.9);
+    CHECK(m.histogram_count_total() == 1);
 }
