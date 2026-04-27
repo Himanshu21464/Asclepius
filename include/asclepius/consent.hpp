@@ -101,6 +101,16 @@ public:
     // failure is swallowed → false.
     bool has_active_token(const PatientId& patient) const noexcept;
 
+    // Registry-wide liveness probe: true iff at least one active
+    // (non-revoked, non-expired) token exists anywhere in the registry,
+    // regardless of patient. noexcept; any internal failure is
+    // swallowed → false. Distinct from has_active_token (which is
+    // per-patient) and has_revoked_tokens (which asks the inverse
+    // question about the revoked subset). Useful for /healthz
+    // dashboards that want a single yes/no on whether the registry
+    // currently authorizes anything at all.
+    bool has_any_active() const noexcept;
+
     // First active (non-revoked, non-expired) token for `patient` whose
     // purposes list contains `purpose`. Returns Error::not_found if no
     // such token exists. Tiebreak among multiple matches is unspecified —
@@ -178,6 +188,13 @@ public:
     // historically interesting. Order is unspecified.
     std::vector<ConsentToken> tokens_for_purpose(Purpose purpose) const;
 
+    // Active-only mirror of tokens_for_purpose: list every non-revoked,
+    // non-expired token whose purposes list contains `p`. Distinct from
+    // tokens_for_purpose (which returns ALL states); this variant is the
+    // one operational gate logic typically wants — "which currently-
+    // effective grants cover this purpose?" Order is unspecified.
+    std::vector<ConsentToken> tokens_with_purpose(Purpose p) const;
+
     // Return the active (non-revoked, non-expired) token with the
     // latest expires_at. Returns Error::not_found when no active
     // token exists. Tiebreak among equal expiries is unspecified.
@@ -191,6 +208,16 @@ public:
     // is this specific patient's longest grant going to lapse?"
     Result<ConsentToken>
     longest_lived_active_for_patient(const PatientId& patient) const;
+
+    // Per-patient lifespan probe, unconstrained by state: the token for
+    // `patient` (active OR revoked OR expired) with the largest
+    // (expires_at - issued_at) lifespan — we are measuring the configured
+    // duration of the grant, not its current liveness. Returns
+    // Error::not_found if the patient has no tokens on file. Tiebreak
+    // among equal lifespans is unspecified. Useful for audits that ask
+    // "what is the longest grant we have ever held for this patient?"
+    Result<ConsentToken>
+    find_longest_lived_for_patient(const PatientId& patient) const;
 
     // Return the active (non-revoked, non-expired) token with the
     // smallest issued_at — i.e. the oldest grant still in force.
@@ -326,12 +353,32 @@ public:
     Result<ConsentToken>
     most_recently_revoked_for_patient(const PatientId& patient) const;
 
+    // Per-patient mirror of oldest_active(), but unconstrained by state:
+    // the token (active OR revoked OR expired) belonging to `patient`
+    // with the smallest issued_at. Returns Error::not_found if the
+    // patient has no tokens on file. Tiebreak among equal issued_at
+    // values is unspecified. Useful for ops probes that want the
+    // earliest grant on record for a patient regardless of whether
+    // it is currently in force — e.g. "when did we first see consent
+    // from this patient?"
+    Result<ConsentToken>
+    find_oldest_token_for_patient(const PatientId& patient) const;
+
     // Duration from the earliest active (non-revoked, non-expired)
     // token's issued_at to now() — i.e. the wall-clock age of our
     // longest-standing live grant. Returns Error::not_found when no
     // active tokens exist. Operator probe: "how old is the oldest
     // consent we are currently relying on?"
     Result<std::chrono::nanoseconds> age_of_oldest_active() const;
+
+    // Mean (expires_at - issued_at) across every token in the registry
+    // (active + revoked + expired) — i.e. the average configured
+    // lifespan we have written, regardless of current state. Returns
+    // Error::not_found when the registry is empty. Operator probe:
+    // "how long are the grants we issue, on average?" — useful as a
+    // sanity check that operators aren't drifting toward
+    // indefinitely-long TTLs.
+    Result<std::chrono::nanoseconds> estimated_avg_ttl() const;
 
     // Map of {patient.str() (raw id string): total token count across
     // all states (active + revoked + expired)}. Patients with zero

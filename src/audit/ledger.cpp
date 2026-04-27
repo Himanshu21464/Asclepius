@@ -23,6 +23,7 @@
 #include <atomic>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -1016,10 +1017,49 @@ std::string Ledger::head_attestation_json() const {
     return j.dump();
 }
 
+std::string Ledger::summary_string() const {
+    const auto len = impl_->length.load();
+    if (len == 0) {
+        return fmt::format("length=0 (empty) key={}", impl_->key_id);
+    }
+    // Truncate the head hash hex to its leading 12 chars — same shape as
+    // the leading bytes shown by `git log --oneline` for hashes.
+    std::string head_hex = impl_->head.hex();
+    if (head_hex.size() > 12) head_hex.resize(12);
+
+    std::string oldest_iso;
+    std::string newest_iso;
+    auto oldest = impl_->storage->select_at(1);
+    if (oldest) oldest_iso = oldest.value().header.ts.iso8601();
+    auto newest = impl_->storage->select_at(len);
+    if (newest) newest_iso = newest.value().header.ts.iso8601();
+
+    return fmt::format("length={} head={} key={} oldest={} newest={}",
+                       len, head_hex, impl_->key_id, oldest_iso, newest_iso);
+}
+
 Result<std::uint64_t> Ledger::count_in_window(Time from, Time to) const {
     std::uint64_t n = 0;
     auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
         // Half-open [from, to): include from, exclude to.
+        if (e.header.ts < from) return true;
+        if (!(e.header.ts < to)) return true;
+        ++n;
+        return true;
+    });
+    if (!r) return r.error();
+    return n;
+}
+
+Result<std::uint64_t>
+Ledger::events_in_window_count(Time from, Time to) const {
+    if (from > to) {
+        return Error::invalid("events_in_window_count: from > to");
+    }
+    std::uint64_t n = 0;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Half-open [from, to): include from, exclude to. Counter only —
+        // no entry copies kept; O(1) memory.
         if (e.header.ts < from) return true;
         if (!(e.header.ts < to)) return true;
         ++n;
@@ -1167,6 +1207,17 @@ Result<std::chrono::nanoseconds> Ledger::age_of_oldest() const {
     return Time::now() - e.value().header.ts;
 }
 
+Result<std::chrono::milliseconds> Ledger::head_age_ms() const {
+    const auto len = impl_->length.load();
+    if (len == 0) {
+        return Error::not_found("head_age_ms: chain is empty");
+    }
+    auto e = impl_->storage->select_at(len);
+    if (!e) return e.error();
+    auto ns = Time::now() - e.value().header.ts;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(ns);
+}
+
 Result<LedgerEntry> Ledger::newest_entry() const {
     const auto len = impl_->length.load();
     if (len == 0) {
@@ -1190,6 +1241,26 @@ Result<std::uint64_t> Ledger::seq_at_time(Time t) const {
     });
     if (!r) return r.error();
     return out;
+}
+
+Result<std::uint64_t> Ledger::first_seq_at_or_after_time(Time t) const {
+    if (impl_->length.load() == 0) {
+        return Error::not_found("first_seq_at_or_after_time: chain is empty");
+    }
+    std::optional<std::uint64_t> hit;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Entries arrive seq-ascending; the first one with ts >= t is
+        // the answer. Stop scanning on the first match.
+        if (e.header.ts < t) return true;
+        hit = e.header.seq;
+        return false;
+    });
+    if (!r) return r.error();
+    if (!hit) {
+        return Error::not_found(
+            "first_seq_at_or_after_time: no entry has ts >= t");
+    }
+    return *hit;
 }
 
 std::string Ledger::InclusionProof::to_json() const {
@@ -1253,6 +1324,33 @@ Ledger::tail_in_window(Time from, Time to, std::size_t n) const {
         return true;
     });
     if (!r) return r.error();
+    std::reverse(ring.begin(), ring.end());
+    return ring;
+}
+
+Result<std::vector<LedgerEntry>>
+Ledger::tail_after_time(Time t, std::size_t n) const {
+    // n == 0 is a cheap no-op, mirroring tail_by_actor and tail_in_window.
+    if (n == 0) return std::vector<LedgerEntry>{};
+
+    // Pull every entry with ts >= t via the indexed time range, then keep
+    // the last `n` via a bounded ring buffer (oldest-first), then reverse
+    // so callers see most-recent-first. Memory is O(min(n, matches)).
+    auto rng = range_by_time(t,
+        Time{std::numeric_limits<std::int64_t>::max()});
+    if (!rng) return rng.error();
+    const auto& all = rng.value();
+
+    std::vector<LedgerEntry> ring;
+    ring.reserve(std::min(n, all.size()));
+    for (const auto& e : all) {
+        if (ring.size() < n) {
+            ring.push_back(e);
+        } else {
+            std::move(ring.begin() + 1, ring.end(), ring.begin());
+            ring.back() = e;
+        }
+    }
     std::reverse(ring.begin(), ring.end());
     return ring;
 }

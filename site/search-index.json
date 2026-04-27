@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-27T15:25:50Z",
+  "generated_at": "2026-04-27T15:56:17Z",
   "count": 50,
   "pages": [
     {
@@ -160,6 +160,7 @@
         "What not to expect",
         "Site keyboard shortcuts",
         "Round 78 patient · window · replication",
+        "Round 85 time anchors · lifespan stats · shutdown tombstones",
         "Round 84 status banners · actor history · busy-vs-idle",
         "Round 83 composite filters · lifecycle states · trace plumbing",
         "Round 82 cold backups · merkle proofs · env probes",

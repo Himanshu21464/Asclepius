@@ -387,6 +387,16 @@
       <dd><pre>double seq_density()</pre><p>Entries-per-second rate over the chain's lifespan — <code>length() / age_of_oldest_seconds()</code>. Pairs with <code>length()</code> for the "how dense is this chain?" line a status page reads alongside age. Returns <code>0.0</code> on an empty chain.</p></dd>
       <dt><code>is_chain_continuous</code></dt>
       <dd><pre>bool is_chain_continuous()</pre><p>Boolean sugar over <code>verify()</code> — true iff the chain verifies cleanly end-to-end, false on any hash, signature, or seq discontinuity. The single bool a deploy-gate or replica-promotion check actually wants without unwrapping a <code>Result&lt;void&gt;</code>.</p></dd>
+      <dt><code>first_seq_at_or_after_time</code></dt>
+      <dd><pre>Result&lt;std::uint64_t&gt; first_seq_at_or_after_time(Time t)</pre><p>The lowest seq whose timestamp is &ge; <code>t</code> — head-end mirror of <code>seq_at_time(t)</code>. The "where did the chain pick up after midnight?" anchor a windowed audit reaches for; pairs with <code>seq_at_time</code> to bracket a verification slice without composing two range queries. Returns <code>not_found</code> when no entry lands at or after <code>t</code>.</p></dd>
+      <dt><code>head_age_ms</code></dt>
+      <dd><pre>Result&lt;std::chrono::milliseconds&gt; head_age_ms()</pre><p>Wall-clock distance between now and the newest entry's timestamp, in milliseconds. The "how stale is the head?" cell a follower-lag or chain-liveness probe reads naturally — sibling of <code>age_of_oldest()</code> on the head end, in the units a status row prints. <code>not_found</code> on an empty chain.</p></dd>
+      <dt><code>events_in_window_count</code></dt>
+      <dd><pre>std::uint64_t events_in_window_count(Time from, Time to)</pre><p>Count of entries whose timestamps fall inside <code>[from, to]</code>, without materializing the rows. Cardinality-only sibling of <code>tail_in_window</code> — pairs with <code>count_in_window</code> on a different question shape: that one took an inclusive range too, this one is the explicit "how many?" cell a windowed dashboard reads.</p></dd>
+      <dt><code>summary_string</code></dt>
+      <dd><pre>std::string summary_string()</pre><p>One-line ASCII status string for the ledger alone — <code>length=&lt;n&gt; · head=&lt;prefix&gt; · key=&lt;id&gt; · age=&lt;duration&gt;</code>. The grep-friendly cell a CLI tail-mode or a status-bar widget wants; cheaper than <code>stats().to_json()</code> and one fewer accessor than composing <code>length</code>, <code>head</code>, <code>key_id</code>, <code>age_of_oldest</code> by hand.</p></dd>
+      <dt><code>tail_after_time</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; tail_after_time(Time t, std::size_t n)</pre><p>The last <code>n</code> entries with timestamp &gt; <code>t</code>, newest first. Composes <code>tail()</code> with a time anchor in one query — the "show me the most recent five entries since the incident" view a forensic operator reads without composing <code>tail_in_window</code> with an open-ended upper bound.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -543,6 +553,16 @@
       <dd><pre>std::size_t tokens_expiring_soon(std::chrono::seconds horizon)</pre><p>Cardinality without the vector — count of active tokens whose expiry falls inside the next <code>horizon</code>. Cheap sibling of <code>tokens_expiring_within(horizon)</code> when only the number is wanted (renewal-queue depth on a status page) rather than the full token list.</p></dd>
       <dt><code>has_revoked_tokens</code></dt>
       <dd><pre>bool has_revoked_tokens() noexcept</pre><p><code>noexcept</code> bool — true iff at least one token in the registry has been revoked. The cheap "has anyone ever withdrawn?" predicate; pairs with <code>recently_revoked(window)</code> as the windowed counterpart. Never throws, never allocates.</p></dd>
+      <dt><code>find_oldest_token_for_patient</code></dt>
+      <dd><pre>std::optional&lt;ConsentToken&gt; find_oldest_token_for_patient(const PatientId&amp; patient)</pre><p>The token with the earliest <code>granted_at</code> for one patient — across active, expired, <em>and</em> revoked. Per-patient sibling of the chain-wide <code>oldest_active</code> on a different scope: this answers "when did this person first ever appear in the registry?" rather than "what is the oldest grant currently valid?". <code>nullopt</code> when the patient is unknown.</p></dd>
+      <dt><code>estimated_avg_ttl</code></dt>
+      <dd><pre>Result&lt;std::chrono::nanoseconds&gt; estimated_avg_ttl()</pre><p>Mean lifespan across every token in the registry — <code>(expires_at - granted_at)</code> averaged over all tokens regardless of state. The "how long do consents typically last on this substrate?" cell a renewal-cadence dashboard reads. Returns <code>not_found</code> on an empty registry.</p></dd>
+      <dt><code>find_longest_lived_for_patient</code></dt>
+      <dd><pre>std::optional&lt;ConsentToken&gt; find_longest_lived_for_patient(const PatientId&amp; patient)</pre><p>The token with the largest <code>(expires_at - granted_at)</code> span for one patient — across every state, distinct from <code>longest_lived_active_for_patient</code> (which scopes to currently-active tokens) and from <code>longest_active</code> (which scopes registry-wide). The "what was this person's longest grant ever, lapsed or otherwise?" cell on a per-patient compliance row.</p></dd>
+      <dt><code>tokens_with_purpose</code></dt>
+      <dd><pre>std::vector&lt;ConsentToken&gt; tokens_with_purpose(Purpose purpose)</pre><p>Active-only filter for tokens granting <code>purpose</code> — distinct from <code>tokens_for_purpose(purpose)</code>, which returns every token of that purpose regardless of state. The "who is currently authorising ambient_documentation, right now?" view a runtime-side cohort scan reads without composing <code>tokens_for_purpose</code> with an active-state predicate.</p></dd>
+      <dt><code>has_any_active</code></dt>
+      <dd><pre>bool has_any_active() noexcept</pre><p><code>noexcept</code> bool — true iff at least one token in the registry is currently active (granted, not revoked, not expired). The cheapest "is the registry doing anything?" predicate, registry-wide; pairs with <code>has_active_token(patient)</code> on the per-patient axis. Never throws, never allocates.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -868,6 +888,10 @@
       <dd><pre>Result&lt;void&gt; tag(std::string label)</pre><p>Sugar over <code>add_metadata("tag", ...)</code> — attach a single-string label to the inference event without spelling out the metadata key at every call site. The "mark this row" verb a backfill or a per-shift slicer reaches for; hashed into the entry like any other metadata.</p></dd>
       <dt><code>ensure_committed</code></dt>
       <dd><pre>Result&lt;void&gt; ensure_committed()</pre><p>Idempotent commit-if-not-committed sugar — calls <code>commit()</code> only when <code>is_committed()</code> is false; returns <code>ok</code> otherwise. The "make sure this row landed, don't care whether I just committed it or someone else did" verb retry / shutdown / RAII-tail logic actually wants without composing the predicate with the action by hand.</p></dd>
+      <dt><code>set_priority</code></dt>
+      <dd><pre>Result&lt;void&gt; set_priority(std::string_view priority)</pre><p>Stamp a scheduling priority on this inference — validates against the closed set <code>{low, normal, high, critical}</code> and rejects anything else with <code>invalid_argument</code>. Hashed into the entry like any other metadata; the cell a request-shaping queue or a load-shed gate reads without spelling out the metadata key at every call site.</p></dd>
+      <dt><code>ledger_snapshot_seq</code></dt>
+      <dd><pre>std::uint64_t ledger_snapshot_seq() noexcept</pre><p><code>noexcept</code> sugar over <code>seq().value_or(0)</code> — returns the committed seq, or <code>0</code> before commit. The cheapest cell a metric label or a trace tag reaches for when the "not committed yet" case can be encoded as zero rather than <code>std::optional</code>; never throws, never allocates.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -970,6 +994,12 @@
       <dd><pre>bool is_busy(std::uint64_t threshold_ms)</pre><p>Negation of <code>is_idle(threshold_ms)</code> — true iff an inference has committed within the last <code>threshold_ms</code> or any handle is in-flight. The "should I shed traffic away from this runtime?" gate a load balancer reads naturally, without inverting the spin-down predicate at the call site.</p></dd>
       <dt><code>status_line</code></dt>
       <dd><pre>std::string status_line()</pre><p>One-line ASCII status string — <code>asclepius v&lt;ver&gt; · ledger=&lt;n&gt; · key=&lt;id&gt; · policies=&lt;n&gt; · drift_features=&lt;n&gt; · active_consent=&lt;n&gt;</code>. The single banner a CLI startup prints, a status-bar widget reads, or a health probe greps. Cheaper than <code>summary_string()</code> (multi-line) and <code>quick_status()</code> (no consent / policy counts); the densest one-line shape for "what's on this runtime, right now?"</p></dd>
+      <dt><code>wait_until_chain_grows</code></dt>
+      <dd><pre>Result&lt;void&gt; wait_until_chain_grows(std::uint64_t min_seq, std::chrono::milliseconds timeout)</pre><p>Blocking poll — returns <code>ok</code> as soon as <code>ledger().length() &gt; min_seq</code>, or <code>timeout</code> when the deadline expires first. The follower-side primitive a replication mirror or an integration-test harness reaches for instead of busy-looping <code>has_event_after_seq()</code>; pairs with <code>events_after_seq</code> for the cursor-walk that follows.</p></dd>
+      <dt><code>record_shutdown</code></dt>
+      <dd><pre>Result&lt;void&gt; record_shutdown(std::string_view reason)</pre><p>Append a <code>runtime.shutdown</code> tombstone to the ledger, with <code>reason</code> attached as metadata. The signal a forensic operator reads when reconstructing why a substrate stopped taking traffic — distinct from a process simply exiting, where the chain ends without explanation. Pairs with <code>record_event</code> for the open-ended escape hatch on non-inference events.</p></dd>
+      <dt><code>policy_count</code></dt>
+      <dd><pre>std::size_t policy_count()</pre><p>Sugar over <code>policies().size()</code> — number of policies currently registered on the runtime's chain. The cheap cardinality cell a status-bar widget or a config-drift probe reads without reaching through a sub-component.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1052,6 +1082,10 @@
       <dd><pre>double p99()</pre><p>Convenience over <code>percentile(99.0)</code> — the operator vocabulary every dashboard cell wants without spelling out the percentile argument. Sibling of <code>median()</code> for the central-tendency-vs-tail pair a latency row reads in one line.</p></dd>
       <dt><code>nth_largest_bin</code></dt>
       <dd><pre>Result&lt;std::size_t&gt; nth_largest_bin(std::size_t n)</pre><p>Index of the bin with the <code>n</code>-th largest observation count — <code>n=0</code> returns the densest bin, <code>n=1</code> the runner-up, and so on. The "where is the mass concentrating, after the mode?" probe ahead of a full PSI report; pairs with <code>nonzero_bin_count</code> for the "is this distribution multi-modal?" investigation. Returns <code>not_found</code> when <code>n</code> exceeds <code>nonzero_bin_count()</code>.</p></dd>
+      <dt><code>cumulative_at</code></dt>
+      <dd><pre>Result&lt;std::uint64_t&gt; cumulative_at(std::size_t i)</pre><p>Running total of observation counts through bin <code>i</code> inclusive — sum of <code>bin_at(0)..bin_at(i)</code> in one call without re-folding by hand. The cheap cell a tooltip on a CDF chart reads, and the primitive a custom KS computation reaches for between <code>cdf()</code> and <code>bin_at()</code>. Returns <code>out_of_range</code> when <code>i</code> exceeds the bin count.</p></dd>
+      <dt><code>observed_range</code></dt>
+      <dd><pre>std::pair&lt;double, double&gt; observed_range()</pre><p>Bin-midpoint pair <code>{min_observed, max_observed}</code> — the actual mass range the distribution carries, distinct from the constructed <code>[lo, hi]</code> window. Pairs with <code>nonzero_bin_count</code> for "how much of the configured range is actually being used?" sanity checks. Returns <code>{0.0, 0.0}</code> on an empty histogram.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1105,6 +1139,8 @@
       <dd><pre>bool is_registered(std::string_view feature) noexcept</pre><p><code>noexcept</code> bool — true iff <code>feature</code> has been registered with a baseline. Sibling of <code>has_feature</code> with the explicit "registered" vocabulary a startup-gate or dashboard row reads naturally; never throws, never allocates.</p></dd>
       <dt><code>reset_all</code></dt>
       <dd><pre>void reset_all()</pre><p>Clear the current window <em>and</em> the last-severity tracking on every registered feature in one call. Distinct from <code>rotate()</code>, which leaves alert tracking intact: <code>reset_all</code> is the deliberate "we are starting from a clean slate, ack any pending alerts" verb after a baseline-recalibration ceremony or a planned downtime. Pairs with <code>clear_alerts()</code> when only the alert latch needs resetting.</p></dd>
+      <dt><code>feature_count_observed</code></dt>
+      <dd><pre>std::size_t feature_count_observed()</pre><p>How many registered features have at least one observation in the current window — sibling of <code>feature_count()</code> with the explicit "observed" qualifier. The "is the pipeline actually feeding the monitor?" probe a startup-gate or a stuck-pipeline alarm reads ahead of a full <code>report()</code>; distinguishes "registered but silent" from "registered and flowing."</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1173,6 +1209,10 @@
       <dd><pre>std::uint64_t sum_counters_with_prefix(std::string_view prefix)</pre><p>Sum of every counter whose name starts with <code>prefix</code>. The "all <code>policy.*</code> counters folded together" view a SLO row reads without composing <code>counter_snapshot()</code> with a manual filter — pairs with <code>counter_total()</code> when only one namespace is wanted, not the entire registry.</p></dd>
       <dt><code>counter_max</code></dt>
       <dd><pre>std::pair&lt;std::string, std::uint64_t&gt; counter_max()</pre><p>Name and value of the highest-valued counter in one call — the "what is the busiest single counter on this runtime?" cell a dashboard reads. Returns an empty name with zero on an empty registry; pairs with <code>counter_total()</code> for the "what dominates the total?" investigation.</p></dd>
+      <dt><code>counter_with_default</code></dt>
+      <dd><pre>std::uint64_t counter_with_default(std::string_view name, std::uint64_t default_value)</pre><p>Lookup that returns <code>default_value</code> when the counter is unregistered, rather than the silent zero <code>count()</code> hands back or the <code>not_found</code> error <code>counter_value()</code> raises. The shape an SLO row wants when "never registered" should read as a sensible baseline rather than a phantom zero — pairs with <code>has_counter</code> for the explicit-existence path.</p></dd>
+      <dt><code>reset_all_counters</code></dt>
+      <dd><pre>void reset_all_counters()</pre><p>Zero every registered counter in one pass while keeping every name. Distinct from <code>reset()</code> (which clears counters <em>and</em> histogram observations) and from <code>clear()</code> (which drops registrations entirely): <code>reset_all_counters</code> is the deliberate "start a clean counting epoch, leave histograms and registrations alone" verb a baseline-recalibration ceremony reaches for.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>

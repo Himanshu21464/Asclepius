@@ -651,6 +651,44 @@ Result<void> Inference::tag(std::string_view label) {
     return add_metadata("tag", nlohmann::json(std::string{label}));
 }
 
+Result<void> Inference::set_priority(std::string_view priority) {
+    // Sugar over add_metadata("priority", <priority as JSON string>).
+    // The four-bucket vocabulary matches the downstream prioritization
+    // filters that read this field; widening it without coordination
+    // would silently drop unrecognised priorities at the consumer, so
+    // we reject anything outside the set here with a diagnostic that
+    // names the offending input. Validation is performed before
+    // forwarding so the error message is grounded in the priority
+    // contract rather than the generic metadata path.
+    static constexpr std::array<std::string_view, 4> kAllowed = {
+        "low", "normal", "high", "critical"
+    };
+    bool ok = false;
+    for (auto a : kAllowed) {
+        if (priority == a) { ok = true; break; }
+    }
+    if (!ok) {
+        std::string msg = "priority must be one of "
+                          "{low, normal, high, critical}, got '";
+        msg += std::string{priority};
+        msg += "'";
+        return Error::invalid(std::move(msg));
+    }
+    return add_metadata("priority",
+                        nlohmann::json(std::string{priority}));
+}
+
+std::uint64_t Inference::ledger_snapshot_seq() const noexcept {
+    // Pure noexcept companion to seq(). The committed_seq member is
+    // initialised to 0 in Impl and only assigned a real seq inside a
+    // successful commit() / commit_idempotent() path; the ledger's
+    // first valid seq is 1, so 0 is unambiguous as a "not committed
+    // yet" sentinel. We also collapse a null impl to 0, matching the
+    // is_committed() / actor_str() pattern of "no impl, no answer."
+    if (!impl_ || !impl_->committed) return 0;
+    return impl_->committed_seq;
+}
+
 Result<void> Inference::capture_override(std::string rationale, nlohmann::json corrected) {
     if (!impl_->committed) {
         // Allow override capture even before commit; we'll auto-commit on

@@ -4514,3 +4514,276 @@ TEST_CASE("is_chain_continuous: agrees with verify().has_value()") {
     auto v = l.verify();
     CHECK(l.is_chain_continuous() == v.has_value());
 }
+
+// ============== Ledger::first_seq_at_or_after_time ======================
+
+TEST_CASE("first_seq_at_or_after_time returns smallest seq with ts >= t") {
+    auto p = tmp_db("fsa_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    std::vector<Time> times;
+    for (int i = 0; i < 5; i++) {
+        auto a = l.append("e", "x", nlohmann::json{{"i", i}}, "");
+        REQUIRE(a);
+        times.push_back(a.value().header.ts);
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    // t == ts of entry 3 → seq 3 (the first with ts >= t).
+    auto r3 = l.first_seq_at_or_after_time(times[2]);
+    REQUIRE(r3);
+    CHECK(r3.value() == 3);
+    // t one nanosecond after entry 3's ts → seq 4 (skips 3).
+    auto r4 = l.first_seq_at_or_after_time(
+        times[2] + std::chrono::nanoseconds(1));
+    REQUIRE(r4);
+    CHECK(r4.value() == 4);
+    // t earlier than the first entry → seq 1.
+    auto r1 = l.first_seq_at_or_after_time(
+        times[0] - std::chrono::seconds(1));
+    REQUIRE(r1);
+    CHECK(r1.value() == 1);
+}
+
+TEST_CASE("first_seq_at_or_after_time: empty chain returns not_found") {
+    auto p = tmp_db("fsa_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r = l.first_seq_at_or_after_time(Time::now());
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("first_seq_at_or_after_time: t beyond newest returns not_found") {
+    auto p = tmp_db("fsa_after_newest");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 3; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto far_future = Time::now() + std::chrono::hours(24);
+    auto r = l.first_seq_at_or_after_time(far_future);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+    // Sanity: chain still verifies after the probe.
+    REQUIRE(l.verify());
+}
+
+// ============== Ledger::head_age_ms =====================================
+
+TEST_CASE("head_age_ms returns milliseconds since the newest entry") {
+    auto p = tmp_db("ham_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    auto r = l.head_age_ms();
+    REQUIRE(r);
+    // Should be >= ~50ms but bounded above (allow for slow CI).
+    CHECK(r.value() >= std::chrono::milliseconds(40));
+    CHECK(r.value() <= std::chrono::milliseconds(5000));
+}
+
+TEST_CASE("head_age_ms on empty chain returns not_found") {
+    auto p = tmp_db("ham_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r = l.head_age_ms();
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("head_age_ms tracks the newest entry, not the oldest") {
+    auto p = tmp_db("ham_tracks_head");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, ""));
+    auto r = l.head_age_ms();
+    REQUIRE(r);
+    // Anchored on the *second* (newest) append, so the elapsed age must
+    // be far less than the gap between the two appends.
+    CHECK(r.value() < std::chrono::milliseconds(70));
+}
+
+// ============== Ledger::events_in_window_count ==========================
+
+TEST_CASE("events_in_window_count counts entries in [from, to)") {
+    auto p = tmp_db("eiwc_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    auto from = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    for (int i = 4; i < 9; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto to = Time::now() + std::chrono::seconds(60);
+    auto r = l.events_in_window_count(from, to);
+    REQUIRE(r);
+    CHECK(r.value() == 5u);
+}
+
+TEST_CASE("events_in_window_count: from > to returns invalid_argument") {
+    auto p = tmp_db("eiwc_inv");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto t1 = Time::now();
+    auto t0 = t1 - std::chrono::seconds(1);
+    auto r = l.events_in_window_count(t1, t0);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+    // Equal bounds (from == to) yields zero, not an error.
+    auto reqz = l.events_in_window_count(t1, t1);
+    REQUIRE(reqz);
+    CHECK(reqz.value() == 0u);
+}
+
+TEST_CASE("events_in_window_count: half-open and empty-chain semantics") {
+    auto p = tmp_db("eiwc_halfopen");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain returns 0.
+    auto r0 = l.events_in_window_count(
+        Time{0}, Time::now() + std::chrono::seconds(60));
+    REQUIRE(r0);
+    CHECK(r0.value() == 0u);
+    // Append, then probe with the upper bound equal to entry 3's ts —
+    // half-open must exclude that entry.
+    for (int i = 0; i < 5; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto e3 = l.at(3); REQUIRE(e3);
+    auto r = l.events_in_window_count(Time{0}, e3.value().header.ts);
+    REQUIRE(r);
+    CHECK(r.value() == 2u);  // entries 1 and 2 only
+    // Sanity: result agrees with count_in_window for any well-formed window.
+    auto everything_b = l.events_in_window_count(
+        Time{0}, Time::now() + std::chrono::seconds(60));
+    auto everything_a = l.count_in_window(
+        Time{0}, Time::now() + std::chrono::seconds(60));
+    REQUIRE(everything_a);
+    REQUIRE(everything_b);
+    CHECK(everything_a.value() == everything_b.value());
+}
+
+// ============== Ledger::summary_string ==================================
+
+TEST_CASE("summary_string: empty chain shape") {
+    auto p = tmp_db("ss_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto s = l.summary_string();
+    CHECK(s.find("length=0 (empty)") != std::string::npos);
+    CHECK(s.find("key=" + l.key_id()) != std::string::npos);
+    // No head=, oldest=, newest= fields on an empty chain.
+    CHECK(s.find("head=") == std::string::npos);
+    CHECK(s.find("oldest=") == std::string::npos);
+    CHECK(s.find("newest=") == std::string::npos);
+}
+
+TEST_CASE("summary_string: non-empty chain layout") {
+    auto p = tmp_db("ss_nonempty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 3; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto s = l.summary_string();
+    CHECK(s.find("length=3") != std::string::npos);
+    CHECK(s.find("key=" + l.key_id()) != std::string::npos);
+    CHECK(s.find("oldest=") != std::string::npos);
+    CHECK(s.find("newest=") != std::string::npos);
+    // Head field carries the leading 12 hex chars of the head hash.
+    auto head_full = l.head().hex();
+    REQUIRE(head_full.size() >= 12);
+    auto head12 = head_full.substr(0, 12);
+    CHECK(s.find("head=" + head12) != std::string::npos);
+    // It's a single line — no embedded newlines.
+    CHECK(s.find('\n') == std::string::npos);
+}
+
+TEST_CASE("summary_string: head field is exactly 12 hex chars long") {
+    auto p = tmp_db("ss_head12");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto s = l.summary_string();
+    auto pos = s.find("head=");
+    REQUIRE(pos != std::string::npos);
+    pos += 5;  // step past "head="
+    auto end = s.find(' ', pos);
+    REQUIRE(end != std::string::npos);
+    auto head_field = s.substr(pos, end - pos);
+    CHECK(head_field.size() == 12);
+    // Must match the leading 12 chars of the live head hex.
+    CHECK(head_field == l.head().hex().substr(0, 12));
+}
+
+// ============== Ledger::tail_after_time =================================
+
+TEST_CASE("tail_after_time returns last n entries with ts >= t") {
+    auto p = tmp_db("tat_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    auto t = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    for (int i = 4; i < 10; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto r = l.tail_after_time(t, 3);
+    REQUIRE(r);
+    CHECK(r.value().size() == 3);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b2 = nlohmann::json::parse(r.value()[2].body_json);
+    CHECK(b0["i"] == 9);  // most-recent first
+    CHECK(b2["i"] == 7);
+}
+
+TEST_CASE("tail_after_time: n=0 yields empty vector (mirrors tail_by_actor)") {
+    auto p = tmp_db("tat_zero");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r = l.tail_after_time(Time{0}, 0);
+    REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("tail_after_time: t past newest yields empty vector") {
+    auto p = tmp_db("tat_future");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto far_future = Time::now() + std::chrono::hours(24);
+    auto r = l.tail_after_time(far_future, 5);
+    REQUIRE(r);
+    CHECK(r.value().empty());
+    // And: requesting more than match-count returns just the matches.
+    auto everything = l.tail_after_time(Time{0}, 100);
+    REQUIRE(everything);
+    CHECK(everything.value().size() == 4);
+    // Most-recent first.
+    CHECK(everything.value().front().header.seq == 4);
+    CHECK(everything.value().back().header.seq == 1);
+    // Chain still verifies after the probes.
+    REQUIRE(l.verify());
+}

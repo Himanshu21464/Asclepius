@@ -3092,3 +3092,465 @@ TEST_CASE("DriftMonitor::reset_all integration — distinct from rotate(): rotat
     empty.reset_all();
     CHECK(empty.feature_count() == 0);
 }
+
+// ---- Histogram::cumulative_at -------------------------------------------
+
+TEST_CASE("Histogram::cumulative_at basic — running sum up through bin i") {
+    Histogram h{0.0, 1.0, 4};
+    // bin 0: 2 hits, bin 1: 1 hit, bin 2: 0 hits, bin 3: 5 hits.
+    h.observe(0.05);
+    h.observe(0.05);
+    h.observe(0.30);
+    for (int i = 0; i < 5; ++i) h.observe(0.95);
+    REQUIRE(h.total() == 8);
+
+    auto c0 = h.cumulative_at(0);
+    REQUIRE(c0);
+    CHECK(c0.value() == 2);
+
+    auto c1 = h.cumulative_at(1);
+    REQUIRE(c1);
+    CHECK(c1.value() == 3);
+
+    auto c2 = h.cumulative_at(2);
+    REQUIRE(c2);
+    CHECK(c2.value() == 3);  // bin 2 has 0 hits → cumulative unchanged
+
+    auto c3 = h.cumulative_at(3);
+    REQUIRE(c3);
+    CHECK(c3.value() == 8);  // last bin → cumulative == total()
+    CHECK(c3.value() == h.total());
+}
+
+TEST_CASE("Histogram::cumulative_at edge — out-of-range index returns invalid_argument") {
+    Histogram h{0.0, 1.0, 4};
+    h.observe(0.5);
+    {
+        auto r = h.cumulative_at(4);  // exactly bin_count()
+        REQUIRE_FALSE(r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+    {
+        auto r = h.cumulative_at(123);
+        REQUIRE_FALSE(r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+    // Empty histogram: in-range index returns 0, out-of-range still
+    // returns invalid_argument.
+    Histogram empty{0.0, 1.0, 4};
+    {
+        auto r = empty.cumulative_at(0);
+        REQUIRE(r);
+        CHECK(r.value() == 0);
+    }
+    {
+        auto r = empty.cumulative_at(3);
+        REQUIRE(r);
+        CHECK(r.value() == 0);
+    }
+    {
+        auto r = empty.cumulative_at(4);
+        REQUIRE_FALSE(r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+}
+
+TEST_CASE("Histogram::cumulative_at integration — agrees with bin_at sum and is non-decreasing") {
+    Histogram h{0.0, 1.0, 8};
+    std::mt19937 rng{1234};
+    std::uniform_real_distribution<double> d{0.0, 1.0};
+    for (int i = 0; i < 200; ++i) h.observe(d(rng));
+    REQUIRE(h.total() == 200);
+
+    // Reference impl: sum bin_at(0..i) and compare.
+    std::uint64_t running = 0;
+    std::uint64_t prev_cum = 0;
+    for (std::size_t i = 0; i < h.bin_count(); ++i) {
+        auto rb = h.bin_at(i);
+        REQUIRE(rb);
+        running += rb.value();
+
+        auto rc = h.cumulative_at(i);
+        REQUIRE(rc);
+        CHECK(rc.value() == running);
+
+        // Cumulative is non-decreasing in i: each step adds >= 0.
+        CHECK(rc.value() >= prev_cum);
+        prev_cum = rc.value();
+    }
+    // Final cumulative == total().
+    auto rfinal = h.cumulative_at(h.bin_count() - 1);
+    REQUIRE(rfinal);
+    CHECK(rfinal.value() == h.total());
+
+    // cdf agreement: cumulative_at(i) / total() must match cdf()[i] for
+    // any non-empty histogram.
+    auto cdf = h.cdf();
+    REQUIRE(cdf.size() == h.bin_count());
+    for (std::size_t i = 0; i < h.bin_count(); ++i) {
+        auto rc = h.cumulative_at(i);
+        REQUIRE(rc);
+        const double expected = static_cast<double>(rc.value())
+                              / static_cast<double>(h.total());
+        CHECK(cdf[i] == doctest::Approx(expected));
+    }
+}
+
+// ---- MetricRegistry::counter_with_default ------------------------------
+
+TEST_CASE("MetricRegistry::counter_with_default basic — returns counter value when present") {
+    MetricRegistry m;
+    m.inc("hits", 7);
+
+    CHECK(m.counter_with_default("hits", 999) == 7);
+
+    // Default ignored even when value is 0 (counter exists, just zeroed).
+    REQUIRE(m.reset("hits"));
+    CHECK(m.counter_with_default("hits", 999) == 0);
+
+    // Default returned when the counter genuinely doesn't exist.
+    CHECK(m.counter_with_default("missing", 42)  == 42);
+    CHECK(m.counter_with_default("missing", 0)   == 0);
+    CHECK(m.counter_with_default("missing", 100) == 100);
+}
+
+TEST_CASE("MetricRegistry::counter_with_default edge — disambiguates missing from 0") {
+    MetricRegistry m;
+    // Pre-registered counter at 0.
+    m.inc("zeroed", 0);
+    REQUIRE(m.has_counter("zeroed"));
+
+    // count() returns 0 for both registered-zero and missing → can't tell apart.
+    CHECK(m.count("zeroed")  == 0);
+    CHECK(m.count("missing") == 0);
+
+    // counter_with_default with a non-zero default disambiguates: the
+    // existing-but-zero counter still returns 0; the missing counter
+    // returns the sentinel.
+    constexpr std::uint64_t kSentinel = 9999;
+    CHECK(m.counter_with_default("zeroed",  kSentinel) == 0);
+    CHECK(m.counter_with_default("missing", kSentinel) == kSentinel);
+
+    // Empty registry: every name returns the default.
+    MetricRegistry empty;
+    CHECK(empty.counter_with_default("anything", 7) == 7);
+    CHECK(empty.counter_with_default("",         3) == 3);
+}
+
+TEST_CASE("MetricRegistry::counter_with_default integration — histograms satisfy the lookup, agrees with count()") {
+    MetricRegistry m;
+    m.inc("c", 5);
+    m.observe("h", 0.1);
+    m.observe("h", 0.2);
+    m.observe("h", 0.3);
+
+    // Counter present → returns its value (matches count()).
+    CHECK(m.counter_with_default("c", 999) == 5);
+    CHECK(m.counter_with_default("c", 999) == m.count("c"));
+
+    // Histogram present → returns its observation count (per spec note:
+    // "Histograms still satisfy this — return their count"). Matches
+    // count()'s fall-through behaviour.
+    CHECK(m.counter_with_default("h", 999) == 3);
+    CHECK(m.counter_with_default("h", 999) == m.count("h"));
+
+    // Missing → returns default_value, NOT count()'s silent 0.
+    CHECK(m.counter_with_default("missing", 42) == 42);
+    CHECK(m.count("missing") == 0);
+    CHECK(m.counter_with_default("missing", 42) != m.count("missing"));
+
+    // Register the previously-missing name; the default should no longer apply.
+    m.inc("missing", 1);
+    CHECK(m.counter_with_default("missing", 42) == 1);
+}
+
+// ---- Histogram::observed_range -----------------------------------------
+
+TEST_CASE("Histogram::observed_range basic — agrees with min()/max() on populated histograms") {
+    Histogram h{0.0, 10.0, 10};
+    // Populate bins 2 (midpoint 2.5) and 7 (midpoint 7.5).
+    for (int i = 0; i < 4; ++i) h.observe(2.5);
+    for (int i = 0; i < 6; ++i) h.observe(7.5);
+
+    auto [pmin, pmax] = h.observed_range();
+    CHECK(pmin == doctest::Approx(2.5).epsilon(1e-9));
+    CHECK(pmax == doctest::Approx(7.5).epsilon(1e-9));
+
+    // Must agree with min()/max() — they all read the same bin midpoints.
+    CHECK(pmin == doctest::Approx(h.min()).epsilon(1e-9));
+    CHECK(pmax == doctest::Approx(h.max()).epsilon(1e-9));
+}
+
+TEST_CASE("Histogram::observed_range edge — empty histogram returns (lo, hi)") {
+    Histogram h{0.0, 1.0, 10};
+    REQUIRE(h.is_empty());
+
+    auto [pmin, pmax] = h.observed_range();
+    CHECK(pmin == doctest::Approx(0.0));
+    CHECK(pmax == doctest::Approx(1.0));
+    // Sentinel matches min()/max() empty-contract.
+    CHECK(pmin == doctest::Approx(h.lo()));
+    CHECK(pmax == doctest::Approx(h.hi()));
+
+    // Off-zero range: empty observed_range == (lo, hi).
+    Histogram off{-5.0, 15.0, 8};
+    auto [omin, omax] = off.observed_range();
+    CHECK(omin == doctest::Approx(-5.0));
+    CHECK(omax == doctest::Approx(15.0));
+
+    // Single bin populated → min == max == that bin's midpoint.
+    Histogram one{0.0, 10.0, 10};
+    for (int i = 0; i < 3; ++i) one.observe(4.5);  // bin 4, midpoint 4.5
+    auto [smin, smax] = one.observed_range();
+    CHECK(smin == doctest::Approx(4.5).epsilon(1e-9));
+    CHECK(smax == doctest::Approx(4.5).epsilon(1e-9));
+    CHECK(smin == smax);
+}
+
+TEST_CASE("Histogram::observed_range integration — invariants on .first/.second and survives clear/observe") {
+    Histogram h{0.0, 1.0, 20};
+    std::mt19937 rng{7};
+    std::uniform_real_distribution<double> d{0.1, 0.9};
+    for (int i = 0; i < 200; ++i) h.observe(d(rng));
+    REQUIRE(h.total() == 200);
+
+    auto pr = h.observed_range();
+    // first <= second always.
+    CHECK(pr.first  <= pr.second);
+    // For non-empty histograms both endpoints lie in [lo, hi].
+    CHECK(pr.first  >= h.lo());
+    CHECK(pr.second <= h.hi());
+    // mean lies between observed_range endpoints.
+    CHECK(pr.first  <= h.mean());
+    CHECK(h.mean() <= pr.second);
+    // observed_range agrees with (min, max).
+    CHECK(pr.first  == doctest::Approx(h.min()).epsilon(1e-9));
+    CHECK(pr.second == doctest::Approx(h.max()).epsilon(1e-9));
+
+    // After clear(), observed_range falls back to the (lo, hi) sentinel.
+    h.clear();
+    auto pr_empty = h.observed_range();
+    CHECK(pr_empty.first  == doctest::Approx(h.lo()));
+    CHECK(pr_empty.second == doctest::Approx(h.hi()));
+
+    // After fresh observations, observed_range tracks the new min/max.
+    h.observe(0.05);  // bin 1 (midpoint 0.075 in 20-bin layout)
+    h.observe(0.95);  // bin 19 (midpoint 0.975)
+    auto pr2 = h.observed_range();
+    CHECK(pr2.first  == doctest::Approx(h.min()).epsilon(1e-9));
+    CHECK(pr2.second == doctest::Approx(h.max()).epsilon(1e-9));
+    CHECK(pr2.first  <  pr2.second);
+}
+
+// ---- DriftMonitor::feature_count_observed ------------------------------
+
+TEST_CASE("DriftMonitor::feature_count_observed basic — counts only features with current observations") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", std::vector<double>(50, 0.2)));
+    REQUIRE(dm.register_feature("b", std::vector<double>(50, 0.4)));
+    REQUIRE(dm.register_feature("c", std::vector<double>(50, 0.7)));
+
+    // No current-window observations yet → 0 (despite 3 registered).
+    CHECK(dm.feature_count() == 3);
+    CHECK(dm.feature_count_observed() == 0);
+
+    // Observe into "a" only → 1 of 3 has been observed.
+    REQUIRE(dm.observe("a", 0.5));
+    CHECK(dm.feature_count_observed() == 1);
+
+    // Add observations to "c" → 2 of 3.
+    REQUIRE(dm.observe("c", 0.9));
+    REQUIRE(dm.observe("c", 0.95));
+    CHECK(dm.feature_count_observed() == 2);
+
+    // Observe "b" → all 3 have been observed.
+    REQUIRE(dm.observe("b", 0.3));
+    CHECK(dm.feature_count_observed() == 3);
+    CHECK(dm.feature_count_observed() == dm.feature_count());
+}
+
+TEST_CASE("DriftMonitor::feature_count_observed edge — empty monitor and reset interactions") {
+    // Empty monitor → 0.
+    DriftMonitor empty;
+    CHECK(empty.feature_count_observed() == 0);
+
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("score", std::vector<double>(100, 0.3)));
+    CHECK(dm.feature_count_observed() == 0);
+
+    // After observation: 1.
+    for (int i = 0; i < 10; ++i) REQUIRE(dm.observe("score", 0.4));
+    CHECK(dm.feature_count_observed() == 1);
+
+    // reset(name) clears the current window → drops back to 0 (the
+    // baseline isn't current-window data).
+    REQUIRE(dm.reset("score"));
+    CHECK(dm.feature_count_observed() == 0);
+    CHECK(dm.feature_count() == 1);  // registration preserved
+
+    // Re-observe → 1 again.
+    REQUIRE(dm.observe("score", 0.5));
+    CHECK(dm.feature_count_observed() == 1);
+
+    // rotate() also empties current windows → 0.
+    dm.rotate();
+    CHECK(dm.feature_count_observed() == 0);
+
+    // reset_all() empties every current window → 0.
+    REQUIRE(dm.observe("score", 0.5));
+    CHECK(dm.feature_count_observed() == 1);
+    dm.reset_all();
+    CHECK(dm.feature_count_observed() == 0);
+}
+
+TEST_CASE("DriftMonitor::feature_count_observed integration — bounded by feature_count, agrees with manual scan") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("alpha", std::vector<double>(40, 0.1)));
+    REQUIRE(dm.register_feature("beta",  std::vector<double>(40, 0.5)));
+    REQUIRE(dm.register_feature("gamma", std::vector<double>(40, 0.9)));
+
+    // Reference impl: enumerate via list_features and probe
+    // observation_count for each one. Inlined per check site to avoid
+    // depending on doctest assertions from inside a helper lambda.
+    auto manual_scan = [](const DriftMonitor& d) {
+        std::size_t n = 0;
+        for (const auto& name : d.list_features()) {
+            auto c = d.observation_count(name);
+            if (c && c.value() > 0) ++n;
+        }
+        return n;
+    };
+
+    // No observations → 0.
+    CHECK(dm.feature_count_observed() == manual_scan(dm));
+    CHECK(dm.feature_count_observed() == 0);
+
+    REQUIRE(dm.observe("alpha", 0.2));
+    CHECK(dm.feature_count_observed() == manual_scan(dm));
+
+    REQUIRE(dm.observe("gamma", 0.8));
+    CHECK(dm.feature_count_observed() == manual_scan(dm));
+
+    REQUIRE(dm.observe("beta", 0.5));
+    CHECK(dm.feature_count_observed() == manual_scan(dm));
+
+    // Bounded by feature_count.
+    CHECK(dm.feature_count_observed() <= dm.feature_count());
+    CHECK(dm.feature_count_observed() == 3);
+
+    // observe_batch updates current totals; the count tracks correctly.
+    dm.rotate();
+    CHECK(dm.feature_count_observed() == 0);
+
+    std::vector<double> batch{0.1, 0.2, 0.3, 0.4};
+    REQUIRE(dm.observe_batch("alpha", batch));
+    CHECK(dm.feature_count_observed() == 1);
+    CHECK(dm.feature_count_observed() == manual_scan(dm));
+}
+
+// ---- MetricRegistry::reset_all_counters --------------------------------
+
+TEST_CASE("MetricRegistry::reset_all_counters basic — zeroes every counter while preserving names") {
+    MetricRegistry m;
+    m.inc("a", 5);
+    m.inc("b", 12);
+    m.inc("c", 1);
+    REQUIRE(m.counter_count() == 3);
+    REQUIRE(m.counter_total() == 18);
+
+    m.reset_all_counters();
+
+    // Names preserved (count unchanged, list still has all three).
+    CHECK(m.counter_count() == 3);
+    CHECK(m.has_counter("a"));
+    CHECK(m.has_counter("b"));
+    CHECK(m.has_counter("c"));
+
+    // Every value is now 0.
+    CHECK(m.count("a") == 0);
+    CHECK(m.count("b") == 0);
+    CHECK(m.count("c") == 0);
+    CHECK(m.counter_total() == 0);
+    CHECK(m.counter_max() == 0);
+
+    // counter_value still succeeds (registration intact) — distinguishes
+    // reset_all_counters() from clear() which would drop the names entirely.
+    auto va = m.counter_value("a");
+    REQUIRE(va);
+    CHECK(va.value() == 0);
+}
+
+TEST_CASE("MetricRegistry::reset_all_counters edge — distinct from clear(), does not touch histograms") {
+    MetricRegistry m;
+    m.inc("ctr", 7);
+    m.observe("hist", 0.1);
+    m.observe("hist", 0.2);
+    m.observe("hist", 0.3);
+    REQUIRE(m.counter_count() == 1);
+    REQUIRE(m.histogram_count_total() == 1);
+
+    m.reset_all_counters();
+
+    // Counter zeroed, name preserved.
+    CHECK(m.counter_count() == 1);
+    CHECK(m.has_counter("ctr"));
+    CHECK(m.count("ctr") == 0);
+
+    // Histogram untouched: name AND observations preserved.
+    CHECK(m.histogram_count_total() == 1);
+    CHECK(m.has_histogram("hist"));
+    auto hc = m.histogram_count("hist");
+    REQUIRE(hc);
+    CHECK(hc.value() == 3);
+    auto hs = m.histogram_sum("hist");
+    REQUIRE(hs);
+    CHECK(hs.value() == doctest::Approx(0.6).epsilon(1e-9));
+
+    // Contrast: clear() drops EVERYTHING.
+    m.clear();
+    CHECK(m.counter_count() == 0);
+    CHECK(m.histogram_count_total() == 0);
+    CHECK_FALSE(m.has_counter("ctr"));
+    CHECK_FALSE(m.has_histogram("hist"));
+
+    // No-op safety: reset_all_counters on an empty registry must not crash.
+    MetricRegistry empty;
+    empty.reset_all_counters();
+    CHECK(empty.counter_count() == 0);
+    CHECK(empty.is_empty());
+}
+
+TEST_CASE("MetricRegistry::reset_all_counters integration — registry remains usable for new increments") {
+    MetricRegistry m;
+    m.inc("requests", 100);
+    m.inc("errors",   3);
+    m.inc("retries",  17);
+    REQUIRE(m.counter_total() == 120);
+
+    m.reset_all_counters();
+    REQUIRE(m.counter_total() == 0);
+
+    // After reset, the counters can be incremented again from 0 — no
+    // re-registration required.
+    m.inc("requests", 5);
+    m.inc("errors");      // delta defaults to 1
+    CHECK(m.count("requests") == 5);
+    CHECK(m.count("errors")   == 1);
+    CHECK(m.count("retries")  == 0);  // untouched since the reset
+
+    // diff() against a pre-reset snapshot reflects the reset:
+    // requests went 100 → 5, errors went 3 → 1, retries went 17 → 0.
+    auto baseline = std::unordered_map<std::string, std::uint64_t>{
+        {"requests", 100}, {"errors", 3}, {"retries", 17},
+    };
+    auto d = m.diff(baseline);
+    CHECK(d.at("requests") == -95);
+    CHECK(d.at("errors")   == -2);
+    CHECK(d.at("retries")  == -17);
+
+    // Names that survive the reset still pass the discoverability checks.
+    for (const auto& name : {"requests", "errors", "retries"}) {
+        CHECK(m.has_counter(name));
+        CHECK(m.has(name));
+    }
+}

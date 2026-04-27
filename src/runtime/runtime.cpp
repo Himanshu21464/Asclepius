@@ -14,6 +14,7 @@
 #include <limits>
 #include <random>
 #include <system_error>
+#include <thread>
 #include <unordered_set>
 #include <vector>
 
@@ -238,6 +239,23 @@ Result<LedgerEntry> Runtime::record_event(std::string event_type,
                                 std::move(tenant));
 }
 
+Result<void> Runtime::record_shutdown(const std::string& reason) {
+    // Tombstone for a graceful shutdown. Body intentionally minimal —
+    // operators replaying the chain already have ts and actor in the
+    // header; we only carry reason and a redundant iso8601 timestamp
+    // for human-readable audit reports that may not unpack the
+    // header. Errors from the backend propagate so callers know
+    // whether the tombstone landed; the runtime does not retry.
+    nlohmann::json body;
+    body["reason"] = reason;
+    body["ts"]     = Time::now().iso8601();
+    auto e = impl_->ledger.append("runtime.shutdown",
+                                  std::string{"system:runtime"},
+                                  std::move(body));
+    if (!e) return e.error();
+    return Result<void>::ok();
+}
+
 std::size_t Runtime::ledger_length() const noexcept {
     return static_cast<std::size_t>(impl_->ledger.length());
 }
@@ -290,6 +308,29 @@ bool Runtime::is_busy(std::chrono::milliseconds threshold) const {
     return !is_idle(threshold);
 }
 
+bool Runtime::wait_until_chain_grows(std::uint64_t min_seq,
+                                     std::chrono::milliseconds timeout) const {
+    // Polling wait. Fast-path the trivial "already satisfied" case
+    // (including empty-chain + min_seq=0) so callers don't pay a
+    // sleep on no-op waits. After that, sleep in 5 ms steps until
+    // the deadline, re-reading length() on each tick. Polling beats
+    // an event subscription here because the ledger's append path
+    // already serializes concurrent writes — adding a cv would
+    // require coordinating with backends that don't currently
+    // expose one. 5 ms keeps wake-up cost low while bounding the
+    // worst-case overshoot.
+    if (impl_->ledger.length() >= min_seq) return true;
+    constexpr auto kStep = std::chrono::milliseconds{5};
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(kStep);
+        if (impl_->ledger.length() >= min_seq) return true;
+    }
+    // Final read after the loop in case the deadline expired between
+    // the last sleep and the predicate check.
+    return impl_->ledger.length() >= min_seq;
+}
+
 std::string Runtime::generate_trace_id() const {
     // 8 random bytes → 16 hex chars. CSPRNG via libsodium; sodium_init
     // has been called by the time Runtime::open() returned (KeyStore
@@ -313,6 +354,15 @@ Result<void> Runtime::install_default_policies() {
     impl_->policies.push(make_phi_scrubber());
     impl_->policies.push(make_length_limit(64 * 1024, 64 * 1024));
     return Result<void>::ok();
+}
+
+std::size_t Runtime::policy_count() const {
+    // Trivial accessor — saves callers grabbing PolicyChain& just to
+    // read its size. Mirrors ledger_length(): the same number is
+    // surfaced by health() / system_summary(), but those construct
+    // their own structs; this is the one-call path for sites that
+    // only want the integer.
+    return impl_->policies.size();
 }
 
 std::string Runtime::version() const {

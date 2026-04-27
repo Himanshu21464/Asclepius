@@ -97,6 +97,20 @@ Result<std::uint64_t> MetricRegistry::counter_value(std::string_view name) const
     return it->second;
 }
 
+std::uint64_t MetricRegistry::counter_with_default(std::string_view name,
+                                                   std::uint64_t    default_value) const {
+    // Mirrors count()'s name resolution (counters first, then histograms),
+    // but substitutes default_value for the "neither found" branch instead
+    // of count()'s silent 0. Lets callers distinguish "missing" from "0"
+    // without paying for a Result allocation.
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = counters_.find(std::string{name});
+    if (it != counters_.end()) return it->second;
+    auto hit = histograms_.find(std::string{name});
+    if (hit != histograms_.end()) return hit->second.count;
+    return default_value;
+}
+
 double MetricRegistry::histogram_quantile(std::string_view name, double q) const {
     std::lock_guard<std::mutex> lk(mu_);
     auto it = histograms_.find(std::string{name});
@@ -210,6 +224,19 @@ Result<void> MetricRegistry::reset(std::string_view name) {
     }
     it->second = 0;
     return Result<void>::ok();
+}
+
+void MetricRegistry::reset_all_counters() {
+    // Zero every counter while keeping the names registered. Distinct
+    // from clear() (drops everything) and reset_histograms() (drops
+    // every histogram). Mirrors DriftMonitor::reset_all() semantics for
+    // counters: data zeroed, names preserved, so subsequent
+    // counter_value() probes still succeed (returning 0 instead of
+    // not_found). Histograms are NOT touched.
+    std::lock_guard<std::mutex> lk(mu_);
+    for (auto& [_, v] : counters_) {
+        v = 0;
+    }
 }
 
 std::unordered_map<std::string, std::uint64_t>

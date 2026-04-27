@@ -3407,3 +3407,381 @@ TEST_CASE("has_revoked_tokens: stays true even after the revoked token is remove
     // Now empty: no revoked tokens left.
     CHECK(r.has_revoked_tokens() == false);
 }
+
+// ---- find_oldest_token_for_patient -------------------------------------
+
+TEST_CASE("find_oldest_token_for_patient: returns smallest issued_at across all states") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_oldest_any");
+    auto base = Time::now();
+
+    ConsentToken t1;
+    t1.token_id   = "ct_oldest_1";
+    t1.patient    = pid;
+    t1.purposes   = {Purpose::triage};
+    t1.issued_at  = base - std::chrono::nanoseconds{std::chrono::minutes{30}};
+    t1.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(t1));
+
+    // Older than t1, but revoked — must still qualify.
+    ConsentToken t2 = t1;
+    t2.token_id  = "ct_oldest_2";
+    t2.issued_at = base - std::chrono::nanoseconds{std::chrono::hours{5}};
+    t2.revoked   = true;
+    REQUIRE(r.ingest(t2));
+
+    // Even older than t2, but expired — must qualify too.
+    ConsentToken t3 = t1;
+    t3.token_id   = "ct_oldest_3";
+    t3.issued_at  = base - std::chrono::nanoseconds{std::chrono::hours{10}};
+    t3.expires_at = base - std::chrono::nanoseconds{std::chrono::hours{9}};
+    REQUIRE(r.ingest(t3));
+
+    auto out = r.find_oldest_token_for_patient(pid);
+    REQUIRE(out);
+    CHECK(out.value().token_id == "ct_oldest_3");
+}
+
+TEST_CASE("find_oldest_token_for_patient: not_found when patient has no tokens") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_oldest_none");
+    // Another patient has tokens; ours does not.
+    REQUIRE(r.grant(PatientId::pseudonymous("someone_else"), {Purpose::triage}, 1h));
+    auto out = r.find_oldest_token_for_patient(pid);
+    CHECK(!out);
+    CHECK(out.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_oldest_token_for_patient: ignores other patients") {
+    ConsentRegistry r;
+    auto target = PatientId::pseudonymous("p_oldest_target");
+    auto other  = PatientId::pseudonymous("p_oldest_other");
+    auto base   = Time::now();
+
+    // Other patient has a much older token — must NOT be returned.
+    ConsentToken o;
+    o.token_id   = "ct_oldest_other";
+    o.patient    = other;
+    o.purposes   = {Purpose::triage};
+    o.issued_at  = base - std::chrono::nanoseconds{std::chrono::hours{100}};
+    o.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(o));
+
+    // Target's only token.
+    ConsentToken t;
+    t.token_id   = "ct_oldest_target";
+    t.patient    = target;
+    t.purposes   = {Purpose::operations};
+    t.issued_at  = base - std::chrono::nanoseconds{std::chrono::minutes{5}};
+    t.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(t));
+
+    auto out = r.find_oldest_token_for_patient(target);
+    REQUIRE(out);
+    CHECK(out.value().token_id == "ct_oldest_target");
+    CHECK(out.value().patient == target);
+}
+
+// ---- estimated_avg_ttl -------------------------------------------------
+
+TEST_CASE("estimated_avg_ttl: empty registry -> not_found") {
+    ConsentRegistry r;
+    auto out = r.estimated_avg_ttl();
+    CHECK(!out);
+    CHECK(out.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("estimated_avg_ttl: single token -> exactly that token's TTL") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_avg_one");
+    REQUIRE(r.grant(p, {Purpose::triage}, std::chrono::hours{1}));
+    auto out = r.estimated_avg_ttl();
+    REQUIRE(out);
+    // Allow a few ns of slop because grant() reads Time::now() twice
+    // internally (once on issue, once in the test now+1h math).
+    auto expected = std::chrono::nanoseconds{std::chrono::hours{1}};
+    auto diff     = (out.value() - expected).count();
+    CHECK(diff >= -1000);
+    CHECK(diff <= 1000);
+}
+
+TEST_CASE("estimated_avg_ttl: averages across tokens of mixed states and TTLs") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_avg_mix");
+    auto base = Time::now();
+
+    // 1-hour active.
+    ConsentToken a;
+    a.token_id   = "ct_avg_a";
+    a.patient    = pid;
+    a.purposes   = {Purpose::triage};
+    a.issued_at  = base;
+    a.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(a));
+
+    // 3-hour revoked — counted: averaging is over all states.
+    ConsentToken b = a;
+    b.token_id   = "ct_avg_b";
+    b.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{3}};
+    b.revoked    = true;
+    REQUIRE(r.ingest(b));
+
+    // 5-hour expired — also counted.
+    ConsentToken c = a;
+    c.token_id   = "ct_avg_c";
+    c.issued_at  = base - std::chrono::nanoseconds{std::chrono::hours{10}};
+    c.expires_at = c.issued_at + std::chrono::nanoseconds{std::chrono::hours{5}};
+    REQUIRE(r.ingest(c));
+
+    auto out = r.estimated_avg_ttl();
+    REQUIRE(out);
+    // Mean(1h, 3h, 5h) = 3h.
+    auto expected = std::chrono::nanoseconds{std::chrono::hours{3}};
+    auto diff     = (out.value() - expected).count();
+    CHECK(diff >= -1000);
+    CHECK(diff <= 1000);
+}
+
+TEST_CASE("estimated_avg_ttl: zero-duration tokens are valid (mean drops)") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_avg_zero");
+    auto base = Time::now();
+
+    ConsentToken a;
+    a.token_id   = "ct_avg_z1";
+    a.patient    = pid;
+    a.purposes   = {Purpose::triage};
+    a.issued_at  = base;
+    a.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{2}};
+    REQUIRE(r.ingest(a));
+
+    // Zero-duration token: issued and expires at the same instant.
+    ConsentToken b = a;
+    b.token_id   = "ct_avg_z2";
+    b.expires_at = b.issued_at;
+    REQUIRE(r.ingest(b));
+
+    auto out = r.estimated_avg_ttl();
+    REQUIRE(out);
+    // Mean(2h, 0) = 1h.
+    auto expected = std::chrono::nanoseconds{std::chrono::hours{1}};
+    auto diff     = (out.value() - expected).count();
+    CHECK(diff >= -1000);
+    CHECK(diff <= 1000);
+}
+
+// ---- find_longest_lived_for_patient ------------------------------------
+
+TEST_CASE("find_longest_lived_for_patient: picks largest (expires_at - issued_at)") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_long_any");
+    auto base = Time::now();
+
+    ConsentToken short_tok;
+    short_tok.token_id   = "ct_long_short";
+    short_tok.patient    = pid;
+    short_tok.purposes   = {Purpose::triage};
+    short_tok.issued_at  = base;
+    short_tok.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(short_tok));
+
+    ConsentToken long_tok = short_tok;
+    long_tok.token_id   = "ct_long_long";
+    long_tok.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{72}};
+    REQUIRE(r.ingest(long_tok));
+
+    ConsentToken mid_tok = short_tok;
+    mid_tok.token_id   = "ct_long_mid";
+    mid_tok.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{12}};
+    REQUIRE(r.ingest(mid_tok));
+
+    auto out = r.find_longest_lived_for_patient(pid);
+    REQUIRE(out);
+    CHECK(out.value().token_id == "ct_long_long");
+}
+
+TEST_CASE("find_longest_lived_for_patient: revoked and expired tokens still qualify") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_long_states");
+    auto base = Time::now();
+
+    // Active 1-hour token.
+    REQUIRE(r.grant(pid, {Purpose::triage}, std::chrono::hours{1}));
+
+    // Revoked 100-hour token — must win on lifespan, state doesn't matter.
+    ConsentToken rv;
+    rv.token_id   = "ct_long_rv";
+    rv.patient    = pid;
+    rv.purposes   = {Purpose::operations};
+    rv.issued_at  = base;
+    rv.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{100}};
+    rv.revoked    = true;
+    REQUIRE(r.ingest(rv));
+
+    // Expired 50-hour token — second-longest by lifespan.
+    ConsentToken ex;
+    ex.token_id   = "ct_long_ex";
+    ex.patient    = pid;
+    ex.purposes   = {Purpose::research};
+    ex.issued_at  = base - std::chrono::nanoseconds{std::chrono::hours{200}};
+    ex.expires_at = ex.issued_at + std::chrono::nanoseconds{std::chrono::hours{50}};
+    REQUIRE(r.ingest(ex));
+
+    auto out = r.find_longest_lived_for_patient(pid);
+    REQUIRE(out);
+    CHECK(out.value().token_id == "ct_long_rv");
+    CHECK(out.value().revoked == true);
+}
+
+TEST_CASE("find_longest_lived_for_patient: not_found when patient has no tokens") {
+    ConsentRegistry r;
+    auto pid = PatientId::pseudonymous("p_long_none");
+    REQUIRE(r.grant(PatientId::pseudonymous("not_us"), {Purpose::triage}, 1h));
+    auto out = r.find_longest_lived_for_patient(pid);
+    CHECK(!out);
+    CHECK(out.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_longest_lived_for_patient: ignores other patients' longer grants") {
+    ConsentRegistry r;
+    auto target = PatientId::pseudonymous("p_long_target");
+    auto other  = PatientId::pseudonymous("p_long_other");
+    auto base   = Time::now();
+
+    // Other patient has a much longer grant.
+    ConsentToken o;
+    o.token_id   = "ct_long_other";
+    o.patient    = other;
+    o.purposes   = {Purpose::triage};
+    o.issued_at  = base;
+    o.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{1000}};
+    REQUIRE(r.ingest(o));
+
+    // Target has a comparatively short grant.
+    ConsentToken t;
+    t.token_id   = "ct_long_target_short";
+    t.patient    = target;
+    t.purposes   = {Purpose::operations};
+    t.issued_at  = base;
+    t.expires_at = base + std::chrono::nanoseconds{std::chrono::hours{2}};
+    REQUIRE(r.ingest(t));
+
+    auto out = r.find_longest_lived_for_patient(target);
+    REQUIRE(out);
+    CHECK(out.value().token_id == "ct_long_target_short");
+}
+
+// ---- tokens_with_purpose -----------------------------------------------
+
+TEST_CASE("tokens_with_purpose: returns only active tokens containing the purpose") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_twp_active");
+
+    auto t1 = r.grant(p, {Purpose::research, Purpose::triage}, 1h).value();
+    auto t2 = r.grant(p, {Purpose::research}, 1h).value();
+    REQUIRE(r.grant(p, {Purpose::operations}, 1h));  // unrelated purpose
+
+    auto got = r.tokens_with_purpose(Purpose::research);
+    CHECK(got.size() == 2);
+    std::unordered_set<std::string> ids;
+    for (const auto& tok : got) ids.insert(tok.token_id);
+    CHECK(ids.count(t1.token_id) == 1);
+    CHECK(ids.count(t2.token_id) == 1);
+}
+
+TEST_CASE("tokens_with_purpose: skips revoked tokens (distinct from tokens_for_purpose)") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_twp_rev");
+
+    auto live = r.grant(p, {Purpose::research}, 1h).value();
+    auto gone = r.grant(p, {Purpose::research}, 1h).value();
+    REQUIRE(r.revoke(gone.token_id));
+
+    // tokens_for_purpose returns ALL states — sees both.
+    CHECK(r.tokens_for_purpose(Purpose::research).size() == 2);
+    // tokens_with_purpose is active-only — sees only the live one.
+    auto got = r.tokens_with_purpose(Purpose::research);
+    REQUIRE(got.size() == 1);
+    CHECK(got.front().token_id == live.token_id);
+}
+
+TEST_CASE("tokens_with_purpose: skips expired tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_twp_expired");
+
+    // Expired research token via ingest.
+    ConsentToken expired;
+    expired.token_id   = "ct_twp_exp";
+    expired.patient    = p;
+    expired.purposes   = {Purpose::research};
+    expired.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    expired.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(expired));
+
+    // Active research token.
+    auto live = r.grant(p, {Purpose::research}, 1h).value();
+
+    // tokens_for_purpose sees both; tokens_with_purpose sees only live.
+    CHECK(r.tokens_for_purpose(Purpose::research).size() == 2);
+    auto got = r.tokens_with_purpose(Purpose::research);
+    REQUIRE(got.size() == 1);
+    CHECK(got.front().token_id == live.token_id);
+}
+
+TEST_CASE("tokens_with_purpose: empty when no token grants the purpose") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_twp_none");
+    REQUIRE(r.grant(p, {Purpose::triage, Purpose::operations}, 1h));
+    auto got = r.tokens_with_purpose(Purpose::research);
+    CHECK(got.empty());
+}
+
+// ---- has_any_active ----------------------------------------------------
+
+TEST_CASE("has_any_active: empty registry -> false") {
+    ConsentRegistry r;
+    CHECK(r.has_any_active() == false);
+}
+
+TEST_CASE("has_any_active: true after a single grant, false after revoke") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_haa_one");
+    auto t = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t);
+    CHECK(r.has_any_active() == true);
+    REQUIRE(r.revoke(t.value().token_id));
+    CHECK(r.has_any_active() == false);
+}
+
+TEST_CASE("has_any_active: false when only expired and revoked tokens exist") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("p_haa_dead");
+
+    // Revoked.
+    auto rv = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(rv);
+    REQUIRE(r.revoke(rv.value().token_id));
+
+    // Expired via ingest.
+    ConsentToken ex;
+    ex.token_id   = "ct_haa_ex";
+    ex.patient    = p;
+    ex.purposes   = {Purpose::operations};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    CHECK(r.has_any_active() == false);
+}
+
+TEST_CASE("has_any_active: true when at least one patient has a live grant") {
+    ConsentRegistry r;
+    auto p1 = PatientId::pseudonymous("p_haa_alpha");
+    auto p2 = PatientId::pseudonymous("p_haa_beta");
+    // p1's grant is revoked; p2's is live — overall: true.
+    auto t1 = r.grant(p1, {Purpose::triage}, 1h);
+    REQUIRE(t1);
+    REQUIRE(r.revoke(t1.value().token_id));
+    REQUIRE(r.grant(p2, {Purpose::operations}, 1h));
+    CHECK(r.has_any_active() == true);
+}

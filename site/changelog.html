@@ -285,7 +285,105 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.7</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.8</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Time anchors, lifespan stats, shutdown tombstones.</em>
+            Round 85 lands the verbs the substrate kept reaching for —
+            a head-end mirror of <code>seq_at_time</code>, a one-line
+            ledger summary cheaper than <code>stats().to_json()</code>,
+            and an explicit shutdown signal so the chain ending without
+            explanation stops being the only way a substrate goes
+            quiet. Audit grows
+            <code>first_seq_at_or_after_time(t)</code> as the head-end
+            sibling of <code>seq_at_time</code>;
+            <code>head_age_ms()</code>
+            (<code>Result&lt;chrono::ms&gt;</code>) for the head-staleness
+            cell a follower-lag probe reads;
+            <code>events_in_window_count(from, to)</code> as the
+            cardinality-only sibling of <code>tail_in_window</code>;
+            <code>summary_string()</code> emitting a one-line ASCII
+            ledger banner — <code>length=&lt;n&gt; · head=&lt;prefix&gt; · key=&lt;id&gt; · age=&lt;duration&gt;</code> —
+            and <code>tail_after_time(t, n)</code> for the "show me the
+            most recent five since the incident" view without an
+            open-ended <code>tail_in_window</code> upper bound.
+            Telemetry adds <code>Histogram::cumulative_at(i)</code>
+            (<code>Result&lt;uint64_t&gt;</code>) as the running-total
+            primitive between <code>cdf()</code> and <code>bin_at()</code>;
+            <code>Histogram::observed_range()</code> returning a
+            <code>{min, max}</code> midpoint pair distinct from the
+            constructed <code>[lo, hi]</code> window;
+            <code>MetricRegistry::counter_with_default(name, default)</code>
+            as the sensible-baseline lookup the silent-zero
+            <code>count()</code> and the <code>not_found</code>
+            <code>counter_value()</code> can't both be;
+            <code>MetricRegistry::reset_all_counters()</code> as the
+            "start a clean counting epoch, leave histograms alone"
+            verb (distinct from <code>reset()</code> and
+            <code>clear()</code>); and
+            <code>DriftMonitor::feature_count_observed()</code> as the
+            "is the pipeline actually feeding the monitor?" probe that
+            distinguishes registered-but-silent from
+            registered-and-flowing. Consent grows
+            <code>find_oldest_token_for_patient(p)</code> for "when
+            did this person first ever appear?" across every state;
+            <code>estimated_avg_ttl()</code>
+            (<code>Result&lt;chrono::ns&gt;</code>) for the
+            "how long do consents typically last on this substrate?"
+            cell; <code>find_longest_lived_for_patient(p)</code>
+            scoping the widest <code>(expires - granted)</code> span
+            across every state (distinct from the active-only
+            <code>longest_lived_active_for_patient</code>);
+            <code>tokens_with_purpose(purpose)</code> as the
+            active-only filter distinct from the all-states
+            <code>tokens_for_purpose</code>; and
+            <code>has_any_active()</code> (<code>noexcept</code>) as
+            the cheapest registry-wide "is anything authorising right
+            now?" predicate. Inference picks up
+            <code>set_priority(level)</code> validating against the
+            closed set <code>{low, normal, high, critical}</code>
+            (<code>invalid_argument</code> otherwise) and
+            <code>ledger_snapshot_seq()</code>
+            (<code>noexcept</code>) returning the committed seq or
+            <code>0</code> before commit. Runtime sugar:
+            <code>wait_until_chain_grows(min_seq, timeout)</code> as
+            the blocking-poll primitive that replaces busy-looping
+            <code>has_event_after_seq</code>;
+            <code>record_shutdown(reason)</code> appending a
+            <code>runtime.shutdown</code> tombstone so an intentional
+            halt is distinguishable from a chain that just ended; and
+            <code>policy_count()</code> as the cheap cardinality cell
+            a status-bar widget reads without reaching through
+            <code>policies()</code>. No on-disk format changes;
+            nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::first_seq_at_or_after_time(t)</code> — head-end mirror of <code>seq_at_time(t)</code>; the lowest seq whose timestamp is &ge; <code>t</code>. <code>not_found</code> when no entry lands at or after <code>t</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::head_age_ms()</code> — <code>Result&lt;chrono::milliseconds&gt;</code>; wall-clock distance between now and the newest entry's timestamp. The "how stale is the head?" cell a follower-lag probe reads.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::events_in_window_count(from, to)</code> — count of entries in <code>[from, to]</code> without materializing rows. Cardinality-only sibling of <code>tail_in_window</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::summary_string()</code> — one-line ASCII ledger banner: <code>length=&lt;n&gt; · head=&lt;prefix&gt; · key=&lt;id&gt; · age=&lt;duration&gt;</code>. Cheaper than <code>stats().to_json()</code>; the grep-friendly cell a CLI tail-mode wants.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::tail_after_time(t, n)</code> — last <code>n</code> entries with timestamp &gt; <code>t</code>, newest first. The "most recent five since the incident" view without composing <code>tail_in_window</code> with an open-ended upper bound.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::cumulative_at(i)</code> — <code>Result&lt;uint64_t&gt;</code>; running total of observation counts through bin <code>i</code> inclusive. The primitive a custom KS computation reaches for between <code>cdf()</code> and <code>bin_at()</code>; <code>out_of_range</code> when <code>i</code> exceeds the bin count.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::observed_range()</code> — <code>{min_observed, max_observed}</code> midpoint pair, the actual mass range distinct from the constructed <code>[lo, hi]</code> window. Returns <code>{0.0, 0.0}</code> on an empty histogram.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::counter_with_default(name, default)</code> — lookup that returns <code>default</code> when the counter is unregistered. The shape an SLO row wants when "never registered" should read as a sensible baseline rather than a phantom zero or a <code>not_found</code> error.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::reset_all_counters()</code> — zero every registered counter while keeping every name. Distinct from <code>reset()</code> (which also clears histograms) and <code>clear()</code> (which drops registrations); the deliberate "start a clean counting epoch, leave histograms alone" verb.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::feature_count_observed()</code> — number of registered features with at least one observation in the current window. The "is the pipeline actually feeding the monitor?" probe ahead of a full <code>report()</code>; distinguishes registered-but-silent from registered-and-flowing.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::find_oldest_token_for_patient(patient)</code> — earliest <code>granted_at</code> across every state for one patient. Per-patient sibling of <code>oldest_active</code> on a different scope: "when did this person first ever appear?".</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::estimated_avg_ttl()</code> — <code>Result&lt;chrono::nanoseconds&gt;</code>; mean lifespan across every token regardless of state. The "how long do consents typically last on this substrate?" cell; <code>not_found</code> on an empty registry.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::find_longest_lived_for_patient(patient)</code> — widest <code>(expires_at - granted_at)</code> span for one patient across every state. Distinct from <code>longest_lived_active_for_patient</code> (active-only) and <code>longest_active</code> (registry-wide).</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::tokens_with_purpose(purpose)</code> — active-only filter distinct from <code>tokens_for_purpose(purpose)</code>, which returns every state. The "who is currently authorising this purpose, right now?" view without composing the existing accessor with an active-state predicate.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::has_any_active()</code> — <code>noexcept</code> registry-wide bool; true iff at least one active token exists. Cheapest "is anything authorising right now?" predicate; pairs with <code>has_active_token(patient)</code> on the per-patient axis.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::set_priority(level)</code> — validates against the closed set <code>{low, normal, high, critical}</code>; rejects anything else with <code>invalid_argument</code>. Hashed into the entry like any other metadata.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::ledger_snapshot_seq()</code> — <code>noexcept</code> sugar over <code>seq().value_or(0)</code>; returns the committed seq or <code>0</code> before commit. The cell a metric label or a trace tag reaches for when "not committed yet" can be encoded as zero.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::wait_until_chain_grows(min_seq, timeout)</code> — blocking poll. <code>ok</code> on growth past <code>min_seq</code>, <code>timeout</code> when the deadline expires first. Replaces busy-looping <code>has_event_after_seq()</code> on the follower side.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::record_shutdown(reason)</code> — appends a <code>runtime.shutdown</code> tombstone with <code>reason</code> attached. The signal a forensic operator reads to distinguish an intentional halt from a chain that simply ended.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::policy_count()</code> — sugar over <code>policies().size()</code>. The cheap cardinality cell a status-bar widget reads without reaching through a sub-component.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.7</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Status banners, actor history, busy-vs-idle.</em>

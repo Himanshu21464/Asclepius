@@ -4028,3 +4028,290 @@ TEST_CASE("ensure_committed: chain stays well-formed across mixed shutdown loop"
     CHECK(rt.ledger().length() == before + 3);
     REQUIRE(rt.ledger().verify());
 }
+
+// ============== Inference::set_priority ===================================
+
+TEST_CASE("set_priority: writes priority under metadata as a JSON string") {
+    auto rt_ = fresh_runtime("prio_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_prio_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().set_priority("high"));
+    auto got = inf.value().get_metadata("priority");
+    REQUIRE(got);
+    REQUIRE(got.value().is_string());
+    CHECK(got.value().get<std::string>() == "high");
+}
+
+TEST_CASE("set_priority: accepts each of low/normal/high/critical") {
+    auto rt_ = fresh_runtime("prio_each"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_prio_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    for (const auto* p : {"low", "normal", "high", "critical"}) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().set_priority(p));
+        auto got = inf.value().get_metadata("priority");
+        REQUIRE(got);
+        CHECK(got.value().get<std::string>() == p);
+    }
+}
+
+TEST_CASE("set_priority: rejects unknown values with invalid_argument") {
+    auto rt_ = fresh_runtime("prio_bad"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_prio_x");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    for (const auto* bad : {"", "urgent", "HIGH", "0", "low ", " low"}) {
+        auto r = inf.value().set_priority(bad);
+        REQUIRE(!r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+    // No metadata should have been written by any of the rejected calls.
+    auto h = inf.value().has_metadata("priority");
+    REQUIRE(h);
+    CHECK(!h.value());
+}
+
+TEST_CASE("set_priority: replace-on-duplicate; rejected after commit") {
+    auto rt_ = fresh_runtime("prio_dup"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_prio_d");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().set_priority("low"));
+    REQUIRE(inf.value().set_priority("critical"));
+    auto got = inf.value().get_metadata("priority");
+    REQUIRE(got);
+    CHECK(got.value().get<std::string>() == "critical");
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    auto post = inf.value().set_priority("high");
+    REQUIRE(!post);
+    CHECK(post.error().code() == ErrorCode::invalid_argument);
+}
+
+// ============== Runtime::wait_until_chain_grows ===========================
+
+TEST_CASE("wait_until_chain_grows: empty chain + min_seq=0 returns true immediately") {
+    auto rt_ = fresh_runtime("wcg_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.ledger().length() == 0);
+    auto t0 = std::chrono::steady_clock::now();
+    bool ok = rt.wait_until_chain_grows(0, 100ms);
+    auto dt = std::chrono::steady_clock::now() - t0;
+    CHECK(ok);
+    // No sleep required for the trivial case — should be effectively
+    // instantaneous (allow 20ms slack for slow CI machines).
+    CHECK(dt < 20ms);
+}
+
+TEST_CASE("wait_until_chain_grows: returns true when chain is already long enough") {
+    auto rt_ = fresh_runtime("wcg_already"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_wcg_a");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    const auto len = rt.ledger().length();
+    REQUIRE(len >= 1);
+    CHECK(rt.wait_until_chain_grows(len, 100ms));
+    CHECK(rt.wait_until_chain_grows(1, 100ms));
+}
+
+TEST_CASE("wait_until_chain_grows: returns false on timeout") {
+    auto rt_ = fresh_runtime("wcg_timeout"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    const auto target = rt.ledger().length() + 1000;
+    auto t0 = std::chrono::steady_clock::now();
+    bool ok = rt.wait_until_chain_grows(target, 50ms);
+    auto dt = std::chrono::steady_clock::now() - t0;
+    CHECK(!ok);
+    // Should have waited at least the timeout (give 5ms slack for the
+    // last sleep tick that may have been already in-flight).
+    CHECK(dt >= 45ms);
+    // And not vastly more — anything beyond ~250ms means polling is
+    // broken.
+    CHECK(dt < 250ms);
+}
+
+TEST_CASE("wait_until_chain_grows: unblocks when an async commit lands") {
+    auto rt_ = fresh_runtime("wcg_async"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_wcg_async");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    const auto baseline = rt.ledger().length();
+    // Spin off a background thread that commits an inference after a
+    // short delay; the main thread blocks on wait_until_chain_grows
+    // until that commit lands.
+    std::thread bg([&]() {
+        std::this_thread::sleep_for(20ms);
+        auto inf = begin(rt, pid, tok.token_id);
+        REQUIRE(inf);
+        REQUIRE(inf.value().run("hi",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    });
+    bool ok = rt.wait_until_chain_grows(baseline + 1, 1000ms);
+    bg.join();
+    CHECK(ok);
+    CHECK(rt.ledger().length() >= baseline + 1);
+}
+
+// ============== Inference::ledger_snapshot_seq ============================
+
+TEST_CASE("ledger_snapshot_seq: returns 0 before commit") {
+    auto rt_ = fresh_runtime("snap_pre"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_snap_p");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(inf.value().ledger_snapshot_seq() == 0);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    // Run alone doesn't commit; snapshot still 0.
+    CHECK(inf.value().ledger_snapshot_seq() == 0);
+}
+
+TEST_CASE("ledger_snapshot_seq: returns committed_seq after commit, matches seq()") {
+    auto rt_ = fresh_runtime("snap_post"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_snap_post");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    auto snap = inf.value().ledger_snapshot_seq();
+    auto seq  = inf.value().seq();
+    REQUIRE(seq);
+    CHECK(snap != 0);
+    CHECK(snap == seq.value());
+}
+
+TEST_CASE("ledger_snapshot_seq: noexcept and unaffected by subsequent appends") {
+    auto rt_ = fresh_runtime("snap_stable"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_snap_s");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // The function itself is noexcept; the call site `inf.value()` goes
+    // through Result::value() which is NOT noexcept (asserts on error
+    // path). Test the function signature against std::declval, not the
+    // bound expression — same trick as the MetricRegistry::has noexcept
+    // assert (libc++ portability).
+    static_assert(noexcept(std::declval<const Inference&>().ledger_snapshot_seq()),
+                  "ledger_snapshot_seq must be noexcept");
+    const auto first = inf.value().ledger_snapshot_seq();
+    // Append more events; the snapshot should not move.
+    for (int i = 0; i < 3; ++i) {
+        nlohmann::json b; b["i"] = i;
+        REQUIRE(rt.record_event("ping", "system:test", b));
+    }
+    CHECK(inf.value().ledger_snapshot_seq() == first);
+}
+
+// ============== Runtime::record_shutdown ==================================
+
+TEST_CASE("record_shutdown: appends a runtime.shutdown event with the supplied reason") {
+    auto rt_ = fresh_runtime("rsd_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    const auto before = rt.ledger().length();
+    REQUIRE(rt.record_shutdown("graceful drain"));
+    CHECK(rt.ledger().length() == before + 1);
+    auto tail = rt.ledger().tail(1);
+    REQUIRE(tail);
+    REQUIRE(!tail.value().empty());
+    const auto& e = tail.value().front();
+    CHECK(e.header.event_type == "runtime.shutdown");
+    auto j = nlohmann::json::parse(e.body_json);
+    CHECK(j.value("reason", std::string{}) == "graceful drain");
+    REQUIRE(j.contains("ts"));
+    CHECK(j["ts"].is_string());
+    CHECK(!j["ts"].get<std::string>().empty());
+}
+
+TEST_CASE("record_shutdown: actor is system:runtime and chain stays well-formed") {
+    auto rt_ = fresh_runtime("rsd_actor"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.record_shutdown("operator initiated"));
+    auto tail = rt.ledger().tail(1);
+    REQUIRE(tail);
+    REQUIRE(!tail.value().empty());
+    CHECK(tail.value().front().header.actor == "system:runtime");
+    REQUIRE(rt.ledger().verify());
+}
+
+TEST_CASE("record_shutdown: empty reason is permitted (forwards verbatim)") {
+    auto rt_ = fresh_runtime("rsd_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.record_shutdown(""));
+    auto tail = rt.ledger().tail(1);
+    REQUIRE(tail);
+    REQUIRE(!tail.value().empty());
+    auto j = nlohmann::json::parse(tail.value().front().body_json);
+    CHECK(j.value("reason", std::string{"missing"}) == "");
+}
+
+TEST_CASE("record_shutdown: many tombstones interleave with inference.committed entries") {
+    auto rt_ = fresh_runtime("rsd_mix"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_rsd_mix");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    constexpr int kRounds = 4;
+    for (int i = 0; i < kRounds; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("hi",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+        REQUIRE(rt.record_shutdown("round_" + std::to_string(i)));
+    }
+    REQUIRE(rt.ledger().verify());
+    // We appended kRounds shutdowns; tail-by-event-type should see all of them.
+    auto sd = rt.ledger().tail_by_event_type("runtime.shutdown",
+                                             static_cast<std::size_t>(kRounds));
+    REQUIRE(sd);
+    CHECK(sd.value().size() == static_cast<std::size_t>(kRounds));
+}
+
+// ============== Runtime::policy_count =====================================
+
+TEST_CASE("policy_count: zero on a fresh runtime") {
+    auto rt_ = fresh_runtime("pc_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.policy_count() == 0);
+    CHECK(rt.policy_count() == rt.policies().size());
+}
+
+TEST_CASE("policy_count: matches policies().size() across mutations") {
+    auto rt_ = fresh_runtime("pc_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_phi_scrubber());
+    CHECK(rt.policy_count() == 1);
+    CHECK(rt.policy_count() == rt.policies().size());
+    rt.policies().push(make_length_limit(64, 64));
+    CHECK(rt.policy_count() == 2);
+    CHECK(rt.policy_count() == rt.policies().size());
+}
+
+TEST_CASE("policy_count: tracks install_default_policies (clear-then-push)") {
+    auto rt_ = fresh_runtime("pc_idp"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.policies().push(make_phi_scrubber());
+    rt.policies().push(make_phi_scrubber());
+    rt.policies().push(make_phi_scrubber());
+    CHECK(rt.policy_count() == 3);
+    REQUIRE(rt.install_default_policies());
+    CHECK(rt.policy_count() == 2);
+    // Same as health()/system_summary() report.
+    CHECK(rt.policy_count() == rt.health().policy_count);
+    CHECK(rt.policy_count() == rt.system_summary().policy_count);
+}

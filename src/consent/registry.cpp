@@ -231,6 +231,24 @@ ConsentRegistry::tokens_for_purpose(Purpose purpose) const {
     return out;
 }
 
+std::vector<ConsentToken>
+ConsentRegistry::tokens_with_purpose(Purpose p) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::vector<ConsentToken> out;
+    // Active-only mirror of tokens_for_purpose(): skip revoked and
+    // expired rows so the caller gets back currently-effective grants.
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        if (std::find(t.purposes.begin(), t.purposes.end(), p)
+            != t.purposes.end()) {
+            out.push_back(t);
+        }
+    }
+    return out;
+}
+
 Result<ConsentToken> ConsentRegistry::longest_active() const {
     std::lock_guard<std::mutex> lk(mu_);
     const auto now = Time::now();
@@ -742,6 +760,47 @@ ConsentRegistry::most_recently_revoked_for_patient(const PatientId& patient) con
     return *best;
 }
 
+Result<ConsentToken>
+ConsentRegistry::find_oldest_token_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    // Per-patient mirror of oldest_active(), but unconstrained by state:
+    // active, revoked, and expired tokens all qualify — we are answering
+    // "what is the earliest grant we have on record for this patient?"
+    const ConsentToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (t.patient != patient) continue;
+        if (best == nullptr || t.issued_at < best->issued_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no consent tokens for patient");
+    }
+    return *best;
+}
+
+Result<ConsentToken>
+ConsentRegistry::find_longest_lived_for_patient(const PatientId& patient) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    // We are measuring the configured lifespan (expires_at - issued_at),
+    // not whether the token is currently in force, so revoked and
+    // expired rows are equally valid candidates.
+    const ConsentToken*       best     = nullptr;
+    std::chrono::nanoseconds  best_dur{0};
+    for (const auto& [_, t] : by_id_) {
+        if (t.patient != patient) continue;
+        auto dur = t.expires_at - t.issued_at;
+        if (best == nullptr || dur > best_dur) {
+            best     = &t;
+            best_dur = dur;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no consent tokens for patient");
+    }
+    return *best;
+}
+
 Result<std::chrono::nanoseconds>
 ConsentRegistry::age_of_oldest_active() const {
     std::lock_guard<std::mutex> lk(mu_);
@@ -758,6 +817,26 @@ ConsentRegistry::age_of_oldest_active() const {
         return Error::not_found("no active consent tokens");
     }
     return now - best->issued_at;
+}
+
+Result<std::chrono::nanoseconds>
+ConsentRegistry::estimated_avg_ttl() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (by_id_.empty()) {
+        return Error::not_found("registry is empty");
+    }
+    // Sum each token's configured lifespan in nanoseconds, then divide
+    // by the count. Sum into a 64-bit signed accumulator: the per-token
+    // lifespan is itself a nanosecond count, and summing the entire
+    // registry's worth would only overflow at planetary-scale token
+    // counts and TTLs. Result is the integer mean (truncated).
+    std::int64_t sum_ns = 0;
+    for (const auto& [_, t] : by_id_) {
+        auto dur = t.expires_at - t.issued_at;
+        sum_ns += dur.count();
+    }
+    auto n = static_cast<std::int64_t>(by_id_.size());
+    return std::chrono::nanoseconds{sum_ns / n};
 }
 
 std::unordered_map<std::string, std::size_t>
@@ -1046,6 +1125,25 @@ bool ConsentRegistry::has_active_token(const PatientId& patient) const noexcept 
             if (t.revoked)            continue;
             if (t.expires_at <= now)  continue;
             if (t.patient != patient) continue;
+            return true;
+        }
+        return false;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool ConsentRegistry::has_any_active() const noexcept {
+    // Registry-wide "is anything currently in force?" — equivalent to
+    // active_count() > 0 but cheaper because we early-exit on the first
+    // hit. Internal failures are swallowed so the call site can rely on
+    // a clean bool without a Result wrapper.
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        const auto now = Time::now();
+        for (const auto& [_, t] : by_id_) {
+            if (t.revoked)           continue;
+            if (t.expires_at <= now) continue;
             return true;
         }
         return false;

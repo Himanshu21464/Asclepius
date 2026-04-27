@@ -117,6 +117,22 @@ Result<std::uint64_t> Histogram::bin_at(std::size_t i) const {
     return counts_[i];
 }
 
+Result<std::uint64_t> Histogram::cumulative_at(std::size_t i) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (i >= counts_.size()) {
+        return Error::invalid("Histogram::cumulative_at: index out of range");
+    }
+    // Sum bins [0, i] inclusive. Composing this from bin_at() would
+    // re-acquire the mutex per bin and risk torn reads under
+    // concurrent observe(); doing the sum directly under one lock keeps
+    // the result a consistent snapshot.
+    std::uint64_t cum = 0;
+    for (std::size_t k = 0; k <= i; ++k) {
+        cum += counts_[k];
+    }
+    return cum;
+}
+
 bool Histogram::is_empty() const noexcept {
     try {
         std::lock_guard<std::mutex> lk(mu_);
@@ -322,6 +338,37 @@ double Histogram::range() const {
         if (total_ == 0) return 0.0;
     }
     return max() - min();
+}
+
+std::pair<double, double> Histogram::observed_range() const {
+    // Wrap min() + max() under a single lock so the returned pair is a
+    // consistent snapshot. min()/max() each take the mutex separately;
+    // a concurrent observe() between two split calls could expose a
+    // (hi_min, lo_max) pair that no single state of the histogram
+    // produced. Compute both from one snapshot of counts_ instead.
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0) {
+        return {lo_, hi_};
+    }
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    double observed_min = lo_;
+    double observed_max = hi_;
+    // Forward scan for the first non-empty bin.
+    for (std::size_t i = 0; i < n; ++i) {
+        if (counts_[i] > 0) {
+            observed_min = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+            break;
+        }
+    }
+    // Backward scan for the last non-empty bin.
+    for (std::size_t i = n; i-- > 0;) {
+        if (counts_[i] > 0) {
+            observed_max = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+            break;
+        }
+    }
+    return {observed_min, observed_max};
 }
 
 Result<void> Histogram::merge(const Histogram& other) {
@@ -693,6 +740,20 @@ std::vector<std::string> DriftMonitor::list_features() const {
 std::size_t DriftMonitor::feature_count() const {
     std::lock_guard<std::mutex> lk(mu_);
     return features_.size();
+}
+
+std::size_t DriftMonitor::feature_count_observed() const {
+    // Distinct from feature_count(): counts only features whose current
+    // window has at least one observation. Operators use this to gate
+    // dashboards on "are we receiving traffic on every feature we're
+    // watching?" without enumerating list_features() and probing
+    // observation_count() per name.
+    std::lock_guard<std::mutex> lk(mu_);
+    std::size_t n = 0;
+    for (const auto& [_, fs] : features_) {
+        if (fs->current->total() > 0) ++n;
+    }
+    return n;
 }
 
 bool DriftMonitor::has_feature(std::string_view name) const noexcept {

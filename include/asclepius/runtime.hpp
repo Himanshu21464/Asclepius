@@ -190,6 +190,15 @@ public:
     // as add_metadata apply (under the fixed key "tag").
     Result<void> tag(std::string_view label);
 
+    // Sugar over add_metadata("priority", priority) — the value is
+    // stored as a JSON string. Used by sidecars to label inferences
+    // for downstream prioritization filters. Validates `priority` is
+    // one of {"low", "normal", "high", "critical"}; any other value
+    // is rejected with invalid_argument naming the offending input.
+    // The same reserved-key / post-commit / replace-on-duplicate
+    // semantics as add_metadata apply (under the fixed key "priority").
+    Result<void> set_priority(std::string_view priority);
+
     // Capture a clinician override of the model's output. Stored with the
     // inference id so prospective evaluation can join later.
     Result<void> capture_override(std::string rationale, nlohmann::json corrected);
@@ -225,6 +234,16 @@ public:
     // stable cross-system reference for the inference (e.g. as part of a
     // response header, queue metadata, or webhook payload).
     Result<std::uint64_t> seq() const noexcept;
+
+    // Noexcept variant of seq() that returns committed_seq directly if
+    // committed, otherwise 0. Distinct from seq() — that returns Error
+    // before commit; this returns a plain number with the convention
+    // that "0 means not committed yet" (the ledger's first valid seq is
+    // 1, so 0 is unambiguous as a sentinel). Used by sidecars on the
+    // hot path that just want a number to publish without unwrapping a
+    // Result, e.g. log lines or queue metadata where "not committed"
+    // and "uninteresting" can collapse to the same zero.
+    std::uint64_t ledger_snapshot_seq() const noexcept;
 
     // Sugar over ctx().tenant(). Saves sidecars one indirection when
     // emitting per-tenant metrics or routing decisions in the hot path.
@@ -421,6 +440,14 @@ public:
                                      nlohmann::json body,
                                      std::string tenant = "");
 
+    // Append a "runtime.shutdown" event to the ledger with body
+    // `{"reason": <reason>, "ts": <iso8601>}` and actor
+    // "system:runtime". Used in graceful shutdown paths so the chain
+    // has a tombstone — operators replaying the chain can see exactly
+    // when (and why) a runtime stopped accepting work. Forwards the
+    // underlying ledger.append result; backend errors propagate.
+    Result<void> record_shutdown(const std::string& reason);
+
     // ---- Health snapshot ------------------------------------------------
     //
     // A single-call summary of the runtime's overall liveness. Designed
@@ -610,12 +637,32 @@ public:
     // "not busy" so an unhealthy ledger never falsely claims activity.
     bool is_busy(std::chrono::milliseconds threshold) const;
 
+    // Block the calling thread until the ledger has at least `min_seq`
+    // entries, or until `timeout` expires. Returns true if the chain
+    // reached `min_seq` in time, false on timeout. Polls with 5 ms
+    // sleeps so it composes with both fast bursts and sluggish backends
+    // without burning a CPU. An already-satisfied call (length() >=
+    // min_seq, including the trivial empty-chain + min_seq=0 case)
+    // returns true immediately without sleeping. Used by tests and
+    // integration harnesses that need to wait for an async commit to
+    // land — sidecars on the hot path should prefer event-driven
+    // signalling over polling.
+    bool wait_until_chain_grows(std::uint64_t min_seq,
+                                std::chrono::milliseconds timeout) const;
+
     // Convenience: clear() the policy chain and push the standard
     // production set — make_phi_scrubber() and a reasonable
     // make_length_limit(64*1024, 64*1024). Used by sidecars that
     // want a sensible default without manually composing policies.
     // Returns ok unconditionally.
     Result<void> install_default_policies();
+
+    // Sugar over `policies().size()`. Saves callers from grabbing the
+    // PolicyChain& reference when they only want the count. Mirrors
+    // the framing used by ledger_length() and other accessor sugar on
+    // this surface — health() exposes the same number, but this is a
+    // direct one-call accessor for sites that just need the integer.
+    std::size_t policy_count() const;
 
     // Hint to the runtime that it should pre-touch any cold caches it
     // owns (policy chain compilation, SQLite page cache, signing key

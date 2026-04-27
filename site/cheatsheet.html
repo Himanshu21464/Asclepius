@@ -561,6 +561,26 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 85 <small>time anchors · lifespan stats · shutdown tombstones</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.first_seq_at_or_after_time(t) · tail_after_time(t, n)</code></dt><dd>head-end mirror of <code>seq_at_time</code> · last n entries since a wall-clock anchor</dd>
+        <dt><code>ledger.head_age_ms() · summary_string()</code></dt><dd>head-staleness in <code>chrono::ms</code> · one-line ASCII status — <code>length=N · head=… · key=… · age=…</code></dd>
+        <dt><code>ledger.events_in_window_count(t0, t1)</code></dt><dd>cardinality without materializing rows in a time window</dd>
+        <dt><code>hist.cumulative_at(i) · observed_range()</code></dt><dd>running total through bin <code>i</code> · <code>{min, max}</code> midpoint pair — actual mass range vs. configured <code>[lo, hi]</code></dd>
+        <dt><code>metrics.counter_with_default(n, d) · reset_all_counters()</code></dt><dd>sensible-baseline lookup distinct from silent-zero · zero every counter, keep names</dd>
+        <dt><code>drift.feature_count_observed()</code></dt><dd>"is the pipeline actually feeding the monitor?" — distinguishes registered-but-silent from registered-and-flowing</dd>
+        <dt><code>consent.find_oldest_token_for_patient(p) · find_longest_lived_for_patient(p)</code></dt><dd>earliest grant ever for a patient · widest <code>(expires - granted)</code> span across every state</dd>
+        <dt><code>consent.estimated_avg_ttl()</code></dt><dd>mean lifespan across all tokens — the "how long do consents typically last on this substrate?" cell</dd>
+        <dt><code>consent.tokens_with_purpose(x) · has_any_active()</code></dt><dd>active-only filter (vs. <code>tokens_for_purpose</code>) · noexcept registry-wide "is anything authorising right now?"</dd>
+        <dt><code>inf.set_priority(level)</code></dt><dd>validates against <code>{low, normal, high, critical}</code> — invalid_argument otherwise; hashed into the entry</dd>
+        <dt><code>inf.ledger_snapshot_seq()</code></dt><dd>noexcept sugar — committed seq, or <code>0</code> before commit; cheaper than <code>seq().value_or(0)</code> at the call site</dd>
+        <dt><code>rt.wait_until_chain_grows(min_seq, timeout)</code></dt><dd>blocking poll — <code>ok</code> on growth, <code>timeout</code> on expiry; replaces busy-looping <code>has_event_after_seq</code></dd>
+        <dt><code>rt.record_shutdown(reason)</code></dt><dd>appends a <code>runtime.shutdown</code> tombstone — distinguishes intentional halt from chain that just ended</dd>
+        <dt><code>rt.policy_count()</code></dt><dd>sugar over <code>policies().size()</code></dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Round 84 <small>status banners · actor history · busy-vs-idle</small></h2>
       <dl class="pair">
         <dt><code>rt.status_line()</code></dt><dd>one-line ASCII banner — <code>asclepius v… · ledger=N · key=… · policies=N · drift_features=N · active_consent=N</code></dd>

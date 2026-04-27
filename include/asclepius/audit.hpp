@@ -463,6 +463,13 @@ public:
     // themselves.
     Result<std::uint64_t> count_in_window(Time from, Time to) const;
 
+    // Cheap count of entries whose ts ∈ [from, to). Half-open interval.
+    // Equivalent to count_in_window but spelled out for callers who use
+    // the events_* family of helpers (events_after_seq, events_between).
+    // O(n) scan via for_each with a counter; O(1) memory regardless of
+    // chain length. Returns invalid_argument if from > to.
+    Result<std::uint64_t> events_in_window_count(Time from, Time to) const;
+
     // First `n` entries (oldest), seq-ascending, scoped to a tenant.
     // Complement to tail_for_tenant (which is most-recent-first). The
     // empty tenant ("") is its own scope. n=0 returns the empty vector
@@ -495,6 +502,15 @@ public:
     // structured Attestation; this is the text form expanded with
     // timestamp bounds).
     std::string attestation_json() const;
+
+    // Human-readable single-line summary used by ops dashboards as a
+    // one-line ASCII status. Layout for a non-empty chain:
+    //   length=<n> head=<hex truncated to 12> key=<key_id> oldest=<iso8601> newest=<iso8601>
+    // Layout for an empty chain:
+    //   length=0 (empty) key=<key_id>
+    // Pure ASCII; no JSON, no quoting, no escapes — meant to slot
+    // directly into log lines and TTY status panels.
+    std::string summary_string() const;
 
     // Single-line JSON object containing length, head_hex, key_id,
     // key_fingerprint (from KeyStore::fingerprint), and head_signature
@@ -567,6 +583,15 @@ public:
     // threshold. Single-row lookup; cheap.
     Result<std::chrono::nanoseconds> age_of_oldest() const;
 
+    // Milliseconds since the newest entry's ts (i.e. Time::now() minus
+    // the head's timestamp, truncated to whole milliseconds). Returns
+    // not_found if the chain is empty (no head to anchor against).
+    // Single-row lookup; cheap. Companion to age_of_oldest — that one
+    // anchors on seq=1 in nanoseconds; this one anchors on the chain
+    // head in milliseconds, the granularity ops dashboards actually
+    // display.
+    Result<std::chrono::milliseconds> head_age_ms() const;
+
     // Newest entry (seq == length()). not_found on an empty chain.
     // Cheap single-row lookup; complement to oldest_entry(). Equivalent
     // to at(length()) but avoids the caller having to read length()
@@ -579,6 +604,14 @@ public:
     // with head_at_time which returns the head_hash, while this returns
     // just the seq for cheaper time-based slicing.
     Result<std::uint64_t> seq_at_time(Time t) const;
+
+    // Smallest seq whose entry.ts >= t. Mirror of seq_at_time: where
+    // seq_at_time anchors a "what was the chain at time T" query
+    // (largest ts <= t), this anchors a "what's the first entry from
+    // time T forward" query (first ts >= t). Streams via for_each with
+    // an early stop on the first match. Returns not_found if no entry
+    // satisfies the predicate, including the empty-chain case.
+    Result<std::uint64_t> first_seq_at_or_after_time(Time t) const;
 
     // Compact attestation that a specific entry at `seq` is part of the
     // current chain. `chain_to_head` is the sequence of entry_hashes
@@ -614,6 +647,15 @@ public:
     // a bounded ring buffer; memory is O(min(n, matches)).
     Result<std::vector<LedgerEntry>>
         tail_in_window(Time from, Time to, std::size_t n) const;
+
+    // Last `n` entries whose header.ts >= t, most-recent first. Mirror
+    // of tail_in_window with an open-ended upper bound. Implementation:
+    // pulls the time range [t, INT64_MAX) via range_by_time, keeps the
+    // last `n` via a bounded ring buffer, then reverses. n=0 returns
+    // the empty vector (cheap no-op; mirrors tail_by_actor). Memory is
+    // O(min(n, matches)).
+    Result<std::vector<LedgerEntry>>
+        tail_after_time(Time t, std::size_t n) const;
 
     // Last `n` entries within the seq window [start, end), most-recent
     // first. Half-open. n=0 returns the empty vector; start >= end

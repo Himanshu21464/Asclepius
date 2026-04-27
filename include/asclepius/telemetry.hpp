@@ -135,6 +135,21 @@ public:
     // copying the full counts_ vector or normalizing. Locked.
     Result<std::uint64_t> bin_at(std::size_t i) const;
 
+    // Cumulative count up through bin i (inclusive). Returns
+    // Error::invalid_argument if i >= bin_count(). Equivalent to summing
+    // bin_at(0..i) but acquires the lock once and reads counts_ directly,
+    // so it composes naturally with cdf() without paying for normalization.
+    // Locked.
+    Result<std::uint64_t> cumulative_at(std::size_t i) const;
+
+    // Returns (min observed midpoint, max observed midpoint). For an empty
+    // histogram returns (lo(), hi()) — matching min()/max() sentinel
+    // semantics. Wraps both reads under a single lock so the returned pair
+    // is a consistent snapshot (a concurrent observe() between two separate
+    // min()/max() calls could produce a min that's higher than the prior
+    // max, which this avoids).
+    std::pair<double, double> observed_range() const;
+
     // Cumulative distribution function: for each bin i, the fraction of
     // total observations that fall at or below that bin's upper edge.
     // Length == bin_count(). The last entry is 1.0 for any non-empty
@@ -257,6 +272,13 @@ public:
 
     // Number of registered features. O(1).
     std::size_t feature_count() const;
+
+    // Count of registered features that have at least one current-window
+    // observation. Distinct from feature_count() (total registered):
+    // dashboards use this to gate "are we receiving traffic on every
+    // feature we're watching?" without enumerating list_features() and
+    // probing observation_count() per name. Locked.
+    std::size_t feature_count_observed() const;
 
     // Cheap predicate: true iff a feature with this name has been
     // registered. Locked, but does not allocate or compute drift.
@@ -386,6 +408,14 @@ public:
     // Histograms are NOT counters and do not satisfy this lookup.
     Result<std::uint64_t> counter_value(std::string_view name) const;
 
+    // Same as count(name) but returns `default_value` (instead of 0) when
+    // the counter doesn't exist. Distinguishes "missing" from "0" without
+    // forcing the caller through a Result. Returns the counter value if it
+    // exists; histograms still satisfy this and return their observation
+    // count (matching count()'s fall-through). Locked.
+    std::uint64_t counter_with_default(std::string_view name,
+                                       std::uint64_t    default_value) const;
+
     // Quantile of a registered histogram by name, computed from its
     // bucket counts via linear interpolation across the bucket containing
     // the quantile. Returns 0.0 if the histogram doesn't exist or has no
@@ -444,6 +474,13 @@ public:
     // emit per-deploy metric resets (e.g. on restart). Returns not_found
     // if no such counter exists. Histograms are not affected.
     Result<void> reset(std::string_view name);
+
+    // Zero every counter to 0 while keeping the names registered.
+    // Distinct from clear(), which drops everything (counters AND
+    // histograms). This matches DriftMonitor::reset_all() semantics for
+    // counters: data zeroed, names preserved. Histograms are NOT affected
+    // (use reset_histograms() for that). Locked.
+    void reset_all_counters();
 
     // Drop all counters and histograms. Used by tests and by live deploy
     // resets that want to start from a clean slate. Mutex-protected.
