@@ -3420,3 +3420,296 @@ TEST_CASE("recent_drift_events: surfaces drift.crossed entries appended by the b
         CHECK(e.header.event_type == "drift.crossed");
     }
 }
+
+// ============== Inference::failed =========================================
+
+TEST_CASE("failed: false on a fresh, unrun handle") {
+    auto rt_ = fresh_runtime("fail_fresh"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_fail_fresh");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // Pre-run: nothing has happened, can't have failed.
+    CHECK(!inf.value().failed());
+    CHECK(!inf.value().has_run());
+}
+
+TEST_CASE("failed: false on status=ok") {
+    auto rt_ = fresh_runtime("fail_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_fail_ok");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    CHECK(!inf.value().failed());
+    CHECK(inf.value().status() == "ok");
+}
+
+TEST_CASE("failed: true on blocked.input and blocked.output") {
+    // blocked.input
+    {
+        auto rt_ = fresh_runtime("fail_bin"); REQUIRE(rt_);
+        auto& rt = rt_.value();
+        rt.policies().push(make_length_limit(/*input_max=*/4, /*output_max=*/0));
+        auto pid = PatientId::pseudonymous("p_fail_bin");
+        auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        auto r = inf.value().run("this input is way too long",
+            [](std::string s) -> Result<std::string> { return s; });
+        REQUIRE(!r);
+        CHECK(inf.value().failed());
+        CHECK(inf.value().status() == "blocked.input");
+    }
+    // blocked.output
+    {
+        auto rt_ = fresh_runtime("fail_bout"); REQUIRE(rt_);
+        auto& rt = rt_.value();
+        rt.policies().push(make_length_limit(/*input_max=*/0, /*output_max=*/4));
+        auto pid = PatientId::pseudonymous("p_fail_bout");
+        auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        auto r = inf.value().run("hi",
+            [](std::string) -> Result<std::string> { return std::string{"too long output"}; });
+        REQUIRE(!r);
+        CHECK(inf.value().failed());
+        CHECK(inf.value().status() == "blocked.output");
+    }
+}
+
+TEST_CASE("failed: true on model_error, timeout, and cancelled") {
+    // model_error
+    {
+        auto rt_ = fresh_runtime("fail_merr"); REQUIRE(rt_);
+        auto& rt = rt_.value();
+        auto pid = PatientId::pseudonymous("p_fail_merr");
+        auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(!inf.value().run("hi",
+            [](std::string) -> Result<std::string> { return Error::internal("boom"); }));
+        CHECK(inf.value().failed());
+        CHECK(inf.value().status() == "model_error");
+    }
+    // timeout
+    {
+        auto rt_ = fresh_runtime("fail_to"); REQUIRE(rt_);
+        auto& rt = rt_.value();
+        auto pid = PatientId::pseudonymous("p_fail_to");
+        auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(!inf.value().run_with_timeout("x",
+            [](std::string s) -> Result<std::string> {
+                std::this_thread::sleep_for(std::chrono::milliseconds{100});
+                return s;
+            },
+            std::chrono::milliseconds{5}));
+        CHECK(inf.value().failed());
+        CHECK(inf.value().status() == "timeout");
+    }
+    // cancelled
+    {
+        auto rt_ = fresh_runtime("fail_cancel"); REQUIRE(rt_);
+        auto& rt = rt_.value();
+        auto pid = PatientId::pseudonymous("p_fail_cancel");
+        auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        CancelToken ct;
+        ct.cancel();  // pre-cancelled
+        REQUIRE(!inf.value().run_cancellable("x",
+            [](std::string s) -> Result<std::string> { return s; },
+            ct));
+        CHECK(inf.value().failed());
+        CHECK(inf.value().status() == "cancelled");
+    }
+}
+
+// ============== Inference::trace_summary ==================================
+
+TEST_CASE("trace_summary: contains the canonical fields after run") {
+    auto rt_ = fresh_runtime("ts_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ts_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    auto s = inf.value().trace_summary();
+    CHECK(s.find("inf=") != std::string::npos);
+    CHECK(s.find("patient=") != std::string::npos);
+    CHECK(s.find("model=") != std::string::npos);
+    CHECK(s.find("status=ok") != std::string::npos);
+    CHECK(s.find("elapsed=") != std::string::npos);
+    CHECK(s.find("ms") != std::string::npos);
+    // Single-line invariant — one log line per emit.
+    CHECK(s.find('\n') == std::string::npos);
+}
+
+TEST_CASE("trace_summary: id and patient match accessor outputs") {
+    auto rt_ = fresh_runtime("ts_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ts_m");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("ok",
+        [](std::string s) -> Result<std::string> { return s; }));
+    auto s = inf.value().trace_summary();
+    // The exact id and patient strings the handle exposes must be
+    // verbatim substrings of the rendered summary.
+    CHECK(s.find(std::string{inf.value().id()}) != std::string::npos);
+    CHECK(s.find(std::string{inf.value().ctx().patient().str()}) != std::string::npos);
+    CHECK(s.find(std::string{inf.value().ctx().model().str()}) != std::string::npos);
+}
+
+TEST_CASE("trace_summary: failure status surfaces in the string") {
+    auto rt_ = fresh_runtime("ts_fail"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ts_f");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(!inf.value().run("hi",
+        [](std::string) -> Result<std::string> { return Error::internal("boom"); }));
+    auto s = inf.value().trace_summary();
+    CHECK(s.find("status=model_error") != std::string::npos);
+    // Pre-run case: status renders as empty; the prefix "status=" is
+    // still present even if its value is the empty string.
+    auto inf2 = begin(rt, pid, tok.token_id); REQUIRE(inf2);
+    auto s2 = inf2.value().trace_summary();
+    CHECK(s2.find("status=") != std::string::npos);
+    // Pre-run elapsed_ms() is small; "elapsed=" prefix must still render.
+    CHECK(s2.find("elapsed=") != std::string::npos);
+}
+
+// ============== Runtime::is_idle ==========================================
+
+TEST_CASE("is_idle: empty chain is trivially idle") {
+    auto rt_ = fresh_runtime("idle_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.is_chain_empty());
+    // Any threshold — including zero — returns true on an empty chain.
+    CHECK(rt.is_idle(std::chrono::milliseconds{0}));
+    CHECK(rt.is_idle(std::chrono::milliseconds{500}));
+}
+
+TEST_CASE("is_idle: false right after a recent commit, true after the threshold elapses") {
+    auto rt_ = fresh_runtime("idle_recent"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_idle_r");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // Just-committed: a "1 second" threshold should not yet be idle.
+    CHECK(!rt.is_idle(std::chrono::milliseconds{1000}));
+    // Sleep past a tiny threshold; should now read idle.
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    CHECK(rt.is_idle(std::chrono::milliseconds{5}));
+}
+
+TEST_CASE("is_idle: zero threshold is strict — any post-now ts is non-idle") {
+    auto rt_ = fresh_runtime("idle_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_idle_z");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("q",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // threshold == 0: any committed entry whose ts is in the past has
+    // non-zero elapsed, so idle is true. We just want the boolean to
+    // reflect the comparison, not crash. Sleep a touch so elapsed > 0.
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    CHECK(rt.is_idle(std::chrono::milliseconds{0}));
+}
+
+// ============== Runtime::generate_trace_id ================================
+
+TEST_CASE("generate_trace_id: produces 16 lowercase hex chars") {
+    auto rt_ = fresh_runtime("tid_shape"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto id = rt.generate_trace_id();
+    CHECK(id.size() == 16);
+    for (char c : id) {
+        const bool is_hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        CHECK(is_hex);
+    }
+}
+
+TEST_CASE("generate_trace_id: returns a distinct id on each call") {
+    auto rt_ = fresh_runtime("tid_unique"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // 64 bits of CSPRNG output: collisions across a small loop are
+    // astronomically unlikely. Drawing many distinct values is the
+    // strongest cheap check we have for "fresh entropy each call."
+    constexpr int kN = 64;
+    std::vector<std::string> ids;
+    ids.reserve(kN);
+    for (int i = 0; i < kN; ++i) ids.push_back(rt.generate_trace_id());
+    std::sort(ids.begin(), ids.end());
+    auto last = std::unique(ids.begin(), ids.end());
+    CHECK(last == ids.end());
+}
+
+TEST_CASE("generate_trace_id: round-trips through Inference::add_metadata") {
+    auto rt_ = fresh_runtime("tid_meta"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tid");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    const auto trace = rt.generate_trace_id();
+    REQUIRE(inf.value().add_metadata("trace_id", trace));
+    auto got = inf.value().get_metadata("trace_id");
+    REQUIRE(got);
+    CHECK(got.value().get<std::string>() == trace);
+}
+
+// ============== Inference::observe_drift_named ============================
+
+TEST_CASE("observe_drift_named: forwards to observe_drift on a registered feature") {
+    auto rt_ = fresh_runtime("odn_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.drift().register_feature("named_basic", {0.1}, 0.0, 1.0, 4));
+    auto pid = PatientId::pseudonymous("p_odn_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // The sugar must succeed for a registered feature, exactly like
+    // observe_drift().
+    auto r = inf.value().observe_drift_named("named_basic", 0.5);
+    CHECK(r);
+}
+
+TEST_CASE("observe_drift_named: surfaces the same not_found error as observe_drift on unknown feature") {
+    auto rt_ = fresh_runtime("odn_missing"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_odn_m");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    auto sugar    = inf.value().observe_drift_named("nope", 0.5);
+    auto original = inf.value().observe_drift("nope", 0.5);
+    // Both spellings must agree on success/failure and on the error code.
+    CHECK(static_cast<bool>(sugar) == static_cast<bool>(original));
+    REQUIRE(!sugar);
+    REQUIRE(!original);
+    CHECK(sugar.error().code() == original.error().code());
+}
+
+TEST_CASE("observe_drift_named: equivalent to observe_drift across many calls") {
+    // Both methods route through the same DriftMonitor::observe(), so
+    // the registry should reflect the union of calls without divergence.
+    auto rt_ = fresh_runtime("odn_equiv"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.drift().register_feature("equiv", {0.1}, 0.0, 1.0, 4));
+    auto pid = PatientId::pseudonymous("p_odn_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    for (int i = 0; i < 10; ++i) {
+        REQUIRE(inf.value().observe_drift_named("equiv",
+            static_cast<double>(i) / 10.0));
+        REQUIRE(inf.value().observe_drift("equiv",
+            static_cast<double>(i) / 10.0));
+    }
+    // The feature stays registered — both paths leave shared state intact.
+    auto features = rt.list_loaded_features();
+    CHECK(std::find(features.begin(), features.end(), "equiv")
+          != features.end());
+}

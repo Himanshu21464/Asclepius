@@ -340,4 +340,59 @@ bool MetricRegistry::has(std::string_view name) const noexcept {
     }
 }
 
+Result<double> MetricRegistry::ratio(std::string_view numerator,
+                                     std::string_view denominator) const {
+    // Hold the lock once for both lookups so the result is a consistent
+    // snapshot — otherwise a concurrent inc() between the two reads could
+    // produce ratios that no caller could observe directly.
+    std::lock_guard<std::mutex> lk(mu_);
+    auto nit = counters_.find(std::string{numerator});
+    if (nit == counters_.end()) {
+        return Error::not_found("unknown counter (numerator)");
+    }
+    auto dit = counters_.find(std::string{denominator});
+    if (dit == counters_.end()) {
+        return Error::not_found("unknown counter (denominator)");
+    }
+    if (dit->second == 0) {
+        return Error::invalid("ratio denominator is zero");
+    }
+    return static_cast<double>(nit->second) / static_cast<double>(dit->second);
+}
+
+std::uint64_t MetricRegistry::counter_diff_total(
+    const std::unordered_map<std::string, std::uint64_t>& baseline) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::uint64_t total = 0;
+    // Forward pass: every current counter, |current - baseline_or_0|.
+    for (const auto& [k, v] : counters_) {
+        auto bit = baseline.find(k);
+        const std::int64_t prev = (bit == baseline.end()
+                                   ? 0
+                                   : static_cast<std::int64_t>(bit->second));
+        const std::int64_t delta = static_cast<std::int64_t>(v) - prev;
+        total += static_cast<std::uint64_t>(delta < 0 ? -delta : delta);
+    }
+    // Reverse pass: counters in baseline but no longer present contribute
+    // |0 - baseline| == baseline.
+    for (const auto& [k, v] : baseline) {
+        if (counters_.find(k) == counters_.end()) {
+            total += v;
+        }
+    }
+    return total;
+}
+
+bool MetricRegistry::is_empty() const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        return counters_.empty() && histograms_.empty();
+    } catch (...) {
+        // Lock acquisition can theoretically throw. Contract is
+        // noexcept; degrade to "treat as empty" rather than propagate
+        // (matches Histogram::is_empty()).
+        return true;
+    }
+}
+
 }  // namespace asclepius

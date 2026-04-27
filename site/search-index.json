@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T16:26:28Z",
+  "generated_at": "2026-04-27T14:58:06Z",
   "count": 50,
   "pages": [
     {
@@ -32,6 +32,7 @@
         "enums",
         "ConsentToken",
         "ConsentRegistry",
+        "TokenLifecycle",
         "Summary",
         "free functions",
         "core.hpp",
@@ -159,6 +160,7 @@
         "What not to expect",
         "Site keyboard shortcuts",
         "Round 78 patient · window · replication",
+        "Round 83 composite filters · lifecycle states · trace plumbing",
         "Round 82 cold backups · merkle proofs · env probes",
         "Round 81 replica checksums · bulk drift · purpose-scoped revoke",
         "Round 80 tenant slices · hard-delete · attestation JSON",

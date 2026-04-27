@@ -285,7 +285,86 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.5</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.6</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Composite filters, lifecycle states, trace plumbing.</em>
+            Round 83 lands the verbs the substrate kept reaching for —
+            an actor + time-window composite filter, an explicit
+            consent <code>State</code> enum on every token, and a
+            CSPRNG trace id the runtime mints out of the same
+            libsodium it already trusts. Audit grows
+            <code>range_for_actor_in_window(actor, from, to)</code> as
+            the actor-axis sibling of <code>range_for_patient_in_window</code>;
+            <code>ts_at_seq(seq)</code> as the cheap-cell sugar over
+            <code>at(seq).header.ts</code>; <code>age_of_oldest()</code>
+            (<code>std::chrono::nanoseconds</code>),
+            <code>body_byte_size_at(seq)</code>
+            (<code>Result&lt;uint64_t&gt;</code>), and
+            <code>any_actor_matches(actor)</code> as the cheap
+            existence bool. Telemetry adds
+            <code>MetricRegistry::ratio(num, denom)</code>
+            (<code>Result&lt;double&gt;</code> — <code>not_found</code>
+            on missing, <code>invalid_argument</code> on
+            div-by-zero), <code>counter_diff_total(baseline)</code>
+            (sum of absolute deltas, sibling to <code>diff()</code>),
+            <code>is_empty()</code> (<code>noexcept</code>),
+            <code>Histogram::bin_at(i)</code> for single-bin
+            introspection, and
+            <code>DriftMonitor::trend_for_feature(feature, n)</code> —
+            a single-snapshot vector today, buffered rolling history
+            in a future release without changing the call site.
+            Consent grows <code>token_age(token_id)</code>
+            (<code>Result&lt;chrono::nanoseconds&gt;</code>),
+            <code>distinct_patients_count()</code>,
+            <code>find_token_granting_all(patient, span&lt;Purpose&gt;)</code>
+            — covers <em>every</em> purpose simultaneously, distinct
+            from <code>find_by_purpose</code>'s single-purpose
+            intersection — <code>token_lifecycle(token_id)</code>
+            returning a <strong><code>TokenLifecycle</code></strong>
+            struct with a <code>State</code> enum
+            (active / revoked / expired; priority
+            <em>revoked &gt; expired &gt; active</em>), and
+            <code>has_active_token(patient)</code>
+            (<code>noexcept</code>). Inference picks up
+            <code>failed()</code> (<code>noexcept</code> over the
+            blocked / model_error / timeout / cancelled set),
+            <code>trace_summary()</code> emitting a single-line APM
+            log shape <code>inf=&lt;id&gt; patient=&lt;p&gt; model=&lt;m&gt; status=&lt;s&gt; elapsed=&lt;ms&gt;ms</code>,
+            and <code>observe_drift_named(feature, value)</code> as
+            sugar over <code>observe_drift</code> for call-site
+            clarity. Runtime sugar:
+            <code>is_idle(threshold_ms)</code> as the spin-down /
+            maintenance-window gate, and
+            <code>generate_trace_id()</code> — 16 hex chars from
+            libsodium <code>randombytes_buf</code>, the CSPRNG-backed
+            correlation id a request handler stamps without reaching
+            for a separate UUID library. No on-disk format changes;
+            nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::range_for_actor_in_window(actor, from, to)</code> — composite filter, actor + time-window in one query. The actor-axis sibling of <code>range_for_patient_in_window</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::ts_at_seq(seq)</code>, <code>age_of_oldest()</code>, <code>body_byte_size_at(seq)</code>, <code>any_actor_matches(actor)</code> — cheap timestamp sugar · chain-lifespan in <code>nanoseconds</code> · per-row size <code>Result&lt;uint64_t&gt;</code> · cheap actor-existence bool.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::ratio(num, denom)</code> — <code>Result&lt;double&gt;</code>; <code>not_found</code> when either counter is missing, <code>invalid_argument</code> on division by zero. The single-call SLO ratio.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::counter_diff_total(baseline)</code> — sum of absolute per-counter deltas; one number for "how much movement, total, between these two epochs?" Sibling to signed <code>diff()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::is_empty()</code> — <code>noexcept</code> bool; the cheap startup-gate predicate.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::bin_at(i)</code> — single-bin observation count without materializing the full <code>normalized()</code> vector.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::trend_for_feature(feature, n)</code> — PSI-trend vector. Currently single-snapshot (present PSI repeated, capped at <code>n</code>); future versions will buffer rotated windows so callers see actual rolling history without changing the call site.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::token_age(token_id)</code>, <code>distinct_patients_count()</code> — per-token wall-clock age · explicit "distinct" cardinality vocabulary alongside <code>patient_count()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::find_token_granting_all(patient, span&lt;Purpose&gt;)</code> — first active token covering <em>every</em> purpose in the span simultaneously. Distinct from <code>find_by_purpose</code>'s single-purpose intersection.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::token_lifecycle(token_id)</code> + <strong><code>TokenLifecycle</code></strong> struct with <code>State</code> enum (active / revoked / expired). Priority <em>revoked &gt; expired &gt; active</em>: a revoked-then-expired token reads as <code>revoked</code>.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::has_active_token(patient)</code> — <code>noexcept</code> bool. Cheaper than <code>permits_any_purpose</code> when the question is "any consent at all?" rather than "any purpose at all?"</span></li>
+            <li class="add"><b>add</b><span><code>Inference::failed()</code> — <code>noexcept</code> bool; true iff status is <code>blocked</code>, <code>model_error</code>, <code>timeout</code>, or <code>cancelled</code>. Single predicate retry / shed / dead-letter logic actually wants.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::trace_summary()</code> — single-line log shape <code>inf=&lt;id&gt; patient=&lt;p&gt; model=&lt;m&gt; status=&lt;s&gt; elapsed=&lt;ms&gt;ms</code>. The APM index / grep-friendly log line cheaper than <code>body_snapshot()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::observe_drift_named(feature, value)</code> — sugar over <code>observe_drift</code>; future-compatible when labels arrive without changing the named call site.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::is_idle(threshold_ms)</code> — composite predicate: last committed inference older than <code>threshold_ms</code> and no in-flight handles. The spin-down / maintenance-window gate.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::generate_trace_id()</code> — 16 hex chars from libsodium <code>randombytes_buf</code>; CSPRNG-backed correlation id without a separate UUID library.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.5</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Cold backups, merkle proofs, env probes.</em> Round 82

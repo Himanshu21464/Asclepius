@@ -891,4 +891,99 @@ std::size_t ConsentRegistry::extend_all_for_patient(const PatientId&     patient
     return extended.size();
 }
 
+Result<std::chrono::nanoseconds>
+ConsentRegistry::token_age(std::string_view token_id) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = by_id_.find(std::string{token_id});
+    if (it == by_id_.end()) {
+        return Error::not_found("consent token not found");
+    }
+    return Time::now() - it->second.issued_at;
+}
+
+std::size_t ConsentRegistry::distinct_patients_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    std::unordered_set<std::string> seen;
+    seen.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        seen.insert(std::string{t.patient.str()});
+    }
+    return seen.size();
+}
+
+Result<ConsentToken>
+ConsentRegistry::find_token_granting_all(const PatientId&         patient,
+                                         std::span<const Purpose> purposes) const {
+    if (purposes.empty()) {
+        return Error::invalid("find_token_granting_all requires non-empty purposes");
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.patient != patient) continue;
+        bool covers_all = true;
+        for (auto need : purposes) {
+            if (std::find(t.purposes.begin(), t.purposes.end(), need)
+                == t.purposes.end()) {
+                covers_all = false;
+                break;
+            }
+        }
+        if (covers_all) return t;
+    }
+    return Error::not_found("no active token covers every requested purpose");
+}
+
+Result<ConsentRegistry::TokenLifecycle>
+ConsentRegistry::token_lifecycle(std::string_view token_id) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = by_id_.find(std::string{token_id});
+    if (it == by_id_.end()) {
+        return Error::not_found("consent token not found");
+    }
+    const auto& t = it->second;
+    TokenLifecycle out;
+    out.token_id   = t.token_id;
+    out.issued_at  = t.issued_at;
+    out.expires_at = t.expires_at;
+    out.revoked    = t.revoked;
+    // Priority: revoked > expired > active. A revoked token reports
+    // State::revoked even if it has also passed expires_at.
+    if (t.revoked) {
+        out.state = TokenLifecycle::State::revoked;
+    } else if (t.expires_at <= Time::now()) {
+        out.state = TokenLifecycle::State::expired;
+    } else {
+        out.state = TokenLifecycle::State::active;
+    }
+    return out;
+}
+
+bool ConsentRegistry::has_active_token(const PatientId& patient) const noexcept {
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        const auto now = Time::now();
+        for (const auto& [_, t] : by_id_) {
+            if (t.revoked)            continue;
+            if (t.expires_at <= now)  continue;
+            if (t.patient != patient) continue;
+            return true;
+        }
+        return false;
+    } catch (...) {
+        return false;
+    }
+}
+
+const char* to_string(ConsentRegistry::TokenLifecycle::State s) noexcept {
+    switch (s) {
+        case ConsentRegistry::TokenLifecycle::State::active:  return "active";
+        case ConsentRegistry::TokenLifecycle::State::revoked: return "revoked";
+        case ConsentRegistry::TokenLifecycle::State::expired: return "expired";
+    }
+    return "unknown";
+}
+
 }  // namespace asclepius

@@ -2379,3 +2379,318 @@ TEST_CASE("DriftMonitor::observe_uniform fires alert sink at most once per call"
     dm.observe_uniform("y", 0.95, 100);
     CHECK(fire_count == 1);
 }
+
+// ---- MetricRegistry::ratio ----------------------------------------------
+
+TEST_CASE("MetricRegistry::ratio basic — count(numerator)/count(denominator)") {
+    MetricRegistry m;
+    m.inc("blocked_input", 3);
+    m.inc("inference_attempts", 12);
+
+    auto r = m.ratio("blocked_input", "inference_attempts");
+    REQUIRE(r);
+    CHECK(r.value() == doctest::Approx(0.25));
+
+    // Mutating the underlying counters changes subsequent ratios.
+    m.inc("blocked_input", 9);
+    auto r2 = m.ratio("blocked_input", "inference_attempts");
+    REQUIRE(r2);
+    CHECK(r2.value() == doctest::Approx(1.0));
+}
+
+TEST_CASE("MetricRegistry::ratio edge — not_found vs invalid_argument disambiguated") {
+    MetricRegistry m;
+    m.inc("a", 5);
+    m.inc("zero", 0);  // existing-but-zero counter
+
+    // Numerator missing → not_found. Denominator missing → not_found.
+    {
+        auto r = m.ratio("missing", "a");
+        REQUIRE_FALSE(r);
+        CHECK(r.error().code() == ErrorCode::not_found);
+    }
+    {
+        auto r = m.ratio("a", "missing");
+        REQUIRE_FALSE(r);
+        CHECK(r.error().code() == ErrorCode::not_found);
+    }
+    // Existing zero denominator → invalid_argument (NOT not_found —
+    // counter_value semantics distinguish missing from 0).
+    {
+        auto r = m.ratio("a", "zero");
+        REQUIRE_FALSE(r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+}
+
+TEST_CASE("MetricRegistry::ratio integration — agrees with counter_value() division") {
+    MetricRegistry m;
+    m.inc("hits", 7);
+    m.inc("requests", 50);
+
+    auto num = m.counter_value("hits");
+    auto den = m.counter_value("requests");
+    REQUIRE(num);
+    REQUIRE(den);
+    REQUIRE(den.value() != 0);
+
+    auto rt = m.ratio("hits", "requests");
+    REQUIRE(rt);
+    const double expected =
+        static_cast<double>(num.value()) / static_cast<double>(den.value());
+    CHECK(rt.value() == doctest::Approx(expected));
+
+    // 0-valued numerator is fine — only zero DENOMINATOR is invalid.
+    m.inc("zero_top", 0);
+    auto r0 = m.ratio("zero_top", "requests");
+    REQUIRE(r0);
+    CHECK(r0.value() == doctest::Approx(0.0));
+}
+
+// ---- MetricRegistry::counter_diff_total ---------------------------------
+
+TEST_CASE("MetricRegistry::counter_diff_total basic — sum of |delta| across union") {
+    MetricRegistry m;
+    m.inc("a", 5);
+    m.inc("b", 10);
+    auto baseline = m.counter_snapshot();
+
+    // Move +3 on 'a', -7 on 'b' (no decrement primitive; simulate via
+    // baseline alteration), introduce new 'c' with +4.
+    m.inc("a", 3);
+    m.inc("c", 4);
+    // Pretend baseline had b=10; now still 10 → delta 0.
+    auto total = m.counter_diff_total(baseline);
+    CHECK(total == 7);  // |3| + |0| + |4|
+}
+
+TEST_CASE("MetricRegistry::counter_diff_total edge — empty baseline / empty registry") {
+    // Empty current ∪ empty baseline → 0.
+    {
+        MetricRegistry m;
+        std::unordered_map<std::string, std::uint64_t> empty_base;
+        CHECK(m.counter_diff_total(empty_base) == 0);
+    }
+    // Empty baseline, populated current → sum of all current values.
+    {
+        MetricRegistry m;
+        m.inc("x", 4);
+        m.inc("y", 6);
+        std::unordered_map<std::string, std::uint64_t> empty_base;
+        CHECK(m.counter_diff_total(empty_base) == 10);
+    }
+    // Populated baseline, empty current → sum of all baseline values
+    // (counters "disappeared" since baseline).
+    {
+        MetricRegistry m;
+        std::unordered_map<std::string, std::uint64_t> base{{"gone", 11}, {"poof", 4}};
+        CHECK(m.counter_diff_total(base) == 15);
+    }
+}
+
+TEST_CASE("MetricRegistry::counter_diff_total integration — equals sum |diff(baseline).values|") {
+    MetricRegistry m;
+    m.inc("kept_same", 5);
+    m.inc("grew", 1);
+    m.inc("dropped_in_baseline", 0);  // present in current with 0
+    auto baseline = m.counter_snapshot();
+    // baseline: {kept_same:5, grew:1, dropped_in_baseline:0}
+
+    // After: kept_same unchanged, grew +9, dropped_in_baseline still 0,
+    // and a new counter 'newish' with +2.
+    m.inc("grew", 9);
+    m.inc("newish", 2);
+
+    auto d = m.diff(baseline);
+    std::uint64_t expected_abs_sum = 0;
+    for (const auto& [_, dv] : d) {
+        expected_abs_sum += static_cast<std::uint64_t>(dv < 0 ? -dv : dv);
+    }
+    CHECK(m.counter_diff_total(baseline) == expected_abs_sum);
+}
+
+// ---- DriftMonitor::trend_for_feature ------------------------------------
+
+TEST_CASE("DriftMonitor::trend_for_feature basic — returns single current snapshot") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("score", std::vector<double>(200, 0.3)));
+    for (int i = 0; i < 200; ++i) {
+        REQUIRE(dm.observe("score", 0.85));
+    }
+
+    // n is ignored in the current implementation; any value should yield
+    // a single-element vector reflecting the current snapshot.
+    auto t = dm.trend_for_feature("score", 8);
+    REQUIRE(t.size() == 1);
+    CHECK(t[0].feature == "score");
+    CHECK(t[0].current_n == 200);
+    CHECK(t[0].reference_n == 200);
+    CHECK(t[0].psi > 0.0);
+    CHECK(static_cast<int>(t[0].severity) >= static_cast<int>(DriftSeverity::moder));
+}
+
+TEST_CASE("DriftMonitor::trend_for_feature edge — unregistered feature returns empty") {
+    DriftMonitor dm;
+    // No features registered → empty (not an error — this is a "show me
+    // trend" call where no-trend is a valid answer).
+    CHECK(dm.trend_for_feature("ghost", 5).empty());
+
+    // Register a different feature; the queried one is still unknown.
+    REQUIRE(dm.register_feature("real", std::vector<double>(50, 0.1)));
+    CHECK(dm.trend_for_feature("ghost", 5).empty());
+    CHECK(dm.trend_for_feature("ghost", 0).empty());
+}
+
+TEST_CASE("DriftMonitor::trend_for_feature integration — agrees with report_for_feature") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("a", std::vector<double>(300, 0.2)));
+    REQUIRE(dm.register_feature("b", std::vector<double>(300, 0.7)));
+    for (int i = 0; i < 100; ++i) REQUIRE(dm.observe("a", 0.25));
+    for (int i = 0; i < 100; ++i) REQUIRE(dm.observe("b", 0.75));
+
+    auto rep = dm.report_for_feature("a");
+    REQUIRE(rep);
+    auto trend = dm.trend_for_feature("a", 4);
+    REQUIRE(trend.size() == 1);
+    CHECK(trend[0].feature == rep->feature);
+    CHECK(trend[0].reference_n == rep->reference_n);
+    CHECK(trend[0].current_n == rep->current_n);
+    // PSI/KS/EMD computed on the same underlying histograms — values
+    // recomputed back-to-back agree to bit-for-bit on a single thread.
+    CHECK(trend[0].psi == doctest::Approx(rep->psi));
+    CHECK(trend[0].ks_statistic == doctest::Approx(rep->ks_statistic));
+    CHECK(trend[0].emd == doctest::Approx(rep->emd));
+    CHECK(trend[0].severity == rep->severity);
+}
+
+// ---- MetricRegistry::is_empty -------------------------------------------
+
+TEST_CASE("MetricRegistry::is_empty basic — true on fresh registry, false after counter") {
+    MetricRegistry m;
+    CHECK(m.is_empty());
+
+    m.inc("first");
+    CHECK_FALSE(m.is_empty());
+    CHECK(m.has_counter("first"));
+}
+
+TEST_CASE("MetricRegistry::is_empty edge — false with only histogram, returns true after clear") {
+    MetricRegistry m;
+    REQUIRE(m.is_empty());
+
+    // Histograms alone count as non-empty (counter and histogram name
+    // spaces are independent).
+    m.observe("latency", 0.05);
+    CHECK_FALSE(m.is_empty());
+    CHECK(m.has_histogram("latency"));
+
+    // Reset just the histograms — only a counter remains? No: drop them.
+    m.reset_histograms();
+    CHECK(m.is_empty());
+
+    // Reintroduce both, then full clear.
+    m.inc("c");
+    m.observe("h", 0.1);
+    REQUIRE_FALSE(m.is_empty());
+    m.clear();
+    CHECK(m.is_empty());
+
+    // noexcept contract — verified at compile time. is_empty() takes no
+    // arguments, so the assert is on the bare call (no string_view
+    // conversion concerns to worry about, unlike has(name) which needs
+    // a ""sv literal to keep noexcept on libc++).
+    static_assert(noexcept(std::declval<const MetricRegistry&>().is_empty()),
+                  "MetricRegistry::is_empty must be noexcept");
+}
+
+TEST_CASE("MetricRegistry::is_empty integration — agrees with counter_count + histogram_count_total") {
+    MetricRegistry m;
+    CHECK(m.is_empty() == (m.counter_count() == 0 && m.histogram_count_total() == 0));
+
+    m.inc("a");
+    CHECK(m.is_empty() == (m.counter_count() == 0 && m.histogram_count_total() == 0));
+    m.observe("h", 0.5);
+    CHECK(m.is_empty() == (m.counter_count() == 0 && m.histogram_count_total() == 0));
+
+    m.clear();
+    CHECK(m.is_empty() == (m.counter_count() == 0 && m.histogram_count_total() == 0));
+    CHECK(m.is_empty());
+}
+
+// ---- Histogram::bin_at --------------------------------------------------
+
+TEST_CASE("Histogram::bin_at basic — returns count for in-range bins") {
+    Histogram h{0.0, 1.0, 4};
+    h.observe(0.05);  // bin 0
+    h.observe(0.05);
+    h.observe(0.30);  // bin 1
+    h.observe(0.95);  // bin 3
+
+    auto b0 = h.bin_at(0);
+    REQUIRE(b0);
+    CHECK(b0.value() == 2);
+
+    auto b1 = h.bin_at(1);
+    REQUIRE(b1);
+    CHECK(b1.value() == 1);
+
+    auto b2 = h.bin_at(2);
+    REQUIRE(b2);
+    CHECK(b2.value() == 0);
+
+    auto b3 = h.bin_at(3);
+    REQUIRE(b3);
+    CHECK(b3.value() == 1);
+}
+
+TEST_CASE("Histogram::bin_at edge — index out of range returns invalid_argument") {
+    Histogram h{0.0, 1.0, 4};
+    {
+        auto r = h.bin_at(4);  // exactly bin_count()
+        REQUIRE_FALSE(r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+    {
+        auto r = h.bin_at(99);
+        REQUIRE_FALSE(r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+    // Empty histogram: in-range index returns 0, out-of-range still
+    // returns invalid_argument.
+    {
+        auto r = h.bin_at(0);
+        REQUIRE(r);
+        CHECK(r.value() == 0);
+    }
+}
+
+TEST_CASE("Histogram::bin_at integration — sum across bins equals total()") {
+    Histogram h{0.0, 1.0, 5};
+    h.observe(0.05);
+    h.observe(0.25);
+    h.observe(0.45);
+    h.observe(0.65);
+    h.observe(0.85);
+    h.observe(0.85);
+    REQUIRE(h.total() == 6);
+    REQUIRE(h.bin_count() == 5);
+
+    std::uint64_t sum = 0;
+    for (std::size_t i = 0; i < h.bin_count(); ++i) {
+        auto r = h.bin_at(i);
+        REQUIRE(r);
+        sum += r.value();
+    }
+    CHECK(sum == h.total());
+
+    // bin_at agrees with normalized() * total() on populated bins
+    // (within rounding for the doubles->uint64 path).
+    auto n = h.normalized();
+    REQUIRE(n.size() == h.bin_count());
+    for (std::size_t i = 0; i < h.bin_count(); ++i) {
+        auto r = h.bin_at(i);
+        REQUIRE(r);
+        const double expected = n[i] * static_cast<double>(h.total());
+        CHECK(static_cast<double>(r.value()) == doctest::Approx(expected));
+    }
+}

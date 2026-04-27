@@ -310,6 +310,24 @@ Result<LedgerEntry> Ledger::at(std::uint64_t seq) const {
     return impl_->storage->select_at(seq);
 }
 
+Result<Time> Ledger::ts_at_seq(std::uint64_t seq) const {
+    if (seq == 0 || seq > impl_->length.load()) {
+        return Error::invalid("ts_at_seq: seq out of range");
+    }
+    auto e = impl_->storage->select_at(seq);
+    if (!e) return e.error();
+    return e.value().header.ts;
+}
+
+Result<std::uint64_t> Ledger::body_byte_size_at(std::uint64_t seq) const {
+    if (seq == 0 || seq > impl_->length.load()) {
+        return Error::invalid("body_byte_size_at: seq out of range");
+    }
+    auto e = impl_->storage->select_at(seq);
+    if (!e) return e.error();
+    return static_cast<std::uint64_t>(e.value().body_json.size());
+}
+
 Result<std::vector<LedgerEntry>> Ledger::tail(std::size_t n) const {
     return impl_->storage->select_tail(n);
 }
@@ -1127,6 +1145,13 @@ Result<LedgerEntry> Ledger::oldest_entry() const {
     return impl_->storage->select_at(1);
 }
 
+Result<std::chrono::nanoseconds> Ledger::age_of_oldest() const {
+    if (impl_->length.load() == 0) return std::chrono::nanoseconds{0};
+    auto e = impl_->storage->select_at(1);
+    if (!e) return e.error();
+    return Time::now() - e.value().header.ts;
+}
+
 Result<LedgerEntry> Ledger::newest_entry() const {
     const auto len = impl_->length.load();
     if (len == 0) {
@@ -1292,6 +1317,20 @@ bool Ledger::has_event_type(std::string_view event_type) const {
     return found;
 }
 
+bool Ledger::any_actor_matches(std::string_view actor) const {
+    if (actor.empty()) return false;
+    bool found = false;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.actor == actor) {
+            found = true;
+            return false;  // stop scanning on first match
+        }
+        return true;
+    });
+    (void)r;  // backend errors are observable via verify(); this is a best-effort probe
+    return found;
+}
+
 Result<std::unordered_map<std::string, std::uint64_t>>
 Ledger::byte_size_per_tenant() const {
     std::unordered_map<std::string, std::uint64_t> out;
@@ -1332,6 +1371,28 @@ Ledger::range_by_actor(std::string_view actor) const {
     }
     std::vector<LedgerEntry> out;
     auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.actor == actor) out.push_back(e);
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
+Result<std::vector<LedgerEntry>>
+Ledger::range_for_actor_in_window(std::string_view actor,
+                                  Time from, Time to) const {
+    if (actor.empty()) {
+        return Error::invalid(
+            "range_for_actor_in_window requires non-empty actor");
+    }
+    if (from > to) {
+        return Error::invalid("range_for_actor_in_window: from > to");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Half-open [from, to): include from, exclude to.
+        if (e.header.ts < from) return true;
+        if (!(e.header.ts < to)) return true;
         if (e.header.actor == actor) out.push_back(e);
         return true;
     });

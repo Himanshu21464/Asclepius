@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -92,6 +93,14 @@ public:
     // any grant is currently in force for the patient.
     bool permits_any_purpose(const PatientId& patient) const noexcept;
 
+    // True iff at least one active (non-revoked, non-expired) token
+    // exists for this patient. Equivalent in observable behaviour to
+    // permits_any_purpose() — kept as a separate name for callers that
+    // express the question as "do we have an active token?" rather
+    // than "does the patient permit anything?". noexcept; any internal
+    // failure is swallowed → false.
+    bool has_active_token(const PatientId& patient) const noexcept;
+
     // First active (non-revoked, non-expired) token for `patient` whose
     // purposes list contains `purpose`. Returns Error::not_found if no
     // such token exists. Tiebreak among multiple matches is unspecified —
@@ -100,7 +109,48 @@ public:
     Result<ConsentToken> find_by_purpose(const PatientId& patient,
                                          Purpose          purpose) const;
 
+    // Find an active (non-revoked, non-expired) token for `patient` whose
+    // purposes-list contains EVERY purpose in `purposes` (a single token
+    // covering the union). Used when a workflow needs one consent grant
+    // to authorize multiple purposes simultaneously — e.g. "show me a
+    // token good for both triage AND medication_review at once."
+    // Returns Error::not_found if no single token covers them all.
+    // Returns Error::invalid_argument if `purposes` is empty. Tiebreak
+    // among multiple matches is unspecified.
+    Result<ConsentToken>
+    find_token_granting_all(const PatientId&         patient,
+                            std::span<const Purpose> purposes) const;
+
     Result<ConsentToken> get(std::string_view token_id) const;
+
+    // Duration since the token was issued, computed as
+    // Time::now() - token.issued_at. Returns Error::not_found if no
+    // token with this id exists. Useful for ops dashboards and audit
+    // surfaces that want to show "this consent grant is N minutes
+    // old" without round-tripping a full token through get().
+    Result<std::chrono::nanoseconds>
+    token_age(std::string_view token_id) const;
+
+    // Lifecycle snapshot of a single token: identity + issued/expires
+    // timestamps + revoked flag + a computed State (revoked > expired
+    // > active priority). Useful for "explain this token to me" UI
+    // surfaces that want a single struct rather than the full
+    // ConsentToken with its purposes vector.
+    struct TokenLifecycle {
+        std::string token_id;
+        Time        issued_at;
+        Time        expires_at;
+        bool        revoked = false;
+        enum class State : std::uint8_t { active, revoked, expired };
+        State       state;  // computed: revoked > expired > active
+    };
+
+    // Returns the lifecycle snapshot for `token_id`, or Error::not_found
+    // if no such token exists. State is computed at call time:
+    // revoked tokens are reported as State::revoked even if they have
+    // also passed their expires_at.
+    Result<TokenLifecycle>
+    token_lifecycle(std::string_view token_id) const;
 
     // Snapshot for serialization / replay.
     std::vector<ConsentToken> snapshot() const;
@@ -198,6 +248,13 @@ public:
     // of tokens the runtime has seen. Used by /healthz dashboards that
     // want a "how many patients have we ever seen?" line.
     std::size_t patient_count() const;
+
+    // Synonym of patient_count(): number of distinct patient ids across
+    // all tokens (active + revoked + expired). Spelled with the
+    // "distinct_patients" prefix to read naturally in callers asking
+    // "how many patients do we hold consent records for?" — kept
+    // separately from patient_count() for readability at call sites.
+    std::size_t distinct_patients_count() const;
 
     // Distinct PatientIds across all stored tokens (active + revoked +
     // expired), sorted by their underlying string body. Order is
@@ -394,6 +451,8 @@ private:
     std::unordered_map<std::string, ConsentToken>    by_id_;
     Observer                                         observer_;
 };
+
+const char* to_string(ConsentRegistry::TokenLifecycle::State) noexcept;
 
 }  // namespace asclepius
 

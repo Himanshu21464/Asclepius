@@ -4017,3 +4017,262 @@ TEST_CASE("longest_run_of_event_type: picks longest among multiple runs") {
     REQUIRE(r2);
     CHECK(r2.value() == 2);
 }
+
+// ============== Ledger::range_for_actor_in_window =======================
+
+TEST_CASE("range_for_actor_in_window: basic actor + window filter, seq-asc") {
+    auto p = tmp_db("rfaiw_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // First batch — these will fall *before* the window.
+    for (int i = 0; i < 3; i++) {
+        REQUIRE(l.append("e", "alice", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    auto from = Time::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    // Second batch — alice entries inside the window, plus a non-alice
+    // sandwiched between, and a non-alice tail.
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 3}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    REQUIRE(l.append("e", "bob",   nlohmann::json{{"i", 4}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 5}}, ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    auto to = Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}};
+    auto r = l.range_for_actor_in_window("alice", from, to); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    // seq-ascending invariant.
+    CHECK(r.value()[0].header.seq < r.value()[1].header.seq);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    CHECK(b0["i"] == 3);
+    CHECK(b1["i"] == 5);
+}
+
+TEST_CASE("range_for_actor_in_window: empty actor and from > to") {
+    auto p = tmp_db("rfaiw_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    auto t1 = Time::now();
+    auto t0 = t1 - std::chrono::nanoseconds{std::chrono::seconds{1}};
+    auto r1 = l.range_for_actor_in_window("", t0, t1);
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.range_for_actor_in_window("alice", t1, t0);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("range_for_actor_in_window: filters out other actors and out-of-window entries") {
+    auto p = tmp_db("rfaiw_filter");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto t0 = Time::now() - std::chrono::nanoseconds{std::chrono::seconds{1}};
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json{{"i", 2}}, ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json{{"i", 3}}, ""));
+    REQUIRE(l.append("e", "carol", nlohmann::json{{"i", 4}}, ""));
+    auto t1 = Time::now() + std::chrono::nanoseconds{std::chrono::seconds{60}};
+    auto r = l.range_for_actor_in_window("alice", t0, t1); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    CHECK(b0["i"] == 1);
+    CHECK(b1["i"] == 3);
+    // seq-ascending invariant.
+    CHECK(r.value()[0].header.seq < r.value()[1].header.seq);
+}
+
+TEST_CASE("range_for_actor_in_window: half-open interval excludes upper bound") {
+    auto p = tmp_db("rfaiw_halfopen");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto e1 = l.append("e", "alice", nlohmann::json{{"i", 1}}, ""); REQUIRE(e1);
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    auto e2 = l.append("e", "alice", nlohmann::json{{"i", 2}}, ""); REQUIRE(e2);
+    // Window [ts1, ts2) — should include e1, exclude e2.
+    auto r = l.range_for_actor_in_window(
+        "alice", e1.value().header.ts, e2.value().header.ts);
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 1);
+    auto b = nlohmann::json::parse(r.value()[0].body_json);
+    CHECK(b["i"] == 1);
+}
+
+// ============== Ledger::ts_at_seq ========================================
+
+TEST_CASE("ts_at_seq: returns the timestamp at a valid seq") {
+    auto p = tmp_db("tas_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto e1 = l.append("e", "x", nlohmann::json{{"i", 1}}, ""); REQUIRE(e1);
+    auto e2 = l.append("e", "x", nlohmann::json{{"i", 2}}, ""); REQUIRE(e2);
+    auto r1 = l.ts_at_seq(1); REQUIRE(r1);
+    auto r2 = l.ts_at_seq(2); REQUIRE(r2);
+    CHECK(r1.value() == e1.value().header.ts);
+    CHECK(r2.value() == e2.value().header.ts);
+}
+
+TEST_CASE("ts_at_seq: seq=0 and seq>length return invalid_argument") {
+    auto p = tmp_db("tas_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r0 = l.ts_at_seq(0);
+    CHECK(!r0);
+    CHECK(r0.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.ts_at_seq(2);
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+    // Empty chain: seq=1 also out of range.
+    auto p2 = tmp_db("tas_edge_empty");
+    auto l2_ = Ledger::open(p2); REQUIRE(l2_);
+    auto re = l2_.value().ts_at_seq(1);
+    CHECK(!re);
+    CHECK(re.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("ts_at_seq: agrees with at(seq).header.ts across the chain") {
+    auto p = tmp_db("tas_parity");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 5; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    }
+    for (std::uint64_t s = 1; s <= 5; ++s) {
+        auto r = l.ts_at_seq(s); REQUIRE(r);
+        auto e = l.at(s); REQUIRE(e);
+        CHECK(r.value() == e.value().header.ts);
+    }
+}
+
+// ============== Ledger::age_of_oldest ====================================
+
+TEST_CASE("age_of_oldest: empty chain returns 0ns") {
+    auto p = tmp_db("aoo_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().age_of_oldest(); REQUIRE(r);
+    CHECK(r.value() == std::chrono::nanoseconds{0});
+}
+
+TEST_CASE("age_of_oldest: positive duration on a non-empty chain") {
+    auto p = tmp_db("aoo_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    auto r = l.age_of_oldest(); REQUIRE(r);
+    CHECK(r.value() > std::chrono::nanoseconds{0});
+    // Should be at least 20ms.
+    CHECK(r.value() >= std::chrono::milliseconds{15});
+}
+
+TEST_CASE("age_of_oldest: anchors to seq==1 even after more appends") {
+    auto p = tmp_db("aoo_anchor");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto e1 = l.append("e", "x", nlohmann::json{{"i", 1}}, ""); REQUIRE(e1);
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    auto e2 = l.append("e", "x", nlohmann::json{{"i", 2}}, ""); REQUIRE(e2);
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 3}}, ""));
+    auto r = l.age_of_oldest(); REQUIRE(r);
+    // age_of_oldest measures from seq==1, not the most recent entry.
+    // The age must be at least the gap between the first append and a
+    // subsequent append (15ms slack for clock granularity).
+    auto gap = e2.value().header.ts - e1.value().header.ts;
+    CHECK(r.value() >= gap);
+}
+
+// ============== Ledger::body_byte_size_at ================================
+
+TEST_CASE("body_byte_size_at: matches body_json size at a valid seq") {
+    auto p = tmp_db("bbsa_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    nlohmann::json b1; b1["msg"] = "hello";
+    nlohmann::json b2; b2["msg"] = "a much longer payload to differ in size";
+    auto e1 = l.append("e", "x", b1, ""); REQUIRE(e1);
+    auto e2 = l.append("e", "x", b2, ""); REQUIRE(e2);
+    auto r1 = l.body_byte_size_at(1); REQUIRE(r1);
+    auto r2 = l.body_byte_size_at(2); REQUIRE(r2);
+    CHECK(r1.value() == e1.value().body_json.size());
+    CHECK(r2.value() == e2.value().body_json.size());
+    CHECK(r2.value() > r1.value());
+}
+
+TEST_CASE("body_byte_size_at: invalid seq returns invalid_argument") {
+    auto p = tmp_db("bbsa_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r0 = l.body_byte_size_at(0);
+    CHECK(!r0);
+    CHECK(r0.error().code() == ErrorCode::invalid_argument);
+    auto rover = l.body_byte_size_at(99);
+    CHECK(!rover);
+    CHECK(rover.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("body_byte_size_at: sums to cumulative_body_bytes across the chain") {
+    auto p = tmp_db("bbsa_sum");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 8; i++) {
+        REQUIRE(l.append("e", "x",
+                         nlohmann::json{{"i", i}, {"pad", "data" + std::to_string(i)}},
+                         ""));
+    }
+    std::uint64_t sum = 0;
+    for (std::uint64_t s = 1; s <= l.length(); ++s) {
+        auto r = l.body_byte_size_at(s); REQUIRE(r);
+        sum += r.value();
+    }
+    auto cb = l.cumulative_body_bytes(); REQUIRE(cb);
+    CHECK(sum == cb.value());
+}
+
+// ============== Ledger::any_actor_matches ================================
+
+TEST_CASE("any_actor_matches: true when actor present, false otherwise") {
+    auto p = tmp_db("aam_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json::object(), ""));
+    CHECK(l.any_actor_matches("alice"));
+    CHECK(l.any_actor_matches("bob"));
+    CHECK_FALSE(l.any_actor_matches("ghost"));
+}
+
+TEST_CASE("any_actor_matches: empty actor and empty chain return false") {
+    auto p = tmp_db("aam_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain.
+    CHECK_FALSE(l.any_actor_matches(""));
+    CHECK_FALSE(l.any_actor_matches("alice"));
+    // Now non-empty: empty actor still false.
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    CHECK_FALSE(l.any_actor_matches(""));
+}
+
+TEST_CASE("any_actor_matches: agrees with range_by_actor presence") {
+    auto p = tmp_db("aam_parity");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "bob",   nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "alice", nlohmann::json::object(), ""));
+    auto check = [&](std::string_view who) {
+        auto r = l.range_by_actor(who);
+        bool present = r && !r.value().empty();
+        CHECK(l.any_actor_matches(who) == present);
+    };
+    check("alice");
+    check("bob");
+    check("ghost");
+}

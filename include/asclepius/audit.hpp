@@ -150,6 +150,19 @@ public:
     // Read an entry by sequence number.
     Result<LedgerEntry> at(std::uint64_t seq) const;
 
+    // Read just the timestamp at a given seq. Sugar over at(seq).header.ts
+    // for callers that only need the time anchor without paying for the
+    // full entry copy. Returns invalid_argument if seq == 0 or
+    // seq > length().
+    Result<Time> ts_at_seq(std::uint64_t seq) const;
+
+    // Body byte size of the entry at a given seq. Sugar over
+    // at(seq).body_json.size() for callers that only need the size and
+    // not the bytes themselves. Returns invalid_argument if seq == 0 or
+    // seq > length(). Useful for capacity probes that pin a specific
+    // entry rather than scanning the whole chain.
+    Result<std::uint64_t> body_byte_size_at(std::uint64_t seq) const;
+
     // Read the last n entries (most recent first).
     Result<std::vector<LedgerEntry>> tail(std::size_t n) const;
 
@@ -332,6 +345,14 @@ public:
     // drift.crossed?") that don't need the entries themselves.
     bool has_event_type(std::string_view event_type) const;
 
+    // Cheap O(n)-worst-case existence check: does the chain hold any
+    // entry with header.actor == actor. Stops the scan on the first
+    // hit. Empty actor returns false (no allocation, no scan). Actor
+    // analog of has_event_type — used by feature gates and audit
+    // probes ("has this clinician ever touched the ledger?") that
+    // don't need the entries themselves.
+    bool any_actor_matches(std::string_view actor) const;
+
     // Return every entry whose header.actor matches the supplied
     // string, ordered by seq ascending. Complement to tail_by_actor
     // (which is most-recent-first and capped at n). O(n) scan via
@@ -341,6 +362,17 @@ public:
     // recent slice.
     Result<std::vector<LedgerEntry>>
         range_by_actor(std::string_view actor) const;
+
+    // Composite filter: entries whose header.actor matches `actor` AND
+    // whose header.ts falls in [from, to). Half-open interval.
+    // Seq-ascending. Empty actor returns invalid_argument; from > to
+    // returns invalid_argument. O(n) scan via for_each. Used by
+    // forensic queries like "what did this clinician do during the
+    // night shift?" — counterpart to range_for_patient_in_window but
+    // scoped to actor instead of patient.
+    Result<std::vector<LedgerEntry>>
+        range_for_actor_in_window(std::string_view actor,
+                                  Time from, Time to) const;
 
     // First `n` entries (oldest), seq-ascending. Complement to
     // tail(n) which returns the most-recent slice. n=0 returns the
@@ -488,6 +520,13 @@ public:
     // Oldest entry (seq == 1). not_found on an empty chain. Cheap
     // single-row lookup; complement to newest_entry().
     Result<LedgerEntry> oldest_entry() const;
+
+    // Duration from the oldest entry's ts to Time::now(). Returns 0ns
+    // if the chain is empty (no oldest entry to anchor against).
+    // Useful for retention dashboards ("how old is the oldest record
+    // on this ledger?") and SLO probes that age out chains beyond a
+    // threshold. Single-row lookup; cheap.
+    Result<std::chrono::nanoseconds> age_of_oldest() const;
 
     // Newest entry (seq == length()). not_found on an empty chain.
     // Cheap single-row lookup; complement to oldest_entry(). Equivalent

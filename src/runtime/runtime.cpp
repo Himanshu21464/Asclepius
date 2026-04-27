@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 #include <sqlite3.h>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -243,6 +244,43 @@ std::vector<std::string> Runtime::policy_names() const {
 
 bool Runtime::is_chain_empty() const noexcept {
     return impl_->ledger.length() == 0;
+}
+
+bool Runtime::is_idle(std::chrono::milliseconds threshold) const {
+    // Empty chain is trivially idle — no committed work means no work
+    // to wait on. Bounded read: tail(1) is one indexed lookup.
+    if (impl_->ledger.length() == 0) {
+        return true;
+    }
+    auto t = impl_->ledger.tail(1);
+    if (!t || t.value().empty()) {
+        // Backend hiccup — collapse to "not idle" so a graceful-shutdown
+        // probe never lies about being safe. Diagnostics belong on
+        // health(); this accessor is purely a yes/no gate.
+        return false;
+    }
+    // tail() returns most-recent-first; the freshest entry is at front().
+    const auto& last = t.value().front();
+    auto since = Time::now() - last.header.ts;
+    return since > std::chrono::duration_cast<std::chrono::nanoseconds>(threshold);
+}
+
+std::string Runtime::generate_trace_id() const {
+    // 8 random bytes → 16 hex chars. CSPRNG via libsodium; sodium_init
+    // has been called by the time Runtime::open() returned (KeyStore
+    // and the hashing helpers both initialise on first use, and the
+    // ledger is opened during open()). Lowercase hex matches the
+    // existing Hash::hex() vocabulary used elsewhere on the runtime.
+    std::array<unsigned char, 8> buf{};
+    randombytes_buf(buf.data(), buf.size());
+    static constexpr char kHex[] = "0123456789abcdef";
+    std::string out;
+    out.resize(buf.size() * 2);
+    for (std::size_t i = 0; i < buf.size(); ++i) {
+        out[2 * i]     = kHex[(buf[i] >> 4) & 0xF];
+        out[2 * i + 1] = kHex[ buf[i]       & 0xF];
+    }
+    return out;
 }
 
 Result<void> Runtime::install_default_policies() {

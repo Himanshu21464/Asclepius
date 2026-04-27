@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T16:48:23Z",
+  "generated_at": "2026-04-27T14:58:06Z",
   "algorithm": "SHA-256",
   "count": 92,
   "files": {
@@ -20,8 +20,8 @@
       "bytes": 18978
     },
     "api.html": {
-      "sha256": "e780f0df89b087f44142deae57296a6d01176765a170201fa25dbe191b24a90c",
-      "bytes": 94825
+      "sha256": "1640ab112d9ef8273b2008490871ef18b820fd4a1151125265d08f39781e8584",
+      "bytes": 102969
     },
     "architecture.html": {
       "sha256": "fa4f376af875c541ef212790191e9f183d16856dcc1a8cf699f590a2030f394f",
@@ -100,12 +100,12 @@
       "bytes": 22228
     },
     "changelog.html": {
-      "sha256": "15868e8ad545b596105a88794ee47e4611ab19602cddbcb54f06d910749a3fb4",
-      "bytes": 57572
+      "sha256": "87888a7cd71736d03ba5114032feaec26acdae39346d58728d61fefff82657d5",
+      "bytes": 65548
     },
     "cheatsheet.html": {
-      "sha256": "8dd51d8aec0964d13928d214239d27a3333067602c8fd8c45257430056941485",
-      "bytes": 35761
+      "sha256": "a64397b36fc4f3f20506063489a19279e2ab085d486682a82ab208ad7092e0dc",
+      "bytes": 37798
     },
     "colophon.html": {
       "sha256": "0ebb4261654ffa9010c9029a2216f9b87c32b43a2f10e7f7196c62447354b77c",
@@ -340,7 +340,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "39729bfde8b14d7bc1c88e851cde0724c1278394698a1c06b6383e2baafca54f",
+      "sha256": "08556804ddc9789f9150f5f2839ac9bd935febceeefe00b139dead957512e6ea",
       "bytes": 1045
     },
     "styles.css": {

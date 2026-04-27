@@ -190,6 +190,15 @@ public:
     // Attach a numeric drift observation under a registered feature.
     Result<void> observe_drift(std::string_view feature, double value);
 
+    // Sugar — equivalent to observe_drift(feature, value). Different
+    // name reflects the "named" feature contract more clearly: callers
+    // who think in terms of "submit an observation under a named
+    // feature" prefer this spelling at the call site, while those who
+    // think "observe drift on this signal" prefer the original. Both
+    // forward to the same underlying DriftMonitor::observe() — there
+    // is no behavioural divergence and no separate state.
+    Result<void> observe_drift_named(std::string_view feature, double value);
+
     // Return the seq number of the inference.committed entry in the
     // ledger. Only valid AFTER a successful commit() / commit_idempotent()
     // / capture_override() / attach_ground_truth(). Before commit returns
@@ -248,6 +257,26 @@ public:
     // "did this inference finish?" pair it with is_committed() to
     // distinguish run-but-uncommitted from never-ran. noexcept.
     bool has_completed() const noexcept;
+
+    // True iff has_run() AND status() denotes a non-success terminal
+    // state — any "blocked.*" prefix (input/output policy rejection),
+    // "model_error" (callback returned an Error), "timeout" (deadline
+    // exceeded), or "cancelled" (CancelToken tripped). Sidecars use
+    // this on the hot path to gate alerting / retry logic without
+    // re-allocating and re-comparing the status string at every
+    // call site. Returns false on a handle that hasn't run, on null
+    // impl, on status="ok", and on the destructor-only "aborted"
+    // status (which is recorded by the destructor, not by run()).
+    bool failed() const noexcept;
+
+    // Short, single-line trace summary suitable for log output. Format:
+    //   "inf=<id> patient=<patient> model=<model> status=<status> elapsed=<ms>ms"
+    // Stable shape across runs so log scrapers can rely on it. Used by
+    // sidecar logging without callers having to thread together id() /
+    // ctx().patient() / ctx().model() / status() / elapsed_ms() at
+    // every emit site. Pre-run handles render with an empty status —
+    // callers that care can check has_run() first.
+    std::string trace_summary() const;
 
     // JSON snapshot of the pending ledger_body. Read-only debug
     // accessor — useful for sidecars that want to inspect what would
@@ -499,6 +528,16 @@ public:
     // sidecars use that vocabulary without grabbing Ledger&.
     std::string keystore_fingerprint() const;
 
+    // Generate a fresh hex trace id (16 lowercase hex chars / 8
+    // random bytes) suitable for attaching to an Inference via
+    // add_metadata("trace_id", ...). Bytes come from libsodium's
+    // CSPRNG (randombytes_buf), so the id is uniformly random and
+    // safe to publish externally. Each call returns a distinct id
+    // with overwhelming probability — collision space is 2^64.
+    // Used by sidecars that want to mint a trace id without
+    // pulling in their own RNG dependency.
+    std::string generate_trace_id() const;
+
     // Sugar over policies().names(). Trivial wrapper for callers that
     // want the in-order list of registered policy names without
     // grabbing the PolicyChain& reference (status endpoints, sidecar
@@ -511,6 +550,16 @@ public:
     // consent) without grabbing Ledger&. noexcept; never reads the
     // backend beyond the existing length() call.
     bool is_chain_empty() const noexcept;
+
+    // True iff no ledger entry has landed within the last `threshold`
+    // milliseconds. Empty chain is trivially idle. Used by graceful-
+    // shutdown logic to decide when the runtime can be torn down
+    // without losing in-flight work: drain in-flight requests, then
+    // poll is_idle(grace_period) before stopping the SQLite backend.
+    // Implementation reads tail(1) — bounded; not a chain scan. Errors
+    // from the backend collapse to "not idle" so an unhealthy ledger
+    // never lies its way to a fast shutdown.
+    bool is_idle(std::chrono::milliseconds threshold) const;
 
     // Convenience: clear() the policy chain and push the standard
     // production set — make_phi_scrubber() and a reasonable

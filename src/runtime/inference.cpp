@@ -402,6 +402,49 @@ bool Inference::has_completed() const noexcept {
     return impl_ && impl_->completed;
 }
 
+bool Inference::failed() const noexcept {
+    if (!impl_ || !impl_->completed) return false;
+    auto it = impl_->ledger_body.find("status");
+    if (it == impl_->ledger_body.end() || !it->is_string()) return false;
+    const auto& s = it->get_ref<const std::string&>();
+    // Match was_blocked()'s pattern: avoid string-view allocations on
+    // the hot path by comparing in-place against known terminal-fail
+    // statuses.
+    static constexpr char kBlocked[] = "blocked.";
+    constexpr std::size_t kBlockedLen = sizeof(kBlocked) - 1;
+    if (s.size() >= kBlockedLen &&
+        std::memcmp(s.data(), kBlocked, kBlockedLen) == 0) {
+        return true;
+    }
+    return s == "model_error" || s == "timeout" || s == "cancelled";
+}
+
+std::string Inference::trace_summary() const {
+    if (!impl_) return std::string{};
+    // Format:
+    //   inf=<id> patient=<patient> model=<model> status=<status> elapsed=<ms>ms
+    // Build with reserve() to keep this allocation-light on the hot
+    // logging path. The status field is the only one that can be
+    // empty (pre-run); the rest carry their canonical id strings.
+    const auto& c = impl_->ctx;
+    const std::string st = status();
+    std::string id_s{c.id()};
+    std::string patient_s{c.patient().str()};
+    std::string model_s{c.model().str()};
+    std::string elapsed_s = std::to_string(elapsed_ms());
+
+    std::string out;
+    out.reserve(id_s.size() + patient_s.size() + model_s.size()
+                + st.size() + elapsed_s.size() + 48);
+    out += "inf=";       out += id_s;
+    out += " patient=";  out += patient_s;
+    out += " model=";    out += model_s;
+    out += " status=";   out += st;
+    out += " elapsed=";  out += elapsed_s;
+    out += "ms";
+    return out;
+}
+
 nlohmann::json Inference::body_snapshot() const {
     if (!impl_) return nlohmann::json::object();
     // Deep copy by value so callers can't mutate our pending body.
@@ -613,6 +656,14 @@ Result<void> Inference::attach_ground_truth(nlohmann::json truth,
 
 Result<void> Inference::observe_drift(std::string_view feature, double value) {
     return impl_->rt->drift().observe(feature, value);
+}
+
+Result<void> Inference::observe_drift_named(std::string_view feature, double value) {
+    // Sugar — forwards verbatim to observe_drift(). Kept as a thin
+    // pass-through so the "named" framing stays cheap; if the
+    // underlying contract ever grows new error paths, both spellings
+    // inherit them automatically.
+    return observe_drift(feature, value);
 }
 
 // ---- Runtime::begin_inference -------------------------------------------

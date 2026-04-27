@@ -2806,3 +2806,277 @@ TEST_CASE("deserialize_from_json: accepts the {tokens: [...]} envelope from dump
     CHECK(n.value() == 1u);
     CHECK(dst.total_count() == 1u);
 }
+
+// ---- token_age ----------------------------------------------------------
+
+TEST_CASE("token_age: returns a non-negative duration for a freshly granted token") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("age_fresh");
+    auto t = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t);
+
+    auto age = r.token_age(t.value().token_id);
+    REQUIRE(age);
+    CHECK(age.value().count() >= 0);
+    // A freshly issued token should be much younger than its TTL.
+    CHECK(age.value() < std::chrono::seconds{60});
+}
+
+TEST_CASE("token_age: returns not_found for unknown token id") {
+    ConsentRegistry r;
+    auto a = r.token_age("ct_does_not_exist");
+    REQUIRE(!a);
+    CHECK(a.error().code() == ErrorCode::not_found);
+
+    auto b = r.token_age("");
+    REQUIRE(!b);
+    CHECK(b.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("token_age: still resolves for a revoked token (revoke does not erase)") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("age_rev");
+    auto t = r.grant(p, {Purpose::operations}, 1h);
+    REQUIRE(t);
+    REQUIRE(r.revoke(t.value().token_id));
+
+    auto age = r.token_age(t.value().token_id);
+    REQUIRE(age);
+    CHECK(age.value().count() >= 0);
+}
+
+TEST_CASE("token_age: monotonic - older tokens age further than newer ones") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("age_mono");
+    auto t1 = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t1);
+    std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    auto t2 = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t2);
+
+    auto a1 = r.token_age(t1.value().token_id);
+    auto a2 = r.token_age(t2.value().token_id);
+    REQUIRE(a1); REQUIRE(a2);
+    CHECK(a1.value() >= a2.value());
+}
+
+// ---- distinct_patients_count -------------------------------------------
+
+TEST_CASE("distinct_patients_count: empty registry returns 0") {
+    ConsentRegistry r;
+    CHECK(r.distinct_patients_count() == 0u);
+}
+
+TEST_CASE("distinct_patients_count: counts unique patients across multiple tokens") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("dp_a");
+    auto b = PatientId::pseudonymous("dp_b");
+    auto c = PatientId::pseudonymous("dp_c");
+    REQUIRE(r.grant(a, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(a, {Purpose::research}, 1h));   // same patient, second token
+    REQUIRE(r.grant(b, {Purpose::operations}, 1h));
+    REQUIRE(r.grant(c, {Purpose::medication_review}, 1h));
+    CHECK(r.distinct_patients_count() == 3u);
+}
+
+TEST_CASE("distinct_patients_count: includes revoked and expired tokens") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("dp_rev_a");
+    auto b = PatientId::pseudonymous("dp_rev_b");
+    auto t = r.grant(a, {Purpose::triage}, 1h);
+    REQUIRE(t);
+    REQUIRE(r.revoke(t.value().token_id));
+    REQUIRE(r.grant(b, {Purpose::operations}, 1h));
+    // Even though `a`'s only token is revoked, distinct_patients_count
+    // still counts patients with any token on file.
+    CHECK(r.distinct_patients_count() == 2u);
+}
+
+TEST_CASE("distinct_patients_count: agrees with patient_count synonym") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("dp_syn_a");
+    auto b = PatientId::pseudonymous("dp_syn_b");
+    REQUIRE(r.grant(a, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(b, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(a, {Purpose::operations}, 1h));
+    CHECK(r.distinct_patients_count() == r.patient_count());
+}
+
+// ---- find_token_granting_all -------------------------------------------
+
+TEST_CASE("find_token_granting_all: finds a token covering all requested purposes") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ga_all");
+    auto t = r.grant(p, {Purpose::triage, Purpose::medication_review,
+                         Purpose::operations}, 1h);
+    REQUIRE(t);
+
+    std::vector<Purpose> wanted = {Purpose::triage, Purpose::medication_review};
+    auto hit = r.find_token_granting_all(p, std::span<const Purpose>{wanted});
+    REQUIRE(hit);
+    CHECK(hit.value().token_id == t.value().token_id);
+}
+
+TEST_CASE("find_token_granting_all: returns not_found if no single token covers all") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ga_split");
+    // Two tokens that, taken together, cover triage+research, but
+    // neither one alone does.
+    REQUIRE(r.grant(p, {Purpose::triage},   1h));
+    REQUIRE(r.grant(p, {Purpose::research}, 1h));
+
+    std::vector<Purpose> wanted = {Purpose::triage, Purpose::research};
+    auto hit = r.find_token_granting_all(p, std::span<const Purpose>{wanted});
+    REQUIRE(!hit);
+    CHECK(hit.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_token_granting_all: empty purposes -> invalid_argument") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ga_empty");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    std::vector<Purpose> empty;
+    auto hit = r.find_token_granting_all(p, std::span<const Purpose>{empty});
+    REQUIRE(!hit);
+    CHECK(hit.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("find_token_granting_all: ignores revoked tokens even if they cover everything") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ga_rev");
+    auto t = r.grant(p, {Purpose::triage, Purpose::operations}, 1h);
+    REQUIRE(t);
+    REQUIRE(r.revoke(t.value().token_id));
+
+    std::vector<Purpose> wanted = {Purpose::triage, Purpose::operations};
+    auto hit = r.find_token_granting_all(p, std::span<const Purpose>{wanted});
+    REQUIRE(!hit);
+    CHECK(hit.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_token_granting_all: per-patient scoping") {
+    ConsentRegistry r;
+    auto alice = PatientId::pseudonymous("ga_alice");
+    auto bob   = PatientId::pseudonymous("ga_bob");
+    REQUIRE(r.grant(alice, {Purpose::triage, Purpose::operations}, 1h));
+
+    std::vector<Purpose> wanted = {Purpose::triage, Purpose::operations};
+    // alice has it, bob does not.
+    auto a_hit = r.find_token_granting_all(alice, std::span<const Purpose>{wanted});
+    REQUIRE(a_hit);
+    auto b_hit = r.find_token_granting_all(bob,   std::span<const Purpose>{wanted});
+    REQUIRE(!b_hit);
+    CHECK(b_hit.error().code() == ErrorCode::not_found);
+}
+
+// ---- TokenLifecycle / token_lifecycle ----------------------------------
+
+TEST_CASE("token_lifecycle: active token reports State::active") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("lc_active");
+    auto t = r.grant(p, {Purpose::triage}, 1h);
+    REQUIRE(t);
+
+    auto lc = r.token_lifecycle(t.value().token_id);
+    REQUIRE(lc);
+    CHECK(lc.value().token_id == t.value().token_id);
+    CHECK(lc.value().issued_at  == t.value().issued_at);
+    CHECK(lc.value().expires_at == t.value().expires_at);
+    CHECK(lc.value().revoked == false);
+    CHECK(lc.value().state ==
+          ConsentRegistry::TokenLifecycle::State::active);
+}
+
+TEST_CASE("token_lifecycle: revoked token reports State::revoked") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("lc_revoked");
+    auto t = r.grant(p, {Purpose::operations}, 1h);
+    REQUIRE(t);
+    REQUIRE(r.revoke(t.value().token_id));
+
+    auto lc = r.token_lifecycle(t.value().token_id);
+    REQUIRE(lc);
+    CHECK(lc.value().revoked == true);
+    CHECK(lc.value().state ==
+          ConsentRegistry::TokenLifecycle::State::revoked);
+}
+
+TEST_CASE("token_lifecycle: returns not_found for unknown token id") {
+    ConsentRegistry r;
+    auto lc = r.token_lifecycle("ct_no_such_token");
+    REQUIRE(!lc);
+    CHECK(lc.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("token_lifecycle: revoked-and-expired prefers revoked over expired") {
+    // Use ingest() to fabricate a token whose expires_at is in the past
+    // AND whose revoked flag is true; the priority rule says revoked
+    // wins.
+    ConsentRegistry r;
+    ConsentToken fab;
+    fab.token_id   = "ct_lc_priority";
+    fab.patient    = PatientId::pseudonymous("lc_prio");
+    fab.purposes   = {Purpose::triage};
+    fab.issued_at  = Time{0};
+    fab.expires_at = Time{1};       // long expired
+    fab.revoked    = true;
+    REQUIRE(r.ingest(fab));
+
+    auto lc = r.token_lifecycle("ct_lc_priority");
+    REQUIRE(lc);
+    CHECK(lc.value().state ==
+          ConsentRegistry::TokenLifecycle::State::revoked);
+}
+
+TEST_CASE("to_string(TokenLifecycle::State) covers every enumerator") {
+    using S = ConsentRegistry::TokenLifecycle::State;
+    CHECK(std::string{to_string(S::active)}  == "active");
+    CHECK(std::string{to_string(S::revoked)} == "revoked");
+    CHECK(std::string{to_string(S::expired)} == "expired");
+}
+
+// ---- has_active_token --------------------------------------------------
+
+TEST_CASE("has_active_token: true after a fresh grant") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("hat_fresh");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    CHECK(r.has_active_token(p) == true);
+}
+
+TEST_CASE("has_active_token: false for a patient we have never seen") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("hat_unknown");
+    CHECK(r.has_active_token(p) == false);
+}
+
+TEST_CASE("has_active_token: false after the only token is revoked") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("hat_rev");
+    auto t = r.grant(p, {Purpose::operations}, 1h);
+    REQUIRE(t);
+    CHECK(r.has_active_token(p) == true);
+    REQUIRE(r.revoke(t.value().token_id));
+    CHECK(r.has_active_token(p) == false);
+}
+
+TEST_CASE("has_active_token: still true if at least one of several tokens is active") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("hat_partial");
+    auto t1 = r.grant(p, {Purpose::triage}, 1h);
+    auto t2 = r.grant(p, {Purpose::operations}, 1h);
+    REQUIRE(t1); REQUIRE(t2);
+    REQUIRE(r.revoke(t1.value().token_id));
+    CHECK(r.has_active_token(p) == true);
+    REQUIRE(r.revoke(t2.value().token_id));
+    CHECK(r.has_active_token(p) == false);
+}
+
+TEST_CASE("has_active_token: per-patient scoped") {
+    ConsentRegistry r;
+    auto alice = PatientId::pseudonymous("hat_alice");
+    auto bob   = PatientId::pseudonymous("hat_bob");
+    REQUIRE(r.grant(alice, {Purpose::triage}, 1h));
+    CHECK(r.has_active_token(alice) == true);
+    CHECK(r.has_active_token(bob)   == false);
+}

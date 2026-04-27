@@ -116,6 +116,11 @@ public:
     // Number of bins with at least one observation. Locked.
     std::size_t nonzero_bin_count() const;
 
+    // Raw observation count in bin i. Returns Error::invalid_argument if
+    // i >= bin_count(). Lets callers introspect a single bin without
+    // copying the full counts_ vector or normalizing. Locked.
+    Result<std::uint64_t> bin_at(std::size_t i) const;
+
     // Cumulative distribution function: for each bin i, the fraction of
     // total observations that fall at or below that bin's upper edge.
     // Length == bin_count(). The last entry is 1.0 for any non-empty
@@ -292,6 +297,16 @@ public:
     // Returns Error::not_found if the feature was never registered.
     Result<DriftSeverity> feature_severity(std::string_view feature) const;
 
+    // Up-to-`n` historical drift snapshots for one feature, ordered oldest
+    // first. The current implementation returns the single current snapshot
+    // (matching `report_for_feature`) and ignores `n` — future versions will
+    // maintain a per-feature ring buffer of past reports populated either on
+    // severity crossings or on telemetry calls. Returns an empty vector if
+    // the feature was never registered (a "show me trend" call that no-trend
+    // is fine — empty rather than not_found).
+    std::vector<DriftReport> trend_for_feature(std::string_view feature,
+                                               std::size_t      n) const;
+
 private:
     struct FeatureState;
     std::unordered_map<std::string, std::unique_ptr<FeatureState>> features_;
@@ -431,6 +446,30 @@ public:
     // "what changed since this snapshot." Signed so deltas survive resets.
     std::unordered_map<std::string, std::int64_t>
     diff(const std::unordered_map<std::string, std::uint64_t>& baseline) const;
+
+    // Sum of absolute deltas across the union of (current ∪ baseline)
+    // counter names. Equivalent to summing |v| over diff(baseline).values().
+    // Used to summarize "how much activity happened between two snapshots"
+    // as a single scalar — useful for dashboards that want one number for
+    // a sparkline rather than a per-counter table.
+    std::uint64_t
+    counter_diff_total(const std::unordered_map<std::string, std::uint64_t>& baseline) const;
+
+    // Convenience ratio between two registered counters, returning
+    // count(numerator) / count(denominator) as a double. Returns
+    // Error::not_found if either counter is unregistered (using
+    // counter_value semantics — a missing counter is distinct from a
+    // 0-valued one). Returns Error::invalid_argument if the denominator
+    // resolves to 0 to avoid division-by-zero. Useful for derived rates
+    // such as "blocked_input / inference_attempts" without having to
+    // unpack a snapshot.
+    Result<double> ratio(std::string_view numerator,
+                         std::string_view denominator) const;
+
+    // True iff the registry contains no counters AND no histograms.
+    // Cheap predicate gated by the registry mutex — used by health
+    // probes that want to assert telemetry is wired up before scraping.
+    bool is_empty() const noexcept;
 
 private:
     struct Hist {

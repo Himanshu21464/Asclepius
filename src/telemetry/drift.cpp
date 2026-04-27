@@ -109,6 +109,14 @@ std::size_t Histogram::nonzero_bin_count() const {
     return n;
 }
 
+Result<std::uint64_t> Histogram::bin_at(std::size_t i) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (i >= counts_.size()) {
+        return Error::invalid("Histogram::bin_at: index out of range");
+    }
+    return counts_[i];
+}
+
 bool Histogram::is_empty() const noexcept {
     try {
         std::lock_guard<std::mutex> lk(mu_);
@@ -713,6 +721,29 @@ Result<DriftSeverity> DriftMonitor::feature_severity(std::string_view feature) c
     }
     const double psi = Histogram::psi(*it->second->reference, *it->second->current);
     return classify(psi);
+}
+
+std::vector<DriftReport>
+DriftMonitor::trend_for_feature(std::string_view feature, std::size_t /*n*/) const {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = features_.find(std::string{feature});
+    if (it == features_.end()) {
+        // "Show me a trend" call: a missing feature returns an empty
+        // vector rather than an error. Future versions will buffer up
+        // to `n` historical snapshots; for now we surface a single
+        // current snapshot regardless of `n`.
+        return {};
+    }
+    DriftReport r;
+    r.feature      = std::string{feature};
+    r.psi          = Histogram::psi(*it->second->reference, *it->second->current);
+    r.ks_statistic = Histogram::ks (*it->second->reference, *it->second->current);
+    r.emd          = Histogram::emd(*it->second->reference, *it->second->current);
+    r.severity     = classify(r.psi);
+    r.reference_n  = it->second->reference->total();
+    r.current_n    = it->second->current->total();
+    r.computed_at  = Time::now();
+    return std::vector<DriftReport>{std::move(r)};
 }
 
 Result<std::string> DriftMonitor::most_drifted_feature() const {

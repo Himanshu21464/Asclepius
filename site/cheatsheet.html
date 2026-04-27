@@ -561,6 +561,24 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 83 <small>composite filters · lifecycle states · trace plumbing</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.range_for_actor_in_window(a, t0, t1)</code></dt><dd>composite filter — actor + time-window in one query</dd>
+        <dt><code>ledger.ts_at_seq(s) · age_of_oldest()</code></dt><dd>cheap timestamp lookup · chain-lifespan in nanoseconds</dd>
+        <dt><code>ledger.body_byte_size_at(s) · any_actor_matches(a)</code></dt><dd>per-row size · cheap actor-existence bool</dd>
+        <dt><code>metrics.ratio(num, denom)</code></dt><dd>SLO ratio in one call — <code>not_found</code> on missing, <code>invalid_argument</code> on div-by-zero</dd>
+        <dt><code>metrics.counter_diff_total(baseline) · is_empty()</code></dt><dd>sum of absolute counter deltas · noexcept startup-gate bool</dd>
+        <dt><code>hist.bin_at(i) · drift.trend_for_feature(f, n)</code></dt><dd>single-bin introspection · PSI trend (single-snapshot now, buffered later)</dd>
+        <dt><code>consent.token_age(id) · distinct_patients_count()</code></dt><dd>per-token wall-clock age · explicit "distinct" cardinality</dd>
+        <dt><code>consent.find_token_granting_all(p, span&lt;Purpose&gt;)</code></dt><dd>one token covering EVERY purpose simultaneously — distinct from <code>find_by_purpose</code></dd>
+        <dt><code>consent.token_lifecycle(id)</code></dt><dd><strong>TokenLifecycle</strong> struct · <code>State</code> enum (<em>revoked &gt; expired &gt; active</em> priority)</dd>
+        <dt><code>consent.has_active_token(p)</code></dt><dd>noexcept hot-loop bool — "any active consent at all?"</dd>
+        <dt><code>inf.failed() · trace_summary() · observe_drift_named(f, v)</code></dt><dd>retry-predicate noexcept bool · single-line APM log shape · sugar over <code>observe_drift</code></dd>
+        <dt><code>rt.is_idle(ms) · generate_trace_id()</code></dt><dd>spin-down gate · 16-hex CSPRNG trace id from libsodium</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Round 82 <small>cold backups · merkle proofs · env probes</small></h2>
       <dl class="pair">
         <dt><code>ledger.cumulative_body_bytes()</code></dt><dd>logical content size — distinct from the on-disk file</dd>
