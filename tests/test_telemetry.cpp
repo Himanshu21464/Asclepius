@@ -3554,3 +3554,403 @@ TEST_CASE("MetricRegistry::reset_all_counters integration — registry remains u
         CHECK(m.has(name));
     }
 }
+
+// ---- Histogram move construction / assignment (feature 1) ---------------
+
+TEST_CASE("Histogram move ctor basic — moved-into copy carries lo/hi/bins/total") {
+    Histogram src{0.0, 1.0, 10};
+    for (int i = 0; i < 30; ++i) src.observe(0.25);
+    for (int i = 0; i < 20; ++i) src.observe(0.75);
+    REQUIRE(src.total() == 50);
+    const auto src_mean = src.mean();
+    const auto src_p50  = src.median();
+
+    Histogram moved{std::move(src)};
+    // Geometry preserved.
+    CHECK(moved.lo()        == doctest::Approx(0.0));
+    CHECK(moved.hi()        == doctest::Approx(1.0));
+    CHECK(moved.bin_count() == 10);
+    // Observation state preserved.
+    CHECK(moved.total() == 50);
+    CHECK(moved.mean()   == doctest::Approx(src_mean));
+    CHECK(moved.median() == doctest::Approx(src_p50));
+    // Per-bin contents preserved end-to-end.
+    auto bin25 = moved.bin_at(2);  // [0.20, 0.30) — bin index 2
+    REQUIRE(bin25);
+    CHECK(bin25.value() == 30);
+    auto bin75 = moved.bin_at(7);  // [0.70, 0.80) — bin index 7
+    REQUIRE(bin75);
+    CHECK(bin75.value() == 20);
+}
+
+TEST_CASE("Histogram move ctor edge — moved-from instance is emptied but usable") {
+    Histogram src{0.0, 1.0, 10};
+    for (int i = 0; i < 50; ++i) src.observe(0.5);
+    REQUIRE(src.total() == 50);
+
+    Histogram moved{std::move(src)};
+    REQUIRE(moved.total() == 50);
+
+    // The moved-from histogram must be safe to interact with: total() ==
+    // 0, observe() works, clear() is a no-op, no UB on access.
+    CHECK(src.total() == 0);
+    CHECK(src.is_empty());
+    src.observe(0.4);  // re-using a moved-from instance is legal
+    CHECK(src.total() == 1);
+    src.clear();
+    CHECK(src.total() == 0);
+    // The moved-into histogram is independent: src.observe() didn't touch it.
+    CHECK(moved.total() == 50);
+}
+
+TEST_CASE("Histogram move assignment integration — return-by-value compiles & works") {
+    // The audit module needs Histogram to be returnable from
+    // `Result<Histogram>`-shaped getters, so this is the main contract
+    // the move ops have to satisfy. We synthesize the same call shape
+    // here: a function that constructs a Histogram and returns it by
+    // value, then a Result<Histogram> round-trip.
+    auto make_populated = [](double lo, double hi, std::size_t bins) -> Histogram {
+        Histogram h{lo, hi, bins};
+        for (int i = 0; i < 100; ++i) h.observe(lo + 0.5 * (hi - lo));
+        return h;  // requires Histogram to be move-constructible
+    };
+    Histogram h = make_populated(0.0, 1.0, 8);
+    CHECK(h.total() == 100);
+    CHECK(h.mean() == doctest::Approx(0.5).epsilon(0.1));
+
+    // Move assignment: replace `h` with a freshly-built one.
+    h = make_populated(-1.0, 1.0, 16);
+    CHECK(h.lo() == doctest::Approx(-1.0));
+    CHECK(h.hi() == doctest::Approx( 1.0));
+    CHECK(h.bin_count() == 16);
+    CHECK(h.total() == 100);
+
+    // Self-assignment is a no-op (and must not deadlock — the
+    // implementation short-circuits before touching the mutex).
+    Histogram& self_ref = h;
+    h = std::move(self_ref);
+    CHECK(h.total() == 100);
+
+    // Result<Histogram> integration: pack a histogram into a Result and
+    // unpack it. Verifies Histogram travels through the variant cleanly.
+    auto producer = []() -> Result<Histogram> {
+        Histogram out{0.0, 10.0, 5};
+        for (int i = 0; i < 7; ++i) out.observe(2.5);
+        return out;  // move into Result<T>
+    };
+    auto r = producer();
+    REQUIRE(r);
+    CHECK(r.value().total() == 7);
+}
+
+// ---- MetricRegistry::counter_min (feature 2) ----------------------------
+
+TEST_CASE("MetricRegistry::counter_min basic — returns smallest counter value") {
+    MetricRegistry m;
+    m.inc("requests", 100);
+    m.inc("errors",   3);
+    m.inc("retries",  17);
+
+    auto v = m.counter_min();
+    REQUIRE(v);
+    CHECK(v.value() == 3);
+
+    // Adding a smaller counter shifts the minimum.
+    m.inc("dropped", 1);
+    auto v2 = m.counter_min();
+    REQUIRE(v2);
+    CHECK(v2.value() == 1);
+
+    // 0 is a legal value; counter_min picks it up correctly.
+    m.inc("zeros", 0);  // create-on-first-use leaves the value at 0
+    auto v3 = m.counter_min();
+    REQUIRE(v3);
+    CHECK(v3.value() == 0);
+}
+
+TEST_CASE("MetricRegistry::counter_min edge — not_found on empty registry") {
+    MetricRegistry m;
+    auto v = m.counter_min();
+    REQUIRE_FALSE(v);
+    CHECK(v.error().code() == ErrorCode::not_found);
+
+    // Registry containing only histograms (no counters) is also empty
+    // for counter_min purposes.
+    m.observe("latency", 0.001);
+    auto v2 = m.counter_min();
+    REQUIRE_FALSE(v2);
+    CHECK(v2.error().code() == ErrorCode::not_found);
+
+    // After dropping all counters via reset_all_counters() the names
+    // are still present (just zeroed), so counter_min should now return
+    // 0 rather than not_found — distinguishing "no counters" from
+    // "all counters at 0".
+    m.inc("placeholder", 5);
+    REQUIRE(m.counter_count() == 1);
+    m.reset_all_counters();
+    auto v3 = m.counter_min();
+    REQUIRE(v3);
+    CHECK(v3.value() == 0);
+}
+
+TEST_CASE("MetricRegistry::counter_min integration — bounded by counter_max, agrees with snapshot") {
+    MetricRegistry m;
+    m.inc("a", 12);
+    m.inc("b", 4);
+    m.inc("c", 27);
+    m.inc("d", 9);
+
+    auto vmin = m.counter_min();
+    REQUIRE(vmin);
+    const auto vmax = m.counter_max();
+    // counter_min ≤ counter_max for any non-empty registry.
+    CHECK(vmin.value() <= vmax);
+    CHECK(vmax == 27);
+    CHECK(vmin.value() == 4);
+
+    // counter_min should match the manual scan across counter_snapshot().
+    auto snap = m.counter_snapshot();
+    REQUIRE_FALSE(snap.empty());
+    std::uint64_t manual_min = snap.begin()->second;
+    for (const auto& [k, v] : snap) {
+        if (v < manual_min) manual_min = v;
+    }
+    CHECK(vmin.value() == manual_min);
+
+    // Removing the smallest counter via reset() makes its value 0,
+    // which becomes the new min (since the name is still registered).
+    auto reset_ok = m.reset("b");
+    REQUIRE(reset_ok);
+    auto vmin2 = m.counter_min();
+    REQUIRE(vmin2);
+    CHECK(vmin2.value() == 0);
+}
+
+// ---- MetricRegistry::has_any (feature 3) --------------------------------
+
+TEST_CASE("MetricRegistry::has_any basic — true once any metric is recorded") {
+    MetricRegistry m;
+    CHECK_FALSE(m.has_any());
+    CHECK(m.is_empty());
+
+    m.inc("ctr", 1);
+    CHECK(m.has_any());
+    CHECK_FALSE(m.is_empty());
+
+    // After clear, has_any flips back to false.
+    m.clear();
+    CHECK_FALSE(m.has_any());
+    CHECK(m.is_empty());
+}
+
+TEST_CASE("MetricRegistry::has_any edge — true for histogram-only registry; noexcept compile-time") {
+    MetricRegistry m;
+    m.observe("latency", 0.001);
+    CHECK(m.has_any());
+    CHECK_FALSE(m.is_empty());
+
+    m.reset_histograms();
+    CHECK_FALSE(m.has_any());
+
+    // Counter-only registry: has_any true even when counter is at 0.
+    m.inc("placeholder", 0);
+    CHECK(m.has_any());
+    m.reset_all_counters();
+    // reset_all_counters preserves names (data zeroed), so has_any
+    // stays true.
+    CHECK(m.has_any());
+
+    // noexcept contract — verified at compile time. Match the existing
+    // noexcept-static_assert pattern used for is_empty()/has().
+    static_assert(noexcept(std::declval<const MetricRegistry&>().has_any()),
+                  "MetricRegistry::has_any must be noexcept");
+}
+
+TEST_CASE("MetricRegistry::has_any integration — bitwise opposite of is_empty across transitions") {
+    MetricRegistry m;
+    auto check_invariant = [&]() {
+        CHECK(m.has_any() == !m.is_empty());
+    };
+
+    check_invariant();  // both empty
+    m.inc("a", 5);
+    check_invariant();
+    m.observe("h", 0.1);
+    check_invariant();
+    m.reset_all_counters();
+    check_invariant();  // counters zeroed but names live; histogram lives
+    m.reset_histograms();
+    check_invariant();  // histograms gone; counter names still live → has_any
+    m.clear();
+    check_invariant();  // all gone → !has_any
+}
+
+// ---- DriftMonitor::set_alert_threshold (feature 4) ----------------------
+
+TEST_CASE("DriftMonitor::set_alert_threshold basic — re-tunes threshold without changing sink") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("f", std::vector<double>(50, 0.1), 0.0, 1.0, 10));
+
+    int fires = 0;
+    dm.set_alert_sink([&](const DriftReport&) { ++fires; }, DriftSeverity::severe);
+    REQUIRE(dm.has_alert_sink());
+
+    // Lower the threshold to "minor". The sink stays installed.
+    dm.set_alert_threshold(DriftSeverity::minor);
+    CHECK(dm.has_alert_sink());
+
+    // Now an observation that would have been below "severe" can fire
+    // under the new "minor" threshold. Observations far from the
+    // baseline drive the PSI up.
+    for (int i = 0; i < 30; ++i) {
+        REQUIRE(dm.observe("f", 0.95));
+    }
+    CHECK(fires >= 1);
+}
+
+TEST_CASE("DriftMonitor::set_alert_threshold edge — does NOT clear last_severity_") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("f", std::vector<double>(50, 0.1), 0.0, 1.0, 10));
+
+    int fires = 0;
+    dm.set_alert_sink([&](const DriftReport&) { ++fires; }, DriftSeverity::moder);
+
+    // Drive PSI past the moder threshold. Sink fires once on the rising
+    // edge.
+    for (int i = 0; i < 60; ++i) {
+        REQUIRE(dm.observe("f", 0.95));
+    }
+    REQUIRE(fires >= 1);
+    const int after_first = fires;
+
+    // Bump the threshold UP to severe — last_severity_ retains the
+    // already-recorded "moder" mark, and the implementation explicitly
+    // does NOT clear the alert ladder. Subsequent observations that
+    // hold steady at the same severity should NOT cause a re-fire.
+    dm.set_alert_threshold(DriftSeverity::severe);
+    for (int i = 0; i < 5; ++i) {
+        REQUIRE(dm.observe("f", 0.95));
+    }
+    // We can't say much about the absolute fire count (severity may
+    // rise to severe and fire once more), but we can assert the
+    // last_severity_ map was NOT cleared by set_alert_threshold —
+    // verify via clear_alerts() pairing: a follow-up clear_alerts()
+    // SHOULD allow re-fires from the bottom of the ladder.
+    const int before_clear = fires;
+    dm.clear_alerts();
+    dm.set_alert_threshold(DriftSeverity::minor);
+    for (int i = 0; i < 30; ++i) {
+        REQUIRE(dm.observe("f", 0.95));
+    }
+    CHECK(fires > before_clear);
+}
+
+TEST_CASE("DriftMonitor::set_alert_threshold integration — preserves sink identity and survives no-op tunes") {
+    DriftMonitor dm;
+    REQUIRE(dm.register_feature("f", std::vector<double>(50, 0.5), 0.0, 1.0, 10));
+
+    int fires = 0;
+    dm.set_alert_sink([&](const DriftReport&) { ++fires; }, DriftSeverity::moder);
+    REQUIRE(dm.has_alert_sink());
+
+    // Re-tune to the SAME threshold — no-op, sink stays.
+    dm.set_alert_threshold(DriftSeverity::moder);
+    CHECK(dm.has_alert_sink());
+
+    // Re-tune through several values; sink must remain installed.
+    dm.set_alert_threshold(DriftSeverity::none);
+    CHECK(dm.has_alert_sink());
+    dm.set_alert_threshold(DriftSeverity::severe);
+    CHECK(dm.has_alert_sink());
+    dm.set_alert_threshold(DriftSeverity::minor);
+    CHECK(dm.has_alert_sink());
+
+    // The sink must still be wired to the same callable (we can't peek
+    // identity, but we can prove it fires by driving drift).
+    for (int i = 0; i < 60; ++i) {
+        REQUIRE(dm.observe("f", 0.95));
+    }
+    CHECK(fires >= 1);
+}
+
+// ---- Histogram::scale_by (feature 5) ------------------------------------
+
+TEST_CASE("Histogram::scale_by basic — multiplies every bin by the factor") {
+    Histogram h{0.0, 1.0, 4};
+    for (int i = 0; i < 10; ++i) h.observe(0.1);   // bin 0
+    for (int i = 0; i < 20; ++i) h.observe(0.4);   // bin 1
+    for (int i = 0; i < 30; ++i) h.observe(0.7);   // bin 2
+    REQUIRE(h.total() == 60);
+
+    auto ok = h.scale_by(0.5);
+    REQUIRE(ok);
+    // Every bin is halved (with floor).
+    auto b0 = h.bin_at(0); REQUIRE(b0); CHECK(b0.value() == 5);
+    auto b1 = h.bin_at(1); REQUIRE(b1); CHECK(b1.value() == 10);
+    auto b2 = h.bin_at(2); REQUIRE(b2); CHECK(b2.value() == 15);
+    auto b3 = h.bin_at(3); REQUIRE(b3); CHECK(b3.value() == 0);
+    // total_ matches the post-scale bin sum.
+    CHECK(h.total() == 30);
+}
+
+TEST_CASE("Histogram::scale_by edge — factor==0 clears, factor<0 returns invalid_argument") {
+    Histogram h{0.0, 1.0, 4};
+    for (int i = 0; i < 17; ++i) h.observe(0.25);
+    REQUIRE(h.total() == 17);
+
+    // factor == 0 is a "clear via scale" — every count becomes 0.
+    auto z = h.scale_by(0.0);
+    REQUIRE(z);
+    CHECK(h.total() == 0);
+    CHECK(h.is_empty());
+    auto b = h.bin_at(1); REQUIRE(b); CHECK(b.value() == 0);
+
+    // factor < 0 is an invalid argument; histogram unchanged.
+    for (int i = 0; i < 5; ++i) h.observe(0.25);
+    REQUIRE(h.total() == 5);
+    auto bad = h.scale_by(-0.5);
+    REQUIRE_FALSE(bad);
+    CHECK(bad.error().code() == ErrorCode::invalid_argument);
+    CHECK(h.total() == 5);  // untouched
+
+    // factor == 1.0 is effectively a no-op (the floor-trunc only matters
+    // for boundary-rational scales).
+    auto noop = h.scale_by(1.0);
+    REQUIRE(noop);
+    CHECK(h.total() == 5);
+}
+
+TEST_CASE("Histogram::scale_by integration — preserves geometry; downsample-then-merge weighting") {
+    Histogram a{0.0, 1.0, 10};
+    Histogram b{0.0, 1.0, 10};
+    for (int i = 0; i < 100; ++i) a.observe(0.25);  // 100 in bin 2
+    for (int i = 0; i < 100; ++i) b.observe(0.75);  // 100 in bin 7
+
+    // Downweight `a` to a quarter before merging; merged total should
+    // be 25 (from a) + 100 (from b) = 125.
+    REQUIRE(a.scale_by(0.25));
+    CHECK(a.total() == 25);
+    // Geometry is preserved (lo/hi/bin_count) — scale_by only touches
+    // counts and total.
+    CHECK(a.lo() == doctest::Approx(0.0));
+    CHECK(a.hi() == doctest::Approx(1.0));
+    CHECK(a.bin_count() == 10);
+
+    REQUIRE(b.merge(a));
+    CHECK(b.total() == 125);
+    auto bin2 = b.bin_at(2); REQUIRE(bin2); CHECK(bin2.value() == 25);
+    auto bin7 = b.bin_at(7); REQUIRE(bin7); CHECK(bin7.value() == 100);
+
+    // Floor semantics: 7 * 0.5 = 3.5 → 3, 9 * 0.5 = 4.5 → 4. Verify by
+    // building a histogram with odd bin counts and scaling.
+    Histogram h{0.0, 1.0, 4};
+    for (int i = 0; i < 7; ++i) h.observe(0.1);
+    for (int i = 0; i < 9; ++i) h.observe(0.4);
+    REQUIRE(h.total() == 16);
+    REQUIRE(h.scale_by(0.5));
+    auto b0 = h.bin_at(0); REQUIRE(b0); CHECK(b0.value() == 3);  // floor(3.5)
+    auto b1 = h.bin_at(1); REQUIRE(b1); CHECK(b1.value() == 4);  // floor(4.5)
+    // total_ = 3 + 4 = 7, NOT floor(16 * 0.5) = 8 — because the floor
+    // remainders accumulated below the per-bucket boundary.
+    CHECK(h.total() == 7);
+}

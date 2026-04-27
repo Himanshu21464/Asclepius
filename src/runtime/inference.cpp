@@ -678,6 +678,54 @@ Result<void> Inference::set_priority(std::string_view priority) {
                         nlohmann::json(std::string{priority}));
 }
 
+Result<void> Inference::set_severity(std::string_view severity) {
+    // Sugar over add_metadata("severity", <severity as JSON string>).
+    // The four-bucket vocabulary mirrors set_priority — same shape,
+    // different domain (alerting / triage rather than scheduling).
+    // Validation is performed before forwarding so the error names
+    // the offending input directly rather than bleeding through the
+    // generic metadata path. All other rules (reserved-key, post-
+    // commit, replace-on-duplicate) fall out of forwarding to
+    // add_metadata under the fixed key "severity".
+    static constexpr std::array<std::string_view, 4> kAllowed = {
+        "info", "warning", "error", "critical"
+    };
+    bool ok = false;
+    for (auto a : kAllowed) {
+        if (severity == a) { ok = true; break; }
+    }
+    if (!ok) {
+        std::string msg = "severity must be one of "
+                          "{info, warning, error, critical}, got '";
+        msg += std::string{severity};
+        msg += "'";
+        return Error::invalid(std::move(msg));
+    }
+    return add_metadata("severity",
+                        nlohmann::json(std::string{severity}));
+}
+
+std::string Inference::trace_id_or_empty() const {
+    // noexcept-shaped (no throws): mirrors input_hash() / output_hash()
+    // / actor_str() — sidecars on the hot logging path want a string
+    // they can drop straight into a log line, with "no trace_id
+    // attached" and "empty string" collapsed to the same value. We
+    // skip the Result wrapper deliberately: callers that need to
+    // distinguish "absent" from "set but empty" use get_metadata,
+    // which preserves the shape. Null impl, missing metadata object,
+    // missing trace_id key, or a non-string value all collapse to "".
+    if (!impl_) return std::string{};
+    auto md = impl_->ledger_body.find("metadata");
+    if (md == impl_->ledger_body.end() || !md->is_object()) {
+        return std::string{};
+    }
+    auto it = md->find("trace_id");
+    if (it == md->end() || !it->is_string()) {
+        return std::string{};
+    }
+    return it->get<std::string>();
+}
+
 std::uint64_t Inference::ledger_snapshot_seq() const noexcept {
     // Pure noexcept companion to seq(). The committed_seq member is
     // initialised to 0 in Impl and only assigned a real seq inside a

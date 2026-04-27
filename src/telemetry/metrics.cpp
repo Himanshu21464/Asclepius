@@ -351,6 +351,26 @@ std::uint64_t MetricRegistry::counter_max() const {
     return best;
 }
 
+Result<std::uint64_t> MetricRegistry::counter_min() const {
+    // Distinct from counter_max(): returns Error::not_found on an empty
+    // registry instead of a silent 0, since 0 is a legal counter value
+    // and callers gating on "is the smallest counter at least N?" need
+    // to distinguish "no counters" from "all counters at 0."
+    std::lock_guard<std::mutex> lk(mu_);
+    if (counters_.empty()) {
+        return Error::not_found("MetricRegistry::counter_min: no counters registered");
+    }
+    // Initialize from the first counter so the empty-then-iterate
+    // pathway can't accidentally produce 0 from std::numeric_limits::max
+    // collapsing — we require at least one counter to reach this branch.
+    auto it = counters_.begin();
+    std::uint64_t best = it->second;
+    for (++it; it != counters_.end(); ++it) {
+        if (it->second < best) best = it->second;
+    }
+    return best;
+}
+
 std::size_t MetricRegistry::histogram_count_total() const {
     std::lock_guard<std::mutex> lk(mu_);
     return histograms_.size();
@@ -444,6 +464,17 @@ bool MetricRegistry::is_empty() const noexcept {
         // (matches Histogram::is_empty()).
         return true;
     }
+}
+
+bool MetricRegistry::has_any() const noexcept {
+    // Sugar wrapper over !is_empty(). Sharing the implementation rather
+    // than duplicating the lock-and-empty-check keeps the two predicates
+    // bitwise-consistent — important for tests that assert
+    // `has_any() != is_empty()`. is_empty() is itself noexcept and
+    // swallows lock-throw to "treat as empty"; the negation here
+    // therefore degrades to "has_any == false" on the same failure,
+    // matching the conservative reading.
+    return !is_empty();
 }
 
 }  // namespace asclepius

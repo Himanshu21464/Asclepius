@@ -3785,3 +3785,322 @@ TEST_CASE("has_any_active: true when at least one patient has a live grant") {
     REQUIRE(r.grant(p2, {Purpose::operations}, 1h));
     CHECK(r.has_any_active() == true);
 }
+
+// ---- summary_string ----------------------------------------------------
+
+TEST_CASE("summary_string: empty registry produces all-zero line") {
+    ConsentRegistry r;
+    auto line = r.summary_string();
+    CHECK(line == "total=0 active=0 revoked=0 expired=0 patients=0");
+    // No trailing newline.
+    CHECK(line.find('\n') == std::string::npos);
+}
+
+TEST_CASE("summary_string: counts match summary() field-for-field") {
+    ConsentRegistry r;
+    auto pa = PatientId::pseudonymous("ss_a");
+    auto pb = PatientId::pseudonymous("ss_b");
+    REQUIRE(r.grant(pa, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(pa, {Purpose::operations}, 1h));
+    auto rv = r.grant(pb, {Purpose::ambient_documentation}, 1h).value();
+    REQUIRE(r.revoke(rv.token_id));
+    ConsentToken ex;
+    ex.token_id   = "ct_ss_exp";
+    ex.patient    = pb;
+    ex.purposes   = {Purpose::medication_review};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    auto s = r.summary();
+    auto line = r.summary_string();
+    // Every field must appear in the formatted string.
+    CHECK(line.find("total=" + std::to_string(s.total)) != std::string::npos);
+    CHECK(line.find("active=" + std::to_string(s.active)) != std::string::npos);
+    CHECK(line.find("revoked=" + std::to_string(s.revoked)) != std::string::npos);
+    CHECK(line.find("expired=" + std::to_string(s.expired)) != std::string::npos);
+    CHECK(line.find("patients=" + std::to_string(s.patients)) != std::string::npos);
+}
+
+TEST_CASE("summary_string: format is single-line ASCII with documented order") {
+    ConsentRegistry r;
+    REQUIRE(r.grant(PatientId::pseudonymous("ss_one"), {Purpose::triage}, 1h));
+    auto line = r.summary_string();
+    // Documented field order: total, active, revoked, expired, patients.
+    auto pos_total    = line.find("total=");
+    auto pos_active   = line.find("active=");
+    auto pos_revoked  = line.find("revoked=");
+    auto pos_expired  = line.find("expired=");
+    auto pos_patients = line.find("patients=");
+    REQUIRE(pos_total    != std::string::npos);
+    REQUIRE(pos_active   != std::string::npos);
+    REQUIRE(pos_revoked  != std::string::npos);
+    REQUIRE(pos_expired  != std::string::npos);
+    REQUIRE(pos_patients != std::string::npos);
+    CHECK(pos_total < pos_active);
+    CHECK(pos_active < pos_revoked);
+    CHECK(pos_revoked < pos_expired);
+    CHECK(pos_expired < pos_patients);
+    // ASCII only: no high bytes.
+    for (char c : line) {
+        CHECK(static_cast<unsigned char>(c) < 0x80u);
+    }
+}
+
+TEST_CASE("summary_string: tracks mutations across grant/revoke/clear") {
+    ConsentRegistry r;
+    CHECK(r.summary_string() == "total=0 active=0 revoked=0 expired=0 patients=0");
+    auto p = PatientId::pseudonymous("ss_mut");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    CHECK(r.summary_string() ==
+          "total=1 active=1 revoked=0 expired=0 patients=1");
+    REQUIRE(r.revoke(t.token_id));
+    CHECK(r.summary_string() ==
+          "total=1 active=0 revoked=1 expired=0 patients=1");
+    r.clear();
+    CHECK(r.summary_string() == "total=0 active=0 revoked=0 expired=0 patients=0");
+}
+
+// ---- distinct_purposes_in_use ------------------------------------------
+
+TEST_CASE("distinct_purposes_in_use: empty registry is empty") {
+    ConsentRegistry r;
+    CHECK(r.distinct_purposes_in_use().empty());
+}
+
+TEST_CASE("distinct_purposes_in_use: returns sorted distinct active purposes") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("dpu_a");
+    auto b = PatientId::pseudonymous("dpu_b");
+    // Overlapping purpose lists across patients; expect deduped, sorted.
+    REQUIRE(r.grant(a, {Purpose::research, Purpose::triage}, 1h));
+    REQUIRE(r.grant(b, {Purpose::triage, Purpose::ambient_documentation}, 1h));
+    auto out = r.distinct_purposes_in_use();
+    REQUIRE(out.size() == 3);
+    // Sorted by enum value: ambient_documentation(1) < triage(3) < research(7).
+    CHECK(out[0] == Purpose::ambient_documentation);
+    CHECK(out[1] == Purpose::triage);
+    CHECK(out[2] == Purpose::research);
+}
+
+TEST_CASE("distinct_purposes_in_use: ignores revoked and expired tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("dpu_dead");
+    // Live grant: triage stays.
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    // Revoked grant: research must NOT appear.
+    auto rv = r.grant(p, {Purpose::research}, 1h).value();
+    REQUIRE(r.revoke(rv.token_id));
+    // Expired grant: operations must NOT appear.
+    ConsentToken ex;
+    ex.token_id   = "ct_dpu_exp";
+    ex.patient    = p;
+    ex.purposes   = {Purpose::operations};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    auto out = r.distinct_purposes_in_use();
+    REQUIRE(out.size() == 1);
+    CHECK(out[0] == Purpose::triage);
+}
+
+TEST_CASE("distinct_purposes_in_use: distinct from 'every purpose ever granted'") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("dpu_revoke_only");
+    // Grant research then revoke — historically granted but not in use now.
+    auto t = r.grant(p, {Purpose::research}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));
+    // tokens_for_purpose sees the revoked grant; distinct_purposes_in_use
+    // does not surface it.
+    CHECK(r.tokens_for_purpose(Purpose::research).size() == 1);
+    CHECK(r.distinct_purposes_in_use().empty());
+}
+
+// ---- is_revoked --------------------------------------------------------
+
+TEST_CASE("is_revoked: missing token id returns false") {
+    ConsentRegistry r;
+    CHECK(r.is_revoked("ct_nonexistent") == false);
+    CHECK(r.is_revoked("") == false);
+}
+
+TEST_CASE("is_revoked: active token returns false, revoked token returns true") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ir_one");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    CHECK(r.is_revoked(t.token_id) == false);
+    REQUIRE(r.revoke(t.token_id));
+    CHECK(r.is_revoked(t.token_id) == true);
+}
+
+TEST_CASE("is_revoked: expired-but-not-revoked tokens still report false") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ir_expired");
+    ConsentToken ex;
+    ex.token_id   = "ct_ir_exp";
+    ex.patient    = p;
+    ex.purposes   = {Purpose::operations};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+    // Expired but the revoked flag was never set: missing != revoked,
+    // and expired != revoked.
+    CHECK(r.is_revoked("ct_ir_exp") == false);
+}
+
+TEST_CASE("is_revoked: dual to is_token_active for revoked rows") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ir_dual");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    REQUIRE(r.revoke(t.token_id));
+    CHECK(r.is_revoked(t.token_id) == true);
+    CHECK(r.is_token_active(t.token_id) == false);
+    // remove() drops the row entirely; both probes report the absence.
+    REQUIRE(r.remove(t.token_id));
+    CHECK(r.is_revoked(t.token_id) == false);
+    CHECK(r.is_token_active(t.token_id) == false);
+}
+
+// ---- find_token_for_any_purpose ----------------------------------------
+
+TEST_CASE("find_token_for_any_purpose: finds a token covering any requested purpose") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("fap_basic");
+    auto t = r.grant(p, {Purpose::triage}, 1h).value();
+    std::vector<Purpose> wanted = {Purpose::research, Purpose::triage};
+    auto hit = r.find_token_for_any_purpose(p, std::span<const Purpose>{wanted});
+    REQUIRE(hit);
+    CHECK(hit.value().token_id == t.token_id);
+}
+
+TEST_CASE("find_token_for_any_purpose: returns not_found if no purpose matches") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("fap_miss");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    std::vector<Purpose> wanted = {Purpose::research, Purpose::operations};
+    auto hit = r.find_token_for_any_purpose(p, std::span<const Purpose>{wanted});
+    REQUIRE(!hit);
+    CHECK(hit.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_token_for_any_purpose: empty purposes -> invalid_argument") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("fap_empty");
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    std::vector<Purpose> empty;
+    auto hit = r.find_token_for_any_purpose(p, std::span<const Purpose>{empty});
+    REQUIRE(!hit);
+    CHECK(hit.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("find_token_for_any_purpose: ignores revoked and expired tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("fap_dead");
+    // Revoked grant covering triage — must NOT match.
+    auto rv = r.grant(p, {Purpose::triage}, 1h).value();
+    REQUIRE(r.revoke(rv.token_id));
+    // Expired grant covering operations — must NOT match.
+    ConsentToken ex;
+    ex.token_id   = "ct_fap_exp";
+    ex.patient    = p;
+    ex.purposes   = {Purpose::operations};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    std::vector<Purpose> wanted = {Purpose::triage, Purpose::operations};
+    auto hit = r.find_token_for_any_purpose(p, std::span<const Purpose>{wanted});
+    REQUIRE(!hit);
+    CHECK(hit.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("find_token_for_any_purpose: distinct from find_token_granting_all") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("fap_distinct");
+    // Two tokens that, taken together, cover triage+research, but
+    // neither alone does.
+    REQUIRE(r.grant(p, {Purpose::triage},   1h));
+    REQUIRE(r.grant(p, {Purpose::research}, 1h));
+    std::vector<Purpose> wanted = {Purpose::triage, Purpose::research};
+
+    // ANY: the first token whose list intersects {triage, research}
+    // satisfies — at least one matching token exists.
+    auto any_hit = r.find_token_for_any_purpose(p, std::span<const Purpose>{wanted});
+    REQUIRE(any_hit);
+
+    // ALL: no single token covers BOTH purposes — so the all-form
+    // returns not_found.
+    auto all_hit = r.find_token_granting_all(p, std::span<const Purpose>{wanted});
+    REQUIRE(!all_hit);
+    CHECK(all_hit.error().code() == ErrorCode::not_found);
+}
+
+// ---- count_active_for_patients -----------------------------------------
+
+TEST_CASE("count_active_for_patients: empty span returns 0") {
+    ConsentRegistry r;
+    REQUIRE(r.grant(PatientId::pseudonymous("cafp_x"), {Purpose::triage}, 1h));
+    std::vector<PatientId> empty;
+    CHECK(r.count_active_for_patients(std::span<const PatientId>{empty}) == 0);
+}
+
+TEST_CASE("count_active_for_patients: counts only patients with active tokens") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("cafp_a");
+    auto b = PatientId::pseudonymous("cafp_b");
+    auto c = PatientId::pseudonymous("cafp_c");
+
+    REQUIRE(r.grant(a, {Purpose::triage}, 1h));            // active
+    auto rv = r.grant(b, {Purpose::operations}, 1h).value();
+    REQUIRE(r.revoke(rv.token_id));                        // b: revoked-only
+    // c: no tokens at all.
+
+    std::vector<PatientId> cohort = {a, b, c};
+    auto n = r.count_active_for_patients(std::span<const PatientId>{cohort});
+    CHECK(n == 1);  // only a
+}
+
+TEST_CASE("count_active_for_patients: dedupes duplicate patient ids in input") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("cafp_dup");
+    REQUIRE(r.grant(a, {Purpose::triage}, 1h));
+    // a appears three times in the input — it must still count as 1.
+    std::vector<PatientId> cohort = {a, a, a};
+    CHECK(r.count_active_for_patients(std::span<const PatientId>{cohort}) == 1);
+}
+
+TEST_CASE("count_active_for_patients: ignores expired-only patients") {
+    ConsentRegistry r;
+    auto live = PatientId::pseudonymous("cafp_live");
+    auto dead = PatientId::pseudonymous("cafp_dead");
+
+    REQUIRE(r.grant(live, {Purpose::triage}, 1h));
+    // dead has only an expired token.
+    ConsentToken ex;
+    ex.token_id   = "ct_cafp_exp";
+    ex.patient    = dead;
+    ex.purposes   = {Purpose::operations};
+    ex.issued_at  = Time::now() - std::chrono::nanoseconds{std::chrono::hours{2}};
+    ex.expires_at = Time::now() - std::chrono::nanoseconds{std::chrono::hours{1}};
+    REQUIRE(r.ingest(ex));
+
+    std::vector<PatientId> cohort = {live, dead};
+    CHECK(r.count_active_for_patients(std::span<const PatientId>{cohort}) == 1);
+}
+
+TEST_CASE("count_active_for_patients: result bounded by cohort size, ignores extra patients") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("cafp_subset_a");
+    auto b = PatientId::pseudonymous("cafp_subset_b");
+    auto outside = PatientId::pseudonymous("cafp_subset_outside");
+
+    REQUIRE(r.grant(a,       {Purpose::triage},    1h));
+    REQUIRE(r.grant(b,       {Purpose::research},  1h));
+    REQUIRE(r.grant(outside, {Purpose::operations}, 1h));
+
+    // Cohort excludes 'outside' — even though it has an active token,
+    // the count is bounded by the requested set.
+    std::vector<PatientId> cohort = {a, b};
+    CHECK(r.count_active_for_patients(std::span<const PatientId>{cohort}) == 2);
+}

@@ -856,6 +856,51 @@ Result<std::vector<std::string>> Ledger::tenants() const {
     return out;
 }
 
+bool Ledger::has_tenant(std::string_view tenant) const {
+    // The empty tenant ("") is its own scope per the existing tenant
+    // convention — it matches only entries explicitly carrying it. We
+    // do NOT short-circuit on tenant.empty() the way has_event_type and
+    // any_actor_matches do for their fields, because "" is a valid
+    // tenant identifier.
+    bool found = false;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.tenant == tenant) {
+            found = true;
+            return false;  // stop scanning on first match
+        }
+        return true;
+    });
+    (void)r;  // backend errors are observable via verify(); this is a best-effort probe
+    return found;
+}
+
+Result<std::string> Ledger::most_active_tenant() const {
+    if (impl_->length.load() == 0) {
+        return Error::not_found("most_active_tenant: chain is empty");
+    }
+    std::unordered_map<std::string, std::uint64_t> counts;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        counts[e.header.tenant] += 1;
+        return true;
+    });
+    if (!r) return r.error();
+    if (counts.empty()) {
+        // Defensive — length() > 0 implies at least one entry, but treat
+        // a backend that returns no rows as an empty-chain equivalent.
+        return Error::not_found("most_active_tenant: chain is empty");
+    }
+    // Tiebreak unspecified per the API contract; std::max_element picks
+    // the first iterator whose count exceeds the current best, which is
+    // deterministic for a given hash-map iteration but not guaranteed
+    // across runs. Callers that need stable ordering should rank
+    // tenants themselves.
+    auto best = counts.begin();
+    for (auto it = counts.begin(); it != counts.end(); ++it) {
+        if (it->second > best->second) best = it;
+    }
+    return best->first;
+}
+
 Result<std::vector<std::string>> Ledger::actors() const {
     std::unordered_map<std::string, std::uint8_t> seen;
     auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
@@ -1036,6 +1081,29 @@ std::string Ledger::summary_string() const {
 
     return fmt::format("length={} head={} key={} oldest={} newest={}",
                        len, head_hex, impl_->key_id, oldest_iso, newest_iso);
+}
+
+Result<std::string> Ledger::tail_summary_string(std::size_t n) const {
+    if (n == 0) return std::string{};
+    auto r = impl_->storage->select_tail(n);
+    if (!r) return r.error();
+    auto& rows = r.value();
+    // select_tail returns most-recent-first; the spec calls for
+    // oldest-first within the n-tail.
+    std::reverse(rows.begin(), rows.end());
+
+    std::string out;
+    out.reserve(rows.size() * 80);  // ~80 chars per line is a reasonable guess
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        if (i > 0) out.push_back('\n');
+        const auto& e = rows[i];
+        out += fmt::format("seq={} ts={} actor={} event={}",
+                           e.header.seq,
+                           e.header.ts.iso8601(),
+                           e.header.actor,
+                           e.header.event_type);
+    }
+    return out;
 }
 
 Result<std::uint64_t> Ledger::count_in_window(Time from, Time to) const {
@@ -1513,6 +1581,28 @@ Ledger::range_for_actor_in_window(std::string_view actor,
     return out;
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::range_for_actor_and_event_type(std::string_view actor,
+                                       std::string_view event_type) const {
+    if (actor.empty()) {
+        return Error::invalid(
+            "range_for_actor_and_event_type requires non-empty actor");
+    }
+    if (event_type.empty()) {
+        return Error::invalid(
+            "range_for_actor_and_event_type requires non-empty event_type");
+    }
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        if (e.header.actor == actor && e.header.event_type == event_type) {
+            out.push_back(e);
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
 Result<std::vector<LedgerEntry>> Ledger::oldest_n(std::size_t n) const {
     if (n == 0) return std::vector<LedgerEntry>{};
     std::vector<LedgerEntry> out;
@@ -1749,6 +1839,39 @@ Result<std::uint64_t> Ledger::cumulative_body_bytes() const {
     });
     if (!r) return r.error();
     return total;
+}
+
+Result<Histogram> Ledger::body_size_histogram(std::size_t bins) const {
+    if (bins == 0) {
+        return Error::invalid("body_size_histogram requires bins > 0");
+    }
+    // First pass: stream the chain to find the maximum body size. Memory
+    // remains O(1) regardless of chain length.
+    std::size_t max_size = 0;
+    bool        any      = false;
+    auto r1 = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        const auto sz = e.body_json.size();
+        if (!any || sz > max_size) max_size = sz;
+        any = true;
+        return true;
+    });
+    if (!r1) return r1.error();
+
+    // Empty chain → empty histogram with the documented sentinel hi=1
+    // (Histogram requires lo < hi to keep bin arithmetic well-formed).
+    if (!any) {
+        return Histogram{0.0, 1.0, bins};
+    }
+    // hi must be strictly greater than lo; if every entry was zero-sized
+    // we still want a usable histogram with lo=0, hi=1.
+    const double hi = max_size == 0 ? 1.0 : static_cast<double>(max_size);
+    Histogram h{0.0, hi, bins};
+    auto r2 = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        h.observe(static_cast<double>(e.body_json.size()));
+        return true;
+    });
+    if (!r2) return r2.error();
+    return h;
 }
 
 Result<double> Ledger::seq_density() const {

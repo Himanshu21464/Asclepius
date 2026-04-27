@@ -17,6 +17,7 @@
 
 #include "asclepius/core.hpp"
 #include "asclepius/hashing.hpp"
+#include "asclepius/telemetry.hpp"
 
 namespace asclepius {
 
@@ -277,6 +278,18 @@ public:
     // WAL. Empty chain returns 0.
     Result<std::uint64_t> cumulative_body_bytes() const;
 
+    // Distribution of body_json.size() (bytes) across every entry in the
+    // chain, packed into a Histogram with `bins` uniform bins. lo=0,
+    // hi=max observed body size (or 1 if the chain is empty or every
+    // entry is zero-sized — degenerate hi=0 would collapse the bin
+    // arithmetic). Streamed via for_each so memory stays bounded:
+    // first pass computes the max, second pass populates the histogram.
+    // bins=0 returns invalid_argument. Empty chain returns an empty
+    // Histogram (lo=0, hi=1, no observations). Used by capacity
+    // dashboards to spot heavy-tail body-size distributions and by
+    // anomaly probes that flag unexpected size shifts.
+    Result<Histogram> body_size_histogram(std::size_t bins = 20) const;
+
     // Entries-per-second across the chain, measured as
     // (length - 1) / ((newest_ts - oldest_ts) seconds). Returns 0.0 when
     // length < 2 (no rate computable from a single point). Useful for
@@ -406,6 +419,17 @@ public:
         range_for_actor_in_window(std::string_view actor,
                                   Time from, Time to) const;
 
+    // Composite filter: entries whose header.actor matches `actor` AND
+    // whose header.event_type matches `event_type`. Seq-ascending. Both
+    // an actor scope and an event-type scope at once — pairs with
+    // range_for_actor_in_window for "what did this clinician do, in this
+    // event class?" forensic queries that don't need a time window.
+    // O(n) scan via for_each. Empty actor or empty event_type returns
+    // invalid_argument.
+    Result<std::vector<LedgerEntry>>
+        range_for_actor_and_event_type(std::string_view actor,
+                                       std::string_view event_type) const;
+
     // First `n` entries (oldest), seq-ascending. Complement to
     // tail(n) which returns the most-recent slice. n=0 returns the
     // empty vector (cheap no-op). Stops the for_each scan early once
@@ -434,6 +458,15 @@ public:
     // via for_each. Used by tenant-pickers in dashboards and by routines
     // that need to fan out per-tenant work without an a-priori tenant list.
     Result<std::vector<std::string>> tenants() const;
+
+    // Cheap O(n)-worst-case existence check: does the chain hold any
+    // entry with header.tenant == tenant. Stops the scan on the first
+    // hit. The empty tenant ("") is its own scope (matching the existing
+    // tenant convention) — passes through and matches only entries that
+    // explicitly carry it. Tenant analog of has_event_type and
+    // any_actor_matches; used by feature gates and per-tenant probes
+    // that don't need the entries themselves.
+    bool has_tenant(std::string_view tenant) const;
 
     // Distinct actor strings appearing in the chain, sorted alphabetically.
     // O(n) scan via for_each. Counterpart to tenants(); used by audit
@@ -512,6 +545,18 @@ public:
     // directly into log lines and TTY status panels.
     std::string summary_string() const;
 
+    // Multi-line ASCII summary of the last `n` entries, oldest-first
+    // within the n-tail. Each line:
+    //   seq=<n> ts=<iso8601> actor=<a> event=<event_type>
+    // One line per entry, separated by '\n', no trailing newline. Used
+    // by ops to grep recent activity without parsing JSON bodies. n=0
+    // returns the empty string (cheap no-op). Empty chain returns the
+    // empty string. n larger than length() is clamped — every entry is
+    // emitted, no padding. Distinct from summary_string() (one-line
+    // chain-level status) — this is a per-entry tail in the same
+    // header-only spirit.
+    Result<std::string> tail_summary_string(std::size_t n) const;
+
     // Single-line JSON object containing length, head_hex, key_id,
     // key_fingerprint (from KeyStore::fingerprint), and head_signature
     // (hex of sign_attestation(head.bytes)). Useful for status pages
@@ -529,6 +574,16 @@ public:
     // single pass for capacity dashboards and per-tenant billing rollups.
     Result<std::unordered_map<std::string, std::uint64_t>>
         byte_size_per_tenant() const;
+
+    // Tenant with the largest entry count across the chain. The empty
+    // tenant ("") is its own scope and competes alongside named tenants.
+    // Tiebreak unspecified — callers that need determinism should pull
+    // the full distribution via byte_size_per_tenant or count-by-tenant
+    // and break ties themselves. Returns Error::not_found if the chain
+    // is empty. O(n) scan via for_each into a per-tenant counter map;
+    // O(distinct tenants) memory. Counterpart to most_active_actors —
+    // that one ranks actors; this one ranks tenants.
+    Result<std::string> most_active_tenant() const;
 
     // Top `n` actors by entry count, most-active first. Ties break
     // alphabetically so output is deterministic across runs. n=0 returns

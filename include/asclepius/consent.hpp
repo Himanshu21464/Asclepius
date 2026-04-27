@@ -111,6 +111,17 @@ public:
     // currently authorizes anything at all.
     bool has_any_active() const noexcept;
 
+    // Bulk eligibility check: count of distinct PatientIds in `patients`
+    // who have at least one active (non-revoked, non-expired) token in
+    // the registry. Empty span returns 0. Duplicate patient ids in the
+    // input are counted once each — the result is bounded above by the
+    // number of distinct ids in the span. Used by routing logic that
+    // wants to filter a candidate cohort to "those who currently
+    // authorize anything at all" without N round-trips through
+    // has_active_token.
+    std::size_t
+    count_active_for_patients(std::span<const PatientId> patients) const;
+
     // First active (non-revoked, non-expired) token for `patient` whose
     // purposes list contains `purpose`. Returns Error::not_found if no
     // such token exists. Tiebreak among multiple matches is unspecified —
@@ -130,6 +141,18 @@ public:
     Result<ConsentToken>
     find_token_granting_all(const PatientId&         patient,
                             std::span<const Purpose> purposes) const;
+
+    // Disjunctive sibling of find_token_granting_all: the first active
+    // (non-revoked, non-expired) token for `patient` whose purposes list
+    // contains AT LEAST ONE of the listed `purposes`. Used by routing
+    // logic that wants any matching grant ("do we have consent for
+    // triage OR diagnostic_suggestion?") without forcing a single
+    // token to cover the full set. Returns Error::not_found if no such
+    // token exists. Returns Error::invalid_argument if `purposes` is
+    // empty. Tiebreak among multiple matches is unspecified.
+    Result<ConsentToken>
+    find_token_for_any_purpose(const PatientId&         patient,
+                               std::span<const Purpose> purposes) const;
 
     Result<ConsentToken> get(std::string_view token_id) const;
 
@@ -304,6 +327,15 @@ public:
     };
     Summary summary() const;
 
+    // Single-line ASCII summary for ops dashboards. Format:
+    //   "total=<n> active=<n> revoked=<n> expired=<n> patients=<n>"
+    // No trailing newline. Computed via summary() so the same
+    // single-pass, self-consistent counts are reflected in the
+    // string. Useful for plumbing a registry status pill into log
+    // lines and /healthz endpoints without callers needing to format
+    // the Summary struct themselves.
+    std::string summary_string() const;
+
     // Per-patient version of summary(). Same Summary struct, but counts
     // are scoped to a single patient. The `patients` field is 1 if the
     // patient has any tokens on file (active, expired, or revoked), else
@@ -452,6 +484,16 @@ public:
     // a yes/no on whether it is currently in force.
     bool is_token_active(std::string_view token_id) const noexcept;
 
+    // Cheap noexcept inverse of is_token_active for the revoked subset:
+    // true iff a token with this id exists AND has its revoked flag
+    // set. Returns false if no such token exists (missing != revoked)
+    // and false if the token exists but is not revoked (expired-but-
+    // not-revoked tokens still report false here). Any internal
+    // failure is swallowed → false. Useful for ledger replay paths
+    // that want a direct "did we walk this back?" probe without
+    // copying the full token through get().
+    bool is_revoked(std::string_view token_id) const noexcept;
+
     // Count of tokens that are not revoked but whose expires_at has passed.
     // O(n) over the registry. Distinct from active_count() which excludes
     // both revoked and expired; this counts the "expired but not yet
@@ -470,6 +512,16 @@ public:
     // callers can diff snapshots over time. Empty if no active grants.
     // Operator probe: "what can we currently do for this patient?"
     std::vector<Purpose> active_purposes_for_patient(const PatientId& patient) const;
+
+    // Registry-wide mirror of active_purposes_for_patient: distinct list
+    // of Purposes that have at least one active (non-revoked, non-
+    // expired) token granting them, regardless of patient. Sorted by
+    // underlying enum value so callers can diff snapshots over time.
+    // Distinct from "every purpose ever granted" — revoked-only and
+    // expired-only purposes do not appear. Operator probe: "what is
+    // the registry currently authorizing across the entire patient
+    // population?" Empty if the registry has no active grants.
+    std::vector<Purpose> distinct_purposes_in_use() const;
 
     // Count of distinct Purposes for which `patient` has at least one
     // active (non-revoked, non-expired) token. Equivalent to

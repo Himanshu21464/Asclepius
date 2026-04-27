@@ -31,6 +31,81 @@ Histogram::Histogram(double lo, double hi, std::size_t bins) : lo_(lo), hi_(hi),
     }
 }
 
+Histogram::Histogram(Histogram&& other) noexcept
+    : lo_(0.0), hi_(1.0), counts_(1, 0), total_(0) {
+    // The mutex is intentionally NEVER moved (mutexes have no move
+    // operations). Default-construct ours; lock the source to snapshot
+    // its state under a single critical section so callers that move
+    // out of a Histogram concurrently visible to other threads see a
+    // consistent post-move state.
+    std::lock_guard<std::mutex> lk(other.mu_);
+    lo_           = other.lo_;
+    hi_           = other.hi_;
+    counts_       = std::move(other.counts_);
+    total_        = other.total_;
+    // Leave the moved-from instance in a usable, empty state. Its
+    // counts_ vector has already been moved-from (which leaves it in a
+    // valid-but-unspecified state per std::move spec); replace it with
+    // a single zeroed bin so subsequent observe()/clear()/etc. still
+    // satisfy invariants. total_ resets to 0 so total() reads sane.
+    other.counts_.assign(1, 0);
+    other.total_ = 0;
+}
+
+Histogram& Histogram::operator=(Histogram&& other) noexcept {
+    if (this == &other) {
+        // Self-assign is a no-op. We don't even take the lock; the
+        // pointer comparison is enough and avoids the std::scoped_lock
+        // double-lock-on-self UB scenario we'd otherwise hit.
+        return *this;
+    }
+    // Acquire both mutexes simultaneously to avoid the AB/BA deadlock
+    // a naive sequential lock would expose under concurrent moves of
+    // two histograms (h1 = std::move(h2) in one thread,
+    // h2 = std::move(h1) in another). std::scoped_lock invokes
+    // std::lock under the hood with the same deadlock-avoidance.
+    std::scoped_lock lk(this->mu_, other.mu_);
+    lo_     = other.lo_;
+    hi_     = other.hi_;
+    counts_ = std::move(other.counts_);
+    total_  = other.total_;
+    // Leave moved-from in the same usable-empty state as the move
+    // constructor.
+    other.counts_.assign(1, 0);
+    other.total_ = 0;
+    return *this;
+}
+
+Result<void> Histogram::scale_by(double factor) {
+    if (factor < 0.0) {
+        return Error::invalid("Histogram::scale_by: factor must be >= 0");
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    // factor == 0 effectively clears every bin (and total_).
+    // factor != 0 multiplies each bin by factor and floors to the
+    // nearest integer count. We recompute total_ from the post-scale
+    // bin sums rather than scaling total_ separately, because the per-bin
+    // floor operation can reduce the sum below floor(total_ * factor)
+    // when the fractional remainders accumulate — so using the bin sum
+    // is the only way to keep total_ == sum(counts_), which downstream
+    // statistics (mean, normalized, psi) all assume.
+    std::uint64_t new_total = 0;
+    for (auto& c : counts_) {
+        const double scaled = static_cast<double>(c) * factor;
+        // std::floor on a non-negative scaled value is equivalent to
+        // truncation toward zero; cast directly. Guard against NaN /
+        // overflow by clamping to 0 on non-finite results.
+        if (!(scaled >= 0.0)) {
+            c = 0;
+            continue;
+        }
+        c = static_cast<std::uint64_t>(scaled);
+        new_total += c;
+    }
+    total_ = new_total;
+    return Result<void>::ok();
+}
+
 void Histogram::observe(double value) {
     std::lock_guard<std::mutex> lk(mu_);
     const auto n  = counts_.size();
@@ -535,6 +610,20 @@ void DriftMonitor::set_alert_sink(AlertSink sink, DriftSeverity threshold) {
     std::lock_guard<std::mutex> lk(mu_);
     alert_sink_      = std::move(sink);
     alert_threshold_ = threshold;
+}
+
+void DriftMonitor::set_alert_threshold(DriftSeverity severity) {
+    // Distinct from set_alert_sink(): re-tunes only the threshold while
+    // leaving the installed sink (and last_severity_ map) untouched.
+    // Operators reach for this when they want to dial a noisy sink
+    // up to "severe" during a rollout without re-wiring the sink. The
+    // last_severity_ map is INTENTIONALLY preserved — features that
+    // already crossed the prior threshold stay marked, so a threshold
+    // change alone won't cause re-fires for already-fired features.
+    // Pair with clear_alerts() if a threshold change should also reset
+    // the per-feature alert ladder.
+    std::lock_guard<std::mutex> lk(mu_);
+    alert_threshold_ = severity;
 }
 
 bool DriftMonitor::has_alert_sink() const noexcept {

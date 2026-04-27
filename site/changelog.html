@@ -285,7 +285,109 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.4.8</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+            <b class="p-name">v0.4.9</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Disjunctive consent, drift-to-metrics, body-size histograms.</em>
+            Round 86 lands the verbs the substrate kept reaching for —
+            an OR-shaped consent lookup that <code>find_token_granting_all</code>
+            couldn't be, a runtime sugar that flushes drift bands to
+            ordinary counters so dashboards can read them the same way
+            they read everything else, and an audit-side body-size
+            distribution that motivated an explicit <code>Histogram</code>
+            move ctor and move assignment (the mutex member had
+            implicitly deleted them). Audit grows
+            <code>range_for_actor_and_event_type(actor, event_type)</code>
+            as the actor + event-type composite filter — every
+            <code>policy.blocked</code> a clinician triggered, every
+            <code>consent.revoked</code> a service issued —
+            <code>most_active_tenant()</code>
+            (<code>Result&lt;string&gt;</code>) as the highest-count tenant
+            pointer, <code>has_tenant(tenant)</code> as the cheap
+            existence bool, <code>body_size_histogram(bins)</code>
+            (<code>Result&lt;Histogram&gt;</code>) as the body-size
+            distribution the outlier hunt actually wants — distinct
+            from <code>cumulative_body_bytes()</code>'s scalar — and
+            <code>tail_summary_string(n)</code> as the multi-line ops
+            grep that prints <code>seq · ts · actor · event_type</code>
+            per row, the shape a CLI tail-mode reads without
+            serializing JSON. Telemetry: <strong><code>Histogram</code> now
+            has explicit move ctor + move assignment</strong> (was
+            implicitly deleted by the internal <code>std::mutex</code>;
+            required by <code>body_size_histogram</code> returning by
+            value). <em>No API break</em>, but classes that returned
+            <code>Histogram</code> from a member or composed it as a
+            value-type now compile where they previously failed.
+            <code>Histogram::scale_by(factor)</code> rounds out the
+            downsampling primitive — multiplies every bin count in
+            place; <code>factor &lt; 0</code> raises
+            <code>invalid_argument</code>, <code>factor == 0</code>
+            collapses to <code>clear()</code>.
+            <code>MetricRegistry::counter_min()</code> as the
+            quietest-counter sibling of <code>counter_max()</code>,
+            <code>has_any()</code> (<code>noexcept</code>) as the
+            kind-agnostic positive sibling of <code>is_empty()</code>,
+            and <code>DriftMonitor::set_alert_threshold(severity)</code>
+            raising the alert floor — explicitly does <em>not</em>
+            clear <code>last_severity_</code>: a feature that was
+            severe before the threshold change still reads as severe
+            on the next report; only the alert latch logic uses the
+            new floor. Consent grows
+            <code>summary_string()</code> emitting one line —
+            <code>total/active/revoked/expired/patients</code> — for
+            the grep-friendly cell <code>summary().to_json()</code>
+            can't be; <code>distinct_purposes_in_use()</code> as the
+            sorted set of currently-granted purposes (distinct from
+            <code>tokens_count_by_purpose()</code>'s cardinality);
+            <code>is_revoked(token_id)</code>
+            (<code>noexcept</code>) as the negative sibling of
+            <code>is_token_active</code> without conflating revocation
+            with expiry; <code>find_token_for_any_purpose(patient, span&lt;Purpose&gt;)</code>
+            as the disjunctive sibling of
+            <code>find_token_granting_all</code> — OR shape, not AND;
+            and <code>count_active_for_patients(span)</code> as the
+            bulk cohort cardinality fold. Inference picks up
+            <code>set_severity</code> validating against the closed set
+            <code>{info, warning, error, critical}</code>
+            (<code>invalid_argument</code> otherwise) and
+            <code>trace_id_or_empty()</code> as sugar reading
+            <code>metadata.trace_id</code> with empty-string-when-unset
+            semantics. Runtime sugar:
+            <code>flush_drift_to_metrics()</code> emitting
+            <code>drift.severity.&lt;feature&gt;.&lt;severity&gt;</code>
+            counters — drift bands now read as ordinary metrics on a
+            Prometheus exporter; <code>counter(name)</code> as sugar
+            over <code>metrics().count(name)</code>; and
+            <code>subscribe_logging(sink)</code> as sugar over
+            <code>ledger().subscribe(sink)</code>. No on-disk format
+            changes; nothing breaks.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::range_for_actor_and_event_type(actor, event_type)</code> — composite filter, actor + event-type in one query. Sibling of <code>range_for_actor_in_window</code> on the event-type axis.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::most_active_tenant()</code> — <code>Result&lt;string&gt;</code>; tenant string with the highest entry count, <code>not_found</code> on an empty chain.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::has_tenant(tenant)</code> — cheap existence bool. Avoids materializing the per-tenant <code>tenants()</code> vector.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::body_size_histogram(bins)</code> — <code>Result&lt;Histogram&gt;</code>; body-size distribution across the chain, binned over the observed range. Motivated the explicit <code>Histogram</code> move ctor and move assignment.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::tail_summary_string(n)</code> — multi-line ops grep; one line per row, <code>seq · ts · actor · event_type</code>. The grep-friendly tail without JSON.</span></li>
+            <li class="add"><b>add</b><span><strong><code>Histogram</code> move ctor + move assignment</strong> — explicit, was implicitly deleted by the internal <code>std::mutex</code>. Required by <code>body_size_histogram</code> returning by value. <em>No API break, but classes returning Histograms now compile.</em></span></li>
+            <li class="add"><b>add</b><span><code>Histogram::scale_by(factor)</code> — downsampling primitive; multiplies every bin count in place. <code>factor &lt; 0</code> raises <code>invalid_argument</code>; <code>factor == 0</code> equals <code>clear()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::counter_min()</code>, <code>has_any()</code> — quietest single counter as <code>{name, value}</code> · <code>noexcept</code> kind-agnostic positive sibling of <code>is_empty()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::set_alert_threshold(severity)</code> — raises the minimum severity at which alert sinks fire. Does <em>not</em> clear <code>last_severity_</code>; only the latch logic uses the new floor.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::summary_string()</code> — one-line <code>total/active/revoked/expired/patients</code>. The grep-friendly cell <code>summary().to_json()</code> can't be.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::distinct_purposes_in_use()</code> — sorted set of every <code>Purpose</code> currently granted by at least one active token. Distinct from <code>tokens_count_by_purpose()</code>'s cardinality.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::is_revoked(token_id)</code> — <code>noexcept</code> bool; true iff the token exists and was explicitly revoked (distinct from expired). The negative sibling of <code>is_token_active</code> without conflating revocation with expiry.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::find_token_for_any_purpose(patient, span&lt;Purpose&gt;)</code> — disjunctive sibling of <code>find_token_granting_all</code>. The OR shape a fallback-purpose pre-flight check wants; <code>nullopt</code> when no active token covers any of the listed purposes.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::count_active_for_patients(span)</code> — bulk cohort cardinality. Total active tokens summed over a span of patients in one pass; the per-cohort renewal-queue depth row a campaign reads.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::set_severity</code> — validates against the closed set <code>{info, warning, error, critical}</code>; rejects anything else with <code>invalid_argument</code>. Hashed into the entry like any other metadata.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::trace_id_or_empty()</code> — sugar reading <code>metadata.trace_id</code>; empty string when unset (rather than <code>std::optional</code>).</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::flush_drift_to_metrics()</code> — emits <code>drift.severity.&lt;feature&gt;.&lt;severity&gt;</code> counters. Drift bands now read as ordinary metrics on a Prometheus exporter without learning a separate <code>DriftMonitor</code> shape.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::counter(name)</code> — sugar over <code>metrics().count(name)</code>. The cheap one-counter cell without reaching through a sub-component.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::subscribe_logging(sink)</code> — sugar over <code>ledger().subscribe(sink)</code>. Pairs with <code>record_event</code> on the inverse axis (observe vs. drive).</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.4.8</b><time class="dt-published" datetime="2026-04-26">2026-04-26</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Time anchors, lifespan stats, shutdown tombstones.</em>

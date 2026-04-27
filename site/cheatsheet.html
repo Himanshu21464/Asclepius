@@ -561,6 +561,27 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
+      <h2>Round 86 <small>disjunctive consent · drift-to-metrics · body-size histograms</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.body_size_histogram(bins)</code></dt><dd><code>Result&lt;Histogram&gt;</code> — body-size distribution; motivated the explicit <code>Histogram</code> move ctor + move assignment</dd>
+        <dt><code>ledger.range_for_actor_and_event_type(a, type)</code></dt><dd>composite filter — actor + event-type intersection in one query</dd>
+        <dt><code>ledger.most_active_tenant() · has_tenant(t)</code></dt><dd>highest-count tenant pointer · cheap existence bool</dd>
+        <dt><code>ledger.tail_summary_string(n)</code></dt><dd>multi-line ops grep — <code>seq · ts · actor · event_type</code> per row</dd>
+        <dt><code>hist.scale_by(factor)</code></dt><dd>downsampling — <code>factor &lt; 0</code> raises <code>invalid_argument</code></dd>
+        <dt><code>metrics.counter_min() · has_any()</code></dt><dd>quietest counter cell · noexcept "is the registry doing anything?"</dd>
+        <dt><code>drift.set_alert_threshold(severity)</code></dt><dd>raises the alert floor; does <em>not</em> clear <code>last_severity_</code></dd>
+        <dt><code>consent.summary_string()</code></dt><dd>one-line — <code>total/active/revoked/expired/patients</code></dd>
+        <dt><code>consent.distinct_purposes_in_use() · is_revoked(id)</code></dt><dd>sorted set of currently-granted purposes · noexcept "did this patient withdraw?"</dd>
+        <dt><code>consent.find_token_for_any_purpose(p, span&lt;Purpose&gt;)</code></dt><dd>disjunctive sibling of <code>find_token_granting_all</code> — OR shape, not AND</dd>
+        <dt><code>consent.count_active_for_patients(span)</code></dt><dd>bulk cohort cardinality — sum over a span of patients</dd>
+        <dt><code>inf.set_severity({info|warning|error|critical})</code></dt><dd>log-level stamp; <code>invalid_argument</code> outside the closed set</dd>
+        <dt><code>inf.trace_id_or_empty()</code></dt><dd>sugar reads <code>metadata.trace_id</code>; empty string when unset</dd>
+        <dt><code>rt.flush_drift_to_metrics()</code></dt><dd>emits <code>drift.severity.&lt;feature&gt;.&lt;severity&gt;</code> counters — drift bands as ordinary metrics</dd>
+        <dt><code>rt.counter(name) · subscribe_logging(sink)</code></dt><dd>sugar over <code>metrics().count</code> · sugar over <code>ledger().subscribe</code></dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
       <h2>Round 85 <small>time anchors · lifespan stats · shutdown tombstones</small></h2>
       <dl class="pair">
         <dt><code>ledger.first_seq_at_or_after_time(t) · tail_after_time(t, n)</code></dt><dd>head-end mirror of <code>seq_at_time</code> · last n entries since a wall-clock anchor</dd>

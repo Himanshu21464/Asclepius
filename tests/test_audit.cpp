@@ -4787,3 +4787,295 @@ TEST_CASE("tail_after_time: t past newest yields empty vector") {
     // Chain still verifies after the probes.
     REQUIRE(l.verify());
 }
+
+// ============== Ledger::range_for_actor_and_event_type ==================
+
+TEST_CASE("range_for_actor_and_event_type: filters on both actor and event_type, seq-asc") {
+    auto p = tmp_db("rfaaet_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // alice/alpha (kept), alice/beta (out by event), bob/alpha (out by actor),
+    // alice/alpha again (kept), bob/beta (out by both).
+    REQUIRE(l.append("alpha", "alice", nlohmann::json{{"i", 1}}, ""));
+    REQUIRE(l.append("beta",  "alice", nlohmann::json{{"i", 2}}, ""));
+    REQUIRE(l.append("alpha", "bob",   nlohmann::json{{"i", 3}}, ""));
+    REQUIRE(l.append("alpha", "alice", nlohmann::json{{"i", 4}}, ""));
+    REQUIRE(l.append("beta",  "bob",   nlohmann::json{{"i", 5}}, ""));
+    auto r = l.range_for_actor_and_event_type("alice", "alpha"); REQUIRE(r);
+    REQUIRE(r.value().size() == 2);
+    // seq-ascending invariant.
+    CHECK(r.value()[0].header.seq < r.value()[1].header.seq);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    CHECK(b0["i"] == 1);
+    CHECK(b1["i"] == 4);
+}
+
+TEST_CASE("range_for_actor_and_event_type: empty actor or empty event_type rejected") {
+    auto p = tmp_db("rfaaet_edge");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("alpha", "alice", nlohmann::json::object(), ""));
+    auto r1 = l.range_for_actor_and_event_type("", "alpha");
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.range_for_actor_and_event_type("alice", "");
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+    auto r3 = l.range_for_actor_and_event_type("", "");
+    CHECK(!r3);
+    CHECK(r3.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("range_for_actor_and_event_type: no match and empty-chain return empty vector") {
+    auto p = tmp_db("rfaaet_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain: well-formed query returns empty vector (not error).
+    auto re = l.range_for_actor_and_event_type("alice", "alpha"); REQUIRE(re);
+    CHECK(re.value().empty());
+    // Populated chain with no matching combo: still empty.
+    REQUIRE(l.append("alpha", "bob",   nlohmann::json::object(), ""));
+    REQUIRE(l.append("beta",  "alice", nlohmann::json::object(), ""));
+    auto r = l.range_for_actor_and_event_type("alice", "alpha"); REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+TEST_CASE("range_for_actor_and_event_type: agrees with manual scan over the chain") {
+    auto p = tmp_db("rfaaet_parity");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    const char* actors[] = {"alice", "bob", "carol"};
+    const char* events[] = {"alpha", "beta", "gamma"};
+    for (int i = 0; i < 30; i++) {
+        REQUIRE(l.append(events[i % 3], actors[i % 3],
+                         nlohmann::json{{"i", i}}, ""));
+    }
+    auto r = l.range_for_actor_and_event_type("alice", "alpha"); REQUIRE(r);
+    // Manual reference: every (alice, alpha) entry, seq-ascending.
+    auto rng = l.range_by_actor("alice"); REQUIRE(rng);
+    std::vector<LedgerEntry> ref;
+    for (const auto& e : rng.value()) {
+        if (e.header.event_type == "alpha") ref.push_back(e);
+    }
+    REQUIRE(r.value().size() == ref.size());
+    for (std::size_t i = 0; i < ref.size(); ++i) {
+        CHECK(r.value()[i].header.seq == ref[i].header.seq);
+    }
+}
+
+// ============== Ledger::has_tenant =======================================
+
+TEST_CASE("has_tenant: true for present tenants, false otherwise") {
+    auto p = tmp_db("ht_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "tenant-a"));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "tenant-b"));
+    CHECK(l.has_tenant("tenant-a"));
+    CHECK(l.has_tenant("tenant-b"));
+    CHECK_FALSE(l.has_tenant("tenant-ghost"));
+}
+
+TEST_CASE("has_tenant: empty tenant is its own scope") {
+    auto p = tmp_db("ht_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty chain: nothing matches anything, including "".
+    CHECK_FALSE(l.has_tenant(""));
+    CHECK_FALSE(l.has_tenant("anything"));
+    // Append with non-empty tenant only — empty-tenant scope still empty.
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "real-tenant"));
+    CHECK_FALSE(l.has_tenant(""));
+    CHECK(l.has_tenant("real-tenant"));
+    // Add an entry in the empty-tenant scope and recheck.
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    CHECK(l.has_tenant(""));
+}
+
+TEST_CASE("has_tenant: agrees with tenants() membership") {
+    auto p = tmp_db("ht_consistent");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    const char* tenants[] = {"alpha", "beta", "", "gamma"};
+    for (int i = 0; i < 16; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, tenants[i % 4]));
+    }
+    auto ts = l.tenants(); REQUIRE(ts);
+    for (const auto& name : ts.value()) {
+        CHECK(l.has_tenant(name));
+    }
+    CHECK_FALSE(l.has_tenant("does-not-exist"));
+}
+
+// ============== Ledger::most_active_tenant ===============================
+
+TEST_CASE("most_active_tenant returns the tenant with the largest entry count") {
+    auto p = tmp_db("mat_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // alpha: 5, beta: 3, gamma: 1 — alpha clearly wins.
+    for (int i = 0; i < 5; i++) REQUIRE(l.append("e", "x", nlohmann::json::object(), "alpha"));
+    for (int i = 0; i < 3; i++) REQUIRE(l.append("e", "x", nlohmann::json::object(), "beta"));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "gamma"));
+    auto r = l.most_active_tenant(); REQUIRE(r);
+    CHECK(r.value() == "alpha");
+}
+
+TEST_CASE("most_active_tenant: empty chain returns not_found") {
+    auto p = tmp_db("mat_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().most_active_tenant();
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("most_active_tenant: empty tenant competes alongside named tenants") {
+    auto p = tmp_db("mat_empty_scope");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Empty tenant has the most entries.
+    for (int i = 0; i < 4; i++) REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), "alpha"));
+    auto r = l.most_active_tenant(); REQUIRE(r);
+    CHECK(r.value() == "");
+}
+
+TEST_CASE("most_active_tenant: single-tenant chain returns that tenant") {
+    auto p = tmp_db("mat_single");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 7; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, "only-one"));
+    }
+    auto r = l.most_active_tenant(); REQUIRE(r);
+    CHECK(r.value() == "only-one");
+}
+
+// ============== Ledger::body_size_histogram ==============================
+
+TEST_CASE("body_size_histogram: empty chain returns an empty histogram with hi=1") {
+    auto p = tmp_db("bsh_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().body_size_histogram(20); REQUIRE(r);
+    CHECK(r.value().total() == 0u);
+    CHECK(r.value().bin_count() == 20u);
+    CHECK(r.value().lo() == 0.0);
+    CHECK(r.value().hi() == 1.0);
+}
+
+TEST_CASE("body_size_histogram: bins=0 returns invalid_argument") {
+    auto p = tmp_db("bsh_zero_bins");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r = l.body_size_histogram(0);
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("body_size_histogram: total observations equal chain length") {
+    auto p = tmp_db("bsh_total");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 25; i++) {
+        REQUIRE(l.append("e", "x",
+                         nlohmann::json{{"i", i}, {"pad", std::string(i * 4, 'a')}},
+                         ""));
+    }
+    auto r = l.body_size_histogram(10); REQUIRE(r);
+    CHECK(r.value().total() == 25u);
+    CHECK(r.value().bin_count() == 10u);
+    CHECK(r.value().lo() == 0.0);
+    // hi must be the maximum body size observed, which is positive here.
+    CHECK(r.value().hi() > 0.0);
+}
+
+TEST_CASE("body_size_histogram: hi tracks the maximum observed body size") {
+    auto p = tmp_db("bsh_hi_max");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Append entries with increasing body sizes; the largest body
+    // governs hi.
+    REQUIRE(l.append("e", "x", nlohmann::json{{"k", "a"}}, ""));            // small
+    REQUIRE(l.append("e", "x",
+                     nlohmann::json{{"k", std::string(64, 'b')}}, ""));     // medium
+    REQUIRE(l.append("e", "x",
+                     nlohmann::json{{"k", std::string(256, 'c')}}, ""));    // largest
+    auto r = l.body_size_histogram(12); REQUIRE(r);
+    CHECK(r.value().total() == 3u);
+    CHECK(r.value().lo() == 0.0);
+    CHECK(r.value().hi() > 0.0);
+    // The max body size must be at least the canonical-JSON length of
+    // the largest body's payload (256 c's plus quoting and the rest of
+    // the object), so hi must comfortably exceed that lower bound.
+    CHECK(r.value().hi() >= 256.0);
+    // Bin invariants: well-formed lo<hi and the requested bin count.
+    CHECK(r.value().bin_count() == 12u);
+    CHECK(r.value().hi() > r.value().lo());
+}
+
+// ============== Ledger::tail_summary_string ==============================
+
+TEST_CASE("tail_summary_string: n=0 returns the empty string") {
+    auto p = tmp_db("tss_zero");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r = l.tail_summary_string(0); REQUIRE(r);
+    CHECK(r.value() == "");
+}
+
+TEST_CASE("tail_summary_string: empty chain returns empty string") {
+    auto p = tmp_db("tss_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().tail_summary_string(5); REQUIRE(r);
+    CHECK(r.value() == "");
+}
+
+TEST_CASE("tail_summary_string: line layout is seq=, ts=, actor=, event= oldest-first") {
+    auto p = tmp_db("tss_layout");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto e1 = l.append("alpha", "alice", nlohmann::json::object(), ""); REQUIRE(e1);
+    auto e2 = l.append("beta",  "bob",   nlohmann::json::object(), ""); REQUIRE(e2);
+    auto e3 = l.append("gamma", "carol", nlohmann::json::object(), ""); REQUIRE(e3);
+    auto r = l.tail_summary_string(2); REQUIRE(r);
+    // Two lines for the last two entries (seq=2 and seq=3) in oldest-first.
+    auto nl = r.value().find('\n');
+    REQUIRE(nl != std::string::npos);
+    auto line0 = r.value().substr(0, nl);
+    auto line1 = r.value().substr(nl + 1);
+    // Oldest-first: line0 is seq=2 (bob/beta), line1 is seq=3 (carol/gamma).
+    CHECK(line0.find("seq=2") != std::string::npos);
+    CHECK(line0.find("actor=bob") != std::string::npos);
+    CHECK(line0.find("event=beta") != std::string::npos);
+    CHECK(line0.find("ts=" + e2.value().header.ts.iso8601()) != std::string::npos);
+    CHECK(line1.find("seq=3") != std::string::npos);
+    CHECK(line1.find("actor=carol") != std::string::npos);
+    CHECK(line1.find("event=gamma") != std::string::npos);
+    // No trailing newline.
+    CHECK(r.value().back() != '\n');
+}
+
+TEST_CASE("tail_summary_string: n larger than length emits one line per entry") {
+    auto p = tmp_db("tss_overflow");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 4; i++) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto r = l.tail_summary_string(99); REQUIRE(r);
+    // Four entries -> four lines -> three newlines (no trailing).
+    std::size_t newlines = 0;
+    for (char c : r.value()) {
+        if (c == '\n') ++newlines;
+    }
+    CHECK(newlines == 3u);
+    // Oldest-first ordering: seq=1 appears before seq=4 in the buffer.
+    auto p1 = r.value().find("seq=1");
+    auto p4 = r.value().find("seq=4");
+    REQUIRE(p1 != std::string::npos);
+    REQUIRE(p4 != std::string::npos);
+    CHECK(p1 < p4);
+}

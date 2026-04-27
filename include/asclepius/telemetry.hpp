@@ -26,6 +26,26 @@ class Histogram {
 public:
     Histogram(double lo, double hi, std::size_t bins);
 
+    // Move constructor / assignment. The contained `mutable std::mutex`
+    // would otherwise IMPLICITLY DELETE both copy and move because mutexes
+    // are non-movable and non-copyable. We need Histogram to be
+    // move-constructible so callers can return one by value
+    // (e.g. `Result<Histogram>` from audit-side getters that snapshot a
+    // body-size distribution). The implementation locks the source mutex,
+    // snapshots lo_/hi_/counts_/total_, leaves the moved-from instance
+    // empty, and DEFAULT-CONSTRUCTS our own mutex (mutexes are
+    // intentionally never moved). Both noexcept — the only operations are
+    // primitive copies, vector move, and a lock that propagates only on
+    // catastrophic OS failure.
+    Histogram(Histogram&& other) noexcept;
+    Histogram& operator=(Histogram&& other) noexcept;
+
+    // Copying is still NOT supported — defining the move operations
+    // implicitly suppresses the implicit copy ones, but we declare them
+    // explicitly here so the contract is unambiguous at call sites.
+    Histogram(const Histogram&)            = delete;
+    Histogram& operator=(const Histogram&) = delete;
+
     void observe(double value);
 
     std::size_t        bin_count() const noexcept;
@@ -74,6 +94,16 @@ public:
     // max() - min(). Returns 0.0 if the histogram is empty (total()==0).
     // Useful as a one-shot "spread" diagnostic that doesn't allocate.
     double range() const;
+
+    // Multiply every bin count by `factor`, rounded down (floor) to
+    // integer counts, and update total_ to match the post-scale sum.
+    // Used for downsampling — e.g. when merging two baselines and we
+    // want to weight one of them less heavily before merge(). Returns
+    // invalid_argument when factor < 0. factor == 0 effectively clears
+    // (every bin and total_ become 0). factor == 1.0 is a no-op
+    // (subject to the floor, which only matters for the boundary case
+    // of factor barely below 1.0). Locked.
+    Result<void> scale_by(double factor);
 
     // Add another histogram's bin counts into this one. Returns
     // invalid_argument if bin_count(), lo(), or hi() don't match.
@@ -260,6 +290,16 @@ public:
     // automatically; libraries can use it for paging or dashboards.
     using AlertSink = std::function<void(const DriftReport&)>;
     void set_alert_sink(AlertSink sink, DriftSeverity threshold = DriftSeverity::moder);
+
+    // Reconfigure the alert threshold without changing the installed
+    // sink. Useful for runtime threshold tuning — e.g. an operator
+    // dialing the threshold up to "severe" during a scheduled rollout
+    // to silence "minor"/"moder" pages. NOTE: this DOES NOT clear
+    // last_severity_; a feature that has already crossed (and recorded
+    // its high-water severity) will not re-fire when the threshold
+    // moves. Call clear_alerts() separately if you want the alert
+    // ladder reset alongside the threshold change.
+    void set_alert_threshold(DriftSeverity severity);
 
     // True iff a non-empty AlertSink is currently installed. Used for
     // "is this monitor wired to the ledger?" checks. Locked.
@@ -515,6 +555,15 @@ public:
     // enumerating the full snapshot.
     std::uint64_t counter_max() const;
 
+    // Smallest counter value across the registry. Returns
+    // Error::not_found if no counters have been registered. Distinct
+    // from counter_max() (which returns 0 silently on empty), because
+    // 0 is itself a legal counter value — the not_found result lets
+    // callers distinguish "no counters" from "the smallest counter is
+    // 0." Useful as a "is every counter at least N?" gate when paired
+    // with a min-threshold check on the result.
+    Result<std::uint64_t> counter_min() const;
+
     // Number of registered histograms. Named `_total` to avoid clashing
     // with the existing histogram_count(name) reader, which returns the
     // observation count for a single histogram.
@@ -557,6 +606,13 @@ public:
     // Cheap predicate gated by the registry mutex — used by health
     // probes that want to assert telemetry is wired up before scraping.
     bool is_empty() const noexcept;
+
+    // Sugar wrapper over `!is_empty()`. True iff the registry contains
+    // any counter or any histogram. Reads more naturally on call sites
+    // framed as "do we have anything to scrape?" rather than "is this
+    // empty?". noexcept; on internal failure (e.g. lock throw) returns
+    // false, matching the conservative degradation of is_empty().
+    bool has_any() const noexcept;
 
 private:
     struct Hist {

@@ -614,6 +614,74 @@ std::size_t Runtime::counter_total() const {
     return static_cast<std::size_t>(impl_->metrics.counter_total());
 }
 
+std::uint64_t Runtime::counter(std::string_view name) const {
+    // One-call sugar over MetricRegistry::count. Same missing-counter
+    // semantics as the underlying call (returns 0 silently for both
+    // 0-valued and missing names); callers who need to disambiguate
+    // can fall back to metrics().counter_value() through the
+    // accessor. Matches the framing used by the other one-call
+    // accessors on this surface — head_hash(), keystore_fingerprint()
+    // — that just save the caller from grabbing a sub-component
+    // reference.
+    return impl_->metrics.count(name);
+}
+
+Result<std::uint64_t> Runtime::flush_drift_to_metrics() {
+    // Materialize current drift state into the MetricRegistry by
+    // emitting one counter per (feature, severity) pair, named
+    // "drift.severity.<feature>.<severity>". Used by sidecars that
+    // expose drift through the same Prometheus path as the rest of
+    // the runtime metrics: rather than tracking severity transitions
+    // on the alert sink (already done — see the drift_to_ledger
+    // bridge), this produces a snapshot counter the scrape endpoint
+    // can render. Each call increments by 1; readers care about
+    // deltas, not absolute values, so a fresh deploy that reads the
+    // counters periodically gets a faithful picture without stale
+    // history. Returns the number of features flushed; never errors
+    // today, but kept Result-shaped so future alerting / mode
+    // changes (e.g. a feature_severity backend that can fail) can
+    // surface them.
+    std::uint64_t flushed = 0;
+    auto features = impl_->drift.list_features();
+    for (const auto& name : features) {
+        auto sev = impl_->drift.feature_severity(name);
+        if (!sev) {
+            // A registered feature must always resolve to a severity;
+            // if it doesn't, the registry is in a broken state and we
+            // surface that rather than silently skipping. Diagnostics
+            // belong on health(); this path mirrors reset_metrics()
+            // — short-circuit the first failure.
+            return sev.error();
+        }
+        std::string counter_name;
+        counter_name.reserve(32 + name.size());
+        counter_name += "drift.severity.";
+        counter_name += name;
+        counter_name += '.';
+        counter_name += to_string(sev.value());
+        impl_->metrics.inc(counter_name);
+        ++flushed;
+    }
+    return flushed;
+}
+
+Result<Ledger::Subscription>
+Runtime::subscribe_logging(std::function<void(const LedgerEntry&)> sink) {
+    // Sugar over Ledger::subscribe(...) — the runtime adds nothing
+    // beyond the underlying contract; the wrapper exists so call
+    // sites that want a logging hook read as "subscribe a logger" at
+    // the top level rather than drilling through ledger() first.
+    // The Subscription is move-only and owns the registration; when
+    // it goes out of scope the callback is unregistered. Returns
+    // Result so future runtime-level gates (e.g. shutdown state, sink
+    // sanity checks) can surface as Errors without churning the
+    // call site; today it's infallible.
+    if (!sink) {
+        return Error::invalid("subscribe_logging: sink must be non-null");
+    }
+    return impl_->ledger.subscribe(std::move(sink));
+}
+
 std::string Runtime::env_summary() const {
     nlohmann::json j;
 #ifdef ASCLEPIUS_VERSION_STRING

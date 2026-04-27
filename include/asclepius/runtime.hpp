@@ -199,6 +199,25 @@ public:
     // semantics as add_metadata apply (under the fixed key "priority").
     Result<void> set_priority(std::string_view priority);
 
+    // Sugar over add_metadata("severity", severity) — the value is
+    // stored as a JSON string. Used by sidecars to mark inferences
+    // with a severity level for downstream alerting / triage filters.
+    // Validates `severity` is one of {"info", "warning", "error",
+    // "critical"}; any other value is rejected with invalid_argument
+    // naming the offending input. The same reserved-key / post-commit
+    // / replace-on-duplicate semantics as add_metadata apply (under
+    // the fixed key "severity").
+    Result<void> set_severity(std::string_view severity);
+
+    // Read metadata["trace_id"] if present and is a string; else
+    // return the empty string. noexcept-shaped (no throws): used by
+    // sidecars on the hot logging path that just want a trace id to
+    // emit alongside the inference id, with "no trace_id attached"
+    // and "empty string" collapsed to the same value. For callers
+    // that need to distinguish "absent" from "set-but-empty", use
+    // get_metadata("trace_id") instead.
+    std::string trace_id_or_empty() const;
+
     // Capture a clinician override of the model's output. Stored with the
     // inference id so prospective evaluation can join later.
     Result<void> capture_override(std::string rationale, nlohmann::json corrected);
@@ -752,6 +771,34 @@ public:
     // dashboards. Saves callers from grabbing the MetricRegistry&
     // reference when they only want the aggregate.
     std::size_t counter_total() const;
+
+    // Sugar over `metrics().count(name)`. One-call accessor that saves
+    // callers grabbing the MetricRegistry& reference when they just
+    // want the current value of a single named counter. Mirrors
+    // counter_total()'s framing; matches MetricRegistry::count's
+    // missing-counter semantics (returns 0 silently rather than an
+    // error).
+    std::uint64_t counter(std::string_view name) const;
+
+    // For every registered drift feature, compute its current severity
+    // via drift().feature_severity(name) and emit a counter
+    // "drift.severity.<feature>.<severity>" += 1. Returns the number
+    // of features flushed. Used to materialize drift state into
+    // Prometheus-shaped metrics on demand (e.g. on every scrape tick),
+    // so that "current severity per feature" is observable through
+    // the same MetricRegistry path as the rest of the runtime.
+    Result<std::uint64_t> flush_drift_to_metrics();
+
+    // Wraps `ledger().subscribe(...)` with the supplied callback —
+    // sugar that's just clearer at call sites that want a logging
+    // hook on every appended entry. Returns the Subscription handle
+    // so callers can unsubscribe by destroying it (matches the
+    // direct Ledger::subscribe contract). The callback is invoked
+    // on the appender's thread, after each successful append; the
+    // same re-entrancy rules as Ledger::subscribe apply (must not
+    // call back into Ledger::append from the same thread).
+    Result<Ledger::Subscription> subscribe_logging(
+        std::function<void(const LedgerEntry&)> sink);
 
     // Small JSON string describing the runtime's build environment:
     // asclepius version, libsodium runtime version, sqlite header

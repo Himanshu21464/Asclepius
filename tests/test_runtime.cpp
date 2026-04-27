@@ -4315,3 +4315,306 @@ TEST_CASE("policy_count: tracks install_default_policies (clear-then-push)") {
     CHECK(rt.policy_count() == rt.health().policy_count);
     CHECK(rt.policy_count() == rt.system_summary().policy_count);
 }
+
+// ============== Inference::set_severity ===================================
+
+TEST_CASE("set_severity: writes severity under metadata as a JSON string") {
+    auto rt_ = fresh_runtime("sev_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_sev_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().set_severity("warning"));
+    auto got = inf.value().get_metadata("severity");
+    REQUIRE(got);
+    REQUIRE(got.value().is_string());
+    CHECK(got.value().get<std::string>() == "warning");
+}
+
+TEST_CASE("set_severity: accepts each of info/warning/error/critical") {
+    auto rt_ = fresh_runtime("sev_each"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_sev_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    for (const auto* s : {"info", "warning", "error", "critical"}) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().set_severity(s));
+        auto got = inf.value().get_metadata("severity");
+        REQUIRE(got);
+        CHECK(got.value().get<std::string>() == s);
+    }
+}
+
+TEST_CASE("set_severity: rejects unknown values with invalid_argument") {
+    auto rt_ = fresh_runtime("sev_bad"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_sev_x");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    for (const auto* bad : {"", "fatal", "WARNING", "warn", "info ", " info", "low"}) {
+        auto r = inf.value().set_severity(bad);
+        REQUIRE(!r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+    // No metadata should have been written by any of the rejected calls.
+    auto h = inf.value().has_metadata("severity");
+    REQUIRE(h);
+    CHECK(!h.value());
+}
+
+TEST_CASE("set_severity: replace-on-duplicate; rejected after commit") {
+    auto rt_ = fresh_runtime("sev_dup"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_sev_d");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().set_severity("info"));
+    REQUIRE(inf.value().set_severity("critical"));
+    auto got = inf.value().get_metadata("severity");
+    REQUIRE(got);
+    CHECK(got.value().get<std::string>() == "critical");
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    auto post = inf.value().set_severity("error");
+    REQUIRE(!post);
+    CHECK(post.error().code() == ErrorCode::invalid_argument);
+}
+
+// ============== Inference::trace_id_or_empty ==============================
+
+TEST_CASE("trace_id_or_empty: returns empty string when no metadata is set") {
+    auto rt_ = fresh_runtime("tid_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tid_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(inf.value().trace_id_or_empty() == "");
+    // Setting unrelated metadata also leaves trace_id absent.
+    REQUIRE(inf.value().add_metadata("not_trace", "x"));
+    CHECK(inf.value().trace_id_or_empty() == "");
+}
+
+TEST_CASE("trace_id_or_empty: returns the string trace_id when set") {
+    auto rt_ = fresh_runtime("tid_set"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tid_s");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("trace_id", "abc-123"));
+    CHECK(inf.value().trace_id_or_empty() == "abc-123");
+    // Round-trip through a runtime-minted id.
+    const auto fresh = rt.generate_trace_id();
+    auto inf2 = begin(rt, pid, tok.token_id); REQUIRE(inf2);
+    REQUIRE(inf2.value().add_metadata("trace_id", fresh));
+    CHECK(inf2.value().trace_id_or_empty() == fresh);
+}
+
+TEST_CASE("trace_id_or_empty: collapses non-string trace_id to empty") {
+    auto rt_ = fresh_runtime("tid_nonstr"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tid_n");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // Caller stores trace_id as an integer — sugar still hands back "".
+    REQUIRE(inf.value().add_metadata("trace_id", nlohmann::json{42}));
+    CHECK(inf.value().trace_id_or_empty() == "");
+    // Caller stores trace_id as an object — same outcome.
+    auto inf2 = begin(rt, pid, tok.token_id); REQUIRE(inf2);
+    REQUIRE(inf2.value().add_metadata("trace_id",
+        nlohmann::json::object({{"nested", "x"}})));
+    CHECK(inf2.value().trace_id_or_empty() == "");
+}
+
+TEST_CASE("trace_id_or_empty: survives commit (reads pending body, post-commit too)") {
+    auto rt_ = fresh_runtime("tid_commit"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tid_c");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().add_metadata("trace_id", "stable-trace"));
+    CHECK(inf.value().trace_id_or_empty() == "stable-trace");
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // Post-commit, the staged body still carries the trace_id.
+    CHECK(inf.value().trace_id_or_empty() == "stable-trace");
+}
+
+// ============== Runtime::flush_drift_to_metrics ===========================
+
+TEST_CASE("flush_drift_to_metrics: returns 0 when no features are registered") {
+    auto rt_ = fresh_runtime("fdtm_zero"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto r = rt.flush_drift_to_metrics();
+    REQUIRE(r);
+    CHECK(r.value() == 0);
+}
+
+TEST_CASE("flush_drift_to_metrics: emits one counter per feature, returns flushed count") {
+    auto rt_ = fresh_runtime("fdtm_emit"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.drift().register_feature("alpha", {0.1, 0.2, 0.3}, 0.0, 1.0, 4));
+    REQUIRE(rt.drift().register_feature("beta",  {0.5, 0.6, 0.7}, 0.0, 1.0, 4));
+    auto r = rt.flush_drift_to_metrics();
+    REQUIRE(r);
+    CHECK(r.value() == 2);
+    // Each feature should have exactly one counter incremented (one of
+    // none/minor/moder/severe). Sum the four severity counters per
+    // feature and require == 1.
+    auto sev_total = [&](const std::string& feature) -> std::uint64_t {
+        std::uint64_t total = 0;
+        for (const auto* s : {"none", "minor", "moder", "severe"}) {
+            total += rt.metrics().count("drift.severity." + feature + "." + s);
+        }
+        return total;
+    };
+    CHECK(sev_total("alpha") == 1);
+    CHECK(sev_total("beta")  == 1);
+}
+
+TEST_CASE("flush_drift_to_metrics: counters accumulate across calls") {
+    auto rt_ = fresh_runtime("fdtm_accum"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.drift().register_feature("gamma", {0.1, 0.2}, 0.0, 1.0, 4));
+    REQUIRE(rt.flush_drift_to_metrics());
+    REQUIRE(rt.flush_drift_to_metrics());
+    REQUIRE(rt.flush_drift_to_metrics());
+    // Three flushes → exactly three increments distributed across the
+    // four severity buckets for "gamma".
+    std::uint64_t total = 0;
+    for (const auto* s : {"none", "minor", "moder", "severe"}) {
+        total += rt.metrics().count(
+            std::string{"drift.severity.gamma."} + s);
+    }
+    CHECK(total == 3);
+}
+
+TEST_CASE("flush_drift_to_metrics: severity bucket follows feature_severity") {
+    auto rt_ = fresh_runtime("fdtm_bucket"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.drift().register_feature("delta", {0.1, 0.2}, 0.0, 1.0, 4));
+    REQUIRE(rt.flush_drift_to_metrics());
+    // Whichever severity feature_severity reports, the matching counter
+    // must be exactly 1 and the others 0.
+    auto sev = rt.drift().feature_severity("delta");
+    REQUIRE(sev);
+    const std::string expected =
+        std::string{"drift.severity.delta."} + to_string(sev.value());
+    CHECK(rt.metrics().count(expected) == 1);
+    for (const auto* s : {"none", "minor", "moder", "severe"}) {
+        std::string name = std::string{"drift.severity.delta."} + s;
+        if (name == expected) continue;
+        CHECK(rt.metrics().count(name) == 0);
+    }
+}
+
+// ============== Runtime::counter ==========================================
+
+TEST_CASE("counter: returns 0 for an unknown name (matches metrics().count)") {
+    auto rt_ = fresh_runtime("cn_unknown"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.counter("nope.never.seen") == 0);
+    CHECK(rt.counter("nope.never.seen") == rt.metrics().count("nope.never.seen"));
+}
+
+TEST_CASE("counter: returns the live counter value after a commit") {
+    auto rt_ = fresh_runtime("cn_live"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cn_live");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    CHECK(rt.counter("inference.ok") == 1);
+    CHECK(rt.counter("inference.ok") == rt.metrics().count("inference.ok"));
+    CHECK(rt.counter("inference.attempts") == 1);
+}
+
+TEST_CASE("counter: tracks manual MetricRegistry mutations through the sugar") {
+    auto rt_ = fresh_runtime("cn_manual"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    rt.metrics().inc("custom.event");
+    rt.metrics().inc("custom.event");
+    rt.metrics().inc("custom.event", 5);
+    CHECK(rt.counter("custom.event") == 7);
+    // After reset_metrics(), the sugar reads the fresh value.
+    REQUIRE(rt.reset_metrics());
+    CHECK(rt.counter("custom.event") == 0);
+}
+
+// ============== Runtime::subscribe_logging ================================
+
+TEST_CASE("subscribe_logging: callback fires on every successful append") {
+    auto rt_ = fresh_runtime("sl_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    std::atomic<int> hits{0};
+    auto sub = rt.subscribe_logging([&](const LedgerEntry&) {
+        hits.fetch_add(1, std::memory_order_relaxed);
+    });
+    REQUIRE(sub);
+    auto pid = PatientId::pseudonymous("p_sl_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // The grant() above appended a consent.granted entry → already +1.
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    // We expect at least 1 hit from the inference.committed append.
+    CHECK(hits.load() >= 1);
+}
+
+TEST_CASE("subscribe_logging: rejects null sink with invalid_argument") {
+    auto rt_ = fresh_runtime("sl_null"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    std::function<void(const LedgerEntry&)> null_sink;  // empty
+    auto sub = rt.subscribe_logging(std::move(null_sink));
+    REQUIRE(!sub);
+    CHECK(sub.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("subscribe_logging: callback receives the freshly-appended entry") {
+    auto rt_ = fresh_runtime("sl_entry"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    std::vector<std::string> seen_event_types;
+    std::mutex mu;
+    auto sub = rt.subscribe_logging([&](const LedgerEntry& e) {
+        std::lock_guard<std::mutex> lk(mu);
+        seen_event_types.push_back(e.header.event_type);
+    });
+    REQUIRE(sub);
+    REQUIRE(rt.record_event("custom.ping", "test", nlohmann::json{{"i", 1}}));
+    REQUIRE(rt.record_shutdown("test_drain"));
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        // Both event types should be observed in append order.
+        REQUIRE(seen_event_types.size() >= 2);
+        bool saw_ping = false, saw_shutdown = false;
+        for (const auto& t : seen_event_types) {
+            if (t == "custom.ping")     saw_ping = true;
+            if (t == "runtime.shutdown") saw_shutdown = true;
+        }
+        CHECK(saw_ping);
+        CHECK(saw_shutdown);
+    }
+}
+
+TEST_CASE("subscribe_logging: destroying the subscription stops further callbacks") {
+    auto rt_ = fresh_runtime("sl_unsub"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    std::atomic<int> hits{0};
+    {
+        auto sub = rt.subscribe_logging([&](const LedgerEntry&) {
+            hits.fetch_add(1, std::memory_order_relaxed);
+        });
+        REQUIRE(sub);
+        REQUIRE(rt.record_event("x", "test", nlohmann::json::object()));
+    }
+    // Subscription went out of scope → unregistered. Subsequent appends
+    // must NOT increment hits beyond this baseline.
+    const int before = hits.load();
+    REQUIRE(rt.record_event("y", "test", nlohmann::json::object()));
+    REQUIRE(rt.record_event("z", "test", nlohmann::json::object()));
+    CHECK(hits.load() == before);
+}

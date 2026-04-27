@@ -1152,6 +1152,112 @@ bool ConsentRegistry::has_any_active() const noexcept {
     }
 }
 
+std::string ConsentRegistry::summary_string() const {
+    // Reuse summary() so the string and the Summary struct stay in
+    // lockstep — one source of truth for the partition counts.
+    auto s = summary();
+    return fmt::format("total={} active={} revoked={} expired={} patients={}",
+                       s.total, s.active, s.revoked, s.expired, s.patients);
+}
+
+std::vector<Purpose> ConsentRegistry::distinct_purposes_in_use() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    // Bitset over the Purpose enum's uint8_t code space — fixed
+    // O(1) memory regardless of token count.
+    bool seen[256] = {};
+    std::vector<Purpose> out;
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        for (auto p : t.purposes) {
+            auto code = static_cast<std::uint8_t>(p);
+            if (!seen[code]) {
+                seen[code] = true;
+                out.push_back(p);
+            }
+        }
+    }
+    std::sort(out.begin(), out.end(),
+              [](Purpose a, Purpose b) {
+                  return static_cast<std::uint8_t>(a) <
+                         static_cast<std::uint8_t>(b);
+              });
+    return out;
+}
+
+bool ConsentRegistry::is_revoked(std::string_view token_id) const noexcept {
+    // True iff the token exists AND is revoked. Missing tokens and
+    // existing-but-not-revoked tokens both report false. noexcept:
+    // any internal failure is swallowed → false.
+    try {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto it = by_id_.find(std::string{token_id});
+        if (it == by_id_.end()) return false;
+        return it->second.revoked;
+    } catch (...) {
+        return false;
+    }
+}
+
+Result<ConsentToken>
+ConsentRegistry::find_token_for_any_purpose(const PatientId&         patient,
+                                            std::span<const Purpose> purposes) const {
+    if (purposes.empty()) {
+        return Error::invalid("find_token_for_any_purpose requires non-empty purposes");
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)            continue;
+        if (t.expires_at <= now)  continue;
+        if (t.patient != patient) continue;
+        // Disjunctive match: the token's purpose list intersects the
+        // requested set. First hit wins; tiebreak is unspecified.
+        for (auto need : purposes) {
+            if (std::find(t.purposes.begin(), t.purposes.end(), need)
+                != t.purposes.end()) {
+                return t;
+            }
+        }
+    }
+    return Error::not_found("no active token covers any requested purpose");
+}
+
+std::size_t
+ConsentRegistry::count_active_for_patients(std::span<const PatientId> patients) const {
+    if (patients.empty()) {
+        return 0;
+    }
+    // De-duplicate the input so a patient listed twice is not
+    // double-counted. Compare the dedup'd patients against the
+    // active-token set under a single lock for a self-consistent
+    // snapshot.
+    std::unordered_set<std::string> wanted;
+    wanted.reserve(patients.size());
+    for (const auto& pid : patients) {
+        wanted.insert(std::string{pid.str()});
+    }
+
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::unordered_set<std::string> active_seen;
+    active_seen.reserve(wanted.size());
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        std::string key{t.patient.str()};
+        if (wanted.count(key) == 0) continue;
+        active_seen.insert(std::move(key));
+        if (active_seen.size() == wanted.size()) {
+            // Every requested patient has at least one active token —
+            // can't go higher; stop scanning early.
+            break;
+        }
+    }
+    return active_seen.size();
+}
+
 const char* to_string(ConsentRegistry::TokenLifecycle::State s) noexcept {
     switch (s) {
         case ConsentRegistry::TokenLifecycle::State::active:  return "active";
