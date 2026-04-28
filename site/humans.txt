@@ -24,18 +24,21 @@
 
 /* SITE */
 
-  Last update:  2026-04-27
+  Last update:  2026-04-28
   Standards:    HTML5, CSS3, ES2020, RFC 9116, RFC 4287 (Atom), JSON Feed 1.1,
                 EditorConfig, EFF DNT-policy
-  Pages:        32 HTML, all WCAG 2.2 AA, all SHA-256-attested in
+  Pages:        53 HTML, all WCAG 2.2 AA, all SHA-256-attested in
                 /asset-manifest.json
-  Components:   None. Hand-rolled vanilla JS, ~2.4k LoC across nine files
+  Components:   None. Hand-rolled vanilla JS, ~2.6k LoC across eleven files
                 (main, extras, palette, demo, floating, help, bench,
-                attest-site, themes).
+                attest-site, themes, source, badges).
   Tools used:   Asclepius itself for the SVG attestation;
                 check_html.py for link/heading/duplicate-id validation;
-                regen_manifest.py + regen_search.py for re-publication;
-                make all to coordinate.
+                check_orphans.py for unreachable-page audit;
+                check_integrity.py for cross-reference consistency;
+                regen_manifest.py + regen_search.py + regen_status.py;
+                tests/run.mjs (141 JS tests, including docs-render
+                coherence). make ci to coordinate.
 
   Designed and written, every paragraph and pixel, by humans and a
   language model in close collaboration. The bytes you see were

@@ -124,9 +124,9 @@ Result<std::string> Inference::run(std::string input, const ModelCallback& model
 
     impl_->ledger_body["status"]      = "ok";
     impl_->ledger_body["input_hash"]  = in_hash.hex();
-    impl_->ledger_body["input_size"]  = static_cast<std::uint64_t>(post_input.size());
+    impl_->ledger_body["input_size"]  = post_input.size();
     impl_->ledger_body["output_hash"] = out_hash.hex();
-    impl_->ledger_body["output_size"] = static_cast<std::uint64_t>(post_output.size());
+    impl_->ledger_body["output_size"] = post_output.size();
     auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
     impl_->ledger_body["latency_ns"] = latency_ns;
 
@@ -190,9 +190,9 @@ Result<std::string> Inference::run_with_timeout(
         worker.detach();
         metrics.inc("inference.timeout");
         impl_->ledger_body["status"]     = "timeout";
-        impl_->ledger_body["timeout_ms"] = static_cast<std::int64_t>(timeout.count());
+        impl_->ledger_body["timeout_ms"] = timeout.count();
         impl_->ledger_body["input_hash"] = in_hash.hex();
-        impl_->ledger_body["input_size"] = static_cast<std::uint64_t>(post_input.size());
+        impl_->ledger_body["input_size"] = post_input.size();
         return Error::timeout("model_call exceeded "
             + std::to_string(timeout.count()) + "ms");
     }
@@ -219,9 +219,9 @@ Result<std::string> Inference::run_with_timeout(
 
     impl_->ledger_body["status"]      = "ok";
     impl_->ledger_body["input_hash"]  = in_hash.hex();
-    impl_->ledger_body["input_size"]  = static_cast<std::uint64_t>(post_input.size());
+    impl_->ledger_body["input_size"]  = post_input.size();
     impl_->ledger_body["output_hash"] = out_hash.hex();
-    impl_->ledger_body["output_size"] = static_cast<std::uint64_t>(post_output.size());
+    impl_->ledger_body["output_size"] = post_output.size();
     auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
     impl_->ledger_body["latency_ns"] = latency_ns;
 
@@ -269,7 +269,7 @@ Result<std::string> Inference::run_cancellable(
         impl_->ledger_body["status"]     = "cancelled";
         impl_->ledger_body["cancel_phase"] = "pre_model";
         impl_->ledger_body["input_hash"] = in_hash.hex();
-        impl_->ledger_body["input_size"] = static_cast<std::uint64_t>(post_input.size());
+        impl_->ledger_body["input_size"] = post_input.size();
         return Error::cancelled("cancelled before model_call dispatch");
     }
 
@@ -297,7 +297,7 @@ Result<std::string> Inference::run_cancellable(
             impl_->ledger_body["status"]      = "cancelled";
             impl_->ledger_body["cancel_phase"] = "model_inflight";
             impl_->ledger_body["input_hash"]  = in_hash.hex();
-            impl_->ledger_body["input_size"]  = static_cast<std::uint64_t>(post_input.size());
+            impl_->ledger_body["input_size"]  = post_input.size();
             return Error::cancelled("cancelled while model_call was running");
         }
     }
@@ -324,9 +324,9 @@ Result<std::string> Inference::run_cancellable(
 
     impl_->ledger_body["status"]      = "ok";
     impl_->ledger_body["input_hash"]  = in_hash.hex();
-    impl_->ledger_body["input_size"]  = static_cast<std::uint64_t>(post_input.size());
+    impl_->ledger_body["input_size"]  = post_input.size();
     impl_->ledger_body["output_hash"] = out_hash.hex();
-    impl_->ledger_body["output_size"] = static_cast<std::uint64_t>(post_output.size());
+    impl_->ledger_body["output_size"] = post_output.size();
     auto latency_ns = (Time::now() - impl_->ctx.started_at()).count();
     impl_->ledger_body["latency_ns"] = latency_ns;
 
@@ -539,7 +539,7 @@ Result<std::size_t> Inference::input_size() const {
     if (it == impl_->ledger_body.end() || !it->is_number_unsigned()) {
         return Error::not_found("input_size not recorded for this run");
     }
-    return static_cast<std::size_t>(it->get<std::uint64_t>());
+    return it->get<std::size_t>();
 }
 
 Result<std::size_t> Inference::output_size() const {
@@ -561,7 +561,7 @@ Result<std::size_t> Inference::output_size() const {
     if (it == impl_->ledger_body.end() || !it->is_number_unsigned()) {
         return Error::not_found("output_size not recorded for this run");
     }
-    return static_cast<std::size_t>(it->get<std::uint64_t>());
+    return it->get<std::size_t>();
 }
 
 std::int64_t Inference::elapsed_ms() const noexcept {
@@ -785,6 +785,17 @@ Result<void> Inference::set_priority(std::string_view priority) {
     }
     return add_metadata("priority",
                         nlohmann::json(std::string{priority}));
+}
+
+Result<void> Inference::tag_priority(std::string_view priority_label) {
+    // Pure forwarder over set_priority(). Same allowed vocabulary,
+    // same fixed metadata key ("priority"), same invalid_argument
+    // surface on a bad label — both spellings hit add_metadata
+    // under the same key. Some sidecar call sites read more naturally
+    // as "tag the inference with a priority bucket" than as "set the
+    // priority field"; this saves them an indirection without
+    // forking the validation path.
+    return set_priority(priority_label);
 }
 
 Result<void> Inference::set_severity(std::string_view severity) {

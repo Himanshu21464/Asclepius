@@ -7,12 +7,14 @@
 #include <spdlog/spdlog.h>
 #include <sqlite3.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <limits>
 #include <random>
+#include <set>
 #include <system_error>
 #include <thread>
 #include <unordered_set>
@@ -562,6 +564,16 @@ std::string Runtime::quick_status() const {
     return out;
 }
 
+std::string Runtime::quick_status_line() const {
+    // Pure forwarder — quick_status() already returns a single-line
+    // string (or "EMPTY" on a fresh chain). Some call sites read
+    // more naturally as "give me the quick status line"; this saves
+    // the synonym mismatch from biting log/banner code that expects
+    // a "_line" suffix on its single-line accessors. No behavioural
+    // divergence from quick_status().
+    return quick_status();
+}
+
 std::string Runtime::status_line() const {
     // Single-line ASCII summary for /healthz text endpoints and CLI
     // banner modes. Mirrors quick_status()'s middle-dot separator
@@ -660,6 +672,60 @@ std::vector<LedgerEntry> Runtime::recent_drift_events(std::size_t n) const {
     auto r = impl_->ledger.tail_by_event_type("drift.crossed", n);
     if (!r) return {};
     return std::move(r).value();
+}
+
+Result<std::vector<std::string>>
+Runtime::list_recent_event_types(std::size_t window_ms) const {
+    // Distinct event_types appearing in entries within the last
+    // `window_ms`, sorted alphabetically. Empty chain or empty window
+    // → empty vector. We pull via tail_after_time so the cost stays
+    // bounded by matches in the window, not the full chain length.
+    // The cap matches current_load_metric()'s defensive ceiling
+    // (100k recent entries) — pathological floods saturate at the
+    // cap rather than burning unbounded memory.
+    if (impl_->ledger.length() == 0) return std::vector<std::string>{};
+    constexpr std::size_t kCap = 100'000;
+    auto cutoff = Time::now() - std::chrono::duration_cast<
+        std::chrono::nanoseconds>(std::chrono::milliseconds{window_ms});
+    auto entries = impl_->ledger.tail_after_time(cutoff, kCap);
+    if (!entries) return entries.error();
+    std::set<std::string> seen;
+    for (const auto& e : entries.value()) {
+        seen.insert(e.header.event_type);
+    }
+    return std::vector<std::string>{seen.begin(), seen.end()};
+}
+
+Result<std::uint64_t>
+Runtime::failure_count_in_window(std::chrono::milliseconds window) const {
+    // Count of inference.committed entries whose body's `status`
+    // field is anything other than "ok". Used by /healthz to surface
+    // a recent error-rate gauge. We pull via tail_after_time and
+    // post-filter by event_type + status — a string-search for the
+    // canonical-JSON `"status":"ok"` substring is sound (the body is
+    // canonical JSON with no whitespace) and dramatically cheaper
+    // than json::parse() on each entry. Empty chain trivially
+    // returns 0; backend errors propagate.
+    if (impl_->ledger.length() == 0) return std::uint64_t{0};
+    constexpr std::size_t kCap = 100'000;
+    auto cutoff = Time::now() - std::chrono::duration_cast<
+        std::chrono::nanoseconds>(window);
+    auto entries = impl_->ledger.tail_after_time(cutoff, kCap);
+    if (!entries) return entries.error();
+    std::uint64_t failures = 0;
+    static constexpr const char* kOk = "\"status\":\"ok\"";
+    for (const auto& e : entries.value()) {
+        if (e.header.event_type != "inference.committed") continue;
+        // status==ok ⇒ not a failure; anything else (blocked.*,
+        // model_error, timeout, cancelled, missing) ⇒ a failure.
+        // We search for the canonical-JSON spelling rather than
+        // parsing the body — the substrate writes canonical JSON, so
+        // the substring match is unambiguous.
+        if (e.body_json.find(kOk) == std::string::npos) {
+            ++failures;
+        }
+    }
+    return failures;
 }
 
 void Runtime::warm_caches() {

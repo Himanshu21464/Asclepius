@@ -221,6 +221,16 @@ public:
     // semantics as add_metadata apply (under the fixed key "priority").
     Result<void> set_priority(std::string_view priority);
 
+    // Pure forwarder over set_priority(). Some call sites read more
+    // naturally as "tag the inference with a priority bucket" rather
+    // than "set the priority field" — the underlying bookkeeping is
+    // identical (same fixed metadata key "priority", same allowed
+    // vocabulary, same invalid_argument error path on a bad label),
+    // so this is one-line sugar. No behavioural divergence and no
+    // separate state — both spellings hit add_metadata under the
+    // same key.
+    Result<void> tag_priority(std::string_view priority_label);
+
     // Sugar over add_metadata("severity", severity) — the value is
     // stored as a JSON string. Used by sidecars to mark inferences
     // with a severity level for downstream alerting / triage filters.
@@ -571,6 +581,15 @@ public:
     // — the same character the website uses in eyebrow lines.
     std::string quick_status() const;
 
+    // Pure forwarder over quick_status(). Some call sites read more
+    // naturally as "give me the quick status line" rather than just
+    // "quick status" — the wrapper exists so both spellings work
+    // without callers having to remember which one returns a single
+    // line (both do; the underlying call already produces a
+    // line-shaped string). No behavioural divergence — forwards
+    // verbatim, never errors.
+    std::string quick_status_line() const;
+
     // Single-line ASCII summary suitable for a /healthz Plain-Text
     // endpoint or a `--banner` CLI mode. Format:
     //   "asclepius v<ver> \xc2\xb7 ledger=<length> \xc2\xb7 key=<key_id>
@@ -673,6 +692,28 @@ public:
     // an empty vector — drift dashboards prefer "nothing to show"
     // over "exception in the panel."
     std::vector<LedgerEntry> recent_drift_events(std::size_t n) const;
+
+    // Distinct event_types appearing on entries committed within the
+    // last `window_ms` milliseconds, sorted alphabetically. Empty
+    // chain (or a window with no matching entries) returns the empty
+    // vector. Used by /healthz extras and operator dashboards that
+    // want a coarse "what kinds of events have been landing recently?"
+    // signal without parsing every body. Pulls via tail_after_time so
+    // the cost is bounded by the number of recent entries, not the
+    // full chain length. Backend errors propagate.
+    Result<std::vector<std::string>>
+        list_recent_event_types(std::size_t window_ms) const;
+
+    // Count of inference.committed entries appended within the last
+    // `window` milliseconds whose body's `status` field is anything
+    // other than "ok" — i.e. blocked.input, blocked.output,
+    // model_error, timeout, cancelled. Used by /healthz to surface a
+    // recent error-rate gauge. Empty chain (or no recent inferences)
+    // returns 0. Pulls via tail_after_time and a bounded ring of
+    // recent entries to keep memory and CPU O(matches in window).
+    // Backend errors propagate.
+    Result<std::uint64_t>
+        failure_count_in_window(std::chrono::milliseconds window) const;
 
     // Sugar over the ledger's signing-key fingerprint (an 8-byte
     // BLAKE2b hash of the public key, hex-encoded — same shape as

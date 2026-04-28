@@ -5192,3 +5192,259 @@ TEST_CASE("commit_with_metadata: stops on first add_metadata failure, does NOT c
     CHECK(inf.value().is_committed() == false);
     CHECK(rt.ledger().length() == before);
 }
+
+// ============== Inference::tag_priority ===================================
+
+TEST_CASE("tag_priority: writes priority under metadata as a JSON string") {
+    auto rt_ = fresh_runtime("tprio_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tprio_b");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().tag_priority("high"));
+    auto got = inf.value().get_metadata("priority");
+    REQUIRE(got);
+    REQUIRE(got.value().is_string());
+    CHECK(got.value().get<std::string>() == "high");
+}
+
+TEST_CASE("tag_priority: rejects unknown values with invalid_argument") {
+    auto rt_ = fresh_runtime("tprio_bad"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tprio_x");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    for (const auto* bad : {"", "urgent", "HIGH", " low"}) {
+        auto r = inf.value().tag_priority(bad);
+        REQUIRE(!r);
+        CHECK(r.error().code() == ErrorCode::invalid_argument);
+    }
+    auto h = inf.value().has_metadata("priority");
+    REQUIRE(h);
+    CHECK(!h.value());
+}
+
+TEST_CASE("tag_priority: forwards to set_priority — same key, same vocabulary") {
+    auto rt_ = fresh_runtime("tprio_fwd"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_tprio_f");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // Confirm tag_priority lands under the SAME metadata key as
+    // set_priority and that mixing the two spellings replaces in
+    // place (no separate state).
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().set_priority("low"));
+    REQUIRE(inf.value().tag_priority("critical"));
+    auto got = inf.value().get_metadata("priority");
+    REQUIRE(got);
+    CHECK(got.value().get<std::string>() == "critical");
+    // Each of the four allowed values is accepted via tag_priority.
+    auto inf2 = begin(rt, pid, tok.token_id); REQUIRE(inf2);
+    for (const auto* p : {"low", "normal", "high", "critical"}) {
+        REQUIRE(inf2.value().tag_priority(p));
+        auto g = inf2.value().get_metadata("priority");
+        REQUIRE(g);
+        CHECK(g.value().get<std::string>() == p);
+    }
+}
+
+// ============== Runtime::quick_status_line ================================
+
+TEST_CASE("quick_status_line: EMPTY on a fresh runtime") {
+    auto rt_ = fresh_runtime("qsl_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.quick_status_line() == "EMPTY");
+}
+
+TEST_CASE("quick_status_line: forwards verbatim to quick_status()") {
+    auto rt_ = fresh_runtime("qsl_match"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Empty case.
+    CHECK(rt.quick_status_line() == rt.quick_status());
+    // After activity: install policies + commit an inference, and
+    // the two strings must still be byte-identical.
+    REQUIRE(rt.install_default_policies());
+    auto pid = PatientId::pseudonymous("p_qsl_m");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    CHECK(rt.quick_status_line() == rt.quick_status());
+}
+
+TEST_CASE("quick_status_line: reports OK with counts after activity") {
+    auto rt_ = fresh_runtime("qsl_ok"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.install_default_policies());
+    auto pid = PatientId::pseudonymous("p_qsl_o");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    auto s = rt.quick_status_line();
+    CHECK(s.find("OK") == 0);
+    CHECK(s.find("entries") != std::string::npos);
+    CHECK(s.find("policies") != std::string::npos);
+}
+
+// ============== Runtime::list_recent_event_types ==========================
+
+TEST_CASE("list_recent_event_types: empty on a fresh runtime") {
+    auto rt_ = fresh_runtime("lret_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto v = rt.list_recent_event_types(60'000);
+    REQUIRE(v);
+    CHECK(v.value().empty());
+}
+
+TEST_CASE("list_recent_event_types: returns sorted distinct event_types in window") {
+    auto rt_ = fresh_runtime("lret_sorted"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Sprinkle a few distinct types onto the chain via record_event;
+    // duplicates should collapse and the result must be sorted.
+    REQUIRE(rt.record_event("zeta.thing", "system:t",
+                            nlohmann::json::object()));
+    REQUIRE(rt.record_event("alpha.thing", "system:t",
+                            nlohmann::json::object()));
+    REQUIRE(rt.record_event("middle.thing", "system:t",
+                            nlohmann::json::object()));
+    REQUIRE(rt.record_event("alpha.thing", "system:t",
+                            nlohmann::json::object()));
+    auto v = rt.list_recent_event_types(60'000);
+    REQUIRE(v);
+    REQUIRE(v.value().size() == 3);
+    CHECK(v.value()[0] == "alpha.thing");
+    CHECK(v.value()[1] == "middle.thing");
+    CHECK(v.value()[2] == "zeta.thing");
+}
+
+TEST_CASE("list_recent_event_types: window excludes older entries") {
+    auto rt_ = fresh_runtime("lret_window"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.record_event("ancient.event", "system:t",
+                            nlohmann::json::object()));
+    // Wait so the entry is firmly older than the 50ms window.
+    std::this_thread::sleep_for(80ms);
+    REQUIRE(rt.record_event("fresh.event", "system:t",
+                            nlohmann::json::object()));
+    auto v = rt.list_recent_event_types(50);
+    REQUIRE(v);
+    // Only fresh.event should be in the window.
+    REQUIRE(v.value().size() == 1);
+    CHECK(v.value()[0] == "fresh.event");
+}
+
+TEST_CASE("list_recent_event_types: a wide window catches every committed type") {
+    auto rt_ = fresh_runtime("lret_wide"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_lret_w");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    auto v = rt.list_recent_event_types(60'000);
+    REQUIRE(v);
+    // The chain holds at least: consent.granted (from grant) and
+    // inference.committed (from the commit). Both must be present
+    // and the result must be alphabetic.
+    bool saw_consent = false, saw_inference = false;
+    for (const auto& s : v.value()) {
+        if (s == "consent.granted")     saw_consent = true;
+        if (s == "inference.committed") saw_inference = true;
+    }
+    CHECK(saw_consent);
+    CHECK(saw_inference);
+    auto sorted = v.value();
+    std::sort(sorted.begin(), sorted.end());
+    CHECK(sorted == v.value());
+}
+
+// ============== Runtime::failure_count_in_window ==========================
+
+TEST_CASE("failure_count_in_window: empty chain returns 0") {
+    auto rt_ = fresh_runtime("fcw_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto r = rt.failure_count_in_window(60'000ms);
+    REQUIRE(r);
+    CHECK(r.value() == 0);
+}
+
+TEST_CASE("failure_count_in_window: only counts non-ok inference.committed entries") {
+    auto rt_ = fresh_runtime("fcw_mixed"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_fcw_m");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // One ok run.
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("hi",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    // One model_error run; the inference is committed with status=model_error.
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        auto out = inf.value().run("hi",
+            [](std::string) -> Result<std::string> {
+                return Error::internal("kaboom");
+            });
+        CHECK(!out);
+        REQUIRE(inf.value().commit());
+    }
+    // Another ok run.
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("again",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    auto r = rt.failure_count_in_window(60'000ms);
+    REQUIRE(r);
+    CHECK(r.value() == 1);
+}
+
+TEST_CASE("failure_count_in_window: ignores non-inference.committed events") {
+    auto rt_ = fresh_runtime("fcw_other"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    // Append several non-inference events with bodies that don't carry
+    // status==ok — the counter must NOT include them.
+    nlohmann::json b;
+    b["status"] = "broken";
+    REQUIRE(rt.record_event("custom.evt", "system:t", b));
+    REQUIRE(rt.record_event("custom.evt", "system:t", b));
+    auto r = rt.failure_count_in_window(60'000ms);
+    REQUIRE(r);
+    CHECK(r.value() == 0);
+}
+
+TEST_CASE("failure_count_in_window: window excludes older failures") {
+    auto rt_ = fresh_runtime("fcw_window"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_fcw_w");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    // First, an old failure; let it fall out of the window.
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        auto out = inf.value().run("hi",
+            [](std::string) -> Result<std::string> {
+                return Error::internal("old failure");
+            });
+        CHECK(!out);
+        REQUIRE(inf.value().commit());
+    }
+    std::this_thread::sleep_for(80ms);
+    // Then a recent ok run.
+    {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("recent",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+    }
+    auto r = rt.failure_count_in_window(50ms);
+    REQUIRE(r);
+    // The old failure is out of the window; the recent ok doesn't count.
+    CHECK(r.value() == 0);
+}

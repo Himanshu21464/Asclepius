@@ -13,7 +13,9 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 
 using namespace asclepius;
 
@@ -406,6 +408,75 @@ int cmd_evidence_verify(const std::filesystem::path& bundle) {
     return 0;
 }
 
+// ---- Round 94: india subcommands ------------------------------------------
+
+int cmd_india_bundle_validate(const std::filesystem::path& path) {
+    std::ifstream in{path};
+    if (!in) {
+        fmt::print(stderr, "open: {}\n", path.string());
+        return 2;
+    }
+    nlohmann::json j;
+    try {
+        in >> j;
+    } catch (const std::exception& e) {
+        fmt::print(stderr, "parse: {}\n", e.what());
+        return 2;
+    }
+    auto wf = fhir::well_formed_bundle(j);
+    if (!wf) {
+        fmt::print(stderr, "INVALID: {}\n", wf.error().what());
+        return 1;
+    }
+    auto a = fhir::artefact_from_bundle(j);
+    if (!a) {
+        fmt::print(stderr, "INVALID consent artefact: {}\n", a.error().what());
+        return 1;
+    }
+    fmt::print("OK\n");
+    fmt::print("  artefact_id  : {}\n", a.value().artefact_id);
+    fmt::print("  patient      : {}\n", std::string{a.value().patient.str()});
+    fmt::print("  requester_id : {}\n", a.value().requester_id);
+    fmt::print("  fetcher_id   : {}\n", a.value().fetcher_id);
+    fmt::print("  purposes     : {}\n", a.value().purposes.size());
+    fmt::print("  status       : {}\n", to_string(a.value().status));
+    fmt::print("  bundle_entries: {}\n", wf.value());
+    return 0;
+}
+
+int cmd_india_attestation_verify(const std::filesystem::path& path) {
+    std::ifstream in{path};
+    if (!in) {
+        fmt::print(stderr, "open: {}\n", path.string());
+        return 2;
+    }
+    std::string body{(std::istreambuf_iterator<char>(in)),
+                      std::istreambuf_iterator<char>()};
+    auto a = attestation_from_json(body);
+    if (!a) {
+        fmt::print(stderr, "PARSE: {}\n", a.error().what());
+        return 1;
+    }
+    if (!verify_human_attestation(a.value())) {
+        fmt::print(stderr, "VERIFY: signature does not verify\n");
+        return 1;
+    }
+    fmt::print("OK\n");
+    fmt::print("  actor        : {}\n", std::string{a.value().actor.str()});
+    fmt::print("  subject_kind : {}\n", a.value().subject_kind);
+    fmt::print("  subject_id   : {}\n", a.value().subject_id);
+    fmt::print("  attested_at  : {}\n", a.value().attested_at.iso8601());
+    return 0;
+}
+
+int cmd_india_events_list() {
+    fmt::print("Asclepius round-92 well-known event codes (India profile):\n");
+    for (auto e : well_known_events()) {
+        fmt::print("  {}\n", std::string{e});
+    }
+    return 0;
+}
+
 int cmd_policy_lint(const std::filesystem::path& path) {
     // Stub: a future linter will validate a YAML/JSON policy spec against
     // the registered policy DSL. For now we emit a hint.
@@ -603,6 +674,35 @@ int main(int argc, char** argv) {
         auto* lint = policy->add_subcommand("lint", "lint a policy spec");
         lint->add_option("file", policy_file)->required()->check(CLI::ExistingFile);
         lint->callback([&]() { std::exit(cmd_policy_lint(policy_file)); });
+    }
+
+    // ---- india subcommands (round 94) ------------------------------------
+    auto* india = app.add_subcommand("india",
+        "India healthtech profile: ABDM bundle validation, attestation verify, event codes");
+    india->require_subcommand(1);
+    std::filesystem::path india_path;
+    {
+        auto* val = india->add_subcommand("validate-bundle",
+            "validate a FHIR ABDM Consent bundle JSON file");
+        val->add_option("file", india_path)
+           ->required()->check(CLI::ExistingFile);
+        val->callback([&]() {
+            std::exit(cmd_india_bundle_validate(india_path));
+        });
+
+        auto* att = india->add_subcommand("verify-attestation",
+            "verify a HumanAttestation JSON file");
+        att->add_option("file", india_path)
+           ->required()->check(CLI::ExistingFile);
+        att->callback([&]() {
+            std::exit(cmd_india_attestation_verify(india_path));
+        });
+
+        auto* events = india->add_subcommand("events",
+            "list well-known kernel event codes (India healthtech profile)");
+        events->callback([&]() {
+            std::exit(cmd_india_events_list());
+        });
     }
 
     CLI11_PARSE(app, argc, argv);
