@@ -3829,7 +3829,6 @@ TEST_CASE("DriftMonitor::set_alert_threshold edge — does NOT clear last_severi
         REQUIRE(dm.observe("f", 0.95));
     }
     REQUIRE(fires >= 1);
-    const int after_first = fires;
 
     // Bump the threshold UP to severe — last_severity_ retains the
     // already-recorded "moder" mark, and the implementation explicitly
@@ -4631,4 +4630,376 @@ TEST_CASE("MetricRegistry::histogram_count_total drops to 0 after reset_histogra
     // After reset, fresh observations are visible.
     m.observe("h3", 0.9);
     CHECK(m.histogram_count_total() == 1);
+}
+
+// ============== Histogram::p50 / p90 / p95 ==============================
+
+TEST_CASE("Histogram::p50/p90/p95 basic — agree with percentile() at 50/90/95") {
+    Histogram h{0.0, 1.0, 100};
+    std::mt19937 rng{17};
+    std::uniform_real_distribution<double> d{0.0, 1.0};
+    for (int i = 0; i < 1000; ++i) h.observe(d(rng));
+
+    // Sugar wrappers: must be bit-for-bit identical to percentile() at
+    // their respective p — both call quantile(p/100) under the hood.
+    CHECK(h.p50() == doctest::Approx(h.percentile(50.0)));
+    CHECK(h.p90() == doctest::Approx(h.percentile(90.0)));
+    CHECK(h.p95() == doctest::Approx(h.percentile(95.0)));
+
+    // p50 is also the median by construction.
+    CHECK(h.p50() == doctest::Approx(h.median()));
+    CHECK(h.p50() == doctest::Approx(h.quantile(0.5)));
+
+    // Roughly uniform over [0,1] → p50 near 0.5, p90 near 0.9, p95 near 0.95.
+    CHECK(h.p50() == doctest::Approx(0.5).epsilon(0.05));
+    CHECK(h.p90() == doctest::Approx(0.9).epsilon(0.05));
+    CHECK(h.p95() == doctest::Approx(0.95).epsilon(0.05));
+}
+
+TEST_CASE("Histogram::p50/p90/p95 edge — empty histogram returns 0.0") {
+    Histogram h{0.0, 1.0, 10};
+    REQUIRE(h.is_empty());
+    CHECK(h.p50() == doctest::Approx(0.0));
+    CHECK(h.p90() == doctest::Approx(0.0));
+    CHECK(h.p95() == doctest::Approx(0.0));
+
+    // Negative-domain empty histogram still returns 0.0 (the sentinel),
+    // matching p99()/percentile()'s documented contract.
+    Histogram hn{-5.0, 5.0, 10};
+    CHECK(hn.p50() == doctest::Approx(0.0));
+    CHECK(hn.p90() == doctest::Approx(0.0));
+    CHECK(hn.p95() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Histogram::p50/p90/p95 integration — monotone canonical triple p50<=p90<=p95<=p99") {
+    Histogram h{0.0, 1.0, 100};
+    // 80% of mass low, 20% in the upper tail → triple should fan out.
+    for (int i = 0; i < 800; ++i) h.observe(0.10);
+    for (int i = 0; i < 200; ++i) h.observe(0.92);
+    REQUIRE(h.total() == 1000);
+
+    const double p50 = h.p50();
+    const double p90 = h.p90();
+    const double p95 = h.p95();
+    const double p99 = h.p99();
+
+    // Canonical operator triple — strictly non-decreasing.
+    CHECK(p50 <= p90);
+    CHECK(p90 <= p95);
+    CHECK(p95 <= p99);
+
+    // p50 should sit near the 0.10 cluster (where 80% of mass lives);
+    // p90 reaches into the 0.92 region (top 20%); p95/p99 stay above p90.
+    CHECK(p50 < 0.2);
+    CHECK(p90 > 0.5);
+
+    // Each must agree exactly with quantile(p/100) — sugar wrappers, no
+    // rounding path between them.
+    CHECK(p50 == doctest::Approx(h.quantile(0.50)));
+    CHECK(p90 == doctest::Approx(h.quantile(0.90)));
+    CHECK(p95 == doctest::Approx(h.quantile(0.95)));
+}
+
+// ============== MetricRegistry::reset_counter_pattern ====================
+
+TEST_CASE("MetricRegistry::reset_counter_pattern basic — zeroes only matching counters") {
+    MetricRegistry m;
+    m.inc("inference.attempts",  10);
+    m.inc("inference.blocked",   3);
+    m.inc("inference.failed",    2);
+    m.inc("drift.crossings",     5);
+    m.inc("audit.appends",       7);
+
+    // Reset only the inference family — others untouched.
+    auto reset_count = m.reset_counter_pattern("inference.");
+    CHECK(reset_count == 3);
+
+    // Inference counters now 0, names preserved.
+    CHECK(m.count("inference.attempts") == 0);
+    CHECK(m.count("inference.blocked")  == 0);
+    CHECK(m.count("inference.failed")   == 0);
+    CHECK(m.has_counter("inference.attempts"));
+    CHECK(m.has_counter("inference.blocked"));
+    CHECK(m.has_counter("inference.failed"));
+
+    // Other families untouched.
+    CHECK(m.count("drift.crossings") == 5);
+    CHECK(m.count("audit.appends")   == 7);
+}
+
+TEST_CASE("MetricRegistry::reset_counter_pattern edge — empty prefix matches all (= reset_all_counters)") {
+    MetricRegistry m;
+    // Empty registry: 0 counters reset.
+    auto r0 = m.reset_counter_pattern("");
+    CHECK(r0 == 0);
+
+    m.inc("a", 1);
+    m.inc("b", 2);
+    m.inc("c", 3);
+    REQUIRE(m.counter_total() == 6);
+
+    // Empty prefix matches every counter — equivalent to reset_all_counters().
+    auto r_all = m.reset_counter_pattern("");
+    CHECK(r_all == 3);
+    CHECK(m.counter_total() == 0);
+    CHECK(m.counter_count() == 3);  // names preserved
+
+    // Non-matching prefix: returns 0, no counters changed.
+    m.inc("a", 1);
+    m.inc("b", 2);
+    REQUIRE(m.counter_total() == 3);
+    auto r_none = m.reset_counter_pattern("z_");
+    CHECK(r_none == 0);
+    CHECK(m.counter_total() == 3);  // untouched
+
+    // Histograms are NOT affected by reset_counter_pattern.
+    m.observe("hist.latency", 0.1);
+    m.observe("hist.latency", 0.2);
+    REQUIRE(m.histogram_count_total() == 2);
+    m.reset_counter_pattern("hist.");  // no counter starts with "hist."
+    CHECK(m.histogram_count_total() == 2);  // histograms untouched
+}
+
+TEST_CASE("MetricRegistry::reset_counter_pattern integration — counter_value still succeeds after reset") {
+    MetricRegistry m;
+    m.inc("ledger.appends",       100);
+    m.inc("ledger.verifications", 50);
+    m.inc("ledger.errors",        2);
+    m.inc("policy.checks",        200);
+
+    auto n = m.reset_counter_pattern("ledger.");
+    CHECK(n == 3);
+
+    // counter_value() succeeds (registration intact) and returns 0 —
+    // distinguishes reset_counter_pattern() from clear() which would
+    // drop the names entirely.
+    auto a = m.counter_value("ledger.appends");
+    REQUIRE(a);
+    CHECK(a.value() == 0);
+    auto v = m.counter_value("ledger.verifications");
+    REQUIRE(v);
+    CHECK(v.value() == 0);
+    auto e = m.counter_value("ledger.errors");
+    REQUIRE(e);
+    CHECK(e.value() == 0);
+
+    // Untouched counter still has its original value.
+    auto p = m.counter_value("policy.checks");
+    REQUIRE(p);
+    CHECK(p.value() == 200);
+
+    // sum_counters_with_prefix() agrees: ledger family sums to 0 now.
+    CHECK(m.sum_counters_with_prefix("ledger.") == 0);
+    CHECK(m.sum_counters_with_prefix("policy.") == 200);
+
+    // Counters can be incremented again from 0 — no re-registration.
+    m.inc("ledger.appends", 7);
+    CHECK(m.count("ledger.appends") == 7);
+}
+
+// ============== DriftMonitor::observation_total ==========================
+
+TEST_CASE("DriftMonitor::observation_total basic — sums across registered features") {
+    DriftMonitor dm;
+    std::vector<double> baseline(100, 0.5);
+    REQUIRE(dm.register_feature("a", baseline));
+    REQUIRE(dm.register_feature("b", baseline));
+    REQUIRE(dm.register_feature("c", baseline));
+
+    // No observations yet → 0.
+    CHECK(dm.observation_total() == 0);
+
+    // Observe different counts on each feature.
+    for (int i = 0; i < 5;  ++i) REQUIRE(dm.observe("a", 0.5));
+    for (int i = 0; i < 11; ++i) REQUIRE(dm.observe("b", 0.5));
+    for (int i = 0; i < 3;  ++i) REQUIRE(dm.observe("c", 0.5));
+
+    // 5 + 11 + 3 = 19.
+    CHECK(dm.observation_total() == 19);
+
+    // Must agree with the sum of per-feature observation_count()s.
+    auto ca = dm.observation_count("a");
+    auto cb = dm.observation_count("b");
+    auto cc = dm.observation_count("c");
+    REQUIRE(ca);
+    REQUIRE(cb);
+    REQUIRE(cc);
+    CHECK(dm.observation_total() == ca.value() + cb.value() + cc.value());
+}
+
+TEST_CASE("DriftMonitor::observation_total edge — 0 on empty monitor and after rotate/reset_all") {
+    DriftMonitor dm;
+    // No features registered → 0.
+    CHECK(dm.observation_total() == 0);
+
+    std::vector<double> baseline(50, 0.3);
+    REQUIRE(dm.register_feature("score", baseline));
+    // Registered feature with no observations → still 0.
+    CHECK(dm.observation_total() == 0);
+
+    // Observe, then verify total reflects it.
+    for (int i = 0; i < 7; ++i) REQUIRE(dm.observe("score", 0.3));
+    REQUIRE(dm.observation_total() == 7);
+
+    // rotate() rebuilds the current window → total drops to 0.
+    dm.rotate();
+    CHECK(dm.observation_total() == 0);
+
+    // Re-observe, then reset_all() → total drops to 0 again.
+    for (int i = 0; i < 4; ++i) REQUIRE(dm.observe("score", 0.3));
+    REQUIRE(dm.observation_total() == 4);
+    dm.reset_all();
+    CHECK(dm.observation_total() == 0);
+}
+
+TEST_CASE("DriftMonitor::observation_total integration — agrees with summary().total_observations") {
+    DriftMonitor dm;
+    std::vector<double> baseline(200, 0.5);
+    REQUIRE(dm.register_feature("alpha", baseline));
+    REQUIRE(dm.register_feature("beta",  baseline));
+
+    for (int i = 0; i < 13; ++i) REQUIRE(dm.observe("alpha", 0.5));
+    for (int i = 0; i < 21; ++i) REQUIRE(dm.observe("beta",  0.5));
+
+    // Summary computes total_observations; must agree with our cheap probe.
+    auto s = dm.summary();
+    CHECK(dm.observation_total() == s.total_observations);
+    CHECK(dm.observation_total() == 34);
+
+    // Per-feature reset narrows the total — observation_total() reflects it.
+    REQUIRE(dm.reset("alpha"));
+    CHECK(dm.observation_total() == 21);  // beta only
+    auto s2 = dm.summary();
+    CHECK(dm.observation_total() == s2.total_observations);
+}
+
+// ============== Histogram::bin_midpoint ==================================
+
+TEST_CASE("Histogram::bin_midpoint basic — agrees with lo + bin_w * (i + 0.5)") {
+    Histogram h{0.0, 1.0, 10};  // bin_w = 0.1
+
+    // Each bin's midpoint is the center of [i*0.1, (i+1)*0.1].
+    CHECK(h.bin_midpoint(0) == doctest::Approx(0.05));
+    CHECK(h.bin_midpoint(1) == doctest::Approx(0.15));
+    CHECK(h.bin_midpoint(5) == doctest::Approx(0.55));
+    CHECK(h.bin_midpoint(9) == doctest::Approx(0.95));
+
+    // Non-zero lo: bin_midpoint should track lo correctly.
+    Histogram h2{2.0, 4.0, 4};  // bin_w = 0.5
+    CHECK(h2.bin_midpoint(0) == doctest::Approx(2.25));
+    CHECK(h2.bin_midpoint(1) == doctest::Approx(2.75));
+    CHECK(h2.bin_midpoint(2) == doctest::Approx(3.25));
+    CHECK(h2.bin_midpoint(3) == doctest::Approx(3.75));
+}
+
+TEST_CASE("Histogram::bin_midpoint edge — saturates on out-of-range index") {
+    Histogram h{0.0, 1.0, 4};  // bin_w = 0.25, last midpoint = 0.875
+
+    // Last valid bin's midpoint.
+    const double last = h.bin_midpoint(3);
+    CHECK(last == doctest::Approx(0.875));
+
+    // i == bin_count() saturates to last.
+    CHECK(h.bin_midpoint(4) == doctest::Approx(last));
+    // Far-out indices also saturate.
+    CHECK(h.bin_midpoint(99)   == doctest::Approx(last));
+    CHECK(h.bin_midpoint(1000) == doctest::Approx(last));
+
+    // Single-bin histogram: every index returns the only midpoint.
+    Histogram one{0.0, 1.0, 1};  // bin_w = 1.0, midpoint = 0.5
+    CHECK(one.bin_midpoint(0)  == doctest::Approx(0.5));
+    CHECK(one.bin_midpoint(1)  == doctest::Approx(0.5));
+    CHECK(one.bin_midpoint(50) == doctest::Approx(0.5));
+}
+
+TEST_CASE("Histogram::bin_midpoint integration — agrees with min/max/quantile on populated bins") {
+    Histogram h{0.0, 1.0, 10};
+    // Single observation in bin 3 — min/max should equal bin_midpoint(3).
+    h.observe(0.35);
+    REQUIRE(h.total() == 1);
+    CHECK(h.min() == doctest::Approx(h.bin_midpoint(3)));
+    CHECK(h.max() == doctest::Approx(h.bin_midpoint(3)));
+
+    // Pile observations into bin 7 — modal-bin midpoint should be 0.75.
+    for (int i = 0; i < 50; ++i) h.observe(0.75);
+    CHECK(h.bin_midpoint(h.nth_largest_bin()) == doctest::Approx(0.75));
+
+    // Full bin_count() sweep: bin_midpoint() must be strictly increasing.
+    for (std::size_t i = 1; i < h.bin_count(); ++i) {
+        CHECK(h.bin_midpoint(i) > h.bin_midpoint(i - 1));
+    }
+}
+
+// ============== Histogram::confidence_interval_95 =======================
+
+TEST_CASE("Histogram::confidence_interval_95 basic — (mean - 1.96*sd, mean + 1.96*sd)") {
+    Histogram h{0.0, 1.0, 100};
+    // Observe a roughly bell-shaped sample so mean / stddev are
+    // well-defined and the CI is non-degenerate.
+    std::mt19937 rng{123};
+    std::normal_distribution<double> nd{0.5, 0.1};
+    for (int i = 0; i < 1000; ++i) h.observe(std::clamp(nd(rng), 0.0, 1.0));
+
+    auto ci = h.confidence_interval_95();
+    const double m  = h.mean();
+    const double sd = h.stddev();
+
+    // Each bound must equal mean +- 1.96 * stddev.
+    CHECK(ci.first  == doctest::Approx(m - 1.96 * sd));
+    CHECK(ci.second == doctest::Approx(m + 1.96 * sd));
+
+    // Lower bound must be strictly below upper bound for a non-degenerate
+    // sample with stddev > 0.
+    REQUIRE(sd > 0.0);
+    CHECK(ci.first < ci.second);
+
+    // Mean must lie at the center of the interval.
+    CHECK((ci.first + ci.second) / 2.0 == doctest::Approx(m));
+}
+
+TEST_CASE("Histogram::confidence_interval_95 edge — empty returns (0, 0); single-sample returns (m, m)") {
+    Histogram h{0.0, 1.0, 10};
+    REQUIRE(h.is_empty());
+    auto ci = h.confidence_interval_95();
+    CHECK(ci.first  == doctest::Approx(0.0));
+    CHECK(ci.second == doctest::Approx(0.0));
+
+    // Single observation: stddev() is 0.0 by contract → degenerate
+    // (m, m) interval.
+    Histogram hone{0.0, 1.0, 10};
+    hone.observe(0.55);
+    REQUIRE(hone.total() == 1);
+    auto ci_one = hone.confidence_interval_95();
+    const double m = hone.mean();
+    CHECK(ci_one.first  == doctest::Approx(m));
+    CHECK(ci_one.second == doctest::Approx(m));
+    CHECK(ci_one.first  == ci_one.second);
+}
+
+TEST_CASE("Histogram::confidence_interval_95 integration — width agrees with 2 * 1.96 * stddev") {
+    Histogram h{0.0, 1.0, 50};
+    // Two clusters → moderate spread, well-defined stddev.
+    for (int i = 0; i < 100; ++i) h.observe(0.2);
+    for (int i = 0; i < 100; ++i) h.observe(0.7);
+    REQUIRE(h.total() == 200);
+
+    auto ci = h.confidence_interval_95();
+    const double width = ci.second - ci.first;
+    const double sd    = h.stddev();
+    // Width should equal 2 * 1.96 * stddev.
+    CHECK(width == doctest::Approx(2.0 * 1.96 * sd));
+
+    // Wider distributions produce wider intervals — pile mass on one side
+    // to lower stddev and re-check.
+    Histogram tight{0.0, 1.0, 50};
+    for (int i = 0; i < 200; ++i) tight.observe(0.5);
+    REQUIRE(tight.total() == 200);
+    auto ci_tight = tight.confidence_interval_95();
+    const double width_tight = ci_tight.second - ci_tight.first;
+    // Tight (all-in-one-bin) distribution → smaller or equal width
+    // compared to two-cluster spread.
+    CHECK(width_tight <= width);
+
+    // Mean of the tight distribution sits at center of CI.
+    CHECK((ci_tight.first + ci_tight.second) / 2.0 == doctest::Approx(tight.mean()));
 }

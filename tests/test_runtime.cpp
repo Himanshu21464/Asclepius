@@ -1854,7 +1854,7 @@ TEST_CASE("ledger_length: matches ledger().length() after appends") {
             [](std::string s)->Result<std::string>{ return s; }));
         REQUIRE(inf.value().commit());
     }
-    CHECK(rt.ledger_length() == static_cast<std::size_t>(rt.ledger().length()));
+    CHECK(rt.ledger_length() == rt.ledger().length());
     CHECK(rt.ledger_length() >= 3);
 }
 
@@ -2176,8 +2176,7 @@ TEST_CASE("dispatched_inferences: matches metrics().count(\"inference.attempts\"
     }
     auto r = rt.dispatched_inferences();
     REQUIRE(r);
-    CHECK(r.value() ==
-          static_cast<std::size_t>(rt.metrics().count("inference.attempts")));
+    CHECK(r.value() == rt.metrics().count("inference.attempts"));
     CHECK(r.value() == 3);
 }
 
@@ -3326,8 +3325,7 @@ TEST_CASE("counter_total: matches metrics().counter_total() exactly") {
         [](std::string s) -> Result<std::string> { return s; }));
     REQUIRE(inf.value().commit());
 
-    CHECK(rt.counter_total()
-          == static_cast<std::size_t>(rt.metrics().counter_total()));
+    CHECK(rt.counter_total() == rt.metrics().counter_total());
 }
 
 // ============== Runtime::is_chain_well_formed =============================

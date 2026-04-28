@@ -42,10 +42,13 @@ rather triage a non-issue than miss one.
 
 ## Supported versions
 
-| Version | Status                | Window               |
-|---------|-----------------------|----------------------|
-| 0.1.x   | supported             | through Q4 2026      |
-| 0.0.x   | advisories only       | no patches           |
+| Version | Status                | Window                                  |
+|---------|-----------------------|-----------------------------------------|
+| 0.6.x   | supported (current)   | through v1.0 GA (target Q4 2026)        |
+| 0.5.x   | advisories only       | no patches; please upgrade to 0.6.x     |
+| 0.4.x   | advisories only       | no patches; please upgrade to 0.6.x     |
+| 0.1.x   | end-of-life           | no advisories; superseded by 0.4+ line  |
+| 0.0.x   | end-of-life           | pre-public; no support                  |
 
 ## Project signing keys
 
@@ -55,6 +58,7 @@ ledger keys; the project does not co-sign customer bundles.
 
 ```
 PGP fingerprint:  A1F2 9C4E B8D1 74E6 · 2A55 0CCB 7F12 BB37 5E4A C9D0
+v0.6.0 sha256:    (cut at release · published in CHANGELOG.md and signed by the PGP key above)
 v0.1.0 sha256:    c4a11ee3742d8a915d0bd9ea80c7edc0e21fa3b78a1c9e60d4c6f72a5bb09c12
 ```
 

@@ -196,6 +196,68 @@ EmergencyOverride::completed_backfills() const {
     return out;
 }
 
+std::vector<EmergencyOverrideToken>
+EmergencyOverride::active_for_patient(const PatientId& patient) const {
+    // Scoped pending list — a patient-keyed projection of
+    // pending_backfills() with the same activated_at-ascending order so
+    // ops surfaces showing one patient's open break-glass debt match
+    // the global ordering bystander dashboards already render.
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<EmergencyOverrideToken> out;
+    for (const auto& [_, t] : by_id_) {
+        if (t.backfilled)        continue;
+        if (t.patient != patient) continue;
+        out.push_back(t);
+    }
+    std::sort(out.begin(), out.end(),
+              [](const EmergencyOverrideToken& a,
+                 const EmergencyOverrideToken& b) {
+                  return a.activated_at < b.activated_at;
+              });
+    return out;
+}
+
+std::vector<EmergencyOverrideToken>
+EmergencyOverride::active_for_actor(const ActorId& actor) const {
+    // Per-actor mirror of active_for_patient — same activated_at-ascending
+    // ordering so a clinician's outstanding-debt dashboard renders in the
+    // same shape as the global pending view.
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<EmergencyOverrideToken> out;
+    for (const auto& [_, t] : by_id_) {
+        if (t.backfilled)    continue;
+        if (t.actor != actor) continue;
+        out.push_back(t);
+    }
+    std::sort(out.begin(), out.end(),
+              [](const EmergencyOverrideToken& a,
+                 const EmergencyOverrideToken& b) {
+                  return a.activated_at < b.activated_at;
+              });
+    return out;
+}
+
+Result<EmergencyOverrideToken>
+EmergencyOverride::oldest_pending() const {
+    // Single-pass min over the pending subset under one lock. We avoid
+    // calling pending_backfills() + .front() because that materialises
+    // an O(n log n) sort just to peel off the head row; an O(n) scan
+    // tracking the running smallest activated_at is the right shape
+    // for "give me only the oldest" queries on a hot path.
+    std::lock_guard<std::mutex> lk(mu_);
+    const EmergencyOverrideToken* best = nullptr;
+    for (const auto& [_, t] : by_id_) {
+        if (t.backfilled) continue;
+        if (best == nullptr || t.activated_at < best->activated_at) {
+            best = &t;
+        }
+    }
+    if (best == nullptr) {
+        return Error::not_found("no pending emergency override tokens");
+    }
+    return *best;
+}
+
 std::size_t EmergencyOverride::pending_count() const noexcept {
     try {
         std::lock_guard<std::mutex> lk(mu_);

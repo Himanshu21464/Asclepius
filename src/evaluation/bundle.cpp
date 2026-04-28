@@ -5,6 +5,7 @@
 #include "asclepius/audit.hpp"
 #include "asclepius/hashing.hpp"
 #include "asclepius/telemetry.hpp"
+#include "asclepius/version.hpp"
 
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
@@ -202,7 +203,7 @@ Result<EvidenceBundle> EvaluationHarness::export_bundle(
     auto gt_hash = hash(std::string_view{gt_text});
 
     nlohmann::json manifest;
-    manifest["asclepius_version"] = "0.1.0";
+    manifest["asclepius_version"] = ASCLEPIUS_VERSION_STRING;
     manifest["window"]            = {
         {"start", window.start.iso8601()},
         {"end",   window.end.iso8601()},

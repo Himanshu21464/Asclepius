@@ -1,6 +1,6 @@
 # Asclepius — On-Disk and On-Wire Specification
 
-Version 0.1.0 — 2026-04. This is a living document; until 1.0 the formats
+Version 0.6.0 — 2026-04. This is a living document; until 1.0 the formats
 may break compatibility but breakage will be called out in CHANGELOG.
 
 ## Hash function

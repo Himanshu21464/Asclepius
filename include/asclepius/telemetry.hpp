@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "asclepius/core.hpp"
+#include "asclepius/identity.hpp"
 
 namespace asclepius {
 
@@ -866,6 +867,87 @@ private:
 };
 
 const char* to_string(CalibrationMonitor::Outcome) noexcept;
+
+// ============================================================================
+// Round 93 — CohortLedger
+// ============================================================================
+//
+// Longitudinal observation chain. Used by GenericGuard (substitution
+// outcome tracking), TriageMate (post-triage outcomes), and any product
+// that needs per-patient or per-metric time-series. Append-only; the
+// kernel does not mutate observations once recorded. Callers anchor
+// the ledger into the audit chain by appending via Ledger::append with
+// event_type tied to the cohort's purpose (e.g. events::sample_resulted).
+
+class CohortLedger {
+public:
+    struct Observation {
+        PatientId   patient;
+        std::string metric;
+        double      value;
+        Time        observed_at;
+        std::string provenance;   // free-text: "home meter", "lab:xyz", ...
+    };
+
+    CohortLedger() = default;
+
+    void append(Observation obs);
+    void append_n(std::span<const Observation> obs);
+
+    std::size_t total_observations() const noexcept;
+    std::size_t patient_count() const noexcept;
+    std::size_t distinct_metrics() const noexcept;
+
+    // All observations for a patient, ordered by observed_at ascending.
+    std::vector<Observation> for_patient(const PatientId&) const;
+
+    // All observations for a metric (across patients), ordered by
+    // observed_at ascending.
+    std::vector<Observation> for_metric(std::string_view metric) const;
+
+    // Half-open window [start, end). Ordered by observed_at ascending.
+    std::vector<Observation> in_window(Time start, Time end) const;
+
+    // Most recent observation for (patient, metric). Error::not_found
+    // if no observation matches. Tiebreak among equal observed_at is
+    // unspecified.
+    Result<Observation> latest(const PatientId&, std::string_view metric) const;
+
+    // Aggregate stats for a metric across all patients.
+    struct AggregateStats {
+        std::size_t count;
+        double      mean;
+        double      stddev;
+        double      min_value;
+        double      max_value;
+    };
+
+    // Returns Error::not_found when the metric has no observations.
+    Result<AggregateStats> stats_for_metric(std::string_view metric) const;
+
+    // Per-patient stats for a metric (count/mean/stddev/min/max for the
+    // patient's observations of this metric). Error::not_found if the
+    // patient has no observations of that metric.
+    Result<AggregateStats>
+    stats_for_patient_metric(const PatientId&, std::string_view metric) const;
+
+    // Distinct metrics across the ledger, sorted.
+    std::vector<std::string> metrics() const;
+
+    // Distinct patients across the ledger, sorted by patient.str().
+    std::vector<PatientId> patients() const;
+
+    // Stable snapshot for replay / serialisation. Order: by observed_at
+    // ascending; ties broken by patient.str() ascending.
+    std::vector<Observation> snapshot() const;
+
+    // Drop everything.
+    void clear();
+
+private:
+    mutable std::mutex          mu_;
+    std::vector<Observation>    observations_;
+};
 
 }  // namespace asclepius
 

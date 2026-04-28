@@ -1,5 +1,5 @@
 {
-  "asclepius_version": "0.1.0",
+  "asclepius_version": "0.6.0",
   "chain_verify": {
     "entries": 2000,
     "total_us": 101007.174,

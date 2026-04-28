@@ -792,6 +792,35 @@ ConsentArtefact artefact_from_token(const ConsentToken& token,
 
 ConsentToken token_from_artefact(const ConsentArtefact& artefact);
 
+// ---- ConsentArtefact lifecycle predicates -------------------------------
+//
+// Cheap noexcept inspectors that classify an artefact's current liveness.
+// They do NOT mutate the artefact and they do NOT consult any registry —
+// the determination is made purely from the artefact's status and times,
+// matching what an HIU/HIP would judge from the wire payload alone. The
+// trio is non-overlapping in spirit (a typical artefact is exactly one
+// of active / expired / revoked) but the predicates are evaluated
+// independently, so a stale artefact whose status has not been refreshed
+// can return `true` from is_expired() even when its stated status is
+// granted — the wall clock is the source of truth for expiry.
+
+// True iff the artefact's stated status is `granted` AND its expires_at
+// is strictly in the future (Time::now() < expires_at). All other states
+// — revoked, expired, or granted-but-past-expiry — return false.
+bool is_active(const ConsentArtefact& a) noexcept;
+
+// True iff the artefact is past its expiry, regardless of stated status:
+// either `status == expired` OR `expires_at <= Time::now()`. A revoked
+// artefact whose expiry has also passed reports true here — distinct
+// from is_revoked() which keys solely on the stated status. Useful for
+// callers that want a single "is this still relevant on the wire?" probe.
+bool is_expired(const ConsentArtefact& a) noexcept;
+
+// True iff the artefact's stated status is `revoked`. Does NOT consult
+// any times — a revoked artefact whose expiry has also passed still
+// reports true here. Distinct from is_expired() (which is time-keyed).
+bool is_revoked(const ConsentArtefact& a) noexcept;
+
 // ---- FamilyGraph ---------------------------------------------------------
 //
 // Records that a proxy (an adult, a parent, a guardian) is authorised to
@@ -842,6 +871,17 @@ public:
     bool can_consent_for(const PatientId& proxy,
                          const PatientId& subject) const noexcept;
 
+    // Sugar over can_consent_for() spelled in graph-theoretic terms:
+    // true iff a directed edge proxy → subject is recorded in the graph.
+    // Equivalent in observable behaviour to can_consent_for(); kept as
+    // a separate name so callers expressing the question as "is there a
+    // path from this proxy to this subject?" read naturally without
+    // wrapping the consent-flavoured spelling. Direction is significant
+    // (proxy → subject only); the inverse edge is not implied. noexcept;
+    // any internal failure is swallowed → false.
+    bool has_path(const PatientId& proxy,
+                  const PatientId& subject) const noexcept;
+
     // Distinct subjects authorised by `proxy`, sorted by patient.str().
     std::vector<PatientId> subjects_for_proxy(const PatientId& proxy) const;
 
@@ -866,6 +906,14 @@ public:
     // Counts grouped by relation type. A relation type with zero edges
     // is omitted from the map.
     std::unordered_map<FamilyRelation, std::size_t> counts_by_relation() const;
+
+    // Number of edges whose stored relation equals `relation`. O(n) over
+    // the edge vector. Equivalent to counts_by_relation().at(relation)
+    // when the relation is present in the map and 0 when it is not, but
+    // cheaper — no map is materialised. Useful for ops dashboards that
+    // want a single "how many `parent_for_minor` edges do we hold?"
+    // probe without paying for the full breakdown.
+    std::size_t edges_count_for_relation(FamilyRelation relation) const;
 
     // Stable snapshot of the graph for serialisation / replay.
     // Order: by (proxy.str(), subject.str()) lexicographic, deterministic.
@@ -959,6 +1007,34 @@ public:
 
     // List of tokens that have been backfilled.
     std::vector<EmergencyOverrideToken> completed_backfills() const;
+
+    // Subset of pending_backfills() restricted to a specific patient:
+    // every currently-pending (not yet backfilled) override for `patient`.
+    // Order: by activated_at ascending (oldest first), matching
+    // pending_backfills(). Empty vector if no such tokens exist.
+    // Useful for per-patient ops surfaces that want "what break-glass
+    // events are open against this patient right now?" without filtering
+    // pending_backfills() at the call site.
+    std::vector<EmergencyOverrideToken>
+    active_for_patient(const PatientId& patient) const;
+
+    // Per-actor mirror of active_for_patient: every currently-pending
+    // (not yet backfilled) override for `actor`. Order: by activated_at
+    // ascending (oldest first). Empty vector if no such tokens exist.
+    // Useful for per-clinician dashboards that surface a clinician's
+    // outstanding break-glass debt — i.e. activations they have not
+    // yet documented post-hoc.
+    std::vector<EmergencyOverrideToken>
+    active_for_actor(const ActorId& actor) const;
+
+    // The currently-pending override with the smallest activated_at —
+    // i.e. the longest-standing open break-glass. Returns
+    // Error::not_found if no pending tokens exist. Tiebreak among equal
+    // activated_at values is unspecified. Useful for ops probes:
+    // "what's the oldest unfulfilled backfill we owe?" without copying
+    // out the full pending_backfills() list when only the head row is
+    // needed.
+    Result<EmergencyOverrideToken> oldest_pending() const;
 
     std::size_t pending_count() const noexcept;
     std::size_t overdue_count() const noexcept;

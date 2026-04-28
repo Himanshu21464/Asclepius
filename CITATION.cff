@@ -7,8 +7,8 @@ abstract: >
   evidence pipeline that emits regulator-verifiable bundles.
 type: software
 license: Apache-2.0
-version: 0.1.0
-date-released: 2026-04-25
+version: 0.6.0
+date-released: 2026-04-28
 url: "https://asclepius.health/"
 repository-code: "https://github.com/Himanshu21464/Asclepius"
 keywords:
@@ -32,7 +32,7 @@ preferred-citation:
   type: software
   title: "Asclepius — A Trust Substrate for Clinical AI"
   year: 2026
-  version: 0.1.0
+  version: 0.6.0
   authors:
     - name: "Asclepius Contributors"
   url: "https://asclepius.health/"

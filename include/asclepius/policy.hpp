@@ -113,6 +113,56 @@ std::shared_ptr<IPolicy> make_clinical_action_filter(std::vector<std::string> al
 // Maximum input/output length. Cheap, guards against runaway model output.
 std::shared_ptr<IPolicy> make_length_limit(std::size_t input_max, std::size_t output_max);
 
+// ============================================================================
+// Round 93 — AccessConstraint
+// ============================================================================
+//
+// Composable predicate that gates an inference call by request-time
+// attributes the operator has wired in: staff gender, language, device
+// mode, role. Used by products like Sakhi Health (female-only care path)
+// and TriageMate (on-device-only deployments). The kernel is policy-
+// neutral about the *values* — operators configure the constraint per
+// deployment — but the kernel enforces consistent evaluation.
+
+namespace access {
+
+struct Constraint {
+    enum class StaffGender : std::uint8_t { any = 0, female = 1, male = 2 };
+    enum class DeviceMode  : std::uint8_t { any = 0, on_device_only = 1, off_device_allowed = 2 };
+
+    StaffGender                staff_gender    = StaffGender::any;
+    DeviceMode                 device_mode     = DeviceMode::any;
+    std::vector<std::string>   allowed_languages;       // empty == any
+    std::optional<std::string> required_role_code;      // empty == any
+};
+
+// Decision context: what the runtime knows about the staff/device at
+// the moment of the call. Operator wires this from the request scope.
+struct Context {
+    std::optional<Constraint::StaffGender> staff_gender;
+    std::optional<Constraint::DeviceMode>  device_mode;
+    std::optional<std::string>             language;
+    std::optional<std::string>             role_code;
+};
+
+enum class Decision : std::uint8_t { allow = 1, deny = 2 };
+
+struct Result {
+    Decision    decision;
+    std::string reason;  // human-readable; empty on allow
+};
+
+// Evaluate a context against a constraint. Returns allow when every
+// configured constraint dimension is satisfied (or unconfigured == any);
+// deny with a reason naming the FIRST failed dimension otherwise.
+Result evaluate(const Constraint&, const Context&) noexcept;
+
+const char* to_string(Constraint::StaffGender) noexcept;
+const char* to_string(Constraint::DeviceMode)  noexcept;
+const char* to_string(Decision)                noexcept;
+
+}  // namespace access
+
 }  // namespace asclepius
 
 #endif  // ASCLEPIUS_POLICY_HPP

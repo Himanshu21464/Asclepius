@@ -552,6 +552,204 @@ TEST_CASE("emergency_override: ingest does NOT fire the observer") {
     CHECK(eo.completed_count() == 1);
 }
 
+// ---- active_for_patient -------------------------------------------------
+
+TEST_CASE("emergency_override: active_for_patient returns only this patient's pending") {
+    EmergencyOverride eo;
+    auto pa = PatientId::pseudonymous("pa");
+    auto pb = PatientId::pseudonymous("pb");
+    REQUIRE(eo.activate(ActorId::clinician("c1"), pa, "ED arrival a1"));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    REQUIRE(eo.activate(ActorId::clinician("c2"), pb, "ED arrival b1"));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    REQUIRE(eo.activate(ActorId::clinician("c3"), pa, "ED arrival a2"));
+
+    auto rows = eo.active_for_patient(pa);
+    REQUIRE(rows.size() == 2);
+    for (const auto& t : rows) {
+        CHECK(t.patient == pa);
+        CHECK(!t.backfilled);
+    }
+    // Sorted by activated_at ascending.
+    CHECK(rows[0].activated_at <= rows[1].activated_at);
+
+    auto rows_b = eo.active_for_patient(pb);
+    REQUIRE(rows_b.size() == 1);
+    CHECK(rows_b[0].patient == pb);
+}
+
+TEST_CASE("emergency_override: active_for_patient excludes already-backfilled tokens") {
+    EmergencyOverride eo;
+    auto pa = PatientId::pseudonymous("pa");
+    auto r1 = eo.activate(ActorId::clinician("c1"), pa, "first");
+    REQUIRE(r1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto r2 = eo.activate(ActorId::clinician("c2"), pa, "second");
+    REQUIRE(r2);
+    REQUIRE(eo.backfill(r1.value().token_id, "ev-1"));
+
+    auto rows = eo.active_for_patient(pa);
+    REQUIRE(rows.size() == 1);
+    CHECK(rows[0].token_id == r2.value().token_id);
+    CHECK(!rows[0].backfilled);
+}
+
+TEST_CASE("emergency_override: active_for_patient empty for unknown patient") {
+    EmergencyOverride eo;
+    REQUIRE(eo.activate(ActorId::clinician("c1"),
+                        PatientId::pseudonymous("known"),
+                        "real reason"));
+    auto rows = eo.active_for_patient(PatientId::pseudonymous("ghost"));
+    CHECK(rows.empty());
+}
+
+TEST_CASE("emergency_override: active_for_patient ascending order matches pending_backfills") {
+    EmergencyOverride eo;
+    auto pa = PatientId::pseudonymous("pa");
+    auto t1 = eo.activate(ActorId::clinician("c1"), pa, "r1");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto t2 = eo.activate(ActorId::clinician("c2"), pa, "r2");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto t3 = eo.activate(ActorId::clinician("c3"), pa, "r3");
+    REQUIRE(t1); REQUIRE(t2); REQUIRE(t3);
+    auto rows = eo.active_for_patient(pa);
+    REQUIRE(rows.size() == 3);
+    CHECK(rows[0].token_id == t1.value().token_id);
+    CHECK(rows[1].token_id == t2.value().token_id);
+    CHECK(rows[2].token_id == t3.value().token_id);
+}
+
+// ---- active_for_actor ---------------------------------------------------
+
+TEST_CASE("emergency_override: active_for_actor returns only this actor's pending") {
+    EmergencyOverride eo;
+    auto alice = ActorId::clinician("alice");
+    auto bob   = ActorId::clinician("bob");
+    REQUIRE(eo.activate(alice, PatientId::pseudonymous("p1"), "r1"));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    REQUIRE(eo.activate(bob,   PatientId::pseudonymous("p2"), "r2"));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    REQUIRE(eo.activate(alice, PatientId::pseudonymous("p3"), "r3"));
+
+    auto rows = eo.active_for_actor(alice);
+    REQUIRE(rows.size() == 2);
+    for (const auto& t : rows) {
+        CHECK(t.actor == alice);
+        CHECK(!t.backfilled);
+    }
+    CHECK(rows[0].activated_at <= rows[1].activated_at);
+
+    auto rows_bob = eo.active_for_actor(bob);
+    REQUIRE(rows_bob.size() == 1);
+    CHECK(rows_bob[0].actor == bob);
+}
+
+TEST_CASE("emergency_override: active_for_actor excludes already-backfilled tokens") {
+    EmergencyOverride eo;
+    auto alice = ActorId::clinician("alice");
+    auto r1 = eo.activate(alice, PatientId::pseudonymous("p1"), "r1");
+    REQUIRE(r1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto r2 = eo.activate(alice, PatientId::pseudonymous("p2"), "r2");
+    REQUIRE(r2);
+    REQUIRE(eo.backfill(r1.value().token_id, "ev-1"));
+
+    auto rows = eo.active_for_actor(alice);
+    REQUIRE(rows.size() == 1);
+    CHECK(rows[0].token_id == r2.value().token_id);
+    CHECK(!rows[0].backfilled);
+}
+
+TEST_CASE("emergency_override: active_for_actor empty for unknown actor") {
+    EmergencyOverride eo;
+    REQUIRE(eo.activate(ActorId::clinician("alice"),
+                        PatientId::pseudonymous("p1"), "r1"));
+    auto rows = eo.active_for_actor(ActorId::clinician("ghost"));
+    CHECK(rows.empty());
+}
+
+TEST_CASE("emergency_override: active_for_actor ascending order matches activated_at") {
+    EmergencyOverride eo;
+    auto alice = ActorId::clinician("alice");
+    auto t1 = eo.activate(alice, PatientId::pseudonymous("p1"), "r1");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto t2 = eo.activate(alice, PatientId::pseudonymous("p2"), "r2");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto t3 = eo.activate(alice, PatientId::pseudonymous("p3"), "r3");
+    REQUIRE(t1); REQUIRE(t2); REQUIRE(t3);
+    auto rows = eo.active_for_actor(alice);
+    REQUIRE(rows.size() == 3);
+    CHECK(rows[0].token_id == t1.value().token_id);
+    CHECK(rows[1].token_id == t2.value().token_id);
+    CHECK(rows[2].token_id == t3.value().token_id);
+}
+
+// ---- oldest_pending -----------------------------------------------------
+
+TEST_CASE("emergency_override: oldest_pending returns the smallest activated_at") {
+    EmergencyOverride eo;
+    auto t1 = eo.activate(ActorId::clinician("c1"),
+                          PatientId::pseudonymous("p1"), "first");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto t2 = eo.activate(ActorId::clinician("c2"),
+                          PatientId::pseudonymous("p2"), "second");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto t3 = eo.activate(ActorId::clinician("c3"),
+                          PatientId::pseudonymous("p3"), "third");
+    REQUIRE(t1); REQUIRE(t2); REQUIRE(t3);
+    auto r = eo.oldest_pending();
+    REQUIRE(r);
+    CHECK(r.value().token_id == t1.value().token_id);
+}
+
+TEST_CASE("emergency_override: oldest_pending returns not_found on empty registry") {
+    EmergencyOverride eo;
+    auto r = eo.oldest_pending();
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("emergency_override: oldest_pending returns not_found when all are backfilled") {
+    EmergencyOverride eo;
+    auto r1 = eo.activate(ActorId::clinician("c1"),
+                          PatientId::pseudonymous("p1"), "r1");
+    auto r2 = eo.activate(ActorId::clinician("c2"),
+                          PatientId::pseudonymous("p2"), "r2");
+    REQUIRE(r1); REQUIRE(r2);
+    REQUIRE(eo.backfill(r1.value().token_id, "ev-1"));
+    REQUIRE(eo.backfill(r2.value().token_id, "ev-2"));
+    auto r = eo.oldest_pending();
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+}
+
+TEST_CASE("emergency_override: oldest_pending advances to next pending after head is backfilled") {
+    EmergencyOverride eo;
+    auto t1 = eo.activate(ActorId::clinician("c1"),
+                          PatientId::pseudonymous("p1"), "first");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto t2 = eo.activate(ActorId::clinician("c2"),
+                          PatientId::pseudonymous("p2"), "second");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto t3 = eo.activate(ActorId::clinician("c3"),
+                          PatientId::pseudonymous("p3"), "third");
+    REQUIRE(t1); REQUIRE(t2); REQUIRE(t3);
+
+    auto first = eo.oldest_pending();
+    REQUIRE(first);
+    CHECK(first.value().token_id == t1.value().token_id);
+
+    REQUIRE(eo.backfill(t1.value().token_id, "ev-1"));
+    auto second = eo.oldest_pending();
+    REQUIRE(second);
+    CHECK(second.value().token_id == t2.value().token_id);
+
+    REQUIRE(eo.backfill(t2.value().token_id, "ev-2"));
+    auto third = eo.oldest_pending();
+    REQUIRE(third);
+    CHECK(third.value().token_id == t3.value().token_id);
+}
+
 TEST_CASE("emergency_override: snapshot is sorted by activated_at ascending") {
     EmergencyOverride eo;
     auto r1 = eo.activate(ActorId::clinician("a"),

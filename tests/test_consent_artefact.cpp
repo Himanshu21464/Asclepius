@@ -475,6 +475,114 @@ TEST_CASE("artefact: token -> artefact -> token preserves revoked flag") {
     CHECK(t2.token_id == t1.token_id);
 }
 
+// ---- is_active / is_expired / is_revoked predicates --------------------
+
+TEST_CASE("artefact: is_active true when granted and expiry is strictly future") {
+    auto a = make_basic_artefact("art_active_basic");
+    a.status     = ConsentArtefact::Status::granted;
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{5min};
+    a.expires_at = Time::now() + std::chrono::nanoseconds{1h};
+    CHECK(is_active(a));
+    CHECK(!is_expired(a));
+    CHECK(!is_revoked(a));
+}
+
+TEST_CASE("artefact: is_active false when status is granted but expiry has passed") {
+    auto a = make_basic_artefact("art_active_lapsed");
+    a.status     = ConsentArtefact::Status::granted;
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{2h};
+    a.expires_at = Time::now() - std::chrono::nanoseconds{1h};
+    CHECK(!is_active(a));
+}
+
+TEST_CASE("artefact: is_active false when status is revoked even if expiry future") {
+    auto a = make_basic_artefact("art_active_revoked");
+    a.status     = ConsentArtefact::Status::revoked;
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{5min};
+    a.expires_at = Time::now() + std::chrono::nanoseconds{24h};
+    CHECK(!is_active(a));
+}
+
+TEST_CASE("artefact: is_active false when status is expired regardless of times") {
+    auto a = make_basic_artefact("art_active_expired_status");
+    a.status     = ConsentArtefact::Status::expired;
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{5min};
+    a.expires_at = Time::now() + std::chrono::nanoseconds{24h};
+    CHECK(!is_active(a));
+}
+
+TEST_CASE("artefact: is_expired true when stated status is expired") {
+    auto a = make_basic_artefact("art_expired_by_status");
+    a.status     = ConsentArtefact::Status::expired;
+    // Future expiry: stated status must dominate.
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{5min};
+    a.expires_at = Time::now() + std::chrono::nanoseconds{24h};
+    CHECK(is_expired(a));
+    CHECK(!is_active(a));
+}
+
+TEST_CASE("artefact: is_expired true when wall clock has overtaken expires_at") {
+    auto a = make_basic_artefact("art_expired_by_clock");
+    a.status     = ConsentArtefact::Status::granted;
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{2h};
+    a.expires_at = Time::now() - std::chrono::nanoseconds{1h};
+    CHECK(is_expired(a));
+    CHECK(!is_active(a));
+}
+
+TEST_CASE("artefact: is_expired false for active granted artefact") {
+    auto a = make_basic_artefact("art_expired_neg");
+    a.status     = ConsentArtefact::Status::granted;
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{5min};
+    a.expires_at = Time::now() + std::chrono::nanoseconds{6h};
+    CHECK(!is_expired(a));
+}
+
+TEST_CASE("artefact: is_expired true for revoked artefact whose expiry has passed") {
+    // A revoked-and-time-elapsed artefact is reported as expired AND
+    // revoked simultaneously — the predicates are independent.
+    auto a = make_basic_artefact("art_expired_revoked_lapsed");
+    a.status     = ConsentArtefact::Status::revoked;
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{3h};
+    a.expires_at = Time::now() - std::chrono::nanoseconds{1h};
+    CHECK(is_expired(a));
+    CHECK(is_revoked(a));
+    CHECK(!is_active(a));
+}
+
+TEST_CASE("artefact: is_revoked true iff stated status is revoked") {
+    auto a = make_basic_artefact("art_rev_pos");
+    a.status     = ConsentArtefact::Status::revoked;
+    a.issued_at  = Time::now();
+    a.expires_at = Time::now() + std::chrono::nanoseconds{1h};
+    CHECK(is_revoked(a));
+}
+
+TEST_CASE("artefact: is_revoked false for granted artefact") {
+    auto a = make_basic_artefact("art_rev_granted");
+    a.status     = ConsentArtefact::Status::granted;
+    a.issued_at  = Time::now();
+    a.expires_at = Time::now() + std::chrono::nanoseconds{1h};
+    CHECK(!is_revoked(a));
+}
+
+TEST_CASE("artefact: is_revoked false for expired (non-revoked) artefact") {
+    auto a = make_basic_artefact("art_rev_expired");
+    a.status     = ConsentArtefact::Status::expired;
+    a.issued_at  = Time::now() - std::chrono::nanoseconds{2h};
+    a.expires_at = Time::now() - std::chrono::nanoseconds{1h};
+    CHECK(!is_revoked(a));
+    CHECK(is_expired(a));
+}
+
+TEST_CASE("artefact: lifecycle predicates are noexcept") {
+    auto a = make_basic_artefact("art_noex");
+    static_assert(noexcept(is_active(a)),  "is_active must be noexcept");
+    static_assert(noexcept(is_expired(a)), "is_expired must be noexcept");
+    static_assert(noexcept(is_revoked(a)), "is_revoked must be noexcept");
+    CHECK(is_active(a));
+}
+
 TEST_CASE("artefact: end-to-end token -> artefact -> JSON -> artefact -> token") {
     ConsentToken t1;
     t1.token_id   = "ct_e2e";

@@ -1083,6 +1083,42 @@ ok(`every inline <svg> declares accessibility intent`, () => {
     return svgIssues.length === 0;
 });
 
+// ─── docs-render coherence — rendered HTML newer than its markdown source ─
+// build_docs.py renders docs/*.md → {architecture,spec,threat-model}.html.
+// If a markdown source has been edited but the HTML hasn't been re-rendered,
+// the rendered page is stale. Flag that. (build_docs.py exits 2 if the
+// `markdown` Python module is missing, which keeps this test honest.)
+
+console.log('docs-render coherence:');
+import { statSync } from 'node:fs';
+const DOC_PAIRS = [
+    ['../docs/ARCHITECTURE.md', 'architecture.html'],
+    ['../docs/SPEC.md',         'spec.html'],
+    ['../docs/THREAT_MODEL.md', 'threat-model.html'],
+];
+const docDriftIssues = [];
+for (const [mdRel, htmlName] of DOC_PAIRS) {
+    const mdPath   = path.join(SITE_ROOT, mdRel);
+    const htmlPath = path.join(SITE_ROOT, htmlName);
+    try {
+        const mdStat   = statSync(mdPath);
+        const htmlStat = statSync(htmlPath);
+        if (mdStat.mtimeMs > htmlStat.mtimeMs + 1000) {
+            const skewSec = ((mdStat.mtimeMs - htmlStat.mtimeMs) / 1000).toFixed(0);
+            docDriftIssues.push(
+                `${mdRel} edited ${skewSec}s after ${htmlName} was rendered — run \`make docs\``);
+        }
+    } catch (e) {
+        docDriftIssues.push(`${mdRel} or ${htmlName}: ${e.message}`);
+    }
+}
+ok(`every rendered docs page is at-or-after its markdown source`, () => {
+    if (docDriftIssues.length) {
+        console.error('   issues:\n' + docDriftIssues.map((l) => '     ' + l).join('\n'));
+    }
+    return docDriftIssues.length === 0;
+});
+
 // ─── summary ───────────────────────────────────────────────────────────
 
 console.log('');

@@ -131,6 +131,15 @@ bool FamilyGraph::can_consent_for(const PatientId& proxy,
     }
 }
 
+bool FamilyGraph::has_path(const PatientId& proxy,
+                           const PatientId& subject) const noexcept {
+    // Sugar over can_consent_for() — a graph-API spelling of the same
+    // existence check. Implemented as a direct re-dispatch so the two
+    // entry points share a single code path and cannot drift in
+    // observable behaviour.
+    return can_consent_for(proxy, subject);
+}
+
 std::vector<PatientId>
 FamilyGraph::subjects_for_proxy(const PatientId& proxy) const {
     std::lock_guard<std::mutex> lk(mu_);
@@ -235,6 +244,21 @@ FamilyGraph::counts_by_relation() const {
         out[e.relation]++;
     }
     return out;
+}
+
+std::size_t
+FamilyGraph::edges_count_for_relation(FamilyRelation relation) const {
+    // Direct count under one lock — cheaper than counts_by_relation()
+    // because we never materialise a map and stop accumulating after
+    // the linear scan. Returns 0 for relation values that are not
+    // currently represented in the edge set, matching the header's
+    // "absent in counts_by_relation()" contract.
+    std::lock_guard<std::mutex> lk(mu_);
+    std::size_t n = 0;
+    for (const auto& e : edges_) {
+        if (e.relation == relation) ++n;
+    }
+    return n;
 }
 
 std::vector<FamilyGraph::Edge> FamilyGraph::snapshot() const {

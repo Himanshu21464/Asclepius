@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(asclepius
-    VERSION 0.1.0
+    VERSION 0.6.0
     DESCRIPTION "A trust substrate for clinical AI"
     HOMEPAGE_URL "https://asclepius.health"
     LANGUAGES CXX C
@@ -65,6 +65,7 @@ target_sources(asclepius
         src/policy/schema_validator.cpp
         src/policy/policy_chain.cpp
         src/policy/clinical_action_filter.cpp
+        src/policy/access_constraint.cpp
         src/audit/ledger.cpp
         src/audit/keystore.cpp
         src/audit/sqlite_backend.cpp
@@ -75,6 +76,7 @@ target_sources(asclepius
         src/telemetry/drift.cpp
         src/telemetry/metrics.cpp
         src/telemetry/calibration.cpp
+        src/telemetry/cohort.cpp
         src/consent/registry.cpp
         src/consent/artefact.cpp
         src/consent/family_graph.cpp

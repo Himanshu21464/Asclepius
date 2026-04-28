@@ -166,4 +166,39 @@ ConsentToken token_from_artefact(const ConsentArtefact& artefact) {
     return t;
 }
 
+// ---- ConsentArtefact lifecycle predicates -------------------------------
+//
+// These three free functions classify an artefact's current liveness
+// without consulting any external registry. They mirror the semantics a
+// downstream HIU/HIP would derive from the wire payload alone — the
+// artefact's stated status is honored, but the wall clock is the source
+// of truth for expiry. is_expired() therefore disagrees with the stated
+// status when the artefact has lapsed without being re-issued.
+
+bool is_active(const ConsentArtefact& a) noexcept {
+    // Active is the strictest of the three: stated status must explicitly
+    // say granted AND the deadline has not yet passed. A revoked artefact
+    // is never active; an expired-but-stated-granted artefact is also
+    // not active because the wall clock has overtaken expires_at.
+    return a.status == ConsentArtefact::Status::granted &&
+           Time::now() < a.expires_at;
+}
+
+bool is_expired(const ConsentArtefact& a) noexcept {
+    // Expired is permissive of stated status: either the producer marked
+    // the artefact `expired` explicitly OR the wall clock has overtaken
+    // expires_at, regardless of what the status field claims. This
+    // handles the common case where an artefact in the wild has not
+    // been re-stamped after its TTL elapsed.
+    return a.status == ConsentArtefact::Status::expired ||
+           Time::now() >= a.expires_at;
+}
+
+bool is_revoked(const ConsentArtefact& a) noexcept {
+    // Revoked is purely status-keyed: a revoked artefact whose deadline
+    // has also passed still reports `true` here (and `true` from
+    // is_expired()) — the two predicates are independent.
+    return a.status == ConsentArtefact::Status::revoked;
+}
+
 }  // namespace asclepius

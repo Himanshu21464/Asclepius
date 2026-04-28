@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T15:49:55Z",
+  "generated_at": "2026-04-28T15:59:01Z",
   "algorithm": "SHA-256",
   "count": 94,
   "files": {
@@ -56,7 +56,7 @@
       "bytes": 846
     },
     "assets/bench.json": {
-      "sha256": "760e108bac02e0032feb124ad607de0bdc4a80642d4b061ba0017977756db30a",
+      "sha256": "6b591ae46913dcf4c59b3e349fb0ef43e2b6b3fe52bcf4471e3df89671bed1aa",
       "bytes": 910
     },
     "assets/favicon-mono.svg": {
@@ -188,7 +188,7 @@
       "bytes": 1622
     },
     "index.html": {
-      "sha256": "6d7f897f54b30ab3ec06944bebebdb50069026d13d7119ec468686b41587bb2d",
+      "sha256": "2ee8640fb59c5947d1e25650ce5ea1ab6764df5099876733b6cf0b6f15e0fe55",
       "bytes": 54513
     },
     "india.html": {
@@ -320,8 +320,8 @@
       "bytes": 6189
     },
     "security.html": {
-      "sha256": "aa138b8c347ef7f062e35674886a1ff7f76fb6104aa835431a1976d21e1ff4a9",
-      "bytes": 14418
+      "sha256": "b8dac7a33b720dc3dc82f51253bc9ddd09e4b2870fd6d2be55c09545cee6030b",
+      "bytes": 15018
     },
     "sitegraph.html": {
       "sha256": "06113a9e6bde840deb72a23ee984fed3353f746985040f52aca65658a639383f",
@@ -336,7 +336,7 @@
       "bytes": 8876
     },
     "spec.html": {
-      "sha256": "164234e4327774db62034c218385034b6274afff59d38a988f86a5354b32979a",
+      "sha256": "6781622462bdb09e4859289681304b3482a57639625eb3b3278c71200620b221",
       "bytes": 15466
     },
     "status.html": {
@@ -344,7 +344,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "bbf3aa0654e43e474edd760073803315da7228781ee7e48c239abaa8b6981fc6",
+      "sha256": "919c923b7053efe262109b15d24993105a2ad48eb383b352dbaa922d4c56584d",
       "bytes": 1063
     },
     "styles.css": {

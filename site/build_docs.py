@@ -10,7 +10,20 @@ Run from the site/ directory:
 """
 from __future__ import annotations
 import os, sys
-import markdown
+
+try:
+    import markdown
+except ModuleNotFoundError:
+    sys.stderr.write(
+        "build_docs.py: the 'markdown' Python module is required to render "
+        "docs/*.md -> {architecture,spec,threat-model}.html.\n"
+        "  install it with:    pip install --user markdown\n"
+        "                  or: apt install python3-markdown\n"
+        "                  or: pacman -S python-markdown\n"
+        "If you are not editing docs/*.md, you can ignore this — the rendered "
+        "HTML files in this directory remain canonical until re-rendered.\n"
+    )
+    sys.exit(2)
 
 
 HERE     = os.path.dirname(os.path.abspath(__file__))

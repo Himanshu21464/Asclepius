@@ -4978,7 +4978,7 @@ TEST_CASE("body_size_histogram: total observations equal chain length") {
     auto p = tmp_db("bsh_total");
     auto l_ = Ledger::open(p); REQUIRE(l_);
     auto& l = l_.value();
-    for (int i = 0; i < 25; i++) {
+    for (std::size_t i = 0; i < 25; i++) {
         REQUIRE(l.append("e", "x",
                          nlohmann::json{{"i", i}, {"pad", std::string(i * 4, 'a')}},
                          ""));

@@ -590,6 +590,136 @@ TEST_CASE("family_graph: summary_string format matches contract") {
     CHECK(g.summary_string() == "edges=0 proxies=0 subjects=0");
 }
 
+// ---- 12b. edges_count_for_relation ---------------------------------------
+
+TEST_CASE("family_graph: edges_count_for_relation tallies present relations correctly") {
+    FamilyGraph g;
+    auto pa = PatientId::pseudonymous("pa");
+    auto pb = PatientId::pseudonymous("pb");
+    auto sa = PatientId::pseudonymous("sa");
+    auto sb = PatientId::pseudonymous("sb");
+    auto sc = PatientId::pseudonymous("sc");
+    REQUIRE(g.record_relation(pa, sa,
+                              FamilyRelation::adult_child_for_elder_parent));
+    REQUIRE(g.record_relation(pb, sa,
+                              FamilyRelation::adult_child_for_elder_parent));
+    REQUIRE(g.record_relation(pa, sb,
+                              FamilyRelation::parent_for_minor));
+    REQUIRE(g.record_relation(pa, sc,
+                              FamilyRelation::spouse_for_spouse));
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::adult_child_for_elder_parent) == 2);
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::parent_for_minor) == 1);
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::spouse_for_spouse) == 1);
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::legal_guardian_for_ward) == 0);
+}
+
+TEST_CASE("family_graph: edges_count_for_relation returns 0 on empty graph") {
+    FamilyGraph g;
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::parent_for_minor) == 0);
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::adult_child_for_elder_parent) == 0);
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::legal_guardian_for_ward) == 0);
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::spouse_for_spouse) == 0);
+}
+
+TEST_CASE("family_graph: edges_count_for_relation reflects update-in-place semantics") {
+    // Re-recording a (proxy, subject) pair with a different relation
+    // updates the existing edge rather than appending; the count for
+    // the old relation should drop and the count for the new relation
+    // should rise, with total_relations unchanged.
+    FamilyGraph g;
+    auto p = PatientId::pseudonymous("p");
+    auto s = PatientId::pseudonymous("s");
+    REQUIRE(g.record_relation(p, s, FamilyRelation::parent_for_minor));
+    CHECK(g.edges_count_for_relation(FamilyRelation::parent_for_minor) == 1);
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::legal_guardian_for_ward) == 0);
+
+    REQUIRE(g.record_relation(p, s,
+                              FamilyRelation::legal_guardian_for_ward));
+    CHECK(g.total_relations() == 1);  // updated, not appended
+    CHECK(g.edges_count_for_relation(FamilyRelation::parent_for_minor) == 0);
+    CHECK(g.edges_count_for_relation(
+              FamilyRelation::legal_guardian_for_ward) == 1);
+}
+
+TEST_CASE("family_graph: edges_count_for_relation drops on remove_relation") {
+    FamilyGraph g;
+    auto pa = PatientId::pseudonymous("pa");
+    auto pb = PatientId::pseudonymous("pb");
+    auto s  = PatientId::pseudonymous("s");
+    REQUIRE(g.record_relation(pa, s, FamilyRelation::spouse_for_spouse));
+    REQUIRE(g.record_relation(pb, s, FamilyRelation::spouse_for_spouse));
+    CHECK(g.edges_count_for_relation(FamilyRelation::spouse_for_spouse) == 2);
+    REQUIRE(g.remove_relation(pa, s));
+    CHECK(g.edges_count_for_relation(FamilyRelation::spouse_for_spouse) == 1);
+    REQUIRE(g.remove_relation(pb, s));
+    CHECK(g.edges_count_for_relation(FamilyRelation::spouse_for_spouse) == 0);
+}
+
+// ---- 12c. has_path -------------------------------------------------------
+
+TEST_CASE("family_graph: has_path mirrors can_consent_for for present edges") {
+    FamilyGraph g;
+    auto proxy   = PatientId::pseudonymous("daughter");
+    auto subject = PatientId::pseudonymous("elder");
+    REQUIRE(g.record_relation(proxy, subject,
+                              FamilyRelation::adult_child_for_elder_parent));
+    CHECK(g.has_path(proxy, subject));
+    CHECK(g.has_path(proxy, subject) == g.can_consent_for(proxy, subject));
+}
+
+TEST_CASE("family_graph: has_path is direction sensitive") {
+    FamilyGraph g;
+    auto proxy   = PatientId::pseudonymous("guardian");
+    auto subject = PatientId::pseudonymous("ward");
+    REQUIRE(g.record_relation(proxy, subject,
+                              FamilyRelation::legal_guardian_for_ward));
+    CHECK(g.has_path(proxy, subject));
+    // Inverse direction is NOT implied — has_path is the spelling of
+    // a directed-edge probe.
+    CHECK(!g.has_path(subject, proxy));
+}
+
+TEST_CASE("family_graph: has_path is false for unknown patients") {
+    FamilyGraph g;
+    auto proxy    = PatientId::pseudonymous("p");
+    auto subject  = PatientId::pseudonymous("s");
+    auto stranger = PatientId::pseudonymous("stranger");
+    REQUIRE(g.record_relation(proxy, subject,
+                              FamilyRelation::parent_for_minor));
+    CHECK(!g.has_path(stranger, subject));
+    CHECK(!g.has_path(proxy,    stranger));
+    CHECK(!g.has_path(stranger, stranger));
+}
+
+TEST_CASE("family_graph: has_path is noexcept and survives an empty graph") {
+    FamilyGraph g;
+    const PatientId p = PatientId::pseudonymous("p");
+    const PatientId s = PatientId::pseudonymous("s");
+    static_assert(noexcept(g.has_path(p, s)),
+                  "has_path must be noexcept");
+    CHECK(!g.has_path(p, s));
+}
+
+TEST_CASE("family_graph: has_path drops to false after remove_relation") {
+    FamilyGraph g;
+    auto proxy   = PatientId::pseudonymous("p");
+    auto subject = PatientId::pseudonymous("s");
+    REQUIRE(g.record_relation(proxy, subject,
+                              FamilyRelation::spouse_for_spouse));
+    CHECK(g.has_path(proxy, subject));
+    REQUIRE(g.remove_relation(proxy, subject));
+    CHECK(!g.has_path(proxy, subject));
+}
+
 // ---- 13. integration / scenario ------------------------------------------
 
 TEST_CASE("family_graph: multi-proxy/multi-subject scenario keeps lookups consistent") {
