@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"           content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
+
+<title>India profile — Asclepius</title>
+<meta name="description" content="The India healthtech profile of Asclepius: ABDM-shaped consent artefacts, family graph, emergency override, six purpose values, DPDP § 7 alignment.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/india.html">
+<link rel="alternate" type="application/rss+xml"  title="Asclepius — changelog" href="feed.xml">
+<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
+<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
+
+<meta property="og:title"        content="Asclepius — the India healthtech profile">
+<meta property="og:description"  content="ABDM consent artefacts, family graph, emergency override. Substrate primitives, not an India-only product.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta property="og:url"          content="https://asclepius.health/india.html">
+<meta property="og:site_name"    content="Asclepius">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  .cp { padding: clamp(3rem, 7vw, 6rem) 0 4rem; }
+  .cp__hero { border-bottom: 1px solid var(--rule); padding-bottom: 2.4rem; margin-bottom: 3rem; max-width: 64ch; }
+  .cp__hero .kbd { display: inline-block; margin-bottom: 1rem; }
+  .cp__hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.6rem);
+    line-height: 1; letter-spacing: -.02em;
+    color: var(--ink-warm); margin: 0 0 1rem;
+  }
+  .cp__hero h1 i { color: var(--primary); font-style: italic; }
+  .cp__hero p {
+    color: var(--ink-mute); font-family: var(--font-prose);
+    font-size: 1.1rem; line-height: 1.65; margin: 0 0 1rem;
+  }
+  .cp__hero p em { color: var(--primary); font-style: italic; }
+  .cp__hero p code {
+    font-family: var(--font-mono); font-size: .9em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .08em .35em; color: var(--ink-warm);
+  }
+
+  .cp-toc {
+    margin: 1.6rem 0 0;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    max-width: 64ch;
+  }
+  .cp-toc b {
+    display: block; margin-bottom: .55rem;
+    font-family: var(--font-mono); font-size: .72rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .cp-toc ol {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .15rem .9rem;
+    font-family: var(--font-prose); font-size: .94rem;
+  }
+  .cp-toc li::before {
+    content: "§" counter(toc, decimal-leading-zero) "  ";
+    counter-increment: toc;
+    font-family: var(--font-mono); color: var(--ink-faint);
+    font-size: .76rem; letter-spacing: .04em;
+  }
+  .cp-toc ol { counter-reset: toc; }
+  .cp-toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted transparent; }
+  .cp-toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+  .cp-toc a em { color: var(--primary); font-style: italic; }
+
+  .cp-sec { padding: 2.2rem 0 1.6rem; border-bottom: 1px solid var(--rule-soft); }
+  .cp-sec:last-of-type { border-bottom: 0; }
+  .cp-sec h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+    color: var(--ink-warm); letter-spacing: -.01em;
+    margin: .4rem 0 1.2rem; line-height: 1.2;
+    max-width: 52ch;
+  }
+  .cp-sec h2 i { color: var(--primary); font-style: italic; }
+  .cp-sec p {
+    font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7;
+    color: var(--ink); margin: 0 0 1rem; max-width: 64ch;
+  }
+  .cp-sec p em { color: var(--primary); font-style: italic; }
+  .cp-sec p code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .08em .35em; color: var(--ink-warm);
+  }
+  .cp-sec ul, .cp-sec ol {
+    font-family: var(--font-prose); font-size: 1.02rem; line-height: 1.7;
+    color: var(--ink); max-width: 64ch;
+    margin: 0 0 1rem; padding-left: 1.4rem;
+  }
+  .cp-sec li { margin: .35rem 0; }
+  .cp-sec li em { color: var(--primary); font-style: italic; }
+  .cp-sec li code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .cp-callout {
+    margin: 1.4rem 0 1rem;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-prose);
+    font-size: .98rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    max-width: 64ch;
+  }
+  .cp-callout b {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: .35rem;
+  }
+  .cp-callout em { color: var(--ink); font-style: italic; }
+  .cp-callout code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+
+  .cp-snippet {
+    margin: 1.2rem 0 1.4rem;
+    padding: 1rem 1.2rem;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.6;
+    color: var(--ink-warm);
+    overflow-x: auto;
+    max-width: 78ch;
+    white-space: pre;
+  }
+  .cp-snippet .k { color: var(--primary); }
+  .cp-snippet .s { color: #34D399; }
+  .cp-snippet .n { color: #F4B860; }
+  .cp-snippet .c { color: var(--ink-faint); font-style: italic; }
+  .cp-snippet .t { color: #7DD3FC; }
+
+  .cp-purposes {
+    list-style: none; padding: 0; margin: 1rem 0 1.4rem;
+    display: grid;
+    grid-template-columns: minmax(0, 18em) 1fr;
+    gap: .5rem 1.2rem;
+    max-width: 78ch;
+  }
+  .cp-purposes dt {
+    font-family: var(--font-mono); font-size: .84rem;
+    color: var(--primary); padding-top: 2px;
+  }
+  .cp-purposes dd {
+    font-family: var(--font-prose); font-size: .98rem;
+    margin: 0; color: var(--ink); line-height: 1.6;
+  }
+  .cp-purposes dd em { color: var(--primary); font-style: italic; }
+
+  .cp-not {
+    list-style: none; padding: 0; margin: 1rem 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: .7rem;
+    max-width: 80ch;
+  }
+  .cp-not li {
+    padding: .8rem 1rem;
+    border: 1px dashed var(--rule);
+    border-radius: 4px;
+    background: transparent;
+  }
+  .cp-not li b {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: .76rem; letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .3rem;
+  }
+  .cp-not li span {
+    font-family: var(--font-prose); font-size: .94rem;
+    color: var(--ink-mute); line-height: 1.55;
+  }
+  .cp-not li span em { color: var(--ink); font-style: italic; }
+</style>
+
+<!-- breadcrumb-jsonld -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",   "item": "https://asclepius.health/" },
+    { "@type": "ListItem", "position": 2, "name": "India",  "item": "https://asclepius.health/india.html" }
+  ]
+}
+</script>
+</head>
+<body class="page-india">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.1.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="concepts.html">concepts</a>
+      <a href="docs.html">docs</a>
+      <a href="india.html" class="is-active" aria-current="page">india</a>
+      <a href="api.html">api</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main" class="cp">
+  <div class="container">
+
+    <header class="cp__hero">
+      <span class="kbd">india&nbsp;profile&nbsp;·&nbsp;round&nbsp;90&nbsp;·&nbsp;optional&nbsp;configuration</span>
+      <h1>The India <i>profile.</i></h1>
+      <p>
+        Asclepius is <em>not</em> an India-only product. The kernel is the
+        substrate underneath any clinical-AI tool, anywhere it runs. The
+        <em>India profile</em> is one optional configuration of that
+        substrate — three primitives and six <code>Purpose</code> values
+        that an Indian deployment can switch on, while a US, EU, or
+        anywhere-else deployment ignores them entirely.
+      </p>
+      <p>
+        We landed it in round 90 because India's national digital-health
+        infrastructure is a real, working consent fabric — ABDM, the
+        DPDP Act, a stable HIP/HIU vocabulary — and a kernel that wants
+        to be the substrate underneath clinical AI cannot pretend that
+        fabric does not exist. <em>Document the seam, not the policy.</em>
+      </p>
+
+      <nav class="cp-toc" aria-label="contents">
+        <b>contents</b>
+        <ol>
+          <li><a href="#substrate">the <em>substrate</em></a></li>
+          <li><a href="#consent-artefact">ABDM consent <em>artefacts</em></a></li>
+          <li><a href="#family-graph">family <em>graph</em></a></li>
+          <li><a href="#emergency-override">emergency <em>override</em></a></li>
+          <li><a href="#purposes">India <em>purposes</em></a></li>
+          <li><a href="#dpdp">DPDP <em>alignment</em></a></li>
+        </ol>
+      </nav>
+    </header>
+
+    <!-- §01 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="substrate">
+      <div class="section-head">
+        <span class="section-num">§01</span>
+        <span class="section-name">the substrate</span>
+      </div>
+
+      <h2>Substrate, <i>not jurisdiction.</i></h2>
+      <p>
+        The kernel ships one runtime, one ledger, one consent registry. The
+        India profile adds three new types — <code>ConsentArtefact</code>,
+        <code>FamilyGraph</code>, <code>EmergencyOverride</code> — and six
+        new <code>Purpose</code> enum values. Nothing else changes. A
+        deployment that never instantiates these types is unaffected; a
+        deployment that does instantiate them gets the ABDM-shaped wire
+        format, multi-party consent, and DPDP-aligned break-glass without
+        forking the runtime.
+      </p>
+      <p>
+        We do not bake an ABDM Gateway client, an HIP adapter, an HIU
+        consumer, or an Aadhaar verification path into the kernel.
+        Operators wire those above the substrate, the same way they wire
+        any other vendor adapter. <em>The kernel codifies the contract;
+        the operator codifies the operator workflow.</em>
+      </p>
+      <p class="cp-callout">
+        <b>analogy</b>
+        <em>Linux ships <code>iptables</code> primitives without
+        prescribing a corporate firewall policy. The India profile adds
+        primitives that fit the shape of ABDM consent semantics; what an
+        Indian deployment <em>does</em> with them stays the operator's
+        problem.</em>
+      </p>
+    </section>
+
+    <!-- §02 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="consent-artefact">
+      <div class="section-head">
+        <span class="section-num">§02</span>
+        <span class="section-name">consent artefacts</span>
+      </div>
+
+      <h2>ABDM consent <i>artefacts.</i></h2>
+      <p>
+        <code>ConsentArtefact</code> is a JSON-serialisable shape that
+        mirrors an ABDM consent-artefact record. It is the <em>wire
+        format</em> a kernel deployment exchanges with HIPs (Health
+        Information Providers), HIUs (Health Information Users), and the
+        ABDM Gateway. It is intentionally not the same type as
+        <code>ConsentToken</code>: the registry token is the kernel's
+        authoritative in-memory record; the artefact is the externalised,
+        signable, transmittable shape. Bidirectional mapping is provided
+        so a token can travel out and a fetched artefact can travel in.
+      </p>
+
+<pre class="cp-snippet"><span class="c">// authoritative token in the registry → outbound ABDM artefact</span>
+<span class="t">asclepius::ConsentArtefact</span> a = <span class="t">asclepius::artefact_from_token</span>(
+    token,                     <span class="c">// kernel-side ConsentToken</span>
+    <span class="s">"hiu:apollo-blr"</span>,           <span class="c">// requester id (HIU)</span>
+    <span class="s">"hip:fortis-tnk"</span>,           <span class="c">// fetcher id (HIP)</span>
+    <span class="s">"abdm:abc-123-def"</span>);         <span class="c">// ABDM artefact id</span>
+
+<span class="t">std::string</span> wire = <span class="t">asclepius::to_abdm_json</span>(a);
+<span class="c">// {"artefact_id":"abdm:abc-123-def","patient":"...", "purposes":[...], "status":"granted", ...}</span>
+
+<span class="c">// inbound artefact from a peer → kernel-side token</span>
+<span class="k">auto</span> roundtrip = <span class="t">asclepius::from_abdm_json</span>(wire).value();
+<span class="t">asclepius::ConsentToken</span> t = <span class="t">asclepius::token_from_artefact</span>(roundtrip);</pre>
+
+      <p>
+        Status priority on the artefact mirrors what the registry already
+        encodes: <code>granted</code>, <code>revoked</code>,
+        <code>expired</code>. A revoked-and-expired token serialises as
+        revoked — the verb the patient invoked is the one the artefact
+        carries.
+      </p>
+    </section>
+
+    <!-- §03 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="family-graph">
+      <div class="section-head">
+        <span class="section-num">§03</span>
+        <span class="section-name">family graph</span>
+      </div>
+
+      <h2>The <i>family graph.</i></h2>
+      <p>
+        A consent registry that only knows <em>(patient → grant)</em>
+        cannot answer the question Indian healthtech actually asks every
+        day: <em>can this adult consent on behalf of their elder
+        parent?</em> <code>FamilyGraph</code> records edges from a
+        <em>proxy</em> to a <em>subject</em>, tagged with one of four
+        relationships. A token issued by a proxy is honoured iff a valid
+        edge exists in the graph; the runtime mirrors edge writes to the
+        ledger so graph history is reconstructable from the chain.
+      </p>
+
+      <ul>
+        <li><code>FamilyRelation::adult_child_for_elder_parent</code> — the canonical Indian eldercare path.</li>
+        <li><code>FamilyRelation::parent_for_minor</code> — paediatric consent, parent on behalf of child.</li>
+        <li><code>FamilyRelation::legal_guardian_for_ward</code> — court-appointed or institutional guardianship.</li>
+        <li><code>FamilyRelation::spouse_for_spouse</code> — spousal consent in incapacity scenarios.</li>
+      </ul>
+
+<pre class="cp-snippet"><span class="t">asclepius::FamilyGraph</span> fg;
+fg.<span class="t">record_relation</span>(adult_child, elder_parent,
+                   <span class="t">asclepius::FamilyRelation</span>::adult_child_for_elder_parent);
+
+<span class="k">if</span> (fg.<span class="t">can_consent_for</span>(adult_child, elder_parent)) {
+    <span class="c">// proxy is authorised; honour the token they issued</span>
+}</pre>
+
+      <p>
+        The graph is policy-neutral about <em>which</em> relationships an
+        operator chooses to recognise — an institution can choose to
+        accept only <code>parent_for_minor</code> and reject the rest, or
+        run with all four. The kernel just records and looks up edges.
+      </p>
+    </section>
+
+    <!-- §04 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="emergency-override">
+      <div class="section-head">
+        <span class="section-num">§04</span>
+        <span class="section-name">emergency override</span>
+      </div>
+
+      <h2>Break-glass with a <i>backfill window.</i></h2>
+      <p>
+        <code>EmergencyOverride</code> is the kernel primitive for
+        DPDP-aligned deferred consent. In a clinically-justified
+        emergency — a road-traffic admission, an unconscious patient, an
+        ED triage decision — a clinician may access records before
+        consent can be granted in the moment. The kernel records the
+        access immediately and computes a <code>backfill_deadline</code>
+        of <code>activated_at + window</code> (default 72 hours). Inside
+        the window, an operator must file a backfill evidence id;
+        outside the window, <code>is_overdue()</code> reports the token
+        and dashboards surface it.
+      </p>
+
+<pre class="cp-snippet"><span class="t">asclepius::EmergencyOverride</span> eo;
+<span class="k">auto</span> tok = eo.<span class="t">activate</span>(actor, patient,
+                      <span class="s">"RTA, GCS 7, ED triage"</span>).value();
+
+<span class="c">// inside the 72h window, operator backs it up:</span>
+eo.<span class="t">backfill</span>(tok.token_id, <span class="s">"signed-clinical-note:0x4a"</span>);
+
+<span class="c">// or, if no one filed:</span>
+<span class="k">if</span> (eo.<span class="t">is_overdue</span>(tok.token_id)) {
+    <span class="c">// surfaces in dashboards; overdue_backfills() returns the row</span>
+}</pre>
+
+      <p>
+        The kernel is intentionally policy-neutral about <em>what</em>
+        satisfies the backfill. A signed clinical note, a scanned consent
+        form, an inbound ABDM consent-artefact id — all are equally valid
+        as far as the kernel is concerned. <em>What counts as evidence is
+        the operator's compliance question; that the backfill happened
+        within the window is the kernel's question.</em>
+      </p>
+      <p class="cp-callout">
+        <b>configurable, not hard-coded</b>
+        <em>The 72-hour default exists because it is what DPDP § 7 reads
+        as currently. <code>set_backfill_window()</code> moves it. If
+        regulation tightens to 48 hours or loosens to 96, an operator
+        flips one call and existing tokens keep the deadline they were
+        born with.</em>
+      </p>
+    </section>
+
+    <!-- §05 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="purposes">
+      <div class="section-head">
+        <span class="section-num">§05</span>
+        <span class="section-name">india purposes</span>
+      </div>
+
+      <h2>Six new <i>Purpose</i> values.</h2>
+      <p>
+        The kernel's <code>Purpose</code> enum was eight values for the
+        original kernel surface. Round 90 added six more, each chosen to
+        match a workflow that India healthtech needs to express
+        <em>without</em> stretching an existing purpose past its
+        meaning. Adding a Purpose is a governance event (see
+        <a href="decisions.html#adr-014">ADR-014</a>); the additions are
+        backwards-compatible — clients that don't request the new
+        purposes are unaffected.
+      </p>
+
+      <dl class="cp-purposes">
+        <dt><code>prescription_resolution</code></dt>
+        <dd>Parse a prescription and resolve it to NPPA / PMBJP catalogues — the price-comparison and generic-substitution path.</dd>
+
+        <dt><code>second_opinion</code></dt>
+        <dd>Share a case dossier for a structured second opinion; consent is bounded to the dossier and the named consulting party.</dd>
+
+        <dt><code>specialist_referral</code></dt>
+        <dd>Share a case dossier with a tier-2/3 specialist for tele-consult; the referral path is distinct from a free-form second opinion.</dd>
+
+        <dt><code>billing_audit</code></dt>
+        <dd>Audit an itemised hospital bill against a published reference catalogue; consent here is for the bill, not the underlying clinical data.</dd>
+
+        <dt><code>longitudinal_outcomes_research</code></dt>
+        <dd>Per-patient longitudinal outcome tracking — a cohort ledger purpose distinct from one-off <code>research</code> grants.</dd>
+
+        <dt><code>emergency_clinical_access</code></dt>
+        <dd>DPDP § 7 break-glass: deferred-consent clinical access. Pairs with <code>EmergencyOverride</code>; this is the <em>purpose</em> recorded on the inference, the override is the <em>permission</em> covering it.</dd>
+      </dl>
+    </section>
+
+    <!-- §06 ──────────────────────────────────────────────────────────────── -->
+    <section class="cp-sec" id="dpdp">
+      <div class="section-head">
+        <span class="section-num">§06</span>
+        <span class="section-name">dpdp alignment</span>
+      </div>
+
+      <h2>DPDP § 7, <i>codified.</i></h2>
+      <p>
+        The Digital Personal Data Protection Act, 2023, § 7, allows
+        clinical processing of personal data without prior consent in
+        circumstances where consent cannot be obtained — most centrally,
+        a medical emergency where the patient cannot grant it in the
+        moment. The clause is not a free pass: it expects a recorded
+        justification and a path to retrospective notice or consent
+        once the situation permits.
+      </p>
+      <p>
+        The kernel codifies the requirement, not the regulation.
+        <code>EmergencyOverride</code> records the activation
+        immediately, computes a deadline at activation time, and exposes
+        <code>is_overdue()</code> and <code>overdue_backfills()</code>
+        so dashboards and audit alerts cannot quietly miss a backfill.
+        That is what the substrate guarantees.
+      </p>
+      <p>
+        The window is configurable —
+        <code>set_backfill_window()</code> takes a
+        <code>std::chrono::seconds</code> — so a deployment can match
+        whatever DPDP rule is in force, or a state-level health rule, or
+        an institutional policy more conservative than either. The
+        kernel does not ship a position on what the right number is; the
+        72-hour default reads the regulation as it stands. Operators who
+        disagree are one call away from their own number.
+      </p>
+      <p class="cp-callout">
+        <b>not legal advice</b>
+        <em>The substrate produces the artifacts a DPDP regime expects;
+        compliance is a human job. Counsel reads the bundle; they do not
+        run the runtime.</em>
+      </p>
+
+      <h2 style="margin-top: 2rem;">What we do <i>not</i> do.</h2>
+      <ul class="cp-not">
+        <li>
+          <b>not pricing</b>
+          <span>The kernel does not bake any pricing schedule into <code>billing_audit</code>. Operators pull NPPA / PMBJP / state catalogues; the kernel records the comparison.</span>
+        </li>
+        <li>
+          <b>not URLs</b>
+          <span>No ABDM Gateway URL, no HIP discovery endpoint, no Aadhaar verification path is hard-coded. Adapters go above the substrate.</span>
+        </li>
+        <li>
+          <b>not workflows</b>
+          <span>Whether a backfill needs a signed note or a scanned form is the operator's compliance question. The kernel just enforces that <em>some</em> evidence id is filed before the deadline.</span>
+        </li>
+        <li>
+          <b>not jurisdiction</b>
+          <span>An EU or US deployment can build, link, and run the kernel without ever touching the India profile. The new types compile in; instantiating them is opt-in.</span>
+        </li>
+      </ul>
+
+      <p style="margin-top: 1.4rem;">
+        See also: <a href="decisions.html#adr-013">ADR-013 (India profile primitives)</a>,
+        <a href="decisions.html#adr-014">ADR-014 (Purpose enum extension)</a>,
+        <a href="api.html#hdr-consent-hpp">api.html → consent.hpp</a>,
+        <a href="concepts.html#consent">concepts → consent</a>,
+        <a href="glossary.html#abdm">glossary → ABDM</a>.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — india profile.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>start here</b>
+        <a href="explained.html">explained</a>
+        <a href="concepts.html">concepts</a>
+        <a href="quickstart.html">quickstart</a>
+        <a href="india.html">india</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="api.html">API reference</a>
+        <a href="glossary.html">glossary</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="governance.html">governance</a>
+        <a href="principles.html">principles</a>
+        <a href="security.html">security</a>
+      </div>
+      <div>
+        <b>code</b>
+        <a href="https://github.com/Himanshu21464/Asclepius">github&nbsp;↗</a>
+        <a href="changelog.html">changelog</a>
+        <a href="demo.html">playground</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/themes.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/attest-site.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
+</body>
+</html>

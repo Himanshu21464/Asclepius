@@ -20,15 +20,29 @@ namespace asclepius {
 
 // Allowed purposes for AI use on a patient's data. Codified deliberately:
 // adding a new purpose is a governance event, not a string change.
+//
+// Values 1-8 are the original kernel purposes. Values 9-14 were added in
+// round 90 to support India-specific healthtech workflows (ABDM-aligned
+// referral, billing audit, longitudinal outcomes research, DPDP § 7
+// emergency clinical access). Each addition is documented in
+// decisions.html as a separate ADR and is NOT a backwards-incompatible
+// change — clients that do not request the new purposes are unaffected.
 enum class Purpose : std::uint8_t {
-    ambient_documentation = 1,
-    diagnostic_suggestion = 2,
-    triage                = 3,
-    medication_review     = 4,
-    risk_stratification   = 5,
-    quality_improvement   = 6,
-    research              = 7,
-    operations            = 8,
+    ambient_documentation         = 1,
+    diagnostic_suggestion         = 2,
+    triage                        = 3,
+    medication_review             = 4,
+    risk_stratification           = 5,
+    quality_improvement           = 6,
+    research                      = 7,
+    operations                    = 8,
+    // ---- round 90 additions (India healthtech profile) -----------------
+    prescription_resolution       = 9,   // parse a prescription and resolve to NPPA / PMBJP catalogues
+    second_opinion                = 10,  // share a case dossier for a structured second opinion
+    specialist_referral           = 11,  // share a case dossier to a tier-2/3 specialist for tele-consult
+    billing_audit                 = 12,  // audit an itemised hospital bill against a published reference
+    longitudinal_outcomes_research = 13, // per-patient longitudinal outcome tracking (cohort_ledger)
+    emergency_clinical_access     = 14,  // DPDP § 7 break-glass: deferred-consent clinical access
 };
 
 const char* to_string(Purpose) noexcept;
@@ -707,6 +721,290 @@ private:
 };
 
 const char* to_string(ConsentRegistry::TokenLifecycle::State) noexcept;
+
+// ============================================================================
+// Round 90 — India healthtech profile primitives
+//
+// Three new types layer on top of ConsentRegistry without changing its
+// existing API. They exist because the ten Razorpay "Fix My Itch"
+// healthtech products need consent semantics that the bare token registry
+// does not express:
+//   * ConsentArtefact — a JSON-serialisable shape that mirrors ABDM
+//     (Ayushman Bharat Digital Mission) consent-artefact records, allowing
+//     a kernel deployment to interoperate with India's national health
+//     consent infrastructure.
+//   * FamilyGraph — multi-party consent (adult-child for elder, parent
+//     for minor) so caregivers can authorise care on behalf of a relation
+//     under explicit relationship typing.
+//   * EmergencyOverride — break-glass deferred-consent flow aligned with
+//     DPDP Act § 7, with a configurable mandatory backfill window
+//     (default 72 hours) enforced by the kernel.
+// All three are substrate primitives; the kernel does not bake in any
+// specific operator workflow on top.
+// ============================================================================
+
+// ---- ConsentArtefact ------------------------------------------------------
+//
+// JSON-serialisable representation of an ABDM-shaped consent artefact.
+// The artefact is the wire format the kernel exchanges with HIPs (Health
+// Information Providers), HIUs (Health Information Users), and the ABDM
+// Gateway. It is *not* the same thing as ConsentToken: the registry token
+// is the kernel's authoritative in-memory record, while the artefact is
+// the externalised, signable, transmittable shape. Bidirectional mapping
+// between the two is provided.
+
+struct ConsentArtefact {
+    std::string                 artefact_id;     // ABDM artefact id
+    PatientId                   patient;
+    std::string                 requester_id;    // HIU identifier
+    std::string                 fetcher_id;      // HIP identifier
+    std::vector<Purpose>        purposes;
+    Time                        issued_at;
+    Time                        expires_at;
+    enum class Status : std::uint8_t {
+        granted = 1,
+        revoked = 2,
+        expired = 3,
+    };
+    Status                      status        = Status::granted;
+    std::string                 schema_version{"1.0"};
+};
+
+const char* to_string(ConsentArtefact::Status) noexcept;
+Result<ConsentArtefact::Status>
+artefact_status_from_string(std::string_view) noexcept;
+
+// Serialise an artefact to ABDM-shaped JSON. Stable schema:
+// {"artefact_id","patient","requester_id","fetcher_id",
+//  "purposes":[...], "issued_at","expires_at","status","schema_version"}
+// Times are emitted as ISO-8601 strings; purposes use to_string(Purpose).
+std::string to_abdm_json(const ConsentArtefact&);
+
+// Inverse of to_abdm_json. Returns Error::invalid on malformed input or
+// missing required fields. Unknown purpose strings yield invalid_argument.
+Result<ConsentArtefact> from_abdm_json(std::string_view);
+
+// Bidirectional mapping with the existing ConsentToken type.
+ConsentArtefact artefact_from_token(const ConsentToken& token,
+                                    std::string         requester_id,
+                                    std::string         fetcher_id,
+                                    std::string         artefact_id);
+
+ConsentToken token_from_artefact(const ConsentArtefact& artefact);
+
+// ---- FamilyGraph ---------------------------------------------------------
+//
+// Records that a proxy (an adult, a parent, a guardian) is authorised to
+// consent on behalf of a subject (an elder, a minor, a ward). The graph
+// is consulted alongside the ConsentRegistry: a token issued by a proxy
+// for a subject is honoured iff a valid edge exists in the graph.
+// Edge writes fire an observer so the audit ledger can mirror the graph's
+// history exactly like consent grants/revocations.
+
+enum class FamilyRelation : std::uint8_t {
+    adult_child_for_elder_parent = 1,
+    parent_for_minor             = 2,
+    legal_guardian_for_ward      = 3,
+    spouse_for_spouse            = 4,
+};
+
+const char* to_string(FamilyRelation) noexcept;
+Result<FamilyRelation> family_relation_from_string(std::string_view) noexcept;
+
+class FamilyGraph {
+public:
+    enum class Event : std::uint8_t { recorded = 1, removed = 2 };
+    struct Edge {
+        PatientId      proxy;
+        PatientId      subject;
+        FamilyRelation relation;
+        Time           recorded_at;
+    };
+    using Observer = std::function<void(Event, const Edge&)>;
+
+    FamilyGraph() = default;
+
+    // Record a relation. Returns conflict if the same (proxy, subject)
+    // edge already exists with the SAME relation; in that case the call
+    // is a no-op. A different relation between the same two parties
+    // updates the edge and fires the observer as a `recorded` event.
+    Result<void> record_relation(PatientId      proxy,
+                                 PatientId      subject,
+                                 FamilyRelation relation);
+
+    // Remove an existing edge. Returns Error::not_found if no such edge
+    // exists. Fires the observer as a `removed` event on success.
+    Result<void> remove_relation(const PatientId& proxy,
+                                 const PatientId& subject);
+
+    // True iff an edge from proxy → subject exists. noexcept; any
+    // internal failure is swallowed → false.
+    bool can_consent_for(const PatientId& proxy,
+                         const PatientId& subject) const noexcept;
+
+    // Distinct subjects authorised by `proxy`, sorted by patient.str().
+    std::vector<PatientId> subjects_for_proxy(const PatientId& proxy) const;
+
+    // Distinct proxies authorised over `subject`, sorted by patient.str().
+    std::vector<PatientId> proxies_for_subject(const PatientId& subject) const;
+
+    // Returns the relation type stored for (proxy, subject), or
+    // Error::not_found if no such edge exists.
+    Result<FamilyRelation>
+    relation_between(const PatientId& proxy,
+                     const PatientId& subject) const;
+
+    // Total number of edges in the graph. O(1).
+    std::size_t total_relations() const noexcept;
+
+    // Distinct proxy patients across all edges.
+    std::size_t distinct_proxies() const noexcept;
+
+    // Distinct subject patients across all edges.
+    std::size_t distinct_subjects() const noexcept;
+
+    // Counts grouped by relation type. A relation type with zero edges
+    // is omitted from the map.
+    std::unordered_map<FamilyRelation, std::size_t> counts_by_relation() const;
+
+    // Stable snapshot of the graph for serialisation / replay.
+    // Order: by (proxy.str(), subject.str()) lexicographic, deterministic.
+    std::vector<Edge> snapshot() const;
+
+    // Restore an edge verbatim — preserves recorded_at. Used by Runtime
+    // restart to replay graph events from the ledger. Does NOT fire the
+    // observer (the ledger is source of truth). Returns conflict if a
+    // duplicate (proxy, subject) edge with the SAME relation exists; a
+    // different relation is updated silently.
+    Result<void> ingest(Edge edge);
+
+    // Drop every edge. Does NOT fire the observer.
+    void clear();
+
+    void set_observer(Observer obs);
+
+    // Single-line ASCII summary for ops dashboards.
+    std::string summary_string() const;
+
+private:
+    mutable std::mutex                                 mu_;
+    std::vector<Edge>                                  edges_;
+    Observer                                           observer_;
+};
+
+// ---- EmergencyOverride ---------------------------------------------------
+//
+// DPDP Act § 7 break-glass: in a clinically-justified emergency, an actor
+// (a clinician, an EMT, an ED triage officer) may access a patient's
+// records even when the patient cannot grant consent in the moment. The
+// kernel records the access immediately and enforces a configurable
+// mandatory backfill window (default 72 hours) within which a documented
+// justification or post-hoc consent MUST be filed; otherwise the
+// backfill is overdue and surfaces in dashboards / audit alerts.
+// The kernel is intentionally policy-neutral about *what* satisfies the
+// backfill; operators wire the evidence id to whatever artefact (signed
+// note, scanned consent, ABDM consent-artefact id) their compliance
+// regime accepts.
+
+struct EmergencyOverrideToken {
+    std::string token_id;
+    ActorId     actor;
+    PatientId   patient;
+    std::string reason;
+    Time        activated_at;
+    Time        backfill_deadline;     // activated_at + window
+    bool        backfilled = false;
+    std::string backfill_evidence_id;  // empty until backfilled
+};
+
+class EmergencyOverride {
+public:
+    enum class Event : std::uint8_t { activated = 1, backfilled = 2 };
+    using Observer = std::function<void(Event, const EmergencyOverrideToken&)>;
+
+    explicit EmergencyOverride(
+        std::chrono::seconds backfill_window = std::chrono::hours(72));
+
+    // Activate a break-glass for `actor` on `patient` with a free-text
+    // `reason`. Returns the new token (with `backfill_deadline` set to
+    // activated_at + current window). Reason must be non-empty:
+    // invalid_argument otherwise. Fires the observer as `activated`.
+    Result<EmergencyOverrideToken>
+    activate(ActorId actor, PatientId patient, std::string reason);
+
+    // File the backfill evidence for an outstanding token. Returns
+    // not_found if the token does not exist; conflict if the token was
+    // already backfilled (idempotency: a second backfill with the SAME
+    // evidence_id is a silent no-op, a different evidence_id conflicts);
+    // invalid_argument if evidence_id is empty.
+    Result<void> backfill(std::string_view token_id,
+                          std::string      evidence_id);
+
+    Result<EmergencyOverrideToken> get(std::string_view token_id) const;
+
+    // True iff a token with this id exists and is not yet backfilled.
+    bool is_pending_backfill(std::string_view token_id) const noexcept;
+
+    // True iff a token with this id exists, is not backfilled, and
+    // its backfill_deadline has passed.
+    bool is_overdue(std::string_view token_id) const noexcept;
+
+    // List of tokens that are not yet backfilled. Order: by
+    // activated_at ascending (oldest first).
+    std::vector<EmergencyOverrideToken> pending_backfills() const;
+
+    // Subset of pending_backfills() whose backfill_deadline has passed.
+    // Order: by backfill_deadline ascending (most overdue first).
+    std::vector<EmergencyOverrideToken> overdue_backfills() const;
+
+    // List of tokens that have been backfilled.
+    std::vector<EmergencyOverrideToken> completed_backfills() const;
+
+    std::size_t pending_count() const noexcept;
+    std::size_t overdue_count() const noexcept;
+    std::size_t completed_count() const noexcept;
+    std::size_t total_count() const noexcept;
+
+    // Distinct patients and actors that appear across any token.
+    std::vector<PatientId> patients() const;
+    std::vector<ActorId>   actors() const;
+
+    // Configurable mandatory-backfill window. The window applies to NEW
+    // activations only — existing tokens keep the deadline that was
+    // computed at their activation time.
+    void set_backfill_window(std::chrono::seconds);
+    std::chrono::seconds backfill_window() const noexcept;
+
+    // Restore a token verbatim. Used by ledger replay; does NOT fire
+    // the observer. Returns conflict on token_id collision.
+    Result<void> ingest(EmergencyOverrideToken token);
+
+    // Stable snapshot: by activated_at ascending.
+    std::vector<EmergencyOverrideToken> snapshot() const;
+
+    // Drop every token. Does NOT fire the observer.
+    void clear();
+
+    void set_observer(Observer obs);
+
+    // Aggregate operator probe.
+    struct Summary {
+        std::size_t total;
+        std::size_t pending;
+        std::size_t overdue;
+        std::size_t completed;
+    };
+    Summary summary() const;
+
+    // Single-line ASCII summary for ops dashboards.
+    std::string summary_string() const;
+
+private:
+    mutable std::mutex                                       mu_;
+    std::chrono::seconds                                     window_;
+    std::unordered_map<std::string, EmergencyOverrideToken>  by_id_;
+    Observer                                                 observer_;
+};
 
 }  // namespace asclepius
 

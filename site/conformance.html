@@ -261,7 +261,7 @@
       </div>
       <div>
         <span>L2-Medical</span>
-        <b class="is-pending"><em>0 / 4</em> · proposed</b>
+        <b class="is-partial"><em>4 / 4</em> · fixture</b>
       </div>
       <div>
         <span>L3 evidence</span>
@@ -390,30 +390,30 @@
         <span class="cf-level__name">medical</span>
         <h2 class="cf-level__title">Spectrum coverage.</h2>
       </div>
-      <span class="cf-level__pill is-pending">0 / 4 proposed</span>
+      <span class="cf-level__pill is-partial">4 / 4 fixture · pending real dataset</span>
     </header>
-    <p>L2 plus driving the wrapped model through an external medical benchmark — the substrate certifies that the bundle contains a signed entry per benchmark item, not the score. <i>The score is the model's problem; the audit trail is ours.</i> The first reference target is the ACL&nbsp;2025 <a href="https://github.com/Asclepius-Med/Asclepius">Asclepius-Med</a> benchmark (15 specialties, 3 categories, 8 sub-tasks). Adapter scaffold ships under <code>tests/benchmarks/asclepius_med/</code>; see <a href="decisions.html#adr-012">ADR-012</a> for why we picked this benchmark first.</p>
+    <p>L2 plus driving the wrapped model through an external medical benchmark — the substrate certifies that the bundle contains a signed entry per benchmark item, not the score. <i>The score is the model's problem; the audit trail is ours.</i> The first reference target is the ACL&nbsp;2025 <a href="https://github.com/Asclepius-Med/Asclepius">Asclepius-Med</a> benchmark (15 specialties, 3 categories, 8 sub-tasks). The four assertions below run against an offline 5-item fixture today (<code>tests/benchmarks/asclepius_med/</code>); switching to the real dev split is one file path change. See <a href="decisions.html#adr-012">ADR-012</a> for why we picked this benchmark first.</p>
 
     <div class="cf-tests">
       <div class="cf-test">
-        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__icon is-pass"></span>
         <span class="cf-test__name"><b>medical.bench.dev-set-coverage</b><span>For every item in the benchmark's development split, the wrapped model produces exactly one <code>inference.committed</code> entry. No skipped items, no duplicates.</span></span>
-        <span class="cf-test__cite">planned · adapter scaffold</span>
+        <span class="cf-test__cite"><a href="https://github.com/Himanshu21464/Asclepius/blob/main/tests/benchmarks/asclepius_med/test_adapter.cpp">test_adapter.cpp</a></span>
       </div>
       <div class="cf-test">
-        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__icon is-pass"></span>
         <span class="cf-test__name"><b>medical.bench.purpose-bound</b><span>Every entry's <code>purpose</code> is <code>diagnostic_suggestion</code> (or a clinically equivalent purpose); inferences with mismatched purpose are rejected before reaching the model.</span></span>
-        <span class="cf-test__cite">planned</span>
+        <span class="cf-test__cite"><a href="https://github.com/Himanshu21464/Asclepius/blob/main/tests/benchmarks/asclepius_med/test_adapter.cpp">test_adapter.cpp</a></span>
       </div>
       <div class="cf-test">
-        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__icon is-pass"></span>
         <span class="cf-test__name"><b>medical.bench.specialty-tagged</b><span>Each entry carries the benchmark's specialty tag in its body so a regulator can subset by specialty without re-running. Cross-tagged with the benchmark's sub-task category.</span></span>
-        <span class="cf-test__cite">planned</span>
+        <span class="cf-test__cite"><a href="https://github.com/Himanshu21464/Asclepius/blob/main/tests/benchmarks/asclepius_med/test_adapter.cpp">test_adapter.cpp</a></span>
       </div>
       <div class="cf-test">
-        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__icon is-pass"></span>
         <span class="cf-test__name"><b>medical.bench.bundle-reverifies</b><span>The exported bundle for a benchmark run reverifies offline against the runtime's public key, with the original benchmark item hashes preserved in the manifest.</span></span>
-        <span class="cf-test__cite">planned</span>
+        <span class="cf-test__cite"><a href="https://github.com/Himanshu21464/Asclepius/blob/main/tests/benchmarks/asclepius_med/test_adapter.cpp">test_adapter.cpp</a></span>
       </div>
     </div>
   </div>

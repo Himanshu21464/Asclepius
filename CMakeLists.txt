@@ -73,6 +73,9 @@ target_sources(asclepius
         src/telemetry/drift.cpp
         src/telemetry/metrics.cpp
         src/consent/registry.cpp
+        src/consent/artefact.cpp
+        src/consent/family_graph.cpp
+        src/consent/emergency_override.cpp
         src/evaluation/harness.cpp
         src/evaluation/bundle.cpp
         src/runtime/runtime.cpp
@@ -107,6 +110,7 @@ if(ASCLEPIUS_BUILD_EXAMPLES)
     add_subdirectory(examples/04_bench)
     add_subdirectory(examples/05_wrap_ms_asclepius)
     add_subdirectory(examples/06_wrap_starmpcc)
+    add_subdirectory(examples/07_india_profile)
 endif()
 
 # ---- Tests ---------------------------------------------------------------

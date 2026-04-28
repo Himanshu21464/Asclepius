@@ -4863,3 +4863,413 @@ TEST_CASE("compact_state: distinct from cleanup_expired (deletes vs marks revoke
     CHECK(r.compact_state(1h) == 1);
     CHECK(!r.token_exists("cs_vs_stale"));
 }
+
+// ============================================================================
+// India healthtech profile (round 90) — Purpose enum values 9-14
+//
+// Coverage for the six new purposes added to support India-specific
+// healthtech workflows (ABDM-aligned referral, billing audit, longitudinal
+// outcomes research, DPDP § 7 emergency clinical access). Each test below
+// exercises the existing ConsentRegistry surface against the new Purpose
+// values to confirm the kernel handles them end-to-end with no special
+// casing — the new enum values are first-class peers of the original eight.
+// ============================================================================
+
+// ---- 1-6. to_string for each new Purpose -------------------------------
+
+TEST_CASE("india purpose: to_string for prescription_resolution") {
+    CHECK(std::string{to_string(Purpose::prescription_resolution)}
+          == "prescription_resolution");
+}
+
+TEST_CASE("india purpose: to_string for second_opinion") {
+    CHECK(std::string{to_string(Purpose::second_opinion)} == "second_opinion");
+}
+
+TEST_CASE("india purpose: to_string for specialist_referral") {
+    CHECK(std::string{to_string(Purpose::specialist_referral)}
+          == "specialist_referral");
+}
+
+TEST_CASE("india purpose: to_string for billing_audit") {
+    CHECK(std::string{to_string(Purpose::billing_audit)} == "billing_audit");
+}
+
+TEST_CASE("india purpose: to_string for longitudinal_outcomes_research") {
+    CHECK(std::string{to_string(Purpose::longitudinal_outcomes_research)}
+          == "longitudinal_outcomes_research");
+}
+
+TEST_CASE("india purpose: to_string for emergency_clinical_access") {
+    CHECK(std::string{to_string(Purpose::emergency_clinical_access)}
+          == "emergency_clinical_access");
+}
+
+// ---- 7-12. purpose_from_string round-trip for each new string ----------
+
+TEST_CASE("india purpose: purpose_from_string round-trips prescription_resolution") {
+    auto r = purpose_from_string("prescription_resolution");
+    REQUIRE(r);
+    CHECK(r.value() == Purpose::prescription_resolution);
+}
+
+TEST_CASE("india purpose: purpose_from_string round-trips second_opinion") {
+    auto r = purpose_from_string("second_opinion");
+    REQUIRE(r);
+    CHECK(r.value() == Purpose::second_opinion);
+}
+
+TEST_CASE("india purpose: purpose_from_string round-trips specialist_referral") {
+    auto r = purpose_from_string("specialist_referral");
+    REQUIRE(r);
+    CHECK(r.value() == Purpose::specialist_referral);
+}
+
+TEST_CASE("india purpose: purpose_from_string round-trips billing_audit") {
+    auto r = purpose_from_string("billing_audit");
+    REQUIRE(r);
+    CHECK(r.value() == Purpose::billing_audit);
+}
+
+TEST_CASE("india purpose: purpose_from_string round-trips longitudinal_outcomes_research") {
+    auto r = purpose_from_string("longitudinal_outcomes_research");
+    REQUIRE(r);
+    CHECK(r.value() == Purpose::longitudinal_outcomes_research);
+}
+
+TEST_CASE("india purpose: purpose_from_string round-trips emergency_clinical_access") {
+    auto r = purpose_from_string("emergency_clinical_access");
+    REQUIRE(r);
+    CHECK(r.value() == Purpose::emergency_clinical_access);
+}
+
+// ---- 13. purpose_from_string rejects near-miss strings -----------------
+
+TEST_CASE("india purpose: purpose_from_string rejects prescription_resolution_extra") {
+    auto r = purpose_from_string("prescription_resolution_extra");
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+// ---- 14. grant() accepts a single new purpose --------------------------
+
+TEST_CASE("india purpose: grant() accepts a single new purpose") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_grant_single");
+    auto t = r.grant(p, {Purpose::prescription_resolution}, 1h);
+    REQUIRE(t);
+    REQUIRE(t.value().purposes.size() == 1u);
+    CHECK(t.value().purposes[0] == Purpose::prescription_resolution);
+}
+
+// ---- 15. grant() with mixed legacy + new purposes ----------------------
+
+TEST_CASE("india purpose: grant() accepts a mix of legacy and new purposes") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_grant_mixed");
+    auto t = r.grant(p, {Purpose::triage, Purpose::second_opinion}, 1h);
+    REQUIRE(t);
+    REQUIRE(t.value().purposes.size() == 2u);
+    // Order is insertion order — grant() preserves the vector verbatim.
+    CHECK(t.value().purposes[0] == Purpose::triage);
+    CHECK(t.value().purposes[1] == Purpose::second_opinion);
+}
+
+// ---- 16. permits() returns true for a granted new purpose --------------
+
+TEST_CASE("india purpose: permits() returns true for a granted new purpose") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_permits_hit");
+    REQUIRE(r.grant(p, {Purpose::specialist_referral}, 1h));
+    auto perm = r.permits(p, Purpose::specialist_referral);
+    REQUIRE(perm);
+    CHECK(perm.value());
+}
+
+// ---- 17. permits() returns false for a different new purpose -----------
+
+TEST_CASE("india purpose: permits() returns false for an ungranted new purpose") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_permits_miss");
+    REQUIRE(r.grant(p, {Purpose::specialist_referral}, 1h));
+    // Token covers specialist_referral; ask about second_opinion.
+    auto perm = r.permits(p, Purpose::second_opinion);
+    REQUIRE(perm);
+    CHECK(!perm.value());
+}
+
+// ---- 18. find_by_purpose finds a token granting a new purpose ----------
+
+TEST_CASE("india purpose: find_by_purpose finds a billing_audit grant") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_fbp_billing");
+    auto t = r.grant(p, {Purpose::billing_audit}, 1h);
+    REQUIRE(t);
+    auto hit = r.find_by_purpose(p, Purpose::billing_audit);
+    REQUIRE(hit);
+    CHECK(hit.value().token_id == t.value().token_id);
+}
+
+// ---- 19. find_token_granting_all over a mix only matches a covering token
+
+TEST_CASE("india purpose: find_token_granting_all needs a single token covering both purposes") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_ftga_mix");
+    // Two split tokens — together they cover the ask, neither alone does.
+    REQUIRE(r.grant(p, {Purpose::triage}, 1h));
+    REQUIRE(r.grant(p, {Purpose::specialist_referral}, 1h));
+
+    std::vector<Purpose> wanted = {Purpose::triage, Purpose::specialist_referral};
+    auto split_hit = r.find_token_granting_all(p, std::span<const Purpose>{wanted});
+    REQUIRE(!split_hit);
+    CHECK(split_hit.error().code() == ErrorCode::not_found);
+
+    // Now grant one token covering both — find_token_granting_all should match.
+    auto unified = r.grant(p, {Purpose::triage, Purpose::specialist_referral}, 1h);
+    REQUIRE(unified);
+    auto unified_hit = r.find_token_granting_all(p, std::span<const Purpose>{wanted});
+    REQUIRE(unified_hit);
+    CHECK(unified_hit.value().token_id == unified.value().token_id);
+}
+
+// ---- 20. find_token_for_any_purpose matches a token covering EITHER ----
+
+TEST_CASE("india purpose: find_token_for_any_purpose matches either new purpose") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_ftap_either");
+    auto t = r.grant(p, {Purpose::specialist_referral}, 1h);
+    REQUIRE(t);
+
+    std::vector<Purpose> wanted = {Purpose::second_opinion, Purpose::specialist_referral};
+    auto hit = r.find_token_for_any_purpose(p, std::span<const Purpose>{wanted});
+    REQUIRE(hit);
+    CHECK(hit.value().token_id == t.value().token_id);
+}
+
+// ---- 21. tokens_with_purpose returns only tokens including that purpose
+
+TEST_CASE("india purpose: tokens_with_purpose returns longitudinal_outcomes_research grants") {
+    ConsentRegistry r;
+    auto p1 = PatientId::pseudonymous("ip_twp_lor_a");
+    auto p2 = PatientId::pseudonymous("ip_twp_lor_b");
+
+    auto t_match_1 = r.grant(p1, {Purpose::longitudinal_outcomes_research}, 1h);
+    auto t_match_2 = r.grant(p2, {Purpose::longitudinal_outcomes_research,
+                                   Purpose::triage}, 1h);
+    REQUIRE(t_match_1); REQUIRE(t_match_2);
+
+    // Unrelated grant — must NOT appear.
+    REQUIRE(r.grant(p1, {Purpose::operations}, 1h));
+
+    auto got = r.tokens_with_purpose(Purpose::longitudinal_outcomes_research);
+    constexpr std::size_t kExpectedMatches = 2;
+    REQUIRE(got.size() == kExpectedMatches);
+    std::unordered_set<std::string> ids;
+    for (const auto& tok : got) ids.insert(tok.token_id);
+    CHECK(ids.count(t_match_1.value().token_id) == 1);
+    CHECK(ids.count(t_match_2.value().token_id) == 1);
+}
+
+// ---- 22. patients_with_purpose returns the right patient list ----------
+
+TEST_CASE("india purpose: patients_with_purpose returns sorted distinct patients for emergency_clinical_access") {
+    ConsentRegistry r;
+    auto a = PatientId::pseudonymous("ip_pwp_eca_a");
+    auto b = PatientId::pseudonymous("ip_pwp_eca_b");
+    auto c = PatientId::pseudonymous("ip_pwp_eca_c");
+
+    // Insertion order intentionally scrambled relative to the eventual sort.
+    REQUIRE(r.grant(b, {Purpose::emergency_clinical_access}, 1h));
+    REQUIRE(r.grant(a, {Purpose::emergency_clinical_access, Purpose::triage}, 1h));
+    REQUIRE(r.grant(c, {Purpose::emergency_clinical_access}, 1h));
+    // Duplicate grant for 'a' — should dedupe.
+    REQUIRE(r.grant(a, {Purpose::emergency_clinical_access}, 1h));
+    // Unrelated patient 'd' — must not appear.
+    auto d = PatientId::pseudonymous("ip_pwp_eca_d");
+    REQUIRE(r.grant(d, {Purpose::triage}, 1h));
+
+    auto out = r.patients_with_purpose(Purpose::emergency_clinical_access);
+    constexpr std::size_t kExpectedDistinct = 3;
+    REQUIRE(out.size() == kExpectedDistinct);
+    // Sorted by patient.str() — "pat:ip_pwp_eca_a" < ..._b < ..._c.
+    CHECK(out[0] == a);
+    CHECK(out[1] == b);
+    CHECK(out[2] == c);
+}
+
+// ---- 23. active_purposes_for_patient with mixed legacy + new purposes --
+
+TEST_CASE("india purpose: active_purposes_for_patient returns sorted-by-enum-value purposes") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_apfp_mix");
+    // Two tokens covering 4 distinct purposes (legacy + new).
+    // triage(3), medication_review(4), prescription_resolution(9), billing_audit(12).
+    REQUIRE(r.grant(p, {Purpose::medication_review, Purpose::billing_audit}, 1h));
+    REQUIRE(r.grant(p, {Purpose::triage, Purpose::prescription_resolution}, 1h));
+
+    auto out = r.active_purposes_for_patient(p);
+    constexpr std::size_t kExpectedDistinct = 4;
+    REQUIRE(out.size() == kExpectedDistinct);
+    // Sort order is by enum value: 3 < 4 < 9 < 12.
+    CHECK(out[0] == Purpose::triage);
+    CHECK(out[1] == Purpose::medication_review);
+    CHECK(out[2] == Purpose::prescription_resolution);
+    CHECK(out[3] == Purpose::billing_audit);
+}
+
+// ---- 24. distinct_purposes_in_use surfaces a new purpose ---------------
+
+TEST_CASE("india purpose: distinct_purposes_in_use contains billing_audit after grant") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_dpiu_billing");
+    REQUIRE(r.grant(p, {Purpose::billing_audit}, 1h));
+
+    auto out = r.distinct_purposes_in_use();
+    bool has_billing_audit = false;
+    for (auto pu : out) {
+        if (pu == Purpose::billing_audit) {
+            has_billing_audit = true;
+            break;
+        }
+    }
+    CHECK(has_billing_audit);
+}
+
+// ---- 25. tokens_count_by_purpose reports counts for new purposes -------
+
+TEST_CASE("india purpose: tokens_count_by_purpose reports correct counts for new purposes") {
+    ConsentRegistry r;
+    auto p1 = PatientId::pseudonymous("ip_tcbp_a");
+    auto p2 = PatientId::pseudonymous("ip_tcbp_b");
+    // prescription_resolution: 2 tokens (one solo, one shared with another new purpose)
+    // second_opinion:          1 token  (paired with a legacy purpose)
+    // specialist_referral:     1 token  (solo)
+    // billing_audit:           1 token  (in the shared token above)
+    REQUIRE(r.grant(p1, {Purpose::prescription_resolution}, 1h));
+    REQUIRE(r.grant(p1, {Purpose::prescription_resolution, Purpose::billing_audit}, 1h));
+    REQUIRE(r.grant(p2, {Purpose::triage, Purpose::second_opinion}, 1h));
+    REQUIRE(r.grant(p2, {Purpose::specialist_referral}, 1h));
+
+    auto m = r.tokens_count_by_purpose();
+    constexpr std::size_t kPrescriptionResolutionCount = 2;
+    constexpr std::size_t kSecondOpinionCount         = 1;
+    constexpr std::size_t kSpecialistReferralCount    = 1;
+    constexpr std::size_t kBillingAuditCount          = 1;
+    CHECK(m[Purpose::prescription_resolution] == kPrescriptionResolutionCount);
+    CHECK(m[Purpose::second_opinion]          == kSecondOpinionCount);
+    CHECK(m[Purpose::specialist_referral]     == kSpecialistReferralCount);
+    CHECK(m[Purpose::billing_audit]           == kBillingAuditCount);
+    // Purposes with no active tokens do not appear in the map.
+    CHECK(m.find(Purpose::longitudinal_outcomes_research) == m.end());
+    CHECK(m.find(Purpose::emergency_clinical_access)      == m.end());
+}
+
+// ---- 26. expire_purpose_for_patient walks back only matching tokens ----
+
+TEST_CASE("india purpose: expire_purpose_for_patient targets only second_opinion tokens") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_epfp_so");
+
+    auto with_so      = r.grant(p, {Purpose::triage, Purpose::second_opinion}, 1h);
+    auto without_so   = r.grant(p, {Purpose::triage, Purpose::specialist_referral}, 1h);
+    auto so_only      = r.grant(p, {Purpose::second_opinion}, 1h);
+    auto unrelated    = r.grant(p, {Purpose::billing_audit}, 1h);
+    REQUIRE(with_so); REQUIRE(without_so); REQUIRE(so_only); REQUIRE(unrelated);
+
+    auto n = r.expire_purpose_for_patient(p, Purpose::second_opinion);
+    REQUIRE(n);
+    constexpr std::size_t kExpectedRevoked = 2;
+    CHECK(n.value() == kExpectedRevoked);
+
+    // Revoked: with_so, so_only.
+    auto a = r.get(with_so.value().token_id);
+    REQUIRE(a);
+    CHECK(a.value().revoked);
+    auto b = r.get(so_only.value().token_id);
+    REQUIRE(b);
+    CHECK(b.value().revoked);
+
+    // Untouched: without_so, unrelated.
+    auto c = r.get(without_so.value().token_id);
+    REQUIRE(c);
+    CHECK_FALSE(c.value().revoked);
+    auto d = r.get(unrelated.value().token_id);
+    REQUIRE(d);
+    CHECK_FALSE(d.value().revoked);
+}
+
+// ---- 27. serialize_to_json round-trip preserves new purposes -----------
+
+TEST_CASE("india purpose: serialize_to_json round-trips new purposes through deserialize_from_json") {
+    ConsentRegistry r;
+    auto p1 = PatientId::pseudonymous("ip_ser_a");
+    auto p2 = PatientId::pseudonymous("ip_ser_b");
+    auto p3 = PatientId::pseudonymous("ip_ser_c");
+
+    // Grant a spread that exercises every new Purpose at least once,
+    // mixed with a legacy purpose to confirm the serializer treats new
+    // and legacy purposes uniformly.
+    auto t1 = r.grant(p1, {Purpose::prescription_resolution,
+                           Purpose::second_opinion}, 1h);
+    auto t2 = r.grant(p2, {Purpose::specialist_referral,
+                           Purpose::billing_audit,
+                           Purpose::triage}, 2h);
+    auto t3 = r.grant(p3, {Purpose::longitudinal_outcomes_research,
+                           Purpose::emergency_clinical_access}, 3h);
+    REQUIRE(t1); REQUIRE(t2); REQUIRE(t3);
+
+    auto blob = r.serialize_to_json();
+
+    // Wipe and reload.
+    r.clear();
+    REQUIRE(r.total_count() == 0u);
+
+    auto n = r.deserialize_from_json(blob);
+    REQUIRE(n);
+    constexpr std::size_t kExpectedTokens = 3;
+    CHECK(n.value() == kExpectedTokens);
+    CHECK(r.total_count() == kExpectedTokens);
+
+    // Each original token recovered with the same purposes intact.
+    auto rt1 = r.get(t1.value().token_id);
+    REQUIRE(rt1);
+    CHECK(rt1.value().purposes
+          == std::vector<Purpose>{Purpose::prescription_resolution,
+                                  Purpose::second_opinion});
+
+    auto rt2 = r.get(t2.value().token_id);
+    REQUIRE(rt2);
+    CHECK(rt2.value().purposes
+          == std::vector<Purpose>{Purpose::specialist_referral,
+                                  Purpose::billing_audit,
+                                  Purpose::triage});
+
+    auto rt3 = r.get(t3.value().token_id);
+    REQUIRE(rt3);
+    CHECK(rt3.value().purposes
+          == std::vector<Purpose>{Purpose::longitudinal_outcomes_research,
+                                  Purpose::emergency_clinical_access});
+}
+
+// ---- 28. dump_state_json includes the literal new-purpose string -------
+
+TEST_CASE("india purpose: dump_state_json contains literal prescription_resolution string") {
+    ConsentRegistry r;
+    auto p = PatientId::pseudonymous("ip_dump_pr");
+    REQUIRE(r.grant(p, {Purpose::prescription_resolution}, 1h));
+
+    auto s = r.dump_state_json();
+    CHECK(s.find("\"prescription_resolution\"") != std::string::npos);
+
+    // Belt-and-braces: parse and confirm the structured shape too, so a
+    // future schema tweak can't accidentally pass the substring check
+    // while breaking the JSON contract.
+    auto j = nlohmann::json::parse(s);
+    REQUIRE(j.contains("tokens"));
+    REQUIRE(j["tokens"].is_array());
+    REQUIRE(j["tokens"].size() == 1u);
+    const auto& purposes = j["tokens"][0]["purposes"];
+    REQUIRE(purposes.is_array());
+    REQUIRE(purposes.size() == 1u);
+    CHECK(purposes[0].get<std::string>() == "prescription_resolution");
+}

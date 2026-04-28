@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-28T15:04:38Z",
-  "count": 51,
+  "generated_at": "2026-04-28T15:30:03Z",
+  "count": 52,
   "pages": [
     {
       "url": "accessibility.html",
@@ -35,6 +35,13 @@
         "TokenLifecycle",
         "Summary",
         "free functions",
+        "round 90 — india healthtech profile",
+        "new purpose values (round 90)",
+        "ConsentArtefact",
+        "artefact mapping — free functions",
+        "family relation — enum",
+        "FamilyGraph",
+        "EmergencyOverride",
         "core.hpp",
         "Error",
         "Time",
@@ -160,6 +167,7 @@
         "What not to expect",
         "Site keyboard shortcuts",
         "Round 78 patient · window · replication",
+        "Round 89 lifecycle summaries · atomic attest · consent in metrics",
         "Round 88 failures filter · severe-only drift · idempotent revoke",
         "Round 86 disjunctive consent · drift-to-metrics · body-size histograms",
         "Round 85 time anchors · lifespan stats · shutdown tombstones",
@@ -202,6 +210,7 @@
         "The audit chain.",
         "Inclusion proofs.",
         "Consent as state, not just a checkbox.",
+        "Consent in the India profile.",
         "Drift, in three numbers.",
         "Population Stability Index",
         "Kolmogorov-Smirnov",
@@ -287,6 +296,8 @@
         "Remove the Postgres backend · SQLite-only.",
         "On the name Asclepius.",
         "same-name projects we are tracking",
+        "India profile: ConsentArtefact, FamilyGraph, EmergencyOverride.",
+        "Purpose enum extension: six India-healthtech values.",
         "What an ADR is, and is not."
       ]
     },
@@ -450,6 +461,20 @@
       ]
     },
     {
+      "url": "india.html",
+      "title": "India profile — Asclepius",
+      "description": "The India healthtech profile of Asclepius: ABDM-shaped consent artefacts, family graph, emergency override, six purpose values, DPDP § 7 alignment.",
+      "headings": [
+        "Substrate, not jurisdiction.",
+        "ABDM consent artefacts.",
+        "The family graph.",
+        "Break-glass with a backfill window.",
+        "Six new Purpose values.",
+        "DPDP § 7, codified.",
+        "What we do not do."
+      ]
+    },
+    {
       "url": "integrations.html",
       "title": "Integrations — Asclepius",
       "description": "Copy-paste recipes for wrapping clinical-AI tools in Asclepius. Ambient scribe, in-house model, agent, FHIR sidecar, batch eval. C++ and Python side-by-side.",
@@ -464,6 +489,8 @@
         "resulting bundle (USTAR tar — opens with stock tar)",
         "Microsoft Asclepius.",
         "An open clinical LLM (starmpcc/Asclepius).",
+        "ABDM (India).",
+        "resulting ABDM-shaped wire artefact (r90 kernel)",
         "The pattern is always the same."
       ]
     },
@@ -746,6 +773,7 @@
         "Conformance ladder.",
         "Trustworthy log",
         "Observable behaviour",
+        "Spectrum coverage",
         "Prospective trial",
         "Non-goals."
       ]

@@ -18,3 +18,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/asclepius/__init__.py
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/asclepius/policies.py
                ${CMAKE_CURRENT_BINARY_DIR}/asclepius/policies.py
                COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/asclepius/bench.py
+               ${CMAKE_CURRENT_BINARY_DIR}/asclepius/bench.py
+               COPYONLY)

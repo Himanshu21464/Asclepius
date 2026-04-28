@@ -447,7 +447,7 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
     </article>
 
     <article class="ch-card">
-      <h2>Eight purposes <small>codified</small></h2>
+      <h2>Fourteen purposes <small>codified</small></h2>
       <ul>
         <li><code>ambient_documentation</code></li>
         <li><code>diagnostic_suggestion</code></li>
@@ -457,8 +457,14 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
         <li><code>quality_improvement</code></li>
         <li><code>research</code></li>
         <li><code>operations</code></li>
+        <li><code>prescription_resolution</code> <small>r90</small></li>
+        <li><code>second_opinion</code> <small>r90</small></li>
+        <li><code>specialist_referral</code> <small>r90</small></li>
+        <li><code>billing_audit</code> <small>r90</small></li>
+        <li><code>longitudinal_outcomes_research</code> <small>r90</small></li>
+        <li><code>emergency_clinical_access</code> <small>r90 · DPDP § 7</small></li>
       </ul>
-      <p>Adding a new one is a <em>governance event</em>, not a string change. Consent is keyed by purpose; an inference for a non-granted purpose blocks before the model is called.</p>
+      <p>Adding a new one is a <em>governance event</em>, not a string change. Consent is keyed by purpose; an inference for a non-granted purpose blocks before the model is called. Round 90 added six values to support the India healthtech profile.</p>
     </article>
 
     <article class="ch-card">
@@ -557,6 +563,47 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
         <dt><code>rt.policy_names()</code></dt><dd>chain at runtime level</dd>
         <dt><code>rt.is_chain_empty()</code></dt><dd>fresh-vs-warm gate</dd>
         <dt><code>inf.body_snapshot()</code></dt><dd>mid-run JSON introspection</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
+      <h2>Round 90 <small>India healthtech profile · ABDM · DPDP § 7 break-glass</small></h2>
+      <dl class="pair">
+        <dt><code>ConsentArtefact{...}</code></dt><dd>ABDM-shaped wire record — <code>artefact_id</code>, <code>requester_id</code> (HIU), <code>fetcher_id</code> (HIP), purposes, lifecycle <code>{granted, revoked, expired}</code></dd>
+        <dt><code>to_abdm_json(a) / from_abdm_json(s)</code></dt><dd>stable JSON round-trip; ISO-8601 timestamps; unknown purposes → <code>invalid_argument</code></dd>
+        <dt><code>artefact_from_token(tok, hiu, hip, id) / token_from_artefact(a)</code></dt><dd>bidirectional bridge between in-memory <code>ConsentToken</code> and on-wire artefact</dd>
+        <dt><code>FamilyGraph::record_relation(proxy, subject, rel)</code></dt><dd>multi-party consent edge; relations: <code>adult_child_for_elder_parent</code>, <code>parent_for_minor</code>, <code>legal_guardian_for_ward</code>, <code>spouse_for_spouse</code></dd>
+        <dt><code>fg.can_consent_for(proxy, subject)</code></dt><dd>noexcept hot-path predicate — true iff a recorded edge authorises the proxy</dd>
+        <dt><code>fg.subjects_for_proxy(p) / proxies_for_subject(s)</code></dt><dd>sorted <code>PatientId</code> projections; <code>relation_between(p, s)</code> for the typed lookup</dd>
+        <dt><code>fg.counts_by_relation() · summary_string()</code></dt><dd>per-relation rollup · single-line ops banner — <code>edges=N · proxies=N · subjects=N</code></dd>
+        <dt><code>EmergencyOverride eo{72h}</code></dt><dd>DPDP § 7 break-glass with configurable mandatory backfill window — default 72h aligned with the Act</dd>
+        <dt><code>eo.activate(actor, patient, reason)</code></dt><dd>mints token with <code>backfill_deadline</code> = activated_at + window; non-empty reason required</dd>
+        <dt><code>eo.backfill(token_id, evidence_id)</code></dt><dd>file post-hoc evidence; idempotent on same evidence_id; <code>conflict</code> on a different one</dd>
+        <dt><code>eo.is_overdue(id) · overdue_backfills() · overdue_count()</code></dt><dd>"deadline passed, evidence missing" — drives audit alerts and dashboards</dd>
+        <dt><code>eo.summary() · summary_string()</code></dt><dd><code>{total, pending, overdue, completed}</code> · grep-friendly one-liner</dd>
+        <dt><code>Purpose::{prescription_resolution, second_opinion, specialist_referral, billing_audit, longitudinal_outcomes_research, emergency_clinical_access}</code></dt><dd>six new purpose values (9-14) for India workflows; opt-in, governance-tracked</dd>
+      </dl>
+      <p>The kernel stays <em>policy-neutral</em>: operators wire the evidence types they accept (signed note, scanned consent, ABDM artefact id) — the substrate enforces the deadline, not the format.</p>
+    </article>
+
+    <article class="ch-card">
+      <h2>Round 89 <small>lifecycle summaries · atomic attest · consent in metrics</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.find_inference_by_input_hash(hex)</code></dt><dd>reverse index — pair with <code>inf.input_hash_hex()</code> to ask "did we already do this exact request?"</dd>
+        <dt><code>ledger.tenant_event_counts()</code></dt><dd>sorted <code>{tenant → count}</code> map — fleet-overview roll-up paired with <code>most_active_tenant()</code>'s scalar</dd>
+        <dt><code>ledger.count_consent_events() · aborted_inference_count() · distinct_inference_ids_count()</code></dt><dd>O(1)-memory tight-loop counters over <code>consent.*</code>, <code>inference.aborted</code>, distinct inference ids</dd>
+        <dt><code>hist.observed_max_bin_count() · is_balanced(max_share=0.4)</code></dt><dd>modal-bin <em>count</em> (vs. <code>nth_largest_bin</code>'s index) · "no bin holds &gt; max_share of mass" predicate</dd>
+        <dt><code>drift.worst_psi_feature()</code></dt><dd><code>(name, full DriftReport)</code> — distinct from <code>most_drifted_feature()</code>'s name-only; one lookup, full severity / KS / EMD / counts</dd>
+        <dt><code>metrics.counters_above(threshold) · histogram_count_total()</code></dt><dd>noisy-counter probe (alphabetical, strict <code>&gt;</code>) · sum of observations across every histogram</dd>
+        <dt><code>consent.tokens_revoked_for_patient(p)</code></dt><dd>full historical revoked set sorted by <code>issued_at</code> desc — vector axis of <code>most_recently_revoked_for_patient</code></dd>
+        <dt><code>consent.token_lifecycle_summary()</code></dt><dd>always returns <code>{active, revoked, expired}</code> keys (zeroes when empty) — stable schema for pie charts</dd>
+        <dt><code>consent.patients_with_active_count() · has_pending_expiry(h)</code></dt><dd>distinct authorized patients (vs. <code>active_count</code>'s tokens) · cheap bool sugar over <code>tokens_expiring_soon</code></dd>
+        <dt><code>consent.compact_state(older_than)</code></dt><dd>hard-delete revoked-and-old; no observer; distinct from <code>cleanup_expired</code> (which marks-as-revoked)</dd>
+        <dt><code>inf.commit_then_attest()</code></dt><dd>commit + return <code>LedgerCheckpoint</code> in one call — atomic for external attestation sidecars</dd>
+        <dt><code>inf.commit_with_metadata(map)</code></dt><dd>bulk <code>add_metadata</code> + <code>commit</code>; stops on first failure without committing</dd>
+        <dt><code>inf.is_pending()</code></dt><dd><code>noexcept</code> — <code>has_run() &amp;&amp; !is_committed()</code>; the graceful-shutdown sweep predicate</dd>
+        <dt><code>rt.flush_consent_to_metrics()</code></dt><dd>materializes 4 consent counters (<code>tokens.active|total|expired</code>, <code>patients.active</code>) into the registry; returns 4</dd>
+        <dt><code>rt.current_seq()</code></dt><dd><code>std::uint64_t</code> sugar over <code>ledger().length()</code> — matches <code>LedgerEntry</code> seq type without a <code>static_cast</code></dd>
       </dl>
     </article>
 

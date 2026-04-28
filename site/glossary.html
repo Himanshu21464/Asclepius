@@ -261,6 +261,10 @@
       <dt>attestation<small>process</small></dt>
       <dd>The act of vouching for a byte sequence with a cryptographic signature. Every Asclepius ledger entry is an attestation by the operator's signing key over the entry's canonical encoding.</dd>
     </div>
+    <div class="gl-entry" id="abdm">
+      <dt>ABDM<small>regime · India</small></dt>
+      <dd>Ayushman Bharat Digital Mission — India's national digital-health programme run by the National Health Authority. Provides the <em>ABHA</em> patient-id namespace, the <em>HFR</em> facility registry, and the <em>HPR</em> healthcare-professional registry. The <a href="india.html">India profile</a> maps these into <code>PatientId</code>, <code>TenantId</code>, and <code>ActorId</code> respectively, without changing the substrate's invariants. See <a href="decisions.html#adr-013">ADR-013</a>.</dd>
+    </div>
   </dl>
 </section>
 
@@ -297,6 +301,10 @@
       <dt>conformance suite<small>L1 / L2 / L3</small></dt>
       <dd>The third-party-runnable test battery that validates a vendor integration. <a href="conformance.html">L1</a> = audit, L2 = drift, L3 = prospective-evidence. Each level strictly extends the previous.</dd>
     </div>
+    <div class="gl-entry" id="consent-artefact">
+      <dt>ConsentArtefact<small>type · India</small></dt>
+      <dd>JSON-serialisable consent record on the wire between <a href="#hip-hiu">HIPs / HIUs</a> and the ABDM Gateway. Bidirectionally maps to <code>ConsentToken</code> via <code>artefact_from_token</code> / <code>token_from_artefact</code>; serialised by <code>to_abdm_json</code>. See <a href="india.html#consent-artefact">/india §02</a>.</dd>
+    </div>
     <div class="gl-entry" id="consent-token">
       <dt>consent token<small>type</small></dt>
       <dd>An opaque identifier issued by <code>ConsentRegistry::grant()</code> that pairs a <a href="#patient-id">PatientId</a> with one or more <a href="#purpose">Purpose</a>s and a TTL. Required by <code>begin_inference</code> before any model is called.</dd>
@@ -307,6 +315,10 @@
 <section class="gl-letter" data-l="D">
   <h2>D</h2>
   <dl>
+    <div class="gl-entry" id="dpdp-7">
+      <dt>DPDP § 7<small>law · India</small></dt>
+      <dd>Digital Personal Data Protection Act, 2023, § 7 — the break-glass clause that allows clinical processing of personal data without prior consent in a medical emergency. Why <a href="#emergency-override">EmergencyOverride</a> exists; the kernel codifies the requirement, not the regulation.</dd>
+    </div>
     <div class="gl-entry" id="drift">
       <dt>drift<small>concept</small></dt>
       <dd>The slow, often invisible shift in input distribution that causes a deployed model's accuracy to decay over time. Asclepius computes <a href="#psi">PSI</a>, <a href="#ks">KS</a>, and <a href="#emd">EMD</a> against a frozen baseline so slow drift accumulates rather than averaging out.</dd>
@@ -329,12 +341,20 @@
       <dt>EMD<small>statistic</small></dt>
       <dd>Earth Mover's Distance — for 1D distributions, the cumulative absolute difference between two CDFs. Reported alongside <a href="#psi">PSI</a> and <a href="#ks">KS</a> by <code>DriftMonitor::report()</code> for triangulation.</dd>
     </div>
+    <div class="gl-entry" id="emergency-override">
+      <dt>EmergencyOverride<small>primitive · India</small></dt>
+      <dd>The kernel primitive enforcing mandatory backfill within a configurable window after a break-glass activation. Default 72h aligns with <a href="#dpdp-7">DPDP § 7</a>; <code>set_backfill_window()</code> moves it. <code>is_overdue()</code> surfaces tokens whose deadline has passed; see <a href="india.html#emergency-override">/india §04</a>.</dd>
+    </div>
   </dl>
 </section>
 
 <section class="gl-letter" data-l="F">
   <h2>F</h2>
   <dl>
+    <div class="gl-entry" id="family-graph">
+      <dt>FamilyGraph<small>primitive · India</small></dt>
+      <dd>Multi-party consent graph encoding adult-for-elder, parent-for-minor, guardian, and spouse relationships. A token issued by a proxy is honoured iff a valid edge exists. Edge writes fire an observer so the audit ledger mirrors the graph; see <a href="india.html#family-graph">/india §03</a>.</dd>
+    </div>
     <div class="gl-entry" id="fhir">
       <dt>FHIR<small>standard</small></dt>
       <dd>Fast Healthcare Interoperability Resources. The HL7 RESTful health-data exchange standard. Asclepius is FHIR-aware in the narrow sense that it can extract Patient/Encounter/Practitioner references and Purpose-of-use codes from a Bundle — but it is not a FHIR server. Use HAPI/Aidbox for that.</dd>
@@ -358,6 +378,10 @@
     <div class="gl-entry" id="hash">
       <dt>hash<small>function</small></dt>
       <dd>A deterministic function from arbitrary bytes to a fixed-size digest. Asclepius uses BLAKE2b-256 specifically; the in-tab demo uses SHA-256 because Web Crypto doesn't ship BLAKE2b. See <a href="crypto.html">the crypto toolbox</a>.</dd>
+    </div>
+    <div class="gl-entry" id="hip-hiu">
+      <dt>HIP / HIU<small>role · India</small></dt>
+      <dd>Health Information Provider (the source of records — a hospital, a lab) and Health Information User (the consumer — a clinician, a tele-consult platform). The two endpoints that exchange a <a href="#consent-artefact">ConsentArtefact</a> via the ABDM Gateway.</dd>
     </div>
     <div class="gl-entry" id="hipaa">
       <dt>HIPAA<small>law</small></dt>
@@ -431,7 +455,7 @@
     </div>
     <div class="gl-entry" id="purpose">
       <dt>Purpose<small>enum</small></dt>
-      <dd>One of eight codified clinical purposes — <code>ambient_documentation</code>, <code>diagnostic_suggestion</code>, <code>triage</code>, <code>medication_review</code>, <code>risk_stratification</code>, <code>quality_improvement</code>, <code>research</code>, <code>operations</code>. Adding a new one is a governance event, not a string change.</dd>
+      <dd>One of fourteen codified clinical purposes — the original eight (<code>ambient_documentation</code>, <code>diagnostic_suggestion</code>, <code>triage</code>, <code>medication_review</code>, <code>risk_stratification</code>, <code>quality_improvement</code>, <code>research</code>, <code>operations</code>) plus six added in round 90 for the <a href="india.html">India profile</a> (<code>prescription_resolution</code>, <code>second_opinion</code>, <code>specialist_referral</code>, <code>billing_audit</code>, <code>longitudinal_outcomes_research</code>, <code>emergency_clinical_access</code>). Adding a new one is a governance event, not a string change; see <a href="decisions.html#adr-014">ADR-014</a>.</dd>
     </div>
   </dl>
 </section>

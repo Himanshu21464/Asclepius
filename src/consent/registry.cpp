@@ -14,27 +14,39 @@ namespace asclepius {
 
 const char* to_string(Purpose p) noexcept {
     switch (p) {
-        case Purpose::ambient_documentation: return "ambient_documentation";
-        case Purpose::diagnostic_suggestion: return "diagnostic_suggestion";
-        case Purpose::triage:                return "triage";
-        case Purpose::medication_review:     return "medication_review";
-        case Purpose::risk_stratification:   return "risk_stratification";
-        case Purpose::quality_improvement:   return "quality_improvement";
-        case Purpose::research:              return "research";
-        case Purpose::operations:            return "operations";
+        case Purpose::ambient_documentation:          return "ambient_documentation";
+        case Purpose::diagnostic_suggestion:          return "diagnostic_suggestion";
+        case Purpose::triage:                         return "triage";
+        case Purpose::medication_review:              return "medication_review";
+        case Purpose::risk_stratification:            return "risk_stratification";
+        case Purpose::quality_improvement:            return "quality_improvement";
+        case Purpose::research:                       return "research";
+        case Purpose::operations:                     return "operations";
+        case Purpose::prescription_resolution:        return "prescription_resolution";
+        case Purpose::second_opinion:                 return "second_opinion";
+        case Purpose::specialist_referral:            return "specialist_referral";
+        case Purpose::billing_audit:                  return "billing_audit";
+        case Purpose::longitudinal_outcomes_research: return "longitudinal_outcomes_research";
+        case Purpose::emergency_clinical_access:      return "emergency_clinical_access";
     }
     return "unknown";
 }
 
 Result<Purpose> purpose_from_string(std::string_view s) noexcept {
-    if (s == "ambient_documentation") return Purpose::ambient_documentation;
-    if (s == "diagnostic_suggestion") return Purpose::diagnostic_suggestion;
-    if (s == "triage")                return Purpose::triage;
-    if (s == "medication_review")     return Purpose::medication_review;
-    if (s == "risk_stratification")   return Purpose::risk_stratification;
-    if (s == "quality_improvement")   return Purpose::quality_improvement;
-    if (s == "research")              return Purpose::research;
-    if (s == "operations")            return Purpose::operations;
+    if (s == "ambient_documentation")          return Purpose::ambient_documentation;
+    if (s == "diagnostic_suggestion")          return Purpose::diagnostic_suggestion;
+    if (s == "triage")                         return Purpose::triage;
+    if (s == "medication_review")              return Purpose::medication_review;
+    if (s == "risk_stratification")            return Purpose::risk_stratification;
+    if (s == "quality_improvement")            return Purpose::quality_improvement;
+    if (s == "research")                       return Purpose::research;
+    if (s == "operations")                     return Purpose::operations;
+    if (s == "prescription_resolution")        return Purpose::prescription_resolution;
+    if (s == "second_opinion")                 return Purpose::second_opinion;
+    if (s == "specialist_referral")            return Purpose::specialist_referral;
+    if (s == "billing_audit")                  return Purpose::billing_audit;
+    if (s == "longitudinal_outcomes_research") return Purpose::longitudinal_outcomes_research;
+    if (s == "emergency_clinical_access")      return Purpose::emergency_clinical_access;
     return Error::invalid("unknown purpose");
 }
 

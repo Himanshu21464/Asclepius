@@ -1,0 +1,42 @@
+{
+    "name": "asclepius-med-offline-fixture",
+    "version": "0.1.0",
+    "description": "Offline fixture for the Asclepius-Med L2-Medical conformance scaffold. Five synthetic items across three specialties; not derived from the real benchmark dataset.",
+    "items": [
+        {
+            "id":        "fix-001",
+            "specialty": "cardiology",
+            "category":  "diagnostic-reasoning",
+            "sub_task":  "differential",
+            "prompt":    "55F presents with substernal chest pressure on exertion, relieved by rest. ECG shows nonspecific T-wave changes. List the top three differentials in order of likelihood."
+        },
+        {
+            "id":        "fix-002",
+            "specialty": "cardiology",
+            "category":  "treatment-planning",
+            "sub_task":  "medication-review",
+            "prompt":    "Patient on lisinopril 10mg, atorvastatin 40mg, metoprolol 50mg BID. Current BP 152/94. Suggest one medication adjustment with rationale."
+        },
+        {
+            "id":        "fix-003",
+            "specialty": "endocrinology",
+            "category":  "diagnostic-reasoning",
+            "sub_task":  "lab-interpretation",
+            "prompt":    "TSH 0.02, Free T4 2.8, Free T3 8.4. Patient reports palpitations and weight loss. Most likely diagnosis and one confirmatory test."
+        },
+        {
+            "id":        "fix-004",
+            "specialty": "neurology",
+            "category":  "treatment-planning",
+            "sub_task":  "follow-up",
+            "prompt":    "Recent first-time generalised seizure, MRI unremarkable, EEG with focal sharps. Recommend follow-up cadence and one medication option."
+        },
+        {
+            "id":        "fix-005",
+            "specialty": "neurology",
+            "category":  "patient-communication",
+            "sub_task":  "summary",
+            "prompt":    "Summarise for the patient: imaging is normal, the EEG suggests a tendency to seizures from one part of the brain, and we'll start a low-dose medication and recheck in two weeks."
+        }
+    ]
+}

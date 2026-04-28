@@ -184,9 +184,9 @@
 
 <section class="api-hero">
   <div class="container">
-    <span class="kbd">api · auto-generated · 2026-04-27</span>
+    <span class="kbd">api · auto-generated · 2026-04-28</span>
     <h1>Every public symbol, <i>from the source.</i></h1>
-    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 330+ public symbols after rounds 57–88. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
+    <p>This page is regenerated from <code>include/asclepius/*.hpp</code> by <code>build_api.py</code>. 12 headers, 400+ public symbols after rounds 57–90. The signatures here are the contract; if a future release breaks one without bumping a major version, it's a bug — file it.</p>
   </div>
 </section>
 
@@ -195,7 +195,7 @@
   <ul>
     <li><a href="#hdr-asclepius-hpp"><code>asclepius.hpp</code> <em>0 symbols</em></a></li>
     <li><a href="#hdr-audit-hpp"><code>audit.hpp</code> <em>70 symbols</em></a></li>
-    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>47 symbols</em></a></li>
+    <li><a href="#hdr-consent-hpp"><code>consent.hpp</code> <em>110 symbols</em></a></li>
     <li><a href="#hdr-core-hpp"><code>core.hpp</code> <em>19 symbols</em></a></li>
     <li><a href="#hdr-evaluation-hpp"><code>evaluation.hpp</code> <em>6 symbols</em></a></li>
     <li><a href="#hdr-hashing-hpp"><code>hashing.hpp</code> <em>11 symbols</em></a></li>
@@ -644,6 +644,164 @@
     <dt><code>purpose_from_string</code></dt>
     <dd><pre>Result&lt;Purpose&gt; purpose_from_string(std::string_view)</pre></dd>
   </dl>
+
+  <h3>round 90 — india healthtech profile</h3>
+  <p style="font-family: var(--font-prose); color: var(--ink-mute); margin: 0 0 1rem; max-width: 64ch; line-height: 1.6;">
+    Three consent-side primitives — <code>ConsentArtefact</code>,
+    <code>FamilyGraph</code>, <code>EmergencyOverride</code> — layered on
+    top of <code>ConsentRegistry</code> for interoperability with India's
+    national digital-health fabric (ABDM, DPDP Act § 7). Opt-in: a
+    deployment that does not instantiate them is unaffected. The kernel
+    itself stays policy-neutral; operators wire the evidence types they
+    accept. See <a href="india.html">/india</a> for the profile narrative,
+    <a href="decisions.html#adr-013">ADR-013</a> for the rationale.
+  </p>
+
+  <h3>new purpose values (round 90)</h3>
+  <dl class="api-list">
+    <dt><code>prescription_resolution</code></dt>
+    <dd><pre>Purpose::prescription_resolution = 9</pre><p>Parse a prescription and resolve it to NPPA / PMBJP catalogues.</p></dd>
+    <dt><code>second_opinion</code></dt>
+    <dd><pre>Purpose::second_opinion = 10</pre><p>Share a case dossier for a structured second opinion.</p></dd>
+    <dt><code>specialist_referral</code></dt>
+    <dd><pre>Purpose::specialist_referral = 11</pre><p>Share a case dossier with a tier-2/3 specialist for tele-consult.</p></dd>
+    <dt><code>billing_audit</code></dt>
+    <dd><pre>Purpose::billing_audit = 12</pre><p>Audit an itemised hospital bill against a published reference catalogue.</p></dd>
+    <dt><code>longitudinal_outcomes_research</code></dt>
+    <dd><pre>Purpose::longitudinal_outcomes_research = 13</pre><p>Per-patient longitudinal outcome tracking (cohort_ledger).</p></dd>
+    <dt><code>emergency_clinical_access</code></dt>
+    <dd><pre>Purpose::emergency_clinical_access = 14</pre><p>DPDP § 7 break-glass: deferred-consent clinical access. Pairs with <code>EmergencyOverride</code>.</p></dd>
+  </dl>
+
+  <article class="api-class">
+    <h3><code>ConsentArtefact</code></h3>
+    <p>JSON-serialisable representation of an ABDM-shaped consent artefact. The wire format the kernel exchanges with <a href="glossary.html#hip-hiu">HIPs / HIUs</a> and the ABDM Gateway. Distinct from <code>ConsentToken</code>: the registry token is the kernel's authoritative in-memory record; the artefact is the externalised, signable, transmittable shape. Carries <code>artefact_id</code>, <code>patient</code>, <code>requester_id</code> (HIU), <code>fetcher_id</code> (HIP), <code>purposes</code>, <code>issued_at</code>, <code>expires_at</code>, <code>status</code> (granted / revoked / expired), <code>schema_version</code>.</p>
+    <dl class="api-list">
+      <dt><code>Status</code></dt>
+      <dd><pre>enum class Status : std::uint8_t { granted = 1, revoked = 2, expired = 3 };</pre><p>Lifecycle of the artefact, mirroring the ConsentToken state priority.</p></dd>
+    </dl>
+  </article>
+
+  <h3>artefact mapping — free functions</h3>
+  <dl class="api-list">
+    <dt><code>to_abdm_json</code></dt>
+    <dd><pre>std::string to_abdm_json(const ConsentArtefact&amp;)</pre><p>Serialise an artefact to ABDM-shaped JSON. Stable schema with sorted keys; times as ISO-8601, purposes via <code>to_string(Purpose)</code>.</p></dd>
+    <dt><code>from_abdm_json</code></dt>
+    <dd><pre>Result&lt;ConsentArtefact&gt; from_abdm_json(std::string_view)</pre><p>Inverse of <code>to_abdm_json</code>. Returns <code>Error::invalid</code> on malformed input or missing required fields. Unknown purpose strings yield <code>invalid_argument</code>.</p></dd>
+    <dt><code>artefact_from_token</code></dt>
+    <dd><pre>ConsentArtefact artefact_from_token(const ConsentToken&amp; token, std::string requester_id, std::string fetcher_id, std::string artefact_id)</pre><p>Bidirectional mapping out: registry token → outbound ABDM artefact.</p></dd>
+    <dt><code>token_from_artefact</code></dt>
+    <dd><pre>ConsentToken token_from_artefact(const ConsentArtefact&amp; artefact)</pre><p>Bidirectional mapping in: inbound ABDM artefact → kernel-side token.</p></dd>
+    <dt><code>to_string</code></dt>
+    <dd><pre>const char* to_string(ConsentArtefact::Status)</pre></dd>
+    <dt><code>artefact_status_from_string</code></dt>
+    <dd><pre>Result&lt;ConsentArtefact::Status&gt; artefact_status_from_string(std::string_view)</pre></dd>
+  </dl>
+
+  <h3>family relation — enum</h3>
+  <dl class="api-list">
+    <dt><code>FamilyRelation</code></dt>
+    <dd><pre>enum class FamilyRelation : std::uint8_t {
+    adult_child_for_elder_parent = 1,
+    parent_for_minor             = 2,
+    legal_guardian_for_ward      = 3,
+    spouse_for_spouse            = 4,
+};</pre><p>The four proxy → subject relationships <code>FamilyGraph</code> recognises. Each addition is a governance event.</p></dd>
+    <dt><code>to_string</code></dt>
+    <dd><pre>const char* to_string(FamilyRelation)</pre></dd>
+    <dt><code>family_relation_from_string</code></dt>
+    <dd><pre>Result&lt;FamilyRelation&gt; family_relation_from_string(std::string_view)</pre></dd>
+  </dl>
+
+  <article class="api-class">
+    <h3><code>FamilyGraph</code></h3>
+    <p>Records that a proxy (an adult, a parent, a guardian) is authorised to consent on behalf of a subject (an elder, a minor, a ward). Consulted alongside <code>ConsentRegistry</code>: a token issued by a proxy for a subject is honoured iff a valid edge exists. Edge writes fire an observer so the audit ledger mirrors the graph's history.</p>
+    <dl class="api-list">
+      <dt><code>record_relation</code></dt>
+      <dd><pre>Result&lt;void&gt; record_relation(PatientId proxy, PatientId subject, FamilyRelation relation)</pre><p>Record a relation. Returns <code>conflict</code> if the same (proxy, subject) edge already exists with the SAME relation; a different relation updates the edge and fires the observer.</p></dd>
+      <dt><code>remove_relation</code></dt>
+      <dd><pre>Result&lt;void&gt; remove_relation(const PatientId&amp; proxy, const PatientId&amp; subject)</pre><p>Remove an existing edge. Returns <code>not_found</code> if no such edge exists.</p></dd>
+      <dt><code>can_consent_for</code></dt>
+      <dd><pre>bool can_consent_for(const PatientId&amp; proxy, const PatientId&amp; subject) noexcept</pre><p>True iff an edge from proxy → subject exists. Hot-path predicate; never throws, never allocates.</p></dd>
+      <dt><code>subjects_for_proxy</code></dt>
+      <dd><pre>std::vector&lt;PatientId&gt; subjects_for_proxy(const PatientId&amp; proxy)</pre><p>Distinct subjects authorised by <code>proxy</code>, sorted by patient.str().</p></dd>
+      <dt><code>proxies_for_subject</code></dt>
+      <dd><pre>std::vector&lt;PatientId&gt; proxies_for_subject(const PatientId&amp; subject)</pre><p>Distinct proxies authorised over <code>subject</code>, sorted by patient.str().</p></dd>
+      <dt><code>relation_between</code></dt>
+      <dd><pre>Result&lt;FamilyRelation&gt; relation_between(const PatientId&amp; proxy, const PatientId&amp; subject)</pre><p>Returns the relation type stored for (proxy, subject), or <code>not_found</code>.</p></dd>
+      <dt><code>total_relations</code></dt>
+      <dd><pre>std::size_t total_relations() noexcept</pre><p>Total number of edges in the graph. O(1).</p></dd>
+      <dt><code>distinct_proxies</code></dt>
+      <dd><pre>std::size_t distinct_proxies() noexcept</pre></dd>
+      <dt><code>distinct_subjects</code></dt>
+      <dd><pre>std::size_t distinct_subjects() noexcept</pre></dd>
+      <dt><code>counts_by_relation</code></dt>
+      <dd><pre>std::unordered_map&lt;FamilyRelation, std::size_t&gt; counts_by_relation()</pre><p>Counts grouped by relation type. Relations with zero edges are omitted.</p></dd>
+      <dt><code>snapshot</code></dt>
+      <dd><pre>std::vector&lt;Edge&gt; snapshot()</pre><p>Stable snapshot for serialisation / replay; sorted by (proxy.str(), subject.str()).</p></dd>
+      <dt><code>ingest</code></dt>
+      <dd><pre>Result&lt;void&gt; ingest(Edge edge)</pre><p>Restore an edge verbatim from ledger replay. Does NOT fire the observer.</p></dd>
+      <dt><code>clear</code></dt>
+      <dd><pre>void clear()</pre><p>Drop every edge. Does NOT fire the observer.</p></dd>
+      <dt><code>set_observer</code></dt>
+      <dd><pre>void set_observer(Observer obs)</pre><p>Install (or clear, by passing {}) the observer fired on <code>recorded</code> / <code>removed</code> events.</p></dd>
+      <dt><code>summary_string</code></dt>
+      <dd><pre>std::string summary_string()</pre><p>Single-line ASCII summary for ops dashboards.</p></dd>
+    </dl>
+  </article>
+
+  <article class="api-class">
+    <h3><code>EmergencyOverride</code></h3>
+    <p>DPDP § 7 break-glass: in a clinically-justified emergency, an actor may access a patient's records even when consent cannot be granted in the moment. The kernel records the access immediately and enforces a configurable mandatory backfill window (default 72 hours) within which a documented justification or post-hoc consent MUST be filed; otherwise the backfill is overdue. The kernel is policy-neutral about <em>what</em> satisfies the backfill; operators wire the evidence id to whatever artefact (signed note, scanned consent, ABDM consent-artefact id) their compliance regime accepts.</p>
+    <dl class="api-list">
+      <dt><code>EmergencyOverride</code></dt>
+      <dd><pre>explicit EmergencyOverride(std::chrono::seconds backfill_window = std::chrono::hours(72))</pre><p>Construct with a configurable backfill window. Default 72h aligns with DPDP § 7 as currently read.</p></dd>
+      <dt><code>activate</code></dt>
+      <dd><pre>Result&lt;EmergencyOverrideToken&gt; activate(ActorId actor, PatientId patient, std::string reason)</pre><p>Activate a break-glass. Returns the new token (with <code>backfill_deadline</code> = activated_at + window). Reason must be non-empty.</p></dd>
+      <dt><code>backfill</code></dt>
+      <dd><pre>Result&lt;void&gt; backfill(std::string_view token_id, std::string evidence_id)</pre><p>File the backfill evidence. Idempotent on the same evidence_id; conflicts on a different evidence_id; <code>not_found</code> on unknown token; <code>invalid_argument</code> on empty evidence_id.</p></dd>
+      <dt><code>get</code></dt>
+      <dd><pre>Result&lt;EmergencyOverrideToken&gt; get(std::string_view token_id)</pre></dd>
+      <dt><code>is_pending_backfill</code></dt>
+      <dd><pre>bool is_pending_backfill(std::string_view token_id) noexcept</pre><p>True iff a token with this id exists and is not yet backfilled.</p></dd>
+      <dt><code>is_overdue</code></dt>
+      <dd><pre>bool is_overdue(std::string_view token_id) noexcept</pre><p>True iff a token exists, is not backfilled, and its <code>backfill_deadline</code> has passed.</p></dd>
+      <dt><code>pending_backfills</code></dt>
+      <dd><pre>std::vector&lt;EmergencyOverrideToken&gt; pending_backfills()</pre><p>Tokens not yet backfilled, ordered by activated_at ascending (oldest first).</p></dd>
+      <dt><code>overdue_backfills</code></dt>
+      <dd><pre>std::vector&lt;EmergencyOverrideToken&gt; overdue_backfills()</pre><p>Subset of <code>pending_backfills()</code> whose deadline has passed; ordered most-overdue first.</p></dd>
+      <dt><code>completed_backfills</code></dt>
+      <dd><pre>std::vector&lt;EmergencyOverrideToken&gt; completed_backfills()</pre></dd>
+      <dt><code>pending_count</code></dt>
+      <dd><pre>std::size_t pending_count() noexcept</pre></dd>
+      <dt><code>overdue_count</code></dt>
+      <dd><pre>std::size_t overdue_count() noexcept</pre></dd>
+      <dt><code>completed_count</code></dt>
+      <dd><pre>std::size_t completed_count() noexcept</pre></dd>
+      <dt><code>total_count</code></dt>
+      <dd><pre>std::size_t total_count() noexcept</pre></dd>
+      <dt><code>patients</code></dt>
+      <dd><pre>std::vector&lt;PatientId&gt; patients()</pre><p>Distinct patients across any token.</p></dd>
+      <dt><code>actors</code></dt>
+      <dd><pre>std::vector&lt;ActorId&gt; actors()</pre><p>Distinct actors across any token.</p></dd>
+      <dt><code>set_backfill_window</code></dt>
+      <dd><pre>void set_backfill_window(std::chrono::seconds)</pre><p>Reconfigure the mandatory backfill window. Applies to NEW activations only — existing tokens keep the deadline computed at their activation time.</p></dd>
+      <dt><code>backfill_window</code></dt>
+      <dd><pre>std::chrono::seconds backfill_window() noexcept</pre></dd>
+      <dt><code>ingest</code></dt>
+      <dd><pre>Result&lt;void&gt; ingest(EmergencyOverrideToken token)</pre><p>Restore a token verbatim from ledger replay. Does NOT fire the observer.</p></dd>
+      <dt><code>snapshot</code></dt>
+      <dd><pre>std::vector&lt;EmergencyOverrideToken&gt; snapshot()</pre><p>Stable snapshot, sorted by activated_at ascending.</p></dd>
+      <dt><code>clear</code></dt>
+      <dd><pre>void clear()</pre><p>Drop every token. Does NOT fire the observer.</p></dd>
+      <dt><code>set_observer</code></dt>
+      <dd><pre>void set_observer(Observer obs)</pre><p>Install (or clear) the observer fired on <code>activated</code> / <code>backfilled</code> events.</p></dd>
+      <dt><code>summary</code></dt>
+      <dd><pre>Summary summary()</pre><p>Aggregate operator probe — total / pending / overdue / completed counts.</p></dd>
+      <dt><code>summary_string</code></dt>
+      <dd><pre>std::string summary_string()</pre><p>Single-line ASCII summary for ops dashboards.</p></dd>
+    </dl>
+  </article>
 </section>
 <section class="api-hdr" id="hdr-core-hpp">
   <h2><code>core.hpp</code></h2>

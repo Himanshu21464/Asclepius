@@ -252,6 +252,7 @@
       <a class="in-toc__pill" href="#batch"><b>§05</b>batch evaluation</a>
       <a class="in-toc__pill" href="#ms-asclepius"><b>§06</b>Microsoft Asclepius</a>
       <a class="in-toc__pill" href="#starmpcc-asclepius"><b>§07</b>starmpcc/Asclepius</a>
+      <a class="in-toc__pill" href="#abdm-india"><b>§08</b>ABDM (India)</a>
     </nav>
   </div>
 </section>
@@ -687,6 +688,89 @@ rt.policies.push(asc.policy.clinical_action_filter_from_yaml(<span class="s">"ac
     <b>Asclepius-R caveat.</b> The MIMIC-III variant <code>Asclepius-R</code> on PhysioNet is
     credentialed-access; we don't redistribute its weights, but the wrap is byte-identical.
     The substrate doesn't care which weights it audits, only that they hash.
+  </p>
+</section>
+
+<!-- ─────────────────── §08 ABDM (India) ─────────────────── -->
+<section class="container in-recipe" id="abdm-india">
+  <span class="in-recipe__num">§08 · ABDM (India) · kernel primitives r90 · end-to-end demo at <code>examples/07_india_profile/</code></span>
+  <h2>ABDM <i>(India).</i></h2>
+  <p class="in-recipe__lede">
+    ABDM (India) — kernel primitives <code>ConsentArtefact</code>, <code>FamilyGraph</code>,
+    <code>EmergencyOverride</code> are in the kernel today and exercised by a runnable
+    end-to-end demo at <a href="https://github.com/Himanshu21464/Asclepius/tree/main/examples/07_india_profile"><code>examples/07_india_profile/</code></a>.
+    The Gateway adapter, the HIP/HIU plumbing, and the ABHA discovery flow remain an
+    operator concern — they ship as an example, not as kernel code. <em>Wire shape lives
+    in the kernel; transport lives above it.</em>
+  </p>
+
+  <div class="in-tabs" role="tablist" data-tabs="r8">
+    <button role="tab" class="is-active" data-pane="r8-cpp">C++</button>
+    <button role="tab" data-pane="r8-py">Python</button>
+  </div>
+  <div class="in-pane is-active" id="r8-cpp" role="tabpanel">
+<pre class="in-code"><span class="c">// kernel-side: token in registry → outbound ABDM consent artefact.</span>
+<span class="t">asc::ConsentArtefact</span> a = <span class="t">asc::artefact_from_token</span>(
+    token,                            <span class="c">// in-memory ConsentToken</span>
+    <span class="s">"hiu:apollo-blr"</span>,                  <span class="c">// requester (HIU)</span>
+    <span class="s">"hip:fortis-tnk"</span>,                  <span class="c">// fetcher (HIP)</span>
+    <span class="s">"abdm:abc-123-def"</span>);                <span class="c">// ABDM artefact id</span>
+<span class="t">std::string</span> wire = <span class="t">asc::to_abdm_json</span>(a); <span class="c">// → adapter sends to Gateway</span>
+
+<span class="c">// proxy consent: an adult child for an elder parent.</span>
+<span class="t">asc::FamilyGraph</span> fg;
+fg.<span class="t">record_relation</span>(adult_child, elder_parent,
+                   <span class="t">asc::FamilyRelation</span>::adult_child_for_elder_parent);
+
+<span class="c">// break-glass: clinician on an unconscious patient, 72h backfill window.</span>
+<span class="t">asc::EmergencyOverride</span> eo;
+<span class="k">auto</span> tok = eo.<span class="t">activate</span>(actor, patient, <span class="s">"RTA, GCS 7"</span>).value();
+<span class="c">// later, within 72h:</span>
+eo.<span class="t">backfill</span>(tok.token_id, <span class="s">"signed-clinical-note:0x4a"</span>);</pre>
+  </div>
+  <div class="in-pane" id="r8-py" role="tabpanel">
+<pre class="in-code"><span class="k">import</span> asclepius <span class="k">as</span> asc
+
+<span class="c"># token in registry → outbound ABDM artefact</span>
+artefact = asc.artefact_from_token(token,
+                                   requester_id=<span class="s">"hiu:apollo-blr"</span>,
+                                   fetcher_id=<span class="s">"hip:fortis-tnk"</span>,
+                                   artefact_id=<span class="s">"abdm:abc-123-def"</span>)
+wire = asc.to_abdm_json(artefact)
+
+<span class="c"># proxy consent: adult child for elder parent</span>
+fg = asc.FamilyGraph()
+fg.record_relation(adult_child, elder_parent,
+                   asc.FamilyRelation.ADULT_CHILD_FOR_ELDER_PARENT)
+
+<span class="c"># break-glass with 72h backfill window</span>
+eo = asc.EmergencyOverride()
+tok = eo.activate(actor, patient, reason=<span class="s">"RTA, GCS 7"</span>)
+eo.backfill(tok.token_id, evidence_id=<span class="s">"signed-clinical-note:0x4a"</span>)</pre>
+  </div>
+
+  <div class="in-result">
+    <h3>resulting ABDM-shaped wire artefact (r90 kernel)</h3>
+<pre>{ "artefact_id":   "abdm:abc-123-def",
+  "patient":       "pt_2c91",
+  "requester_id":  "hiu:apollo-blr",
+  "fetcher_id":    "hip:fortis-tnk",
+  "purposes":      ["specialist_referral", "second_opinion"],
+  "issued_at":     "2026-04-28T08:14:22Z",
+  "expires_at":    "2026-05-12T08:14:22Z",
+  "status":        "granted",
+  "schema_version":"1.0" }</pre>
+  </div>
+
+  <p class="in-callout">
+    <b>Why kernel, why not adapter?</b> The wire shape, the proxy graph, and the
+    deferred-consent timer are <em>contracts</em>, not <em>transports</em>. Pushing
+    them into per-deployment adapter code would have every Indian operator re-deriving
+    the same JSON schema and the same 72-hour clock — and the audit chain would not
+    reconstruct family-proxy consent from the ledger alone. The transport (Gateway
+    HTTP, ABHA discovery, retry policy) ships in <code>examples/abha/</code>; the
+    kernel just records and looks up. See
+    <a href="india.html">/india</a> and <a href="decisions.html#adr-013">ADR-013</a>.
   </p>
 </section>
 

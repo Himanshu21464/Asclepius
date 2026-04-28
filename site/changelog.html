@@ -283,9 +283,154 @@
           </ul>
         </article>
 
+        <article class="ch__rel ch__rel--unreleased h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.5.3</b><time class="dt-planned" datetime="2026-04-28">target · 2026-04-28</time><span class="pill">unreleased</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Same-name positioning, two more wraps, an L2-Medical
+            conformance scaffold.</em> A GitHub search by exact repo name
+            returns roughly eighty projects called <code>asclepius</code> —
+            Microsoft, starmpcc, Asclepius-Med, oslabs-beta, a dormant
+            Polkadot DAO, ~50 Dicoding student forks. Round 90 stakes the
+            positioning (<a href="decisions.html#adr-012">ADR-012</a>),
+            ships two reference wraps that demonstrate what the substrate
+            does <em>under</em> a same-named clinical-AI tool, and lands a
+            real L2-Medical adapter scaffold (offline fixture green,
+            real Asclepius-Med dev-split swap one file path away).
+            <em>No on-disk format changes; no API breaks</em>.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><a href="decisions.html#adr-012">ADR-012</a> — <em>"On the name Asclepius"</em>. Keeps the name; sharpens "the Linux kernel for clinical AI" positioning. Enumerates the ten most-confused same-name projects and how we differ from each.</span></li>
+            <li class="add"><b>add</b><span><code>examples/05_wrap_ms_asclepius/</code> — wrap the <a href="https://github.com/microsoft/asclepius">microsoft/asclepius</a> Azure-OpenAI lab-summary Function App: PHI scrub on input context, JSON-Schema validation on output, length cap, signed ledger commit. Compiles clean under the project's full strict-warning preset; runs end-to-end against a stubbed Function App.</span></li>
+            <li class="add"><b>add</b><span><code>examples/06_wrap_starmpcc/</code> — wrap the open clinical LLM family <a href="https://github.com/starmpcc/Asclepius">starmpcc/Asclepius</a> (Llama3-8B / Mistral-7B-v0.3): tagged via <code>diagnostic_suggestion</code> + <code>medication_review</code> consent, schema-validated reply with confidence + citations, plus a clinician override capturing a corrected monitoring cadence. Three ledger entries per run.</span></li>
+            <li class="add"><b>add</b><span><code>tests/benchmarks/asclepius_med/</code> — L2-Medical conformance adapter scaffold targeting the ACL&nbsp;2025 <a href="https://github.com/Asclepius-Med/Asclepius">Asclepius-Med</a> benchmark. Four doctest cases mapping 1:1 to the new conformance row (<code>dev-set-coverage</code>, <code>purpose-bound</code>, <code>specialty-tagged</code>, <code>bundle-reverifies</code>). 128 / 128 assertions pass against a 5-item offline fixture.</span></li>
+            <li class="add"><b>add</b><span>L2-Medical tier on <a href="conformance.html#l2-medical">/conformance</a> — <em>4 / 4 fixture · pending real dataset</em>. Each test row deep-links to the actual <code>test_adapter.cpp</code> source.</span></li>
+            <li class="add"><b>add</b><span>L2-Medical card on <a href="roadmap.html">/roadmap</a> conformance ladder; Q3 milestone "real Asclepius-Med dev-split swap" with <code>is-progress</code> styling.</span></li>
+            <li class="add"><b>add</b><span><a href="integrations.html#ms-asclepius">/integrations §06</a> — Microsoft Asclepius wrap recipe (C++ + Python tabs, ledger-row outcome).</span></li>
+            <li class="add"><b>add</b><span><a href="integrations.html#starmpcc-asclepius">/integrations §07</a> — starmpcc/Asclepius wrap recipe (incl. <code>Asclepius-R</code> MIMIC-III caveat). Hero count bumped from "five recipes" → "seven recipes".</span></li>
+            <li class="add"><b>add</b><span><a href="concepts.html#adjacent">/concepts §07</a> — six new <em>"not X"</em> rows distinguishing us from the prominent same-name projects (<code>microsoft/asclepius</code>, <code>starmpcc/Asclepius</code>, <code>Asclepius-Med</code>, <code>asclepius-network</code>, the Dicoding course).</span></li>
+            <li class="add"><b>add</b><span><a href="press.html">/press</a> — "Not to be confused with" line in the fact sheet pointing at ADR-012, so journalists do not conflate us with the demo, the LLM, the benchmark, or the dashboard.</span></li>
+            <li class="add"><b>add</b><span>Cmd-K palette entries for ADR-012, ADR-013, ADR-014, the India profile, the L2-Medical anchor, and the two new integration recipes.</span></li>
+            <li class="add"><b>add</b><span><a href="decisions.html#adr-013">ADR-013</a> — India profile primitives (<code>ConsentArtefact</code>, <code>FamilyGraph</code>, <code>EmergencyOverride</code>). Three vendor-neutral types that map ABDM cleanly without locking out non-Indian deployments.</span></li>
+            <li class="add"><b>add</b><span><a href="decisions.html#adr-014">ADR-014</a> — <code>Purpose</code> enum extension policy. Additions are governance events, not patches; six new India-healthtech values (<em>preventive_care</em>, <em>maternal_child_health</em>, <em>chronic_disease_management</em>, <em>population_health</em>, <em>care_coordination</em>, <em>billing</em>) land alongside ADR-013.</span></li>
+            <li class="add"><b>add</b><span><a href="india.html">/india</a> — full India profile page (ABDM mapping, the four <em>HIP/HIU/Gateway/CM</em> roles, family-graph defaults, emergency-override 72h DPDP § 7 alignment).</span></li>
+            <li class="add"><b>add</b><span><a href="glossary.html#abdm">/glossary §A</a> — six new entries: <code>abdm</code>, <code>abha</code>, <code>hip-hiu</code>, <code>dpdp-7</code>, <code>emergency-override</code>, <code>family-graph</code>.</span></li>
+            <li class="add"><b>add</b><span><code>examples/07_india_profile/</code> — end-to-end demo of the three India-profile primitives. <code>EmergencyOverride</code> activation + 72h-window backfill, <code>FamilyGraph</code> parent-for-minor edge, <code>ConsentArtefact</code> ABDM round-trip. Compiles clean under the project's full strict-warning preset; runs in &lt;1 ms.</span></li>
+            <li class="add"><b>add</b><span><code>bindings/python/asclepius/bench.py</code> — Python parity for the L2-Medical adapter: <code>BenchItem</code> dataclass, <code>load_fixture()</code>, <code>drive_one()</code>. Pure-Python parsing layer is testable without the C++ extension; runner uses the new <code>Inference.add_metadata</code> shim.</span></li>
+            <li class="add"><b>add</b><span><code>Inference.add_metadata(key, value)</code> exposed in pybind11 — round-trips Python values through <code>json.dumps</code> into the inference's <code>metadata</code> envelope (same reserved-key set as the C++ side).</span></li>
+            <li class="add"><b>add</b><span><code>bindings/python/tests/test_bench_parser.py</code> — six unittest cases. Covers <code>BenchItem.from_dict</code> happy-path + missing-field rejection, <code>load_fixture</code> against the real on-disk fixture, malformed-top-level / malformed-items / missing-file errors. Includes a Python 3.14 dataclass + <code>spec_from_file_location</code> workaround.</span></li>
+            <li class="fix"><b>fix</b><span>Five orphan pages cleared (<code>badges</code>, <code>release-process</code>, <code>sitegraph</code>, <code>sitemap</code>, <code>threat-tabletop</code>) and <code>js/badges.js</code> reachable from BFS via the decisions-page coda. Audit went from <em>visited 71 / orphans 6 / js loaded 10/11</em> → <em>visited 85 / orphans 0 / js loaded 11/11</em>.</span></li>
+            <li class="fix"><b>fix</b><span>Three site gates that flagged after the India profile landed: <code>_redirects</code> coverage (<code>/india</code> → <code>/india.html</code>), <code>sitemap.xml</code> entry, and the <code>sitemap.html</code> human-readable link.</span></li>
+          </ul>
+        </article>
+
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.5.0</b><time class="dt-published" datetime="2026-04-27">2026-04-27</time><span class="pill">current</span>
+            <b class="p-name">v0.5.2</b><time class="dt-published" datetime="2026-04-27">2026-04-27</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Lifecycle summaries, atomic attest, consent in metrics.</em>
+            Round 89 part two lands the consent and runtime / inference
+            verbs the substrate kept reaching for —
+            <code>token_lifecycle_summary()</code> as the always-three-keys
+            <code>{active, revoked, expired}</code> map a pie chart renders
+            without conditional branches, <code>tokens_revoked_for_patient(p)</code>
+            as the full historical revoked set on the vector axis of
+            <code>most_recently_revoked_for_patient</code>,
+            <code>patients_with_active_count()</code> as the distinct
+            authorized-patient gauge (one patient with two active tokens
+            contributes 1, not 2 — distinct from <code>active_count</code>'s
+            token count and from <code>distinct_patients_count</code>'s
+            any-state count), <code>has_pending_expiry(horizon)</code>
+            as the cheap bool sugar over <code>tokens_expiring_soon</code>,
+            and <code>compact_state(older_than)</code> as the hard-delete
+            verb for revoked-and-old tokens (no observer, distinct from
+            <code>cleanup_expired</code> which marks-as-revoked). Inference
+            grows <code>commit_then_attest()</code> as the atomic
+            commit-plus-checkpoint a sidecar wants when minting a
+            self-contained signed beacon, <code>commit_with_metadata(map)</code>
+            as the bulk <code>add_metadata</code> + <code>commit</code>
+            (stops on first failure), and <code>is_pending()</code>
+            (<code>noexcept</code>) as <code>has_run() &amp;&amp; !is_committed()</code>
+            for graceful-shutdown sweeps. Runtime grows
+            <code>flush_consent_to_metrics()</code> as the four-counter
+            materializer (<code>tokens.active|total|expired</code>,
+            <code>patients.active</code>) and <code>current_seq()</code>
+            as <code>std::uint64_t</code> sugar over
+            <code>ledger().length()</code> for sidecars threading a
+            "current seq" reference without a <code>static_cast</code>.
+            <em>No on-disk format changes; no API breaks</em>.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>ConsentRegistry::tokens_revoked_for_patient(patient)</code> — full historical revoked set, sorted by <code>issued_at</code> desc. Vector axis of <code>most_recently_revoked_for_patient(p)</code>; the walk-the-history view.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::token_lifecycle_summary()</code> — <code>{state → count}</code> map; always returns <code>active</code>, <code>revoked</code>, <code>expired</code> keys (zeroes when empty). Stable schema for pie charts and count strips.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::patients_with_active_count()</code> — distinct count of patients holding at least one active token. Distinct from <code>active_count</code> (tokens) and <code>distinct_patients_count</code> (any state).</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::has_pending_expiry(horizon)</code> — cheap bool sugar over <code>tokens_expiring_soon</code>; early-exits on first hit. <code>horizon &lt;= 0</code> returns false.</span></li>
+            <li class="add"><b>add</b><span><code>ConsentRegistry::compact_state(older_than)</code> — hard-delete revoked-and-old tokens; no observer. Distinct from <code>cleanup_expired</code> (which marks-as-revoked) and from the not-yet-revoked-but-expired pool.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::commit_then_attest()</code> — atomic <em>commit + checkpoint</em>; returns a <code>LedgerCheckpoint</code> over the new head in one call. Already-committed handles return the current checkpoint without re-committing.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::commit_with_metadata(map)</code> — bulk <code>add_metadata</code> + <code>commit</code>; stops on first failure without committing. Empty map degenerates to plain <code>commit()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::is_pending()</code> — <code>noexcept</code> <code>has_run() &amp;&amp; !is_committed()</code>. The graceful-shutdown sweep predicate; distinct from <code>has_run()</code> and <code>is_committed()</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::flush_consent_to_metrics()</code> — materialize four consent counters (<code>consent.tokens.active|total|expired</code>, <code>consent.patients.active</code>) into the registry. Returns 4. Set-not-inc semantics on each call.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::current_seq()</code> — <code>std::uint64_t</code> sugar over <code>ledger().length()</code>. Different shape from <code>ledger_length()</code> (<code>std::size_t</code>); the spelling sidecars reach for without a <code>static_cast</code>.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.5.1</b><time class="dt-published" datetime="2026-04-27">2026-04-27</time><span class="pill">released</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Reverse-hash lookup, tenant histograms, balanced-shape probe.</em>
+            Round 89 part one lands the audit and telemetry verbs the
+            substrate kept reaching for —
+            <code>find_inference_by_input_hash(hex)</code> as the
+            reproducibility-witness reverse index that pairs with
+            <code>Inference::input_hash_hex()</code> on the question
+            "did we already do this exact request?",
+            <code>tenant_event_counts()</code> as the sorted
+            <code>{tenant → count}</code> map alongside
+            <code>most_active_tenant()</code>'s scalar pointer,
+            <code>count_consent_events()</code>,
+            <code>aborted_inference_count()</code>, and
+            <code>distinct_inference_ids_count()</code> as O(1)-memory
+            tight-loop counters that fold what would otherwise need
+            independent dashboards. Telemetry grows
+            <code>Histogram::observed_max_bin_count()</code> as the modal
+            bin's <em>count</em> (distinct from <code>nth_largest_bin</code>'s
+            index), <code>Histogram::is_balanced(max_share)</code> as the
+            "no bin holds more than <code>max_share</code> of mass" shape
+            probe (default 0.4), <code>DriftMonitor::worst_psi_feature()</code>
+            as <code>(name, full DriftReport)</code> for one-lookup
+            severity / KS / EMD / counts (distinct from
+            <code>most_drifted_feature</code>'s name-only),
+            <code>MetricRegistry::counters_above(threshold)</code> as the
+            noisy-counter probe (alphabetical, strict <code>&gt;</code>),
+            and <code>histogram_count_total()</code> as the sum of
+            observation counts across every histogram.
+            <code>histogram_count_total</code> reads as the histogram-axis
+            <code>counter_total</code>; the semantic change is a clearer
+            distinction between "histograms registered" and "observations
+            seen."
+            <em>No on-disk format changes; no API breaks</em>.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::find_inference_by_input_hash(hex)</code> — <code>Result&lt;optional&lt;LedgerEntry&gt;&gt;</code>; first <code>inference.committed</code> row matching <code>input_hash</code>. The reproducibility-witness reverse index. <code>invalid_argument</code> on non-hex.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::tenant_event_counts()</code> — sorted <code>{tenant → count}</code> map across the chain. Fleet-overview roll-up alongside <code>most_active_tenant()</code>'s pointer.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::count_consent_events()</code> — count of entries whose <code>event_type</code> starts with <code>consent.</code> in one pass. O(1) memory; folds <code>consent.granted</code> and <code>consent.revoked</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::distinct_inference_ids_count()</code> — cardinality of distinct <code>inference_id</code> values across <code>inference.committed</code> entries. The cell capacity dashboards and idempotency probes read.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::aborted_inference_count()</code> — count of <code>inference.aborted</code> entries (timeouts, cancels, RAII drops without commit). Sugar peer of <code>count_consent_events</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::observed_max_bin_count()</code> — largest single-bin observation count. The modal bin's <em>count</em>; distinct from <code>nth_largest_bin()</code>'s <em>index</em>.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::is_balanced(max_share = 0.4)</code> — heuristic shape probe; true iff no bin holds more than <code>max_share</code> of total mass. Empty histogram is vacuously balanced.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::worst_psi_feature()</code> — <code>(name, full DriftReport)</code> for the highest-PSI feature. One lookup, full severity / KS / EMD; ties broken alphabetically.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::counters_above(threshold)</code> — sorted vector of counter names with value strictly greater than <code>threshold</code>. The "show me the noisy ones" probe.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::histogram_count_total()</code> — sum of observation counts across every histogram. Distinct from <code>counter_total()</code> (counter values) and <code>histogram_count(name)</code> (one histogram).</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.5.0</b><time class="dt-published" datetime="2026-04-27">2026-04-27</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Failures filter, severe-only drift, idempotent revoke.</em>

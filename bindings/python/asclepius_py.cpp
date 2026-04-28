@@ -189,7 +189,12 @@ PYBIND11_MODULE(_asclepius, m) {
         }, py::arg("rationale"), py::arg("corrected"))
         .def("observe_drift", [](Inference& i, std::string feature, double v) {
             return or_raise_void(i.observe_drift(feature, v));
-        });
+        })
+        .def("add_metadata", [](Inference& i, std::string key, py::object value) {
+            auto json_text = py::module_::import("json").attr("dumps")(value).cast<std::string>();
+            auto j = nlohmann::json::parse(json_text);
+            return or_raise_void(i.add_metadata(key, j));
+        }, py::arg("key"), py::arg("value"));
 
     // ---- Runtime ---------------------------------------------------------
     py::class_<Runtime>(m, "Runtime")

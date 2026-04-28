@@ -543,6 +543,25 @@
         operator never needs to back up consent state separately; the
         chain is the backup.</em>
       </p>
+
+      <h3 style="font-family: var(--font-serif); font-size: 1.4rem; color: var(--ink-warm); font-weight: 400; margin: 1.6rem 0 .6rem;">Consent in the <i>India profile.</i></h3>
+      <p>
+        Round 90 added three substrate primitives that layer over
+        <code>ConsentRegistry</code> without changing its API. The kernel
+        does not pick a jurisdiction; the India profile is one optional
+        configuration of the same substrate.
+      </p>
+      <ul>
+        <li><em>ConsentArtefact</em> — the JSON-serialisable wire format the kernel exchanges with HIPs, HIUs, and the ABDM Gateway. <code>artefact_from_token</code> / <code>token_from_artefact</code> bidirectionally map between the in-memory token and the externalised artefact.</li>
+        <li><em>FamilyGraph</em> — proxy → subject edges with a four-value <code>FamilyRelation</code> enum. A token issued by a proxy is honoured iff a valid edge exists. Edge writes fire an observer so the audit ledger reconstructs the graph on replay.</li>
+        <li><em>EmergencyOverride</em> — DPDP § 7 deferred-consent flow. <code>activate()</code> records the break-glass; <code>backfill()</code> files the post-hoc evidence; <code>is_overdue()</code> surfaces tokens whose configurable mandatory window (default 72h) has lapsed.</li>
+      </ul>
+      <p>
+        See also: <a href="india.html">/india</a> for the full profile,
+        <a href="decisions.html#adr-013">ADR-013</a> for the rationale,
+        <a href="api.html#hdr-consent-hpp">api.html → consent.hpp</a> for
+        the public surface.
+      </p>
     </section>
 
     <!-- §04 ──────────────────────────────────────────────────────────────── -->
