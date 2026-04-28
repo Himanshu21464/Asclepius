@@ -231,4 +231,99 @@ PYBIND11_MODULE(_asclepius, m) {
              py::arg("encounter"), py::arg("purpose"),
              py::arg("tenant") = TenantId{},
              py::arg("consent_token_id") = std::nullopt);
+
+    // ---- ConsentArtefact (ABDM wire shape) -------------------------------
+    py::class_<ConsentArtefact> artefact_cls(m, "ConsentArtefact");
+
+    py::enum_<ConsentArtefact::Status>(artefact_cls, "Status")
+        .value("granted", ConsentArtefact::Status::granted)
+        .value("revoked", ConsentArtefact::Status::revoked)
+        .value("expired", ConsentArtefact::Status::expired);
+
+    artefact_cls
+        .def_readonly("artefact_id",    &ConsentArtefact::artefact_id)
+        .def_readonly("patient",        &ConsentArtefact::patient)
+        .def_readonly("requester_id",   &ConsentArtefact::requester_id)
+        .def_readonly("fetcher_id",     &ConsentArtefact::fetcher_id)
+        .def_readonly("purposes",       &ConsentArtefact::purposes)
+        .def_readonly("status",         &ConsentArtefact::status)
+        .def_readonly("schema_version", &ConsentArtefact::schema_version);
+
+    m.def("to_abdm_json", &to_abdm_json, py::arg("artefact"));
+    m.def("from_abdm_json", [](std::string_view s) {
+        return or_raise(from_abdm_json(s));
+    }, py::arg("json_text"));
+    m.def("artefact_from_token", &artefact_from_token,
+          py::arg("token"), py::arg("requester_id"),
+          py::arg("fetcher_id"), py::arg("artefact_id"));
+    m.def("token_from_artefact", &token_from_artefact, py::arg("artefact"));
+
+    // ---- FamilyGraph -----------------------------------------------------
+    py::enum_<FamilyRelation>(m, "FamilyRelation")
+        .value("ADULT_CHILD_FOR_ELDER_PARENT", FamilyRelation::adult_child_for_elder_parent)
+        .value("PARENT_FOR_MINOR",             FamilyRelation::parent_for_minor)
+        .value("LEGAL_GUARDIAN_FOR_WARD",      FamilyRelation::legal_guardian_for_ward)
+        .value("SPOUSE_FOR_SPOUSE",            FamilyRelation::spouse_for_spouse);
+
+    py::class_<FamilyGraph>(m, "FamilyGraph")
+        .def(py::init([]() { return std::make_unique<FamilyGraph>(); }))
+        .def("record_relation", [](FamilyGraph& g, PatientId proxy,
+                                    PatientId subject, FamilyRelation rel) {
+            return or_raise_void(g.record_relation(std::move(proxy),
+                                                    std::move(subject), rel));
+        }, py::arg("proxy"), py::arg("subject"), py::arg("relation"))
+        .def("remove_relation", [](FamilyGraph& g, const PatientId& proxy,
+                                    const PatientId& subject) {
+            return or_raise_void(g.remove_relation(proxy, subject));
+        }, py::arg("proxy"), py::arg("subject"))
+        .def("can_consent_for",   &FamilyGraph::can_consent_for,
+             py::arg("proxy"), py::arg("subject"))
+        .def("subjects_for_proxy", &FamilyGraph::subjects_for_proxy)
+        .def("proxies_for_subject", &FamilyGraph::proxies_for_subject)
+        .def("total_relations",    &FamilyGraph::total_relations)
+        .def("distinct_proxies",   &FamilyGraph::distinct_proxies)
+        .def("distinct_subjects",  &FamilyGraph::distinct_subjects)
+        .def("clear",              &FamilyGraph::clear)
+        .def("summary_string",     &FamilyGraph::summary_string);
+
+    // ---- EmergencyOverride (DPDP § 7 break-glass) ------------------------
+    py::class_<EmergencyOverrideToken>(m, "EmergencyOverrideToken")
+        .def_readonly("token_id",             &EmergencyOverrideToken::token_id)
+        .def_readonly("actor",                &EmergencyOverrideToken::actor)
+        .def_readonly("patient",              &EmergencyOverrideToken::patient)
+        .def_readonly("reason",               &EmergencyOverrideToken::reason)
+        .def_readonly("backfilled",           &EmergencyOverrideToken::backfilled)
+        .def_readonly("backfill_evidence_id", &EmergencyOverrideToken::backfill_evidence_id);
+
+    py::class_<EmergencyOverride>(m, "EmergencyOverride")
+        .def(py::init([]() {
+            return std::make_unique<EmergencyOverride>();
+        }))
+        .def(py::init([](double window_seconds) {
+            return std::make_unique<EmergencyOverride>(
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::duration<double>{window_seconds}));
+        }), py::arg("window_seconds"))
+        .def("activate", [](EmergencyOverride& eo, ActorId actor,
+                             PatientId patient, std::string reason) {
+            return or_raise(eo.activate(std::move(actor),
+                                         std::move(patient),
+                                         std::move(reason)));
+        }, py::arg("actor"), py::arg("patient"), py::arg("reason"))
+        .def("backfill", [](EmergencyOverride& eo, std::string token_id,
+                             std::string evidence_id) {
+            return or_raise_void(eo.backfill(token_id, std::move(evidence_id)));
+        }, py::arg("token_id"), py::arg("evidence_id"))
+        .def("get", [](const EmergencyOverride& eo, std::string_view tid) {
+            return or_raise(eo.get(tid));
+        }, py::arg("token_id"))
+        .def("is_pending_backfill", &EmergencyOverride::is_pending_backfill)
+        .def("is_overdue",           &EmergencyOverride::is_overdue)
+        .def("pending_backfills",    &EmergencyOverride::pending_backfills)
+        .def("overdue_backfills",    &EmergencyOverride::overdue_backfills)
+        .def("completed_backfills",  &EmergencyOverride::completed_backfills)
+        .def("pending_count",        &EmergencyOverride::pending_count)
+        .def("overdue_count",        &EmergencyOverride::overdue_count)
+        .def("completed_count",      &EmergencyOverride::completed_count)
+        .def("total_count",          &EmergencyOverride::total_count);
 }

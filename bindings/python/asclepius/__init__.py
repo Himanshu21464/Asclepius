@@ -25,6 +25,16 @@ from ._asclepius import (
     ConsentToken,
     Inference,
     Runtime,
+    # India profile primitives (ADR-013 + ADR-014)
+    ConsentArtefact,
+    FamilyGraph,
+    FamilyRelation,
+    EmergencyOverride,
+    EmergencyOverrideToken,
+    to_abdm_json,
+    from_abdm_json,
+    artefact_from_token,
+    token_from_artefact,
 )
 from . import policies
 
@@ -47,5 +57,15 @@ __all__ = [
     "ConsentToken",
     "Inference",
     "Runtime",
+    # India profile (ADR-013 + ADR-014)
+    "ConsentArtefact",
+    "FamilyGraph",
+    "FamilyRelation",
+    "EmergencyOverride",
+    "EmergencyOverrideToken",
+    "to_abdm_json",
+    "from_abdm_json",
+    "artefact_from_token",
+    "token_from_artefact",
     "policies",
 ]

@@ -573,6 +573,54 @@
 </section>
 
 <!-- ─────────────────────── coda ─────────────────────── -->
+<!-- ─────────── runnable examples gallery ─────────── -->
+<section class="container uc-case" id="runnable">
+  <span class="uc-case__num">§04 · runnable · seven binaries · zero placeholders</span>
+  <h2>Each shape is a <i>real binary</i>.</h2>
+  <p style="font-family: var(--font-prose); color: var(--ink); line-height: 1.65; max-width: 64ch; margin: 0 0 1.4rem;">
+    The shapes above are not slide decks. Every one decomposes into a
+    runnable <code>examples/</code> binary in the repository, each
+    compiling clean under the project's full strict-warning preset and
+    exercising real <code>libasclepius.a</code> + libsodium + libsqlite3
+    end-to-end. Pick a row, run it, read the ledger.
+  </p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: .9rem; margin: 1.4rem 0; font-family: var(--font-mono); font-size: .82rem;">
+    <a href="https://github.com/Himanshu21464/Asclepius/tree/main/examples/01_wrap_scribe" style="display: block; padding: .9rem 1rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; color: var(--ink-warm); text-decoration: none;">
+      <b style="color: var(--primary);">01 · wrap_scribe</b><br>
+      <span style="color: var(--ink-mute); font-family: var(--font-prose);">ambient scribe → SOAP, override capture</span>
+    </a>
+    <a href="https://github.com/Himanshu21464/Asclepius/tree/main/examples/02_drift_demo" style="display: block; padding: .9rem 1rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; color: var(--ink-warm); text-decoration: none;">
+      <b style="color: var(--primary);">02 · drift_demo</b><br>
+      <span style="color: var(--ink-mute); font-family: var(--font-prose);">PSI / KS / EMD across windows</span>
+    </a>
+    <a href="https://github.com/Himanshu21464/Asclepius/tree/main/examples/03_evidence_bundle" style="display: block; padding: .9rem 1rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; color: var(--ink-warm); text-decoration: none;">
+      <b style="color: var(--primary);">03 · evidence_bundle</b><br>
+      <span style="color: var(--ink-mute); font-family: var(--font-prose);">USTAR tar export + offline reverify</span>
+    </a>
+    <a href="https://github.com/Himanshu21464/Asclepius/tree/main/examples/04_bench" style="display: block; padding: .9rem 1rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; color: var(--ink-warm); text-decoration: none;">
+      <b style="color: var(--primary);">04 · bench</b><br>
+      <span style="color: var(--ink-mute); font-family: var(--font-prose);">throughput / latency / body-size histo</span>
+    </a>
+    <a href="https://github.com/Himanshu21464/Asclepius/tree/main/examples/05_wrap_ms_asclepius" style="display: block; padding: .9rem 1rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; color: var(--ink-warm); text-decoration: none;">
+      <b style="color: var(--primary);">05 · wrap_ms_asclepius</b><br>
+      <span style="color: var(--ink-mute); font-family: var(--font-prose);">Microsoft Azure-OpenAI lab summary</span>
+    </a>
+    <a href="https://github.com/Himanshu21464/Asclepius/tree/main/examples/06_wrap_starmpcc" style="display: block; padding: .9rem 1rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; color: var(--ink-warm); text-decoration: none;">
+      <b style="color: var(--primary);">06 · wrap_starmpcc</b><br>
+      <span style="color: var(--ink-mute); font-family: var(--font-prose);">open clinical LLM (Llama3-8B / Mistral)</span>
+    </a>
+    <a href="https://github.com/Himanshu21464/Asclepius/tree/main/examples/07_india_profile" style="display: block; padding: .9rem 1rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; color: var(--ink-warm); text-decoration: none;">
+      <b style="color: var(--primary);">07 · india_profile</b><br>
+      <span style="color: var(--ink-mute); font-family: var(--font-prose);">EmergencyOverride · FamilyGraph · ConsentArtefact</span>
+    </a>
+  </div>
+
+  <p style="font-family: var(--font-prose); color: var(--ink-mute); line-height: 1.6; font-size: .94rem; max-width: 64ch;">
+    Plus a benchmark harness at <a href="https://github.com/Himanshu21464/Asclepius/tree/main/tests/benchmarks/asclepius_med"><code>tests/benchmarks/asclepius_med/</code></a> with 128 doctest assertions implementing the four <a href="conformance.html#l2-medical">L2-Medical</a> conformance tests against an offline 5-item fixture; the real Asclepius-Med dev-split swap is a one-line change.
+  </p>
+</section>
+
 <section class="container">
   <div class="uc-coda">
     <h2>None of these are <i>features</i>.</h2>

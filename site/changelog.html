@@ -267,67 +267,102 @@
           </ul>
         </article>
 
-        <article class="ch__rel ch__rel--unreleased h-entry">
-          <header class="ch__ver">
-            <b class="p-name">v0.6.0</b><time class="dt-planned">target · 2026 Q3</time><span class="pill">planned</span>
-          </header>
-          <p class="ch__caption p-summary">
-            <em>Sidecar GA</em>. Java, Go, .NET hosts can deploy in production
-            against a single shared substrate.
-          </p>
-          <ul class="ch__items">
-            <li class="add"><b>add</b><span>gRPC <code>asclepius-svc</code> server with TLS, mTLS, and OAuth client-credentials auth.</span></li>
-            <li class="add"><b>add</b><span>Streaming inverse-RPC for the model callback (host-side serving).</span></li>
-            <li class="add"><b>add</b><span>Object-store body archive (encrypted-at-rest opt-in PHI retention).</span></li>
-            <li class="add"><b>add</b><span>Rust bindings via <code>cxx</code>.</span></li>
-          </ul>
-        </article>
-
-        <article class="ch__rel ch__rel--unreleased h-entry">
-          <header class="ch__ver">
-            <b class="p-name">v0.5.3</b><time class="dt-planned" datetime="2026-04-28">target · 2026-04-28</time><span class="pill">unreleased</span>
-          </header>
-          <p class="ch__caption p-summary">
-            <em>Same-name positioning, two more wraps, an L2-Medical
-            conformance scaffold.</em> A GitHub search by exact repo name
-            returns roughly eighty projects called <code>asclepius</code> —
-            Microsoft, starmpcc, Asclepius-Med, oslabs-beta, a dormant
-            Polkadot DAO, ~50 Dicoding student forks. Round 90 stakes the
-            positioning (<a href="decisions.html#adr-012">ADR-012</a>),
-            ships two reference wraps that demonstrate what the substrate
-            does <em>under</em> a same-named clinical-AI tool, and lands a
-            real L2-Medical adapter scaffold (offline fixture green,
-            real Asclepius-Med dev-split swap one file path away).
-            <em>No on-disk format changes; no API breaks</em>.
-          </p>
-          <ul class="ch__items">
-            <li class="add"><b>add</b><span><a href="decisions.html#adr-012">ADR-012</a> — <em>"On the name Asclepius"</em>. Keeps the name; sharpens "the Linux kernel for clinical AI" positioning. Enumerates the ten most-confused same-name projects and how we differ from each.</span></li>
-            <li class="add"><b>add</b><span><code>examples/05_wrap_ms_asclepius/</code> — wrap the <a href="https://github.com/microsoft/asclepius">microsoft/asclepius</a> Azure-OpenAI lab-summary Function App: PHI scrub on input context, JSON-Schema validation on output, length cap, signed ledger commit. Compiles clean under the project's full strict-warning preset; runs end-to-end against a stubbed Function App.</span></li>
-            <li class="add"><b>add</b><span><code>examples/06_wrap_starmpcc/</code> — wrap the open clinical LLM family <a href="https://github.com/starmpcc/Asclepius">starmpcc/Asclepius</a> (Llama3-8B / Mistral-7B-v0.3): tagged via <code>diagnostic_suggestion</code> + <code>medication_review</code> consent, schema-validated reply with confidence + citations, plus a clinician override capturing a corrected monitoring cadence. Three ledger entries per run.</span></li>
-            <li class="add"><b>add</b><span><code>tests/benchmarks/asclepius_med/</code> — L2-Medical conformance adapter scaffold targeting the ACL&nbsp;2025 <a href="https://github.com/Asclepius-Med/Asclepius">Asclepius-Med</a> benchmark. Four doctest cases mapping 1:1 to the new conformance row (<code>dev-set-coverage</code>, <code>purpose-bound</code>, <code>specialty-tagged</code>, <code>bundle-reverifies</code>). 128 / 128 assertions pass against a 5-item offline fixture.</span></li>
-            <li class="add"><b>add</b><span>L2-Medical tier on <a href="conformance.html#l2-medical">/conformance</a> — <em>4 / 4 fixture · pending real dataset</em>. Each test row deep-links to the actual <code>test_adapter.cpp</code> source.</span></li>
-            <li class="add"><b>add</b><span>L2-Medical card on <a href="roadmap.html">/roadmap</a> conformance ladder; Q3 milestone "real Asclepius-Med dev-split swap" with <code>is-progress</code> styling.</span></li>
-            <li class="add"><b>add</b><span><a href="integrations.html#ms-asclepius">/integrations §06</a> — Microsoft Asclepius wrap recipe (C++ + Python tabs, ledger-row outcome).</span></li>
-            <li class="add"><b>add</b><span><a href="integrations.html#starmpcc-asclepius">/integrations §07</a> — starmpcc/Asclepius wrap recipe (incl. <code>Asclepius-R</code> MIMIC-III caveat). Hero count bumped from "five recipes" → "seven recipes".</span></li>
-            <li class="add"><b>add</b><span><a href="concepts.html#adjacent">/concepts §07</a> — six new <em>"not X"</em> rows distinguishing us from the prominent same-name projects (<code>microsoft/asclepius</code>, <code>starmpcc/Asclepius</code>, <code>Asclepius-Med</code>, <code>asclepius-network</code>, the Dicoding course).</span></li>
-            <li class="add"><b>add</b><span><a href="press.html">/press</a> — "Not to be confused with" line in the fact sheet pointing at ADR-012, so journalists do not conflate us with the demo, the LLM, the benchmark, or the dashboard.</span></li>
-            <li class="add"><b>add</b><span>Cmd-K palette entries for ADR-012, ADR-013, ADR-014, the India profile, the L2-Medical anchor, and the two new integration recipes.</span></li>
-            <li class="add"><b>add</b><span><a href="decisions.html#adr-013">ADR-013</a> — India profile primitives (<code>ConsentArtefact</code>, <code>FamilyGraph</code>, <code>EmergencyOverride</code>). Three vendor-neutral types that map ABDM cleanly without locking out non-Indian deployments.</span></li>
-            <li class="add"><b>add</b><span><a href="decisions.html#adr-014">ADR-014</a> — <code>Purpose</code> enum extension policy. Additions are governance events, not patches; six new India-healthtech values (<em>preventive_care</em>, <em>maternal_child_health</em>, <em>chronic_disease_management</em>, <em>population_health</em>, <em>care_coordination</em>, <em>billing</em>) land alongside ADR-013.</span></li>
-            <li class="add"><b>add</b><span><a href="india.html">/india</a> — full India profile page (ABDM mapping, the four <em>HIP/HIU/Gateway/CM</em> roles, family-graph defaults, emergency-override 72h DPDP § 7 alignment).</span></li>
-            <li class="add"><b>add</b><span><a href="glossary.html#abdm">/glossary §A</a> — six new entries: <code>abdm</code>, <code>abha</code>, <code>hip-hiu</code>, <code>dpdp-7</code>, <code>emergency-override</code>, <code>family-graph</code>.</span></li>
-            <li class="add"><b>add</b><span><code>examples/07_india_profile/</code> — end-to-end demo of the three India-profile primitives. <code>EmergencyOverride</code> activation + 72h-window backfill, <code>FamilyGraph</code> parent-for-minor edge, <code>ConsentArtefact</code> ABDM round-trip. Compiles clean under the project's full strict-warning preset; runs in &lt;1 ms.</span></li>
-            <li class="add"><b>add</b><span><code>bindings/python/asclepius/bench.py</code> — Python parity for the L2-Medical adapter: <code>BenchItem</code> dataclass, <code>load_fixture()</code>, <code>drive_one()</code>. Pure-Python parsing layer is testable without the C++ extension; runner uses the new <code>Inference.add_metadata</code> shim.</span></li>
-            <li class="add"><b>add</b><span><code>Inference.add_metadata(key, value)</code> exposed in pybind11 — round-trips Python values through <code>json.dumps</code> into the inference's <code>metadata</code> envelope (same reserved-key set as the C++ side).</span></li>
-            <li class="add"><b>add</b><span><code>bindings/python/tests/test_bench_parser.py</code> — six unittest cases. Covers <code>BenchItem.from_dict</code> happy-path + missing-field rejection, <code>load_fixture</code> against the real on-disk fixture, malformed-top-level / malformed-items / missing-file errors. Includes a Python 3.14 dataclass + <code>spec_from_file_location</code> workaround.</span></li>
-            <li class="fix"><b>fix</b><span>Five orphan pages cleared (<code>badges</code>, <code>release-process</code>, <code>sitegraph</code>, <code>sitemap</code>, <code>threat-tabletop</code>) and <code>js/badges.js</code> reachable from BFS via the decisions-page coda. Audit went from <em>visited 71 / orphans 6 / js loaded 10/11</em> → <em>visited 85 / orphans 0 / js loaded 11/11</em>.</span></li>
-            <li class="fix"><b>fix</b><span>Three site gates that flagged after the India profile landed: <code>_redirects</code> coverage (<code>/india</code> → <code>/india.html</code>), <code>sitemap.xml</code> entry, and the <code>sitemap.html</code> human-readable link.</span></li>
-          </ul>
-        </article>
-
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.5.2</b><time class="dt-published" datetime="2026-04-27">2026-04-27</time><span class="pill">current</span>
+            <b class="p-name">v0.6.0</b><time class="dt-published" datetime="2026-04-28">2026-04-28</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>India profile — ABDM artefact, family graph, DPDP break-glass.</em>
+            Round 90 lands the three consent-side substrate primitives the
+            ten Razorpay <em>Fix My Itch</em> healthtech briefs all reach
+            for and that the bare token registry does not express. The
+            minor-version bump reflects scope: <em>this is a profile-shaped
+            expansion</em>, not a method add. The kernel itself stays
+            policy-neutral; operators wire the evidence types they accept,
+            and a deployment that does not instantiate the profile is
+            unaffected.
+          </p>
+          <p class="ch__caption p-summary">
+            <code>ConsentArtefact</code> is the JSON-serialisable wire
+            shape of an ABDM (Ayushman Bharat Digital Mission) consent
+            record — <code>artefact_id</code>, <code>requester_id</code> (the
+            HIU), <code>fetcher_id</code> (the HIP), purposes, lifecycle
+            <code>{granted, revoked, expired}</code>, schema version. Distinct
+            from <code>ConsentToken</code>: the registry token is the
+            kernel's authoritative in-memory record; the artefact is the
+            externalised, signable, transmittable form.
+            <code>to_abdm_json</code> / <code>from_abdm_json</code> round-trip
+            with stable keys and ISO-8601 timestamps;
+            <code>artefact_from_token</code> / <code>token_from_artefact</code>
+            bridge the in-memory and on-wire shapes without coupling the
+            registry to ABDM's schema.
+          </p>
+          <p class="ch__caption p-summary">
+            <code>FamilyGraph</code> records that a proxy (an adult child,
+            a parent, a legal guardian, a spouse) is authorised to consent
+            on behalf of a subject (an elder, a minor, a ward) under one
+            of four typed relationships. Edges fire an observer so the
+            audit ledger mirrors the graph's history exactly like consent
+            grants and revocations. <code>can_consent_for(p, s)</code> is the
+            hot-path predicate; <code>subjects_for_proxy</code>,
+            <code>proxies_for_subject</code>, and <code>relation_between</code>
+            give the typed projections a UI surface needs.
+          </p>
+          <p class="ch__caption p-summary">
+            <code>EmergencyOverride</code> is the DPDP Act § 7 break-glass:
+            in a clinically-justified emergency, an actor (a clinician, an
+            EMT, an ED triage officer) may access a patient's records
+            even when the patient cannot grant consent in the moment. The
+            kernel records the access immediately and enforces a
+            configurable mandatory backfill window (default 72 hours)
+            within which a documented justification or post-hoc consent
+            MUST be filed; otherwise the backfill is overdue and surfaces
+            in dashboards and audit alerts. The 72h default tracks DPDP
+            § 7 as currently read; the kernel is intentionally
+            policy-neutral about <em>what</em> satisfies the backfill —
+            operators wire the evidence id (signed clinical note, scanned
+            consent, ABDM artefact id) to whatever their compliance
+            regime accepts. The substrate enforces the deadline, not the
+            format.
+          </p>
+          <p class="ch__caption p-summary">
+            Six new <code>Purpose</code> values (9-14) ride alongside —
+            <code>prescription_resolution</code>, <code>second_opinion</code>,
+            <code>specialist_referral</code>, <code>billing_audit</code>,
+            <code>longitudinal_outcomes_research</code>,
+            <code>emergency_clinical_access</code> — each documented as a
+            governance event in <a href="decisions.html#adr-014">ADR-014</a>.
+            <em>No on-disk format changes; no kernel API breaks</em>;
+            existing deployments that do not reference the new symbols
+            see no behaviour change.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>ConsentArtefact</code> (struct) + <code>Status</code> enum (<code>granted</code>, <code>revoked</code>, <code>expired</code>) — the ABDM-shaped wire record with <code>artefact_id</code>, <code>patient</code>, <code>requester_id</code>, <code>fetcher_id</code>, <code>purposes</code>, <code>issued_at</code>, <code>expires_at</code>, <code>status</code>, <code>schema_version</code>.</span></li>
+            <li class="add"><b>add</b><span><code>to_abdm_json(artefact)</code> / <code>from_abdm_json(s)</code> — stable bidirectional JSON round-trip; ISO-8601 timestamps; unknown purpose strings raise <code>invalid_argument</code>.</span></li>
+            <li class="add"><b>add</b><span><code>artefact_from_token(token, hiu, hip, artefact_id)</code> / <code>token_from_artefact(artefact)</code> — bridge between in-memory <code>ConsentToken</code> and on-wire <code>ConsentArtefact</code> without coupling the registry to ABDM.</span></li>
+            <li class="add"><b>add</b><span><code>to_string(ConsentArtefact::Status)</code> + <code>artefact_status_from_string</code> — symmetric stringification; same shape as the rest of the kernel.</span></li>
+            <li class="add"><b>add</b><span><code>FamilyRelation</code> enum (<code>adult_child_for_elder_parent</code>, <code>parent_for_minor</code>, <code>legal_guardian_for_ward</code>, <code>spouse_for_spouse</code>) + <code>to_string</code> / <code>family_relation_from_string</code>.</span></li>
+            <li class="add"><b>add</b><span><code>FamilyGraph</code> — multi-party consent edges. <code>record_relation</code>, <code>remove_relation</code>, <code>can_consent_for</code> (noexcept hot-path), <code>subjects_for_proxy</code>, <code>proxies_for_subject</code>, <code>relation_between</code>, <code>total_relations</code>, <code>distinct_proxies</code>, <code>distinct_subjects</code>, <code>counts_by_relation</code>, <code>snapshot</code>, <code>ingest</code>, <code>clear</code>, <code>set_observer</code>, <code>summary_string</code>. Edge writes fire the observer (<code>recorded</code> / <code>removed</code>) so the audit ledger mirrors the graph.</span></li>
+            <li class="add"><b>add</b><span><code>EmergencyOverrideToken</code> (struct) — <code>token_id</code>, <code>actor</code>, <code>patient</code>, <code>reason</code>, <code>activated_at</code>, <code>backfill_deadline</code>, <code>backfilled</code>, <code>backfill_evidence_id</code>.</span></li>
+            <li class="add"><b>add</b><span><code>EmergencyOverride</code> — DPDP § 7 break-glass with configurable mandatory backfill window (default 72h). <code>activate(actor, patient, reason)</code>, <code>backfill(token_id, evidence_id)</code> (idempotent on same evidence; <code>conflict</code> on different), <code>get</code>, <code>is_pending_backfill</code>, <code>is_overdue</code>, <code>pending_backfills</code>, <code>overdue_backfills</code>, <code>completed_backfills</code>, <code>{pending,overdue,completed,total}_count</code>, <code>patients</code>, <code>actors</code>, <code>set_backfill_window</code> / <code>backfill_window</code>, <code>ingest</code>, <code>snapshot</code>, <code>clear</code>, <code>set_observer</code>, <code>summary</code>, <code>summary_string</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Purpose::prescription_resolution = 9</code> — parse a prescription and resolve to NPPA / PMBJP catalogues.</span></li>
+            <li class="add"><b>add</b><span><code>Purpose::second_opinion = 10</code> — share a case dossier for a structured second opinion.</span></li>
+            <li class="add"><b>add</b><span><code>Purpose::specialist_referral = 11</code> — share a case dossier with a tier-2/3 specialist for tele-consult.</span></li>
+            <li class="add"><b>add</b><span><code>Purpose::billing_audit = 12</code> — audit an itemised hospital bill against a published reference.</span></li>
+            <li class="add"><b>add</b><span><code>Purpose::longitudinal_outcomes_research = 13</code> — per-patient longitudinal outcome tracking.</span></li>
+            <li class="add"><b>add</b><span><code>Purpose::emergency_clinical_access = 14</code> — DPDP § 7 deferred-consent clinical access; pairs with <code>EmergencyOverride</code>.</span></li>
+            <li class="add"><b>add</b><span><a href="api.html#hdr-consent-hpp">/api §consent</a> — Round 90 section with all three primitives' methods grouped under <em>India healthtech profile</em>; ~50 new entries; symbol count for <code>consent.hpp</code> bumped 47 → 110.</span></li>
+            <li class="add"><b>add</b><span><a href="cheatsheet.html">/cheatsheet</a> — Round 90 card (ABDM artefact round-trip, family-graph proxy / subject projections, break-glass activation + 72h backfill, six new <code>Purpose</code> values).</span></li>
+            <li class="add"><b>add</b><span><a href="decisions.html#adr-013">ADR-013</a> — India profile primitives. Three vendor-neutral types that map ABDM cleanly without locking out non-Indian deployments.</span></li>
+            <li class="add"><b>add</b><span><a href="decisions.html#adr-014">ADR-014</a> — <code>Purpose</code> enum extension policy. Additions are governance events, not patches.</span></li>
+            <li class="add"><b>add</b><span><a href="india.html">/india</a> — full India profile page (ABDM mapping, the four <em>HIP/HIU/Gateway/CM</em> roles, family-graph defaults, emergency-override 72h DPDP § 7 alignment).</span></li>
+            <li class="add"><b>add</b><span><a href="glossary.html#abdm">/glossary §A</a> — six new entries: <code>abdm</code>, <code>abha</code>, <code>hip-hiu</code>, <code>dpdp-7</code>, <code>emergency-override</code>, <code>family-graph</code>.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.5.2</b><time class="dt-published" datetime="2026-04-27">2026-04-27</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>Lifecycle summaries, atomic attest, consent in metrics.</em>
