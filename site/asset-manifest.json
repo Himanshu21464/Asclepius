@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T16:17:00Z",
+  "generated_at": "2026-04-28T16:24:26Z",
   "algorithm": "SHA-256",
   "count": 94,
   "files": {
@@ -192,8 +192,8 @@
       "bytes": 54513
     },
     "india.html": {
-      "sha256": "bfb8b61f8e7e882c6b16e8929c20fc121340ce7a018bda2f529588a39ed5c388",
-      "bytes": 29716
+      "sha256": "2dcf57746f87091ce7f99af01933095d19f7aa1e7a0ebb1be6797f518aabae39",
+      "bytes": 34157
     },
     "integrations.html": {
       "sha256": "dd1827a5b9fd0bb8e285a2c346f70b53752659ea5911927b0a16f0b1f8fe439c",
@@ -344,7 +344,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "4a6af33ae04662133d2fdd23e056e24221efcf79f44a03dede74862f6517ea12",
+      "sha256": "aa76e12dfb0fdef7d334f334f4c13637d10b0e346ab9b7412cb8a43cb326b606",
       "bytes": 1063
     },
     "styles.css": {

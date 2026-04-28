@@ -550,6 +550,65 @@ eo.<span class="t">backfill</span>(tok.token_id, <span class="s">"signed-clinica
         run the runtime.</em>
       </p>
 
+      <h2 style="margin-top: 2rem;">Evidence <i>bundles.</i></h2>
+      <p>
+        Rounds 91&ndash;96 layered five signed evidence shapes on top of
+        the round-90 consent primitives. Each is a substrate object: the
+        kernel produces it, signs it, verifies it. Operators decide
+        <em>what</em> to attest; the kernel guarantees the attestation
+        cannot be silently mutated.
+      </p>
+      <ul class="cp-list">
+        <li>
+          <b><code>HumanAttestation</code></b>
+          <span>Signed clinician sign-off (round&nbsp;92). actor + subject_kind + subject_id + statement, anchored in the ledger via <code>events::human_attestation</code>. Backs second-opinion review, triage override, billing approval &mdash; any workflow that requires a named human on a decision.</span>
+        </li>
+        <li>
+          <b><code>TeleConsultEnvelope</code></b>
+          <span>Two-party signed encounter (round&nbsp;95) for SpecHub. Patient and clinician each sign over the consult metadata, video hash, and transcript hash. <code>is_fully_signed()</code> is the integrity probe.</span>
+        </li>
+        <li>
+          <b><code>BillAuditBundle</code></b>
+          <span>Auditor-signed bill audit (round&nbsp;95) for BillBuster. Each <code>BillLineFinding</code> is classified <i>consistent / over_billed / under_billed / unknown_item</i> against a named reference table (CGHS-2025, PMJAY, operator-private). The kernel ships <code>classify_line</code> with the 1.5x / 0.5x band convention; operators that need different bands feed pre-classified findings.</span>
+        </li>
+        <li>
+          <b><code>SampleIntegrityBundle</code></b>
+          <span>Chain-of-custody attestation (round&nbsp;96) for VanRoute. sample_id + collector + checkpoint trail + result hash. <code>cold_chain_intact()</code> is true iff every checkpoint was within spec.</span>
+        </li>
+        <li>
+          <b><code>CarePathAttestation</code></b>
+          <span>Operator-side signed proof (round&nbsp;96) that an inference call was evaluated against an <code>access::Constraint</code> (Sakhi-style female-only, on-device-only, language allowlist, role gate) and either allowed or denied. Replays the kernel's care-path decision at audit time.</span>
+        </li>
+      </ul>
+
+      <h2 style="margin-top: 2rem;">Operational <i>knobs.</i></h2>
+      <ul class="cp-list">
+        <li>
+          <b><code>events::</code> well-known codes</b>
+          <span>Round&nbsp;92 codifies the canonical 12 event-type strings (<code>rx.parsed</code>, <code>triage.decision</code>, <code>consult.tele.closed</code>, &hellip;) so dashboards and conformance tests agree on what counts. Free-form <code>event_type</code> still works.</span>
+        </li>
+        <li>
+          <b><code>CalibrationMonitor</code></b>
+          <span>Round&nbsp;92 sensitivity / specificity / PPV / NPV tracking against a configured floor (with tolerance and min-samples). Used by TriageMate to surface "model is below the agreed sensitivity floor" before the regulator sees the audit.</span>
+        </li>
+        <li>
+          <b><code>CohortLedger</code></b>
+          <span>Round&nbsp;93 longitudinal observation chain. Per-patient or per-metric outcome tracking; <code>stats_for_metric</code> returns count/mean/stddev/min/max for any metric across the cohort.</span>
+        </li>
+        <li>
+          <b><code>access::Constraint</code></b>
+          <span>Round&nbsp;93 composable predicate (staff_gender / device_mode / language allowlist / role). Sakhi-style female-only, TriageMate-style on-device-only, language-restricted deployments, all the same primitive.</span>
+        </li>
+        <li>
+          <b><code>asclepius india</code> CLI</b>
+          <span>Round&nbsp;94. <code>india validate-bundle</code> for ABDM Consent JSON; <code>india verify-attestation</code> for HumanAttestation JSON; <code>india events</code> to enumerate the canonical event codes. Exits non-zero on any verification failure &mdash; suitable for CI gates.</span>
+        </li>
+        <li>
+          <b>FHIR ABDM bridge</b>
+          <span>Round&nbsp;91. <code>bundle_from_artefact</code> / <code>artefact_from_bundle</code> round-trip a <code>ConsentArtefact</code> through a FHIR Bundle wire shape with <code>well_formed_bundle</code> as the precondition gate, and HIP / HIU / ABHA identifiers carried in <code>meta.tag</code>.</span>
+        </li>
+      </ul>
+
       <h2 style="margin-top: 2rem;">What we do <i>not</i> do.</h2>
       <ul class="cp-not">
         <li>
