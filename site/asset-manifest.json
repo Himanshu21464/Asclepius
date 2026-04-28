@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T16:10:39Z",
+  "generated_at": "2026-04-28T16:17:00Z",
   "algorithm": "SHA-256",
   "count": 94,
   "files": {
@@ -20,7 +20,7 @@
       "bytes": 18978
     },
     "api.html": {
-      "sha256": "d4f68ea77067d987070d97c14dd4f1d8e57f166cd7097f138ef4bc8076453e38",
+      "sha256": "27e503adea42b15a6f1d3aeaca0e6f9449e1d0d5a3d417f654b1d977e9efdb04",
       "bytes": 177399
     },
     "architecture.html": {
@@ -104,8 +104,8 @@
       "bytes": 138601
     },
     "cheatsheet.html": {
-      "sha256": "77f4a44468f7a8e10460154e746c4f03d5d1189c747f04dd5ee519d4048be67a",
-      "bytes": 54389
+      "sha256": "6cc31f1fa47f7b5b7273f0ff9a2e60b8db25a7e3036592d3ad23f8157d74d2d9",
+      "bytes": 57426
     },
     "colophon.html": {
       "sha256": "7da2a05949cb804d1635aeaa711d02a91747648db2528d75609d7a123c3ed905",
@@ -232,8 +232,8 @@
       "bytes": 11832
     },
     "js/palette.js": {
-      "sha256": "d6f010e912f7f2bf6c79309d3fd607e685b25dbae2dde900104b7868317b390c",
-      "bytes": 35599
+      "sha256": "3b1dbfa1e1166d072eee359238244e9f79bcd03063546dfdc23630d77121bce5",
+      "bytes": 36557
     },
     "js/source.js": {
       "sha256": "e22c7b1e89bfddbd6971f6b7286ddba0be59d2f825c95d60644ffd48946fc253",
@@ -276,8 +276,8 @@
       "bytes": 51436
     },
     "playbooks.html": {
-      "sha256": "a4c84396557d6d6e4027ffc231d372987cd197273717423e1893092c8c1be675",
-      "bytes": 33490
+      "sha256": "530ffd279e98a3143bfb1f8344ac0bdb4ff0e386856884d37c3cdb9ae43005a8",
+      "bytes": 37978
     },
     "press.html": {
       "sha256": "3bac45c3eb6c342faa8de688cdeebb3ccb11f8c79c1290803ae54f16ad1fed28",
@@ -292,8 +292,8 @@
       "bytes": 29646
     },
     "regulator.html": {
-      "sha256": "e0856293e4354e3b67db9c7c24a573c6cde9643db1d62d93cdb67008f12378d5",
-      "bytes": 31324
+      "sha256": "1842f9aa9c2e01363c6de32a63a728a1214c8e0cdb55529859597c5a1b7f1262",
+      "bytes": 36661
     },
     "release-process.html": {
       "sha256": "6651670c558177b124c1a977ce082ad011c7dc8f7de7b4365aafd42f86d791d3",
@@ -344,7 +344,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "30423c9bb8f7b749abee6652a3387ceaed19c764a84e46b5aaa4f042a5127b4b",
+      "sha256": "4a6af33ae04662133d2fdd23e056e24221efcf79f44a03dede74862f6517ea12",
       "bytes": 1063
     },
     "styles.css": {

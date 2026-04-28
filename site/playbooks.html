@@ -282,6 +282,11 @@
         <span class="pb-toc__t">sidecar network partition</span>
         <span class="pb-toc__sev is-p2">P2</span>
       </a>
+      <a class="pb-toc__pill" href="#overdue-backfill">
+        <span class="pb-toc__num">PB-08</span>
+        <span class="pb-toc__t">emergency-override backfill overdue</span>
+        <span class="pb-toc__sev is-p2">P2</span>
+      </a>
     </nav>
   </div>
 </section>
@@ -701,6 +706,81 @@ cp build/tools/verify_bundle <span class="s">/secure/verifier.bin</span></pre>
         <li>capacity-plan WAL headroom for 4× the partition window</li>
       </ul>
     </div>
+  </div>
+</section>
+
+<!-- ─────────── PB-08 emergency-override backfill overdue ─────────── -->
+<section class="container pb" id="overdue-backfill">
+  <div class="pb__head">
+    <span class="pb__num">PB-08</span>
+    <span class="pb__sev is-p2">P2 · 4-hour ack</span>
+    <span class="pb__owner">owner · clinical compliance + ledger oncall</span>
+  </div>
+  <h2>Emergency-override <i>backfill overdue.</i></h2>
+  <p class="pb__lede">
+    A clinician activated <code>EmergencyOverride</code> (DPDP § 7
+    break-glass) and the configured backfill window passed without an
+    attestation. The substrate has emitted <code>consent.override.expired</code>
+    rows; <code>overdue_backfills()</code> returns non-empty. <em>Every overdue
+    token is a regulatory exposure</em> until either backfilled or escalated.
+    Pairs with <a href="threat-model.html#a7-emergency-override-abuse">THREAT § A7</a>
+    and the ABDM mapping at <a href="regulator.html#dpdp-india">/regulator §06</a>.
+  </p>
+
+  <div class="pb-steps">
+    <div class="pb-step">
+      <h3 data-step="1">detect</h3>
+      <ul>
+        <li>alert source: <code>overdue_backfills()</code> ≥ 1, sweeper job, or <code>consent.override.expired</code> in the ledger feed</li>
+        <li>per-actor: <code>EmergencyOverride::is_overdue(token_id)</code></li>
+        <li>at-a-glance: <code>summary_string()</code> reports <code>overdue=N</code></li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="2">contain</h3>
+      <ul>
+        <li>do <em>not</em> retroactively shrink the backfill window — that hides debt</li>
+        <li>do <em>not</em> programmatically backfill on the actor's behalf — defeats the substrate</li>
+        <li>freeze further break-glass activations from the actor pending review (ops-level RBAC, not kernel-level)</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="3">attest or escalate</h3>
+      <ul>
+        <li>attest: contact the actor; obtain a real <code>evidence_id</code> (signed clinical note, scanned consent, ABDM artefact); call <code>backfill(token_id, evidence_id)</code></li>
+        <li>escalate: if no defensible justification exists, file an internal incident; the <code>consent.override.expired</code> row stands as the regulator-visible record of non-attestation</li>
+        <li>both paths preserve the original <code>consent.override.granted</code> entry — the chain never lies about what happened</li>
+      </ul>
+    </div>
+    <div class="pb-step">
+      <h3 data-step="4">postmortem</h3>
+      <ul>
+        <li>was the activation clinically justified? if not, the issue is misuse, not tooling</li>
+        <li>was the actor unaware of the deadline? push the alert into their normal workflow surface</li>
+        <li>do the actor's overrides cluster around routine workflows? consider whether a non-emergency consent path was missing</li>
+        <li>file as a <em>governance</em> finding — clinician training and policy, not kernel changes</li>
+      </ul>
+    </div>
+  </div>
+
+<pre class="pb-cmd"><span class="c"># enumerate overdue tokens for triage</span>
+asclepius override list --overdue --since <span class="s">"7 days ago"</span>
+
+<span class="c"># attest a single token after obtaining evidence</span>
+asclepius override backfill <span class="s">eo_18aa8ed78bbb3</span> \
+        --evidence-id <span class="s">"note:ed-2026-04-28-iyer-mvA-3a91"</span>
+
+<span class="c"># export evidence bundle for grievance / NHA review</span>
+asclepius bundle export --override <span class="s">eo_18aa8ed78bbb3</span> \
+        --out <span class="s">/secure/2026-04-28-override-3a91.tar</span></pre>
+
+  <div class="pb-notes">
+    <h3>notes</h3>
+    <ul>
+      <li>the substrate is policy-neutral about the <em>format</em> of the evidence; operators define what their compliance regime accepts</li>
+      <li>idempotency: a second <code>backfill</code> with the same <code>evidence_id</code> is a silent no-op; a different one returns <code>conflict</code></li>
+      <li>do not delete or mutate the <code>consent.override.expired</code> row — it is the regulator's primary signal that an event happened and was not attested in time</li>
+    </ul>
   </div>
 </section>
 

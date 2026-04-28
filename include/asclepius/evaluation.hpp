@@ -16,6 +16,7 @@
 #include "asclepius/core.hpp"
 #include "asclepius/hashing.hpp"
 #include "asclepius/identity.hpp"
+#include "asclepius/policy.hpp"
 
 namespace asclepius {
 
@@ -231,6 +232,93 @@ BillAuditSummary summarise_bill_audit(const BillAuditBundle&) noexcept;
 // JSON round-trip.
 std::string             bill_audit_to_json(const BillAuditBundle&);
 Result<BillAuditBundle> bill_audit_from_json(std::string_view);
+
+// ============================================================================
+// Round 96 — SampleIntegrityBundle and CarePathAttestation
+// ============================================================================
+//
+// SampleIntegrityBundle (Itch 5 — VanRoute) records the chain-of-custody
+// for a diagnostic sample collected in the field: who collected it, when,
+// the cold-chain checkpoint trail, and the final result hash. The whole
+// bundle is signed by the collector's organisation, anchoring the
+// integrity claim into the audit chain.
+//
+// CarePathAttestation (Itch 6 — Sakhi Health) is the operator-side
+// signed proof that an inference call was evaluated against a configured
+// access::Constraint and either allowed or denied. The kernel writes
+// these into the audit chain so an external auditor can replay every
+// care-path decision the deployment made.
+
+struct SampleIntegrityCheckpoint {
+    Time         at;
+    std::string  location;
+    double       temperature_c = 0.0;
+    bool         within_spec   = true;
+    std::string  note;
+};
+
+struct SampleIntegrityBundle {
+    std::string                                   sample_id;
+    PatientId                                     patient;
+    std::string                                   collected_by;   // collector / van id (free-form)
+    Time                                          collected_at;
+    std::vector<SampleIntegrityCheckpoint>        checkpoints;
+    Hash                                          result_hash;    // hash of final result doc
+    std::string                                   resulted_by;    // lab id
+    Time                                          resulted_at;
+
+    std::array<std::uint8_t, KeyStore::sig_bytes> signature{};
+    std::array<std::uint8_t, KeyStore::pk_bytes>  public_key{};
+};
+
+// Sign a bundle with the collector-org's keystore.
+SampleIntegrityBundle&
+sign_sample_integrity(SampleIntegrityBundle&, const KeyStore& signer);
+
+// Verify the embedded signature.
+bool verify_sample_integrity(const SampleIntegrityBundle&) noexcept;
+
+// True iff every checkpoint reports within_spec == true.
+bool cold_chain_intact(const SampleIntegrityBundle&) noexcept;
+
+// JSON round-trip.
+std::string                      sample_integrity_to_json(const SampleIntegrityBundle&);
+Result<SampleIntegrityBundle>    sample_integrity_from_json(std::string_view);
+
+// ---- CarePathAttestation -----------------------------------------------
+
+struct CarePathAttestation {
+    std::string                                   attestation_id;
+    PatientId                                     patient;
+    ActorId                                       attester;
+    access::Constraint                            constraint;
+    access::Context                               context;
+    access::Decision                              decision;
+    std::string                                   reason;          // empty when allow
+    Time                                          attested_at;
+
+    std::array<std::uint8_t, KeyStore::sig_bytes> signature{};
+    std::array<std::uint8_t, KeyStore::pk_bytes>  public_key{};
+};
+
+// Evaluate the constraint against the context and build the unsigned
+// attestation. attested_at is captured at call time.
+CarePathAttestation
+make_care_path_attestation(std::string                attestation_id,
+                           PatientId                  patient,
+                           ActorId                    attester,
+                           const access::Constraint&  constraint,
+                           const access::Context&     context);
+
+// Sign the attestation in place.
+CarePathAttestation&
+sign_care_path(CarePathAttestation&, const KeyStore& signer);
+
+bool verify_care_path(const CarePathAttestation&) noexcept;
+
+// JSON round-trip.
+std::string             care_path_to_json(const CarePathAttestation&);
+Result<CarePathAttestation> care_path_from_json(std::string_view);
 
 }  // namespace asclepius
 

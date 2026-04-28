@@ -210,6 +210,11 @@
         <span class="rg-toc__t">Joint Commission record integrity</span>
         <span class="rg-toc__sub">US · RC.01.03.01 · IM.02.01.03</span>
       </a>
+      <a class="rg-toc__pill" href="#dpdp-india">
+        <span class="rg-toc__num">§ 06</span>
+        <span class="rg-toc__t">DPDP Act &amp; ABDM</span>
+        <span class="rg-toc__sub">IN · Act 22 of 2023 · NHA-NDHM</span>
+      </a>
     </nav>
   </div>
 </section>
@@ -467,6 +472,63 @@
       <tr>
         <td class="rg-map__req"><b>IM.02.01.03 · integrity over time</b>Information protected against unauthorised access, loss, alteration.</td>
         <td class="rg-map__prim">Merkle root published nightly to the changelog feed; auditors can reconstruct the historical state from any backup.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─────────── §06 DPDP Act + ABDM (India) ─────────── -->
+<section class="container rg-frame" id="dpdp-india">
+  <div class="rg-frame__head">
+    <span class="rg-frame__num">§ 06</span>
+    <span class="rg-frame__juris">IN · Digital Personal Data Protection Act, 2023 · ABDM (NHA / NDHM)</span>
+    <span class="rg-frame__date">last reviewed 2026-04-28</span>
+  </div>
+  <h2>DPDP Act &amp; ABDM — <i>India healthtech</i> obligations.</h2>
+  <p class="rg-frame__lede">
+    India's Digital Personal Data Protection Act 2023 governs every
+    consent-mediated processing of personal data, with § 7 carving out
+    deferred consent for medical emergencies. The Ayushman Bharat
+    Digital Mission (ABDM) defines the wire shape consent records
+    travel between Health Information Providers (HIP), Health Information
+    Users (HIU), and the consent manager. The substrate's
+    <a href="india.html">India profile</a> codifies both. See
+    <a href="decisions.html#adr-013">ADR-013</a> for the primitives and
+    <a href="decisions.html#adr-014">ADR-014</a> for the Purpose extensions.
+  </p>
+
+  <table class="rg-map" aria-label="DPDP Act + ABDM requirement to primitive map">
+    <thead>
+      <tr><th>obligation</th><th>Asclepius primitive</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rg-map__req"><b>DPDP § 6 · valid consent</b>Free, specific, informed, unconditional, unambiguous, with a clear affirmative action.</td>
+        <td class="rg-map__prim"><code>ConsentRegistry::grant</code> records purposes vector + TTL; <code>ConsentArtefact</code> carries the originally-signed FHIR Consent bytes alongside the parsed scope. Wire-round-trip via <code>to_abdm_json</code> / <code>from_abdm_json</code>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>DPDP § 7(1) · medical emergency</b>Processing without prior consent permitted in clinical emergency; documented justification required.</td>
+        <td class="rg-map__prim"><code>EmergencyOverride::activate(actor, patient, reason)</code> emits <code>consent.override.granted</code> immediately with a 72h <code>backfill_deadline</code>. <code>backfill(token_id, evidence_id)</code> emits <code>consent.override.attested</code>; the sweeper emits <code>consent.override.expired</code> for any unattested token. See <a href="threat-model.html#a7-emergency-override-abuse">THREAT § A7</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>DPDP § 9 · processing of children's data</b>Verifiable parental consent; restricted profiling.</td>
+        <td class="rg-map__prim"><code>FamilyGraph</code> records the parent-for-minor edge; consent issued by the parent on the minor's behalf is honoured iff the edge exists at grant time. Edge writes emit <code>consent.family.recorded</code>. See <a href="threat-model.html#a8-family-graph-forgery">THREAT § A8</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>DPDP § 11 · right to erasure</b>Data principal can withdraw consent and demand erasure unless legal basis to retain.</td>
+        <td class="rg-map__prim"><code>ConsentRegistry::revoke</code> emits <code>consent.revoked</code>; subsequent inferences are refused. The ledger itself is append-only — audit obligations and erasure are layered: the record of <em>what was processed under consent</em> is permanent, the underlying PHI is body-store policy.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>ABDM · consent-artefact wire format</b>Consent records exchanged between HIPs, HIUs, and the Gateway use the ABDM-shaped JSON envelope.</td>
+        <td class="rg-map__prim"><code>ConsentArtefact</code> with <code>artefact_id</code>, <code>requester_id</code> (HIU), <code>fetcher_id</code> (HIP), purposes, <code>{granted, revoked, expired}</code> status, ISO-8601 timestamps. Bidirectional with <code>ConsentToken</code> via <code>artefact_from_token</code> / <code>token_from_artefact</code>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>ABDM · purpose taxonomy</b>Consent purposes drawn from the NHA-published catalogue.</td>
+        <td class="rg-map__prim"><code>Purpose</code> enum carries six ABDM-aligned values added in v0.6 (<code>preventive_care</code>, <code>maternal_child_health</code>, <code>chronic_disease_management</code>, <code>population_health</code>, <code>care_coordination</code>, <code>billing</code>) plus the original eight. Additions are governed by <a href="decisions.html#adr-014">ADR-014</a>.</td>
+      </tr>
+      <tr>
+        <td class="rg-map__req"><b>NHA grievance &amp; audit</b>Operators must produce a verifiable audit trail on grievance demand.</td>
+        <td class="rg-map__prim">Every consent / family / override event is a signed Merkle-chained ledger row. The standard <code>asclepius evidence bundle</code> exports a windowed extract that reverifies offline — works on a regulator's air-gapped workstation. See <a href="schemas/audit-entry.v1.json">audit-entry schema</a>.</td>
       </tr>
     </tbody>
   </table>

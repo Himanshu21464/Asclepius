@@ -84,6 +84,7 @@ target_sources(asclepius
         src/evaluation/harness.cpp
         src/evaluation/bundle.cpp
         src/evaluation/india_bundles.cpp
+        src/evaluation/sample_and_care.cpp
         src/runtime/runtime.cpp
         src/runtime/inference.cpp
         src/interop/fhir.cpp

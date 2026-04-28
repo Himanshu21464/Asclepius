@@ -167,7 +167,7 @@
     <a class="status__brand" href="index.html">
       <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
       <span class="brand-word">asclepius</span>
-      <span class="brand-version">v0.6.0</span>
+      <span class="brand-version">v0.6.1</span>
     </a>
     <nav class="status__nav" aria-label="primary">
       <a href="docs.html">docs</a>
@@ -563,6 +563,26 @@ jq -r '.files | to_entries[] | "\(.value)  \(.key)"' \
         <dt><code>rt.policy_names()</code></dt><dd>chain at runtime level</dd>
         <dt><code>rt.is_chain_empty()</code></dt><dd>fresh-vs-warm gate</dd>
         <dt><code>inf.body_snapshot()</code></dt><dd>mid-run JSON introspection</dd>
+      </dl>
+    </article>
+
+    <article class="ch-card">
+      <h2>Round 91 <small>forensic composite filters · India-profile sugar · percentile shorthands</small></h2>
+      <dl class="pair">
+        <dt><code>ledger.range_for_actor_and_patient(a, p)</code></dt><dd>composite filter — every entry where clinician X touched patient Y, in one query</dd>
+        <dt><code>ledger.tail_with_status(status, n)</code></dt><dd>last n committed inferences with one specific status — every <code>blocked</code>, <code>timeout</code>, <code>cancelled</code> on its own axis</dd>
+        <dt><code>ledger.peak_throughput_per_second()</code></dt><dd>highest one-second observed entry-rate over the chain's lifespan — the peak-load cell paired with <code>seq_density()</code>'s lifetime average</dd>
+        <dt><code>ledger.find_first_consent_grant_for(p)</code></dt><dd>earliest <code>consent.granted</code> for one patient — the "when did this person first authorise us?" cell</dd>
+        <dt><code>ledger.head_attestation_hex_short()</code></dt><dd>24-char compact form — <code>head=12hex:keyid=8hex:sig=4hex</code> for status badges and tweetable banners</dd>
+        <dt><code>hist.p50() · p90() · p95()</code></dt><dd>percentile shorthands paired with <code>p99()</code> — the operator vocabulary every dashboard cell wanted</dd>
+        <dt><code>hist.bin_midpoint(i) · confidence_interval_95()</code></dt><dd>centre <code>x</code>-value for bin <code>i</code> · <code>{mean - 1.96σ, mean + 1.96σ}</code> normality-assuming band</dd>
+        <dt><code>metrics.reset_counter_pattern(prefix)</code></dt><dd>bulk reset by prefix; returns count zeroed; distinct from <code>reset_all_counters()</code> (everything) and <code>reset()</code> (everything plus histograms)</dd>
+        <dt><code>drift.observation_total()</code></dt><dd>sum of observation counts across every registered feature in the current window</dd>
+        <dt><code>is_active(a) · is_expired(a) · is_revoked(a)</code></dt><dd>free-function noexcept bool sugar over <code>ConsentArtefact::Status</code> — no enum unwrapping at the call site</dd>
+        <dt><code>fg.edges_count_for_relation(r) · has_path(p, s)</code></dt><dd>O(1) per-relation count · explicit "is there a path?" sugar over <code>can_consent_for</code></dd>
+        <dt><code>eo.active_for_patient(p) · oldest_pending() · active_for_actor(a)</code></dt><dd>per-patient pending overrides · oldest token still owing paperwork (<code>not_found</code> when none) · per-clinician projection</dd>
+        <dt><code>inf.tag_priority(label)</code></dt><dd>composed sugar — <code>tag(label)</code> + <code>set_priority(label)</code> in one call; same closed set <code>{low, normal, high, critical}</code></dd>
+        <dt><code>rt.quick_status_line() · list_recent_event_types(window_ms) · failure_count_in_window(w)</code></dt><dd>terse 80-col banner · sorted distinct event types in the last <code>window_ms</code> · count of non-<code>ok</code> commits in trailing window</dd>
       </dl>
     </article>
 
