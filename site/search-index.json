@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-27T17:19:43Z",
+  "generated_at": "2026-04-28T15:04:38Z",
   "count": 51,
   "pages": [
     {
@@ -220,6 +220,7 @@
       "headings": [
         "Trustworthy log.",
         "Observable behaviour.",
+        "Spectrum coverage.",
         "Prospective trial."
       ]
     },
@@ -284,6 +285,8 @@
         "ML-DSA migration path (post-quantum).",
         "decision (proposed)",
         "Remove the Postgres backend · SQLite-only.",
+        "On the name Asclepius.",
+        "same-name projects we are tracking",
         "What an ADR is, and is not."
       ]
     },
@@ -459,6 +462,8 @@
         "A FHIR sidecar.",
         "A batch evaluation harness.",
         "resulting bundle (USTAR tar — opens with stock tar)",
+        "Microsoft Asclepius.",
+        "An open clinical LLM (starmpcc/Asclepius).",
         "The pattern is always the same."
       ]
     },

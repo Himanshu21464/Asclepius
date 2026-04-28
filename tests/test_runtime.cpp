@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <random>
 #include <thread>
+#include <unordered_map>
 
 using namespace asclepius;
 using namespace std::chrono_literals;
@@ -4910,4 +4911,286 @@ TEST_CASE("current_load_metric: ignores non-inference events in the same window"
     }
     auto m = rt.current_load_metric();
     CHECK(m == doctest::Approx(1.0 / 60.0));
+}
+
+// ============== Inference::commit_then_attest =============================
+
+TEST_CASE("commit_then_attest: commits a never-committed handle and returns checkpoint") {
+    auto rt_ = fresh_runtime("cta_first"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cta_f");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(!inf.value().is_committed());
+    const auto before = rt.ledger().length();
+    auto cp = inf.value().commit_then_attest();
+    REQUIRE(cp);
+    CHECK(inf.value().is_committed());
+    CHECK(rt.ledger().length() == before + 1);
+    CHECK(cp.value().seq == rt.ledger().length());
+    CHECK(cp.value().head_hash.hex() == rt.ledger().head().hex());
+    REQUIRE(verify_checkpoint(cp.value()));
+}
+
+TEST_CASE("commit_then_attest: already committed handle returns checkpoint without re-appending") {
+    auto rt_ = fresh_runtime("cta_idem"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cta_i");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    REQUIRE(inf.value().commit());
+    const auto length_after_commit = rt.ledger().length();
+    auto cp = inf.value().commit_then_attest();
+    REQUIRE(cp);
+    // No additional ledger entry from the second commit_then_attest.
+    CHECK(rt.ledger().length() == length_after_commit);
+    CHECK(cp.value().seq == length_after_commit);
+    REQUIRE(verify_checkpoint(cp.value()));
+}
+
+TEST_CASE("commit_then_attest: returns invalid_argument when run() not called") {
+    auto rt_ = fresh_runtime("cta_norun"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cta_n");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    // Without a prior run(), commit() returns invalid_argument; the
+    // combined op surfaces the same error.
+    auto cp = inf.value().commit_then_attest();
+    REQUIRE(!cp);
+    CHECK(cp.error().code() == ErrorCode::invalid_argument);
+}
+
+// ============== Runtime::flush_consent_to_metrics =========================
+
+TEST_CASE("flush_consent_to_metrics: returns 4 and writes the four named counters") {
+    auto rt_ = fresh_runtime("fctm_basic"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_fctm_b");
+    REQUIRE(rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h));
+    auto r = rt.flush_consent_to_metrics();
+    REQUIRE(r);
+    CHECK(r.value() == 4);
+    CHECK(rt.metrics().has_counter("consent.tokens.active"));
+    CHECK(rt.metrics().has_counter("consent.tokens.total"));
+    CHECK(rt.metrics().has_counter("consent.tokens.expired"));
+    CHECK(rt.metrics().has_counter("consent.patients.active"));
+    // Spot-check: at least one active token recorded.
+    CHECK(rt.metrics().count("consent.tokens.active") >= 1);
+}
+
+TEST_CASE("flush_consent_to_metrics: counters reflect live counts on each call (SET semantics)") {
+    auto rt_ = fresh_runtime("fctm_set"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_fctm_s");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h);
+    REQUIRE(tok);
+    // First flush — should reflect 1 active token.
+    REQUIRE(rt.flush_consent_to_metrics());
+    CHECK(rt.metrics().count("consent.tokens.active") == 1);
+    CHECK(rt.metrics().count("consent.tokens.total")  == 1);
+    // Grant another token; flush again.
+    auto pid2 = PatientId::pseudonymous("p_fctm_s2");
+    REQUIRE(rt.consent().grant(pid2, {Purpose::ambient_documentation}, 1h));
+    REQUIRE(rt.flush_consent_to_metrics());
+    // SET-semantics: counter holds the new value, not the cumulative sum.
+    CHECK(rt.metrics().count("consent.tokens.active") == 2);
+    CHECK(rt.metrics().count("consent.tokens.total")  == 2);
+    CHECK(rt.metrics().count("consent.patients.active") == 2);
+    // Revoke one; flush; active drops, total stays.
+    REQUIRE(rt.consent().revoke(tok.value().token_id));
+    REQUIRE(rt.flush_consent_to_metrics());
+    CHECK(rt.metrics().count("consent.tokens.active")   == 1);
+    CHECK(rt.metrics().count("consent.tokens.total")    == 2);
+    CHECK(rt.metrics().count("consent.patients.active") == 1);
+}
+
+TEST_CASE("flush_consent_to_metrics: empty registry produces all-zero counters that exist") {
+    auto rt_ = fresh_runtime("fctm_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto r = rt.flush_consent_to_metrics();
+    REQUIRE(r);
+    CHECK(r.value() == 4);
+    // Every named counter should be registered (so /metrics scrapers see
+    // the line) and zero-valued (so dashboards render "0 active").
+    CHECK(rt.metrics().has_counter("consent.tokens.active"));
+    CHECK(rt.metrics().has_counter("consent.tokens.total"));
+    CHECK(rt.metrics().has_counter("consent.tokens.expired"));
+    CHECK(rt.metrics().has_counter("consent.patients.active"));
+    CHECK(rt.metrics().count("consent.tokens.active")   == 0);
+    CHECK(rt.metrics().count("consent.tokens.total")    == 0);
+    CHECK(rt.metrics().count("consent.tokens.expired")  == 0);
+    CHECK(rt.metrics().count("consent.patients.active") == 0);
+}
+
+// ============== Inference::is_pending =====================================
+
+TEST_CASE("is_pending: false on a fresh handle that hasn't run") {
+    auto rt_ = fresh_runtime("ip_fresh"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ip_f");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    CHECK(inf.value().is_pending() == false);
+    CHECK(inf.value().has_run() == false);
+    CHECK(inf.value().is_committed() == false);
+    static_assert(noexcept(std::declval<const Inference&>().is_pending()),
+                  "is_pending must be noexcept");
+}
+
+TEST_CASE("is_pending: true after run, false after commit") {
+    auto rt_ = fresh_runtime("ip_runc"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ip_r");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    CHECK(inf.value().is_pending() == true);
+    CHECK(inf.value().has_run() == true);
+    CHECK(inf.value().is_committed() == false);
+    REQUIRE(inf.value().commit());
+    CHECK(inf.value().is_pending() == false);
+    CHECK(inf.value().has_run() == true);
+    CHECK(inf.value().is_committed() == true);
+}
+
+TEST_CASE("is_pending: useful for shutdown drain — picks out outstanding handles") {
+    auto rt_ = fresh_runtime("ip_drain"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_ip_d");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    constexpr int kN = 5;
+    std::vector<Inference> handles;
+    handles.reserve(kN);
+    for (int i = 0; i < kN; ++i) {
+        auto h = begin(rt, pid, tok.token_id); REQUIRE(h);
+        REQUIRE(h.value().run("hi",
+            [](std::string s) -> Result<std::string> { return s; }));
+        // Commit only even-indexed ones.
+        if (i % 2 == 0) {
+            REQUIRE(h.value().commit());
+        }
+        handles.emplace_back(std::move(h.value()));
+    }
+    int pending = 0;
+    for (const auto& h : handles) {
+        if (h.is_pending()) ++pending;
+    }
+    // 3 even (0,2,4) committed, 2 odd (1,3) outstanding.
+    CHECK(pending == 2);
+    // After draining all pending handles, none should remain pending.
+    for (auto& h : handles) {
+        if (h.is_pending()) REQUIRE(h.ensure_committed());
+    }
+    for (const auto& h : handles) {
+        CHECK(h.is_pending() == false);
+    }
+}
+
+// ============== Runtime::current_seq ======================================
+
+TEST_CASE("current_seq: 0 on a fresh empty runtime") {
+    auto rt_ = fresh_runtime("cs_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    CHECK(rt.current_seq() == 0);
+    CHECK(rt.current_seq() == rt.ledger().length());
+}
+
+TEST_CASE("current_seq: tracks ledger length as entries land") {
+    auto rt_ = fresh_runtime("cs_grow"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cs_g");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    const auto base = rt.current_seq();
+    // Append a few inference.committed entries; current_seq should march.
+    for (int i = 0; i < 3; ++i) {
+        auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+        REQUIRE(inf.value().run("hi",
+            [](std::string s) -> Result<std::string> { return s; }));
+        REQUIRE(inf.value().commit());
+        CHECK(rt.current_seq() == rt.ledger().length());
+    }
+    CHECK(rt.current_seq() >= base + 3);
+}
+
+TEST_CASE("current_seq: matches ledger_length but as uint64_t") {
+    auto rt_ = fresh_runtime("cs_type"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    REQUIRE(rt.record_event("custom.ping", "system:test",
+                            nlohmann::json::object()));
+    REQUIRE(rt.record_event("custom.ping", "system:test",
+                            nlohmann::json::object()));
+    const std::uint64_t s = rt.current_seq();
+    const std::size_t   l = rt.ledger_length();
+    CHECK(static_cast<std::uint64_t>(l) == s);
+    // The compile-time return type must be uint64_t — exercise it via
+    // type-deduction of a uint64_t local without an explicit cast.
+    std::uint64_t direct = rt.current_seq();
+    CHECK(direct == s);
+}
+
+// ============== Inference::commit_with_metadata ===========================
+
+TEST_CASE("commit_with_metadata: empty map just commits") {
+    auto rt_ = fresh_runtime("cwm_empty"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cwm_e");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    const auto before = rt.ledger().length();
+    REQUIRE(inf.value().commit_with_metadata({}));
+    CHECK(inf.value().is_committed());
+    CHECK(rt.ledger().length() == before + 1);
+}
+
+TEST_CASE("commit_with_metadata: writes each pair under metadata, then commits atomically") {
+    auto rt_ = fresh_runtime("cwm_pairs"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cwm_p");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    std::unordered_map<std::string, std::string> md = {
+        {"trace_id",   "abc123"},
+        {"request_id", "req-42"},
+        {"ab_cohort",  "control"},
+    };
+    REQUIRE(inf.value().commit_with_metadata(md));
+    CHECK(inf.value().is_committed());
+    // Each key should be queryable via get_metadata.
+    for (const auto& [k, v] : md) {
+        auto got = inf.value().get_metadata(k);
+        REQUIRE(got);
+        REQUIRE(got.value().is_string());
+        CHECK(got.value().get<std::string>() == v);
+    }
+}
+
+TEST_CASE("commit_with_metadata: stops on first add_metadata failure, does NOT commit") {
+    auto rt_ = fresh_runtime("cwm_fail"); REQUIRE(rt_);
+    auto& rt = rt_.value();
+    auto pid = PatientId::pseudonymous("p_cwm_f");
+    auto tok = rt.consent().grant(pid, {Purpose::ambient_documentation}, 1h).value();
+    auto inf = begin(rt, pid, tok.token_id); REQUIRE(inf);
+    REQUIRE(inf.value().run("hi",
+        [](std::string s) -> Result<std::string> { return s; }));
+    // Reserved key "status" must surface invalid_argument from
+    // add_metadata; the commit must NOT have landed.
+    std::unordered_map<std::string, std::string> bad = {
+        {"status", "should-be-rejected"},
+    };
+    const auto before = rt.ledger().length();
+    auto r = inf.value().commit_with_metadata(bad);
+    REQUIRE(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+    CHECK(inf.value().is_committed() == false);
+    CHECK(rt.ledger().length() == before);
 }

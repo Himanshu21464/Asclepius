@@ -233,14 +233,15 @@
 
 <section class="in-hero">
   <div class="container">
-    <span class="kbd">§01 · five recipes · twelve lines each · vendor-neutral</span>
+    <span class="kbd">§01 · seven recipes · twelve lines each · vendor-neutral</span>
     <h1>Wrap anything in <i>twelve lines.</i></h1>
     <p>
       Asclepius is deliberately not a model. It is the substrate that wraps one.
-      Below are five concrete recipes — an ambient-scribe vendor, an in-house imaging
-      model, a tool-using agent, a FHIR sidecar, and a batch evaluation harness —
-      with C++ and Python side-by-side, and the ledger row each one produces.
-      <em>Copy, swap the model, ship.</em>
+      Below are seven concrete recipes — an ambient-scribe vendor, an in-house imaging
+      model, a tool-using agent, a FHIR sidecar, a batch evaluation harness, an
+      Azure-OpenAI lab-summary demo (Microsoft's <em>Asclepius</em>), and an open clinical
+      LLM (<code>starmpcc/Asclepius</code>) — with C++ and Python side-by-side, and the
+      ledger row each one produces. <em>Copy, swap the model, ship.</em>
     </p>
 
     <nav class="in-toc" aria-label="recipe index">
@@ -249,6 +250,8 @@
       <a class="in-toc__pill" href="#agent"><b>§03</b>tool-using agent</a>
       <a class="in-toc__pill" href="#fhir"><b>§04</b>FHIR sidecar</a>
       <a class="in-toc__pill" href="#batch"><b>§05</b>batch evaluation</a>
+      <a class="in-toc__pill" href="#ms-asclepius"><b>§06</b>Microsoft Asclepius</a>
+      <a class="in-toc__pill" href="#starmpcc-asclepius"><b>§07</b>starmpcc/Asclepius</a>
     </nav>
   </div>
 </section>
@@ -544,6 +547,147 @@ asc.tar.write_bundle(<span class="s">"qa-2026-04-26.tar"</span>, report, eval.en
 ├── policy_violations.jsonl rows that failed any policy
 └── pubkey.ed25519          the verifier needs this only — nothing else</pre>
   </div>
+</section>
+
+<!-- ─────────────────── §06 Microsoft Asclepius ─────────────────── -->
+<section class="container in-recipe" id="ms-asclepius">
+  <span class="in-recipe__num">§06 · same-name wrap · Microsoft Asclepius · 13 lines</span>
+  <h2>Microsoft <i>Asclepius.</i></h2>
+  <p class="in-recipe__lede">
+    The <a href="https://github.com/microsoft/asclepius"><code>microsoft/asclepius</code></a>
+    repo is a sample app: Azure OpenAI generating patient-friendly summaries of lab
+    results, fed by a Python Function App over <em>Semantic Kernel</em>. It is a clinical-AI
+    tool — exactly the kind we are designed to wrap. Different layer, same name; see
+    <a href="decisions.html#adr-012">ADR-012</a>. <em>Wrapping it is the boring kind of boring.</em>
+  </p>
+
+  <div class="in-tabs" role="tablist" data-tabs="r6">
+    <button role="tab" class="is-active" data-pane="r6-cpp">C++</button>
+    <button role="tab" data-pane="r6-py">Python</button>
+  </div>
+  <div class="in-pane is-active" id="r6-cpp" role="tabpanel">
+<pre class="in-code"><span class="c">// 13 lines — wrap the MS sample's Function App behind the substrate.</span>
+<span class="t">asc::Runtime</span> rt = asc::Runtime::open(<span class="s">"./asclepius.db"</span>).value();
+rt.policies().push(asc::policy::PhiScrub::v4());
+rt.policies().push(asc::policy::SchemaLabSummary::v1());
+rt.policies().push(asc::policy::Length::v1(<span class="n">4096</span>));
+
+<span class="k">auto</span> inf = rt.begin_inference({.actor=<span class="s">"clin:dr_park"</span>,
+                                .patient=patient_id,
+                                .model={<span class="s">"ms-asclepius:semantic-kernel"</span>, fn_app_sha256},
+                                .purpose=asc::Purpose::PatientFacing});
+<span class="k">auto</span> safe_ctx = inf.policy_chain(<span class="t">json</span>{ {<span class="s">"labs"</span>, labs}, {<span class="s">"chief"</span>, chief}, {<span class="s">"hx"</span>, history} });
+<span class="k">auto</span> summary = ms_asclepius::generate_summary(safe_ctx);  <span class="c">// HTTPs to Azure Function</span>
+inf.commit(summary);                                       <span class="c">// signs + appends + drift</span></pre>
+  </div>
+  <div class="in-pane" id="r6-py" role="tabpanel">
+<pre class="in-code"><span class="k">import</span> asclepius <span class="k">as</span> asc, ms_asclepius
+
+rt = asc.Runtime.open(<span class="s">"./asclepius.db"</span>)
+rt.policies.push(asc.policy.phi_scrub_v4())
+rt.policies.push(asc.policy.schema_lab_summary_v1())
+rt.policies.push(asc.policy.length_v1(<span class="n">4096</span>))
+
+<span class="k">with</span> rt.begin_inference(actor=<span class="s">"clin:dr_park"</span>,
+                        patient=patient_id,
+                        model=(<span class="s">"ms-asclepius:semantic-kernel"</span>, fn_app_sha256),
+                        purpose=asc.Purpose.PatientFacing) <span class="k">as</span> inf:
+    safe_ctx = inf.policy_chain({<span class="s">"labs"</span>: labs, <span class="s">"chief"</span>: chief, <span class="s">"hx"</span>: history})
+    summary  = ms_asclepius.generate_summary(safe_ctx)      <span class="c"># HTTPs to Azure Function</span>
+    inf.commit(summary)</pre>
+  </div>
+
+  <div class="in-result">
+    <h3>resulting ledger row</h3>
+<pre>{ "seq": 8421,
+  "kind": "inference.committed",
+  "actor": "clin:dr_park",
+  "patient": "pt_2c91",
+  "model": { "id": "ms-asclepius:semantic-kernel", "sha256": "fn-9a4e…" },
+  "purpose": "patient_facing",
+  "policy_chain": ["phi_scrub@v4","schema_lab_summary@v1","length@v1:4096"],
+  "summary_sha256": "0b3d…",
+  "drift": { "psi": 0.04, "ks": 0.07, "emd": 0.12 },
+  "signed_by": "ed25519:7ad15100a824332a" }</pre>
+  </div>
+
+  <p class="in-callout">
+    <b>Why "PatientFacing"?</b> The MS sample's whole point is patient-readable output. A
+    consent purpose narrower than the prompt would have made the runtime refuse the call
+    before any API key left the box.
+  </p>
+</section>
+
+<!-- ─────────────────── §07 starmpcc/Asclepius ─────────────────── -->
+<section class="container in-recipe" id="starmpcc-asclepius">
+  <span class="in-recipe__num">§07 · same-name wrap · starmpcc/Asclepius · 12 lines</span>
+  <h2>An open clinical LLM (<i>starmpcc/Asclepius</i>).</h2>
+  <p class="in-recipe__lede">
+    <a href="https://github.com/starmpcc/Asclepius"><code>starmpcc/Asclepius</code></a> is a
+    clinical LLM (7B/13B/Llama3-8B/Mistral) trained on synthetic discharge summaries.
+    Weights live on Hugging Face; the model takes <em>(note, instruction)</em> and returns
+    a structured response. We wrap it the same way we wrap anything else.
+  </p>
+
+  <div class="in-tabs" role="tablist" data-tabs="r7">
+    <button role="tab" class="is-active" data-pane="r7-cpp">C++</button>
+    <button role="tab" data-pane="r7-py">Python</button>
+  </div>
+  <div class="in-pane is-active" id="r7-cpp" role="tabpanel">
+<pre class="in-code"><span class="c">// 12 lines — model is loaded over Python boundary; runtime is C++.</span>
+<span class="t">asc::Runtime</span> rt = asc::Runtime::open(<span class="s">"./asclepius.db"</span>).value();
+rt.policies().push(asc::policy::PhiScrub::v4());
+rt.policies().push(asc::policy::SchemaDischargeQA::v1());
+rt.policies().push(asc::policy::ClinicalActionFilter::from_yaml(<span class="s">"actions.yml"</span>));
+
+<span class="k">auto</span> inf = rt.begin_inference({.actor=<span class="s">"clin:dr_kwon"</span>,
+                                .patient=patient_id,
+                                .model={<span class="s">"starmpcc/Asclepius-Llama3-8B"</span>, weights_sha256},
+                                .purpose=asc::Purpose::DecisionSupport});
+<span class="k">auto</span> safe = inf.policy_chain({.note=discharge_note, .instr=instruction});
+<span class="k">auto</span> answer = py::call(<span class="s">"asclepius_llama3"</span>, safe);
+inf.commit(answer);</pre>
+  </div>
+  <div class="in-pane" id="r7-py" role="tabpanel">
+<pre class="in-code"><span class="k">import</span> asclepius <span class="k">as</span> asc
+<span class="k">from</span> transformers <span class="k">import</span> AutoModelForCausalLM, AutoTokenizer
+
+tok = AutoTokenizer.from_pretrained(<span class="s">"starmpcc/Asclepius-Llama3-8B"</span>)
+mdl = AutoModelForCausalLM.from_pretrained(<span class="s">"starmpcc/Asclepius-Llama3-8B"</span>)
+
+rt = asc.Runtime.open(<span class="s">"./asclepius.db"</span>)
+rt.policies.push(asc.policy.phi_scrub_v4())
+rt.policies.push(asc.policy.schema_discharge_qa_v1())
+rt.policies.push(asc.policy.clinical_action_filter_from_yaml(<span class="s">"actions.yml"</span>))
+
+<span class="k">with</span> rt.begin_inference(actor=<span class="s">"clin:dr_kwon"</span>,
+                        patient=patient_id,
+                        model=(<span class="s">"starmpcc/Asclepius-Llama3-8B"</span>, weights_sha256),
+                        purpose=asc.Purpose.DecisionSupport) <span class="k">as</span> inf:
+    safe   = inf.policy_chain({<span class="s">"note"</span>: discharge_note, <span class="s">"instr"</span>: instruction})
+    answer = mdl.generate(**tok(asc.fmt.starmpcc(safe), return_tensors=<span class="s">"pt"</span>))
+    inf.commit(tok.decode(answer[<span class="n">0</span>], skip_special_tokens=<span class="k">True</span>))</pre>
+  </div>
+
+  <div class="in-result">
+    <h3>resulting ledger row</h3>
+<pre>{ "seq": 8530,
+  "kind": "inference.committed",
+  "actor": "clin:dr_kwon",
+  "patient": "pt_4f02",
+  "model": { "id": "starmpcc/Asclepius-Llama3-8B", "sha256": "hf-3c81…" },
+  "purpose": "decision_support",
+  "policy_chain": ["phi_scrub@v4","schema_discharge_qa@v1","clinical_action_filter@yaml:0c7e…"],
+  "answer_sha256": "f2a1…",
+  "drift": { "psi": 0.09, "ks": 0.13, "emd": 0.18 },
+  "signed_by": "ed25519:7ad15100a824332a" }</pre>
+  </div>
+
+  <p class="in-callout">
+    <b>Asclepius-R caveat.</b> The MIMIC-III variant <code>Asclepius-R</code> on PhysioNet is
+    credentialed-access; we don't redistribute its weights, but the wrap is byte-identical.
+    The substrate doesn't care which weights it audits, only that they hash.
+  </p>
 </section>
 
 <!-- ─────────────────── coda ─────────────────── -->

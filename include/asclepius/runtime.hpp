@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <nlohmann/json_fwd.hpp>
@@ -148,6 +149,27 @@ public:
     // hanging on a slow path.
     Result<void> ensure_committed();
 
+    // Combined op: commit() then return a fresh checkpoint via
+    // runtime.ledger().checkpoint(). Used by external attestation
+    // sidecars that want to mint a self-contained, signed beacon of
+    // the chain head immediately after recording an inference, in a
+    // single call that fails fast if either step doesn't land. If the
+    // handle is already committed, the commit step is skipped and the
+    // current checkpoint is returned. Returns invalid_argument if the
+    // handle hasn't run() yet (matching commit()'s precondition).
+    Result<LedgerCheckpoint> commit_then_attest();
+
+    // Convenience: for each {key, value} pair in `md`, call
+    // add_metadata(key, value), then commit(). Stops on the first
+    // add_metadata failure and surfaces it without committing — the
+    // caller can then inspect what landed via has_metadata() / clear
+    // and retry. Empty map → just commit(). Used by sidecars that
+    // gather metadata over an inference's lifetime and want to apply
+    // it all atomically, rather than threading the add_metadata loop
+    // through every call site.
+    Result<void> commit_with_metadata(
+        const std::unordered_map<std::string, std::string>& md);
+
     // Attach an arbitrary key/value pair to the inference's ledger body.
     // Stored under a "metadata" sub-object so it can't collide with the
     // runtime's reserved fields (status, input_hash, output_hash, etc.).
@@ -277,6 +299,16 @@ public:
     // for sidecars that need to know whether the destructor will
     // record an aborted-inference event.
     bool is_committed() const noexcept;
+
+    // True iff has_run() AND !is_committed(). I.e. the run() finished
+    // but commit() hasn't been called yet. Useful for shutdown drains:
+    // "is there work outstanding on this handle?" — sidecars walking
+    // a vector of handles during graceful shutdown reach for this to
+    // pick out which ones still need ensure_committed() before tearing
+    // down the runtime. Distinct from has_run() (which is true after
+    // run regardless of commit state) and is_committed() (which is
+    // true only after commit). Returns false on null impl.
+    bool is_pending() const noexcept;
 
     // Owning string copy of the actor id (i.e. the human or service
     // that initiated this inference). Sugar over
@@ -600,6 +632,15 @@ public:
     // (e.g. /healthz extras, sidecar dashboards, smoke tests).
     std::size_t ledger_length() const noexcept;
 
+    // Sugar over `ledger().length()`, returning std::uint64_t to match
+    // the LedgerEntry header's seq type. Different shape from
+    // ledger_length() (size_t) — this is the spelling sidecars reach
+    // for when they want a "current seq" reference to thread through
+    // queue metadata, response headers, or watch-cursor APIs without
+    // a static_cast at every call site. One-call accessor; same
+    // backend cost as ledger_length().
+    std::uint64_t current_seq() const;
+
     // Sugar over ledger().head().hex(). Same motivation as
     // ledger_length() — used by sidecars that want to publish the
     // current chain head without juggling Ledger& and Hash types.
@@ -836,6 +877,18 @@ public:
     // so that "current severity per feature" is observable through
     // the same MetricRegistry path as the rest of the runtime.
     Result<std::uint64_t> flush_drift_to_metrics();
+
+    // Materialize consent state into MetricRegistry counters. Emits:
+    //   - consent.tokens.active   = consent().active_count()
+    //   - consent.tokens.total    = consent().total_count()
+    //   - consent.tokens.expired  = consent().expired_count()
+    //   - consent.patients.active = consent().patients_with_active_count()
+    // Returns the number of metrics written (4). Used to materialize
+    // consent state into Prometheus on demand. These are SET-not-INC
+    // writes — the workaround on the inc-only MetricRegistry is to
+    // reset(name) then inc(name, val), so successive calls reflect
+    // the live counts rather than accumulating.
+    Result<std::size_t> flush_consent_to_metrics();
 
     // Wraps `ledger().subscribe(...)` with the supplied callback —
     // sugar that's just clearer at call sites that want a logging

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-27T17:19:49Z",
+  "generated_at": "2026-04-28T15:04:38Z",
   "algorithm": "SHA-256",
   "count": 93,
   "files": {
@@ -20,8 +20,8 @@
       "bytes": 18978
     },
     "api.html": {
-      "sha256": "a69d7ce8895d2771d3b1b327b1354a32d82f669b53c38aaae8b8866bf1708cec",
-      "bytes": 142132
+      "sha256": "9ec08b816cf62ce95b963da6df888bdab3a4a613654d03cc278e90e0359e904b",
+      "bytes": 147745
     },
     "architecture.html": {
       "sha256": "fa4f376af875c541ef212790191e9f183d16856dcc1a8cf699f590a2030f394f",
@@ -116,12 +116,12 @@
       "bytes": 23600
     },
     "concepts.html": {
-      "sha256": "2e1be40fcbf6b068781cc0eb48464085b24ca042ac108633acc1548bab9ca01e",
-      "bytes": 42108
+      "sha256": "ec01144de586a35459fb0a382fb9b4b0867356e4e250ea20975fa02d96e59366",
+      "bytes": 43907
     },
     "conformance.html": {
-      "sha256": "fbd0ed8d7d6e949a8fbfe9b99b0abf6607baab9ddfbea4c7f3586b2ac915869f",
-      "bytes": 24178
+      "sha256": "236bb5d1d5460f061b4976759a6c2296a50f1b1c9d66db5962120f4263a41908",
+      "bytes": 27185
     },
     "contributing.html": {
       "sha256": "bfef7b0e4aff810760658c2e5342d254f451bb80815d42894eae36ee834ec163",
@@ -136,8 +136,8 @@
       "bytes": 25403
     },
     "decisions.html": {
-      "sha256": "db0fd95da4071561af2c9f42da2a6adc0b681528ad718b27eb2d9dd5c0e08680",
-      "bytes": 39614
+      "sha256": "1c66858307375935934ece44d14fc143560d14848239415efac40077b49401f0",
+      "bytes": 45280
     },
     "demo.css": {
       "sha256": "de86845501b61d7ba01cf1630691c9fa95a5e358138480c80c8ea52bc46c193d",
@@ -192,8 +192,8 @@
       "bytes": 54045
     },
     "integrations.html": {
-      "sha256": "21ba64f427a1dd10cbf63723b1ccbb4033868ee82ea4c3c3d0930869f3a884bf",
-      "bytes": 31414
+      "sha256": "91bef445e211d0b6821524f81fd532f5b948b76d06d4d2aeaeb0af0304957558",
+      "bytes": 39999
     },
     "js/attest-site.js": {
       "sha256": "9775f63e934ebff74c82e35c04c24616f40e213672b4d17526b14ea7819fa5bc",
@@ -276,8 +276,8 @@
       "bytes": 33490
     },
     "press.html": {
-      "sha256": "5a325cd02fe52cae12fe3fb78acd47a3a55cc859d5abc04e588ee94c77009821",
-      "bytes": 24577
+      "sha256": "ae565e454787726910a1216fb407dbfd1fb15f4d19c71be0cc47b8bbd2601462",
+      "bytes": 24970
     },
     "principles.html": {
       "sha256": "0dfa9b8accd938d961beeb2dd4464fdb9de7c74af2c0837cfdd91a50b4e81f58",
@@ -340,7 +340,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "c020335b25c38fd5a5d94d00a6b6814ff8d1eac26d8bd2c9e7bf7ef99ac26457",
+      "sha256": "113990c7117fabb42e25e4521248aa9a035eeb266085bb8e80a58e7b46716a75",
       "bytes": 1045
     },
     "styles.css": {

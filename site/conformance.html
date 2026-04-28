@@ -260,6 +260,10 @@
         <b><em>4 / 4</em> · pass</b>
       </div>
       <div>
+        <span>L2-Medical</span>
+        <b class="is-pending"><em>0 / 4</em> · proposed</b>
+      </div>
+      <div>
         <span>L3 evidence</span>
         <b class="is-partial"><em>3 / 5</em> · partial</b>
       </div>
@@ -372,6 +376,44 @@
         <span class="cf-test__icon is-pass"></span>
         <span class="cf-test__name"><b>rotate.preserves-baseline</b><span><code>DriftMonitor::rotate()</code> resets the current window without clearing the baseline. PSI is computed against the baseline always, so slow drift accumulates.</span></span>
         <span class="cf-test__cite">drift.cpp</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── L2-Medical ──────────────────────────────────────────────────────── -->
+<section class="cf-level" id="l2-medical">
+  <div class="container">
+    <header class="cf-level__head">
+      <p class="cf-level__num"><i>L2&hairsp;M</i></p>
+      <div>
+        <span class="cf-level__name">medical</span>
+        <h2 class="cf-level__title">Spectrum coverage.</h2>
+      </div>
+      <span class="cf-level__pill is-pending">0 / 4 proposed</span>
+    </header>
+    <p>L2 plus driving the wrapped model through an external medical benchmark — the substrate certifies that the bundle contains a signed entry per benchmark item, not the score. <i>The score is the model's problem; the audit trail is ours.</i> The first reference target is the ACL&nbsp;2025 <a href="https://github.com/Asclepius-Med/Asclepius">Asclepius-Med</a> benchmark (15 specialties, 3 categories, 8 sub-tasks). Adapter scaffold ships under <code>tests/benchmarks/asclepius_med/</code>; see <a href="decisions.html#adr-012">ADR-012</a> for why we picked this benchmark first.</p>
+
+    <div class="cf-tests">
+      <div class="cf-test">
+        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__name"><b>medical.bench.dev-set-coverage</b><span>For every item in the benchmark's development split, the wrapped model produces exactly one <code>inference.committed</code> entry. No skipped items, no duplicates.</span></span>
+        <span class="cf-test__cite">planned · adapter scaffold</span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__name"><b>medical.bench.purpose-bound</b><span>Every entry's <code>purpose</code> is <code>diagnostic_suggestion</code> (or a clinically equivalent purpose); inferences with mismatched purpose are rejected before reaching the model.</span></span>
+        <span class="cf-test__cite">planned</span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__name"><b>medical.bench.specialty-tagged</b><span>Each entry carries the benchmark's specialty tag in its body so a regulator can subset by specialty without re-running. Cross-tagged with the benchmark's sub-task category.</span></span>
+        <span class="cf-test__cite">planned</span>
+      </div>
+      <div class="cf-test">
+        <span class="cf-test__icon is-pending"></span>
+        <span class="cf-test__name"><b>medical.bench.bundle-reverifies</b><span>The exported bundle for a benchmark run reverifies offline against the runtime's public key, with the original benchmark item hashes preserved in the manifest.</span></span>
+        <span class="cf-test__cite">planned</span>
       </div>
     </div>
   </div>

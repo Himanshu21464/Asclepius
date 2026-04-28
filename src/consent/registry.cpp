@@ -1393,6 +1393,108 @@ ConsentRegistry::count_active_for_patients(std::span<const PatientId> patients) 
     return active_seen.size();
 }
 
+std::vector<ConsentToken>
+ConsentRegistry::tokens_revoked_for_patient(const PatientId& patient) const {
+    // List form of most_recently_revoked_for_patient: every revoked
+    // token belonging to `patient`. Sorted by issued_at descending so
+    // callers walking the history get the freshest revocation first,
+    // matching the per-row tiebreak of most_recently_revoked_for_patient.
+    std::lock_guard<std::mutex> lk(mu_);
+    std::vector<ConsentToken> out;
+    for (const auto& [_, t] : by_id_) {
+        if (!t.revoked)           continue;
+        if (t.patient != patient) continue;
+        out.push_back(t);
+    }
+    std::sort(out.begin(), out.end(),
+              [](const ConsentToken& a, const ConsentToken& b) {
+                  return a.issued_at > b.issued_at;
+              });
+    return out;
+}
+
+std::unordered_map<std::string, std::size_t>
+ConsentRegistry::token_lifecycle_summary() const {
+    // Always populate all three keys so callers can render a stable
+    // schema without conditional branches. State priority matches
+    // TokenLifecycle::State (revoked > expired > active) so a token
+    // that is both revoked and past its expires_at counts as
+    // "revoked" only — the same convention list_states_summary uses.
+    std::unordered_map<std::string, std::size_t> out{
+        {"active", 0}, {"revoked", 0}, {"expired", 0}};
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked) {
+            out["revoked"]++;
+        } else if (t.expires_at <= now) {
+            out["expired"]++;
+        } else {
+            out["active"]++;
+        }
+    }
+    return out;
+}
+
+std::size_t ConsentRegistry::patients_with_active_count() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now = Time::now();
+    std::unordered_set<std::string> seen;
+    seen.reserve(by_id_.size());
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        seen.insert(std::string{t.patient.str()});
+    }
+    return seen.size();
+}
+
+bool ConsentRegistry::has_pending_expiry(std::chrono::seconds horizon) const {
+    // Bool sugar over tokens_expiring_soon: same predicate, but
+    // early-exits on the first hit. The window is [now, now + horizon),
+    // mirroring tokens_expiring_soon's strict upper bound.
+    if (horizon.count() <= 0) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now      = Time::now();
+    const auto deadline = now + std::chrono::nanoseconds{horizon};
+    for (const auto& [_, t] : by_id_) {
+        if (t.revoked)           continue;
+        if (t.expires_at <= now) continue;
+        if (t.expires_at < deadline) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::size_t ConsentRegistry::compact_state(std::chrono::seconds older_than) {
+    // Hard-delete every revoked token whose issued_at is older than
+    // (now - older_than). Matches remove() semantics: no observer
+    // fires — the operation is intentionally invisible to the
+    // ledger-replay path, the same trade-off remove() makes. We
+    // collect victim ids first under the lock and erase them in a
+    // second pass to keep the iteration simple and avoid invalidating
+    // iterators mid-walk.
+    if (older_than.count() <= 0) {
+        return 0;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto now    = Time::now();
+    const auto cutoff = now - std::chrono::nanoseconds{older_than};
+    std::vector<std::string> victims;
+    for (const auto& [id, t] : by_id_) {
+        if (!t.revoked)            continue;
+        if (t.issued_at >= cutoff) continue;
+        victims.push_back(id);
+    }
+    for (const auto& id : victims) {
+        by_id_.erase(id);
+    }
+    return victims.size();
+}
+
 const char* to_string(ConsentRegistry::TokenLifecycle::State s) noexcept {
     switch (s) {
         case ConsentRegistry::TokenLifecycle::State::active:  return "active";

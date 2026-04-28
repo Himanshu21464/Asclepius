@@ -1,0 +1,4 @@
+add_executable(example_wrap_starmpcc main.cpp)
+target_link_libraries(example_wrap_starmpcc PRIVATE asclepius::asclepius)
+asclepius_target_warnings(example_wrap_starmpcc)
+asclepius_target_sanitizers(example_wrap_starmpcc)

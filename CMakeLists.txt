@@ -105,6 +105,8 @@ if(ASCLEPIUS_BUILD_EXAMPLES)
     add_subdirectory(examples/02_drift_demo)
     add_subdirectory(examples/03_evidence_bundle)
     add_subdirectory(examples/04_bench)
+    add_subdirectory(examples/05_wrap_ms_asclepius)
+    add_subdirectory(examples/06_wrap_starmpcc)
 endif()
 
 # ---- Tests ---------------------------------------------------------------

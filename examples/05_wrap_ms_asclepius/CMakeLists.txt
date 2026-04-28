@@ -1,0 +1,4 @@
+add_executable(example_wrap_ms_asclepius main.cpp)
+target_link_libraries(example_wrap_ms_asclepius PRIVATE asclepius::asclepius)
+asclepius_target_warnings(example_wrap_ms_asclepius)
+asclepius_target_sanitizers(example_wrap_ms_asclepius)

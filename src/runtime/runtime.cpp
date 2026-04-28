@@ -734,6 +734,54 @@ std::uint64_t Runtime::counter(std::string_view name) const {
     return impl_->metrics.count(name);
 }
 
+Result<std::size_t> Runtime::flush_consent_to_metrics() {
+    // Materialize consent state into Prometheus-shaped counters. Unlike
+    // flush_drift_to_metrics() (which is INC-shaped — each call adds
+    // one), the consent counters are SET-shaped: callers want the
+    // current absolute counts to land on the metric, not a running
+    // total. MetricRegistry doesn't expose set(); the workaround is
+    // reset(name) followed by inc(name, value). reset() returns
+    // not_found on a never-touched counter — that's fine on the first
+    // call. We use a small helper lambda to keep the four writes
+    // uniform; if any single write would surface a backend error in
+    // a future MetricRegistry revision, surface it as the registry
+    // does (today reset() is the only fallible path and only fails on
+    // first-touch with not_found, which we tolerate).
+    auto& m = impl_->metrics;
+    auto put = [&](std::string_view name, std::uint64_t value) {
+        // Reset is only meaningful when the counter already exists; on
+        // a fresh counter we want the create-on-first-use behaviour
+        // of inc(), so swallow not_found here and fall through.
+        (void)m.reset(name);
+        if (value > 0) {
+            m.inc(name, value);
+        } else {
+            // inc(name, 0) would still register the counter, but we
+            // want a zero-valued counter to land. Calling inc with
+            // delta=0 is the cheapest way to ensure the name is
+            // registered without changing the value (after a reset
+            // it stays at 0).
+            m.inc(name, 0);
+        }
+    };
+    const auto& cr = impl_->consent;
+    put("consent.tokens.active",   static_cast<std::uint64_t>(cr.active_count()));
+    put("consent.tokens.total",    static_cast<std::uint64_t>(cr.total_count()));
+    put("consent.tokens.expired",  static_cast<std::uint64_t>(cr.expired_count()));
+    put("consent.patients.active",
+        static_cast<std::uint64_t>(cr.patients_with_active_count()));
+    return std::size_t{4};
+}
+
+std::uint64_t Runtime::current_seq() const {
+    // Sugar over `ledger().length()`. ledger_length() returns size_t
+    // (clamped to architecture width); current_seq returns uint64_t
+    // to match the LedgerEntry::Header::seq type so callers using
+    // the value as a watch cursor or queue metadata don't have to
+    // static_cast at every site. Same backend cost as ledger_length().
+    return impl_->ledger.length();
+}
+
 Result<std::uint64_t> Runtime::flush_drift_to_metrics() {
     // Materialize current drift state into the MetricRegistry by
     // emitting one counter per (feature, severity) pair, named

@@ -755,6 +755,26 @@ caller payload
           <b>not a SaaS product</b>
           <span>Apache 2.0; ships as source. There is no managed service, no telemetry, no call-home. Run it on a hospital GPU node, run it on a developer laptop, run it on a regulator's air-gapped workstation.</span>
         </li>
+        <li>
+          <b>not <code>microsoft/asclepius</code></b>
+          <span>Microsoft's <em>Asclepius</em> is a sample app: Azure OpenAI generating patient-friendly summaries of lab results, .NET Blazor + Python Functions + Semantic Kernel. It is exactly the kind of clinical-AI tool our substrate is built to <em>wrap</em>. Different layer, same name. See <a href="decisions.html#adr-012">ADR-012</a>.</span>
+        </li>
+        <li>
+          <b>not <code>starmpcc/Asclepius</code></b>
+          <span>The Korean clinical LLM (7B/13B/Llama3-8B/Mistral) trained on synthetic discharge summaries. It is a model. We are the runtime that audits any model — including that one. The substrate sits below the weights, not beside them.</span>
+        </li>
+        <li>
+          <b>not <code>Asclepius-Med/Asclepius</code></b>
+          <span>The ACL&nbsp;2025 multi-modal medical evaluation benchmark (15 specialties, 3 categories, 8 sub-tasks). It is a dataset and a leaderboard. Our <code>EvaluationHarness</code> can drive a wrapped model through it; the benchmark sits <em>on top of</em> the substrate, not in place of it.</span>
+        </li>
+        <li>
+          <b>not <code>asclepius-network</code></b>
+          <span>A dormant Polkadot/Substrate healthcare DAO. We are not a blockchain. Our Merkle ledger is a signed local append-only log — no consensus protocol, no token, no chain reorgs.</span>
+        </li>
+        <li>
+          <b>not the Dicoding student app</b>
+          <span>The <em>Dicoding "Belajar Penerapan Machine Learning untuk Android"</em> course ships an Asclepius-named skin-cancer detection app as the capstone; ~50 student forks exist on GitHub. None of them are us; we are not Android, not skin-cancer-specific, and not coursework.</span>
+        </li>
       </ul>
 
       <p>

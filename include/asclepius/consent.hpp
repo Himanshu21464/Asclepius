@@ -329,6 +329,15 @@ public:
     // separately from patient_count() for readability at call sites.
     std::size_t distinct_patients_count() const;
 
+    // Distinct count of patients who have at least one active
+    // (non-revoked, non-expired) token. Distinct from
+    // distinct_patients_count (which counts patients with any token in
+    // any state) and from active_count (which counts active tokens —
+    // a patient with two active tokens contributes 2 to active_count
+    // but 1 here). Useful for /healthz dashboards that want a
+    // "currently authorized patient population" gauge.
+    std::size_t patients_with_active_count() const;
+
     // Distinct PatientIds across all stored tokens (active + revoked +
     // expired), sorted by their underlying string body. Order is
     // deterministic so callers can diff snapshots over time. Used by
@@ -370,6 +379,19 @@ public:
     // rather than an aggregate Summary.
     std::vector<std::pair<std::string, std::string>>
     list_states_summary() const;
+
+    // Aggregate count-by-state map: {"active": N, "revoked": N,
+    // "expired": N}. Always contains all three keys — a state with
+    // zero tokens still appears with count 0 so dashboards can render
+    // a stable schema without conditional branches. State priority
+    // matches TokenLifecycle: revoked > expired > active, so a
+    // revoked-and-expired token counts as "revoked" only. Distinct
+    // from list_states_summary (per-token rows) and from summary()
+    // (which returns a typed struct including total/patients) — this
+    // is the friction-free map ops dashboards want when plumbing a
+    // pie chart or count strip.
+    std::unordered_map<std::string, std::size_t>
+    token_lifecycle_summary() const;
 
     // Per-patient version of summary(). Same Summary struct, but counts
     // are scoped to a single patient. The `patients` field is 1 if the
@@ -420,6 +442,17 @@ public:
     Result<ConsentToken>
     most_recently_revoked_for_patient(const PatientId& patient) const;
 
+    // List form of most_recently_revoked_for_patient: every revoked
+    // token belonging to `patient`, sorted by issued_at descending
+    // (most recently issued first). Distinct from
+    // most_recently_revoked_for_patient (which returns one) — this
+    // returns the full historical revoked set for the patient.
+    // Empty vector if the patient has no revoked tokens. Useful for
+    // ops probes that want to walk the revocation history rather
+    // than just the most recent row.
+    std::vector<ConsentToken>
+    tokens_revoked_for_patient(const PatientId& patient) const;
+
     // Per-patient mirror of oldest_active(), but unconstrained by state:
     // the token (active OR revoked OR expired) belonging to `patient`
     // with the smallest issued_at. Returns Error::not_found if the
@@ -462,6 +495,15 @@ public:
     // non-positive horizon has no "soon" window).
     std::size_t
     tokens_expiring_soon(std::chrono::seconds horizon) const;
+
+    // Cheap bool sugar over tokens_expiring_soon: true iff at least one
+    // active (non-revoked, non-expired) token's expires_at falls within
+    // [now, now + horizon). Equivalent in observable behaviour to
+    // `tokens_expiring_soon(horizon) > 0`, but early-exits on the first
+    // hit. horizon <= 0 returns false. Useful for ops dashboards
+    // wanting a yes/no "do we need to nudge anyone right now?" without
+    // counting every match.
+    bool has_pending_expiry(std::chrono::seconds horizon) const;
 
     // True iff at least one token in the registry has the revoked flag
     // set. noexcept; any internal failure is swallowed -> false.
@@ -553,6 +595,20 @@ public:
     // ledger mirror records each cleanup. Same observer-after-lock-release
     // pattern as expire_all_for_patient.
     std::size_t cleanup_expired();
+
+    // Hard-delete every token whose `revoked` flag is set AND whose
+    // `issued_at` is older than (now - older_than). Returns the count
+    // compacted. Distinct from cleanup_expired() in two ways: this
+    // method (a) deletes rows entirely (matching remove() semantics)
+    // rather than marking them revoked, and (b) targets the already-
+    // revoked pool rather than the not-yet-revoked-but-expired pool.
+    // Does NOT fire the observer — like remove(), the operation is
+    // intentionally invisible to the audit-ledger replay path; the
+    // ledger is the source of truth for permanent history. older_than
+    // <= 0 returns 0 (a non-positive window has no compaction
+    // candidates). Used by ops to keep the in-memory registry small
+    // after a long retention window has elapsed.
+    std::size_t compact_state(std::chrono::seconds older_than);
 
     // Distinct list of purposes that have at least one active (non-revoked,
     // non-expired) token for `patient`. Sorted by underlying enum value so

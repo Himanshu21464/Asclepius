@@ -374,6 +374,16 @@ bool Inference::is_committed() const noexcept {
     return impl_ && impl_->committed;
 }
 
+bool Inference::is_pending() const noexcept {
+    // True iff the run() finished but commit() hasn't been called yet.
+    // Useful for shutdown drains: "is there work outstanding on this
+    // handle?" Mirrors the is_committed() / has_run() pattern of
+    // collapsing null impl to a "no" verdict — a torn-down handle
+    // never has outstanding work.
+    if (!impl_) return false;
+    return impl_->completed && !impl_->committed;
+}
+
 std::string Inference::actor_str() const {
     if (!impl_) return std::string{};
     return std::string{impl_->ctx.actor().str()};
@@ -625,6 +635,50 @@ Result<void> Inference::ensure_committed() {
     }
     if (impl_->committed) {
         return Result<void>::ok();
+    }
+    return commit();
+}
+
+Result<LedgerCheckpoint> Inference::commit_then_attest() {
+    // Combined op: commit() then return a fresh checkpoint via the
+    // runtime's ledger. Surfaces commit() errors directly — including
+    // the invalid_argument returned by commit() when run() hasn't been
+    // called yet. If the handle is already committed, we skip the
+    // commit step (commit() is itself idempotent within the handle,
+    // but we don't even pay for that branch here) and just mint the
+    // checkpoint. The checkpoint is signed against the current chain
+    // head — i.e. it carries the seq AT the moment of the call, not
+    // the seq of this inference's commit; sidecars using this for
+    // external attestation typically want the latest head, not a
+    // fixed pin.
+    if (!impl_) {
+        return Error::invalid("commit_then_attest called on null handle");
+    }
+    if (!impl_->committed) {
+        auto c = commit();
+        if (!c) return c.error();
+    }
+    return impl_->rt->ledger().checkpoint();
+}
+
+Result<void> Inference::commit_with_metadata(
+        const std::unordered_map<std::string, std::string>& md) {
+    // Apply each metadata pair, then commit. Stops on first
+    // add_metadata failure and surfaces it WITHOUT committing — the
+    // caller can inspect what landed via has_metadata(), retract via
+    // clear_metadata(), and retry. Empty map → just commit().
+    //
+    // We forward the values through nlohmann::json string construction
+    // so the underlying add_metadata sees the same JSON shape it
+    // would from a direct call. Reserved-key / empty-key / post-
+    // commit semantics are inherited from add_metadata — this method
+    // adds no validation of its own.
+    if (!impl_) {
+        return Error::invalid("commit_with_metadata called on null handle");
+    }
+    for (const auto& [key, value] : md) {
+        auto r = add_metadata(key, nlohmann::json(value));
+        if (!r) return r.error();
     }
     return commit();
 }
