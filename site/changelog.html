@@ -208,7 +208,7 @@
     <a class="status__brand" href="index.html">
       <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
       <span class="brand-word">asclepius</span>
-      <span class="brand-version">v0.6.0</span>
+      <span class="brand-version">v0.6.1</span>
     </a>
     <nav class="status__nav" aria-label="primary">
       <a href="index.html#manifesto">manifesto</a>
@@ -269,7 +269,57 @@
 
         <article class="ch__rel ch__rel--current h-entry">
           <header class="ch__ver">
-            <b class="p-name">v0.6.0</b><time class="dt-published" datetime="2026-04-28">2026-04-28</time><span class="pill">current</span>
+            <b class="p-name">v0.6.1</b><time class="dt-published" datetime="2026-04-28">2026-04-28</time><span class="pill">current</span>
+          </header>
+          <p class="ch__caption p-summary">
+            <em>Forensic composite filters, India-profile sugar, percentile shorthands.</em>
+            Round 91 lands the verbs the substrate kept reaching for —
+            an actor + patient ledger filter for "every entry where
+            clinician X touched patient Y," a status-scoped tail and a
+            peak-throughput cell for incident archaeology, the
+            <code>p50</code> / <code>p90</code> / <code>p95</code>
+            histogram shorthands every dashboard cell wanted without
+            spelling out <code>percentile(...)</code>, a bulk metric reset
+            keyed by prefix, drift-monitor totals and bin-midpoint /
+            confidence-interval probes, and three free-function status
+            sugars over <code>ConsentArtefact</code> alongside graph and
+            override sugar (<code>edges_count_for_relation</code>,
+            <code>has_path</code>, <code>active_for_patient</code>,
+            <code>oldest_pending</code>, <code>active_for_actor</code>).
+            Runtime grows <code>Inference::tag_priority(label)</code> as
+            the composed sugar over <code>set_priority</code>, plus
+            <code>quick_status_line</code>, <code>list_recent_event_types</code>,
+            and <code>failure_count_in_window</code> as the windowed
+            forensic cells a status-bar widget reads.
+            <em>No on-disk format changes; no kernel API breaks</em>.
+          </p>
+          <ul class="ch__items">
+            <li class="add"><b>add</b><span><code>Ledger::range_for_actor_and_patient(actor, patient)</code> — composite filter intersecting actor and patient axes in one query. The "every entry where clinician X touched patient Y" view a forensic operator reads without composing <code>tail_by_actor</code> with a manual filter; sibling of <code>range_for_actor_and_event_type</code> on the patient axis.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::tail_with_status(status, n)</code> — last <code>n</code> committed inferences with the given <code>InferenceStatus</code>, newest first. The status-scoped sibling of <code>recent_failures(n)</code>: that one folds every non-<code>ok</code>, this one names one band — every <code>blocked</code>, every <code>timeout</code>, every <code>cancelled</code> on its own axis.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::peak_throughput_per_second()</code> — highest one-second observed entry-rate over the chain's lifespan. The peak-load cell a capacity dashboard reads alongside <code>seq_density()</code>'s lifetime average; "what was the busiest second this chain has ever seen?" without re-bucketing timestamps by hand.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::find_first_consent_grant_for(patient)</code> — earliest <code>consent.granted</code> entry naming this patient. The "when did this person first authorise us?" cell a patient-rights workflow reads first; <code>not_found</code> when no grant exists. Sibling of <code>find_first_for_actor</code> on the consent axis.</span></li>
+            <li class="add"><b>add</b><span><code>Ledger::head_attestation_hex_short()</code> — 24-char compact form of <code>head_attestation_hex()</code>, suitable for status badges and tweetable banners where even the dotted variant runs too wide. <code>head=12hex:keyid=8hex:sig=4hex</code> shape; cheaper than parsing the full attestation.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::p50()</code> / <code>p90()</code> / <code>p95()</code> — percentile shorthands paired with <code>p99()</code>. The operator vocabulary every dashboard cell wanted without spelling out <code>percentile(50.0)</code> / <code>percentile(90.0)</code> / <code>percentile(95.0)</code> at every call site.</span></li>
+            <li class="add"><b>add</b><span><code>MetricRegistry::reset_counter_pattern(prefix)</code> — bulk reset by prefix; zeroes every counter whose name starts with <code>prefix</code> in one pass, returning the number reset. Distinct from <code>reset_all_counters()</code> (everything) and <code>reset()</code> (everything plus histograms): the deliberate "wipe the <code>policy.*</code> namespace, leave the rest alone" verb.</span></li>
+            <li class="add"><b>add</b><span><code>DriftMonitor::observation_total()</code> — sum of observation counts across every registered feature in the current window. The "how much has the monitor seen, period?" cell paired with <code>feature_count_observed()</code> on the cardinality axis.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::bin_midpoint(i)</code> — the centre <code>x</code>-value for bin <code>i</code>, computed from the constructed <code>[lo, hi]</code> shape. The cheap cell a sparkline tooltip or a CDF chart reads without re-deriving bin width by hand.</span></li>
+            <li class="add"><b>add</b><span><code>Histogram::confidence_interval_95()</code> — <code>{mean - 1.96σ, mean + 1.96σ}</code> pair across the binned distribution. The single shape a status row reads when "what's the typical band?" is the question and the assumption of normality is acceptable; pairs with <code>iqr()</code> for the robust-spread alternative.</span></li>
+            <li class="add"><b>add</b><span><code>is_active(a)</code> / <code>is_expired(a)</code> / <code>is_revoked(a)</code> — free-function <code>noexcept</code> bool sugar over <code>ConsentArtefact</code>'s <code>status</code> field. The shape sidecars, exporters, and ABDM-side adapters reach for without unwrapping the enum at every call site.</span></li>
+            <li class="add"><b>add</b><span><code>FamilyGraph::edges_count_for_relation(relation)</code> — count of edges with a particular <code>FamilyRelation</code> in O(1) without materializing <code>counts_by_relation()</code>'s map. The cheap cell a "how many parent-for-minor edges?" row reads.</span></li>
+            <li class="add"><b>add</b><span><code>FamilyGraph::has_path(proxy, subject)</code> — sugar over <code>can_consent_for(proxy, subject)</code> with the explicit "is there a path?" vocabulary a UI surface reads naturally. Same hot-path noexcept contract.</span></li>
+            <li class="add"><b>add</b><span><code>EmergencyOverride::active_for_patient(patient)</code> — vector of overrides currently active (not yet backfilled) for a particular patient, ordered by <code>activated_at</code> ascending. The cohort projection an ED-triage dashboard reads.</span></li>
+            <li class="add"><b>add</b><span><code>EmergencyOverride::oldest_pending()</code> — <code>Result&lt;EmergencyOverrideToken&gt;</code>; the oldest token that is not yet backfilled, regardless of patient. <code>not_found</code> when none. The "what's the oldest break-glass we still owe paperwork on?" pointer a compliance dashboard reads first.</span></li>
+            <li class="add"><b>add</b><span><code>EmergencyOverride::active_for_actor(actor)</code> — vector of currently-pending overrides activated by a particular actor. The per-clinician projection an audit row reads alongside <code>active_for_patient</code>.</span></li>
+            <li class="add"><b>add</b><span><code>Inference::tag_priority(label)</code> — sugar that composes <code>tag(label)</code> and <code>set_priority(label)</code> in one call when the priority should also surface on the metadata <code>tag</code> axis. Validates against the closed set <code>{low, normal, high, critical}</code> like <code>set_priority</code> alone.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::quick_status_line()</code> — terse one-line ASCII status ahead of <code>quick_status()</code>'s richer form. The string a status-bar widget reads in 80 columns; cheaper than <code>status_line()</code>'s policy / drift-feature breakdown.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::list_recent_event_types(window_ms)</code> — sorted vector of distinct event-type strings observed within the last <code>window_ms</code> milliseconds. The "what kinds of activity have landed recently?" probe a forensic operator reads without composing <code>events_in_window_by_type</code> with a clock.</span></li>
+            <li class="add"><b>add</b><span><code>Runtime::failure_count_in_window(window)</code> — count of inferences with non-<code>ok</code> status committed within the trailing window. The single number a SLO dashboard reads when "how many failures in the last hour?" is the question, distinct from <code>recent_failures(n)</code>'s materialized vector.</span></li>
+          </ul>
+        </article>
+
+        <article class="ch__rel h-entry">
+          <header class="ch__ver">
+            <b class="p-name">v0.6.0</b><time class="dt-published" datetime="2026-04-28">2026-04-28</time><span class="pill">released</span>
           </header>
           <p class="ch__caption p-summary">
             <em>India profile — ABDM artefact, family graph, DPDP break-glass.</em>

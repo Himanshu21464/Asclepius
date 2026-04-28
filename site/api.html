@@ -427,6 +427,16 @@
       <dd><pre>Result&lt;std::uint64_t&gt; distinct_inference_ids_count()</pre><p>Cardinality of distinct <code>inference_id</code> values across every <code>inference.committed</code> entry. Streams via <code>for_each</code> with a substring prefilter; O(distinct ids) memory. The cell capacity dashboards and idempotency probes read when the question is "how many unique inferences has this chain witnessed?" without enumerating them.</p></dd>
       <dt><code>aborted_inference_count</code></dt>
       <dd><pre>Result&lt;std::uint64_t&gt; aborted_inference_count()</pre><p>Count of <code>inference.aborted</code> entries — runs that started but never committed (timeout, cancellation, RAII drop without commit). Sugar peer of <code>count_consent_events</code>: tight counter loop, O(1) memory. The reliability-dashboard total without unpacking every body for its <code>status</code> field.</p></dd>
+      <dt><code>range_for_actor_and_patient</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; range_for_actor_and_patient(const ActorId&amp; actor, const PatientId&amp; patient)</pre><p>Composite filter intersecting actor and patient axes in one query — every entry where clinician X touched patient Y, no matter the event type. Sibling of <code>range_for_actor_and_event_type</code> on the patient axis; the shape a forensic operator who already knows the two parties reaches for without composing <code>tail_by_actor</code> with a manual filter.</p></dd>
+      <dt><code>tail_with_status</code></dt>
+      <dd><pre>Result&lt;std::vector&lt;LedgerEntry&gt;&gt; tail_with_status(InferenceStatus status, std::size_t n)</pre><p>The last <code>n</code> committed inferences with the given status, newest first. Status-scoped sibling of <code>recent_failures(n)</code>: that one folds every non-<code>ok</code> band, this one names one — every <code>blocked</code>, every <code>timeout</code>, every <code>cancelled</code> on its own axis. The shape an SLO row reads when only one band is wanted.</p></dd>
+      <dt><code>peak_throughput_per_second</code></dt>
+      <dd><pre>std::uint64_t peak_throughput_per_second()</pre><p>Highest one-second observed entry-rate over the chain's lifespan. The peak-load cell a capacity dashboard reads alongside <code>seq_density()</code>'s lifetime average — "what was the busiest second this chain has ever seen?" without re-bucketing timestamps by hand. Returns 0 on an empty chain.</p></dd>
+      <dt><code>find_first_consent_grant_for</code></dt>
+      <dd><pre>Result&lt;LedgerEntry&gt; find_first_consent_grant_for(const PatientId&amp; patient)</pre><p>Earliest <code>consent.granted</code> entry naming this patient — the "when did this person first authorise us?" cell a patient-rights workflow reads first. <code>not_found</code> when no grant exists; sibling of <code>find_first_for_actor</code> on the consent axis.</p></dd>
+      <dt><code>head_attestation_hex_short</code></dt>
+      <dd><pre>std::string head_attestation_hex_short()</pre><p>24-char compact form of <code>head_attestation_hex()</code> — <code>head=&lt;12hex&gt;:keyid=&lt;8hex&gt;:sig=&lt;4hex&gt;</code>, no JSON, no newline. Suitable for status badges and tweetable banners where even the dotted variant runs too wide; cheaper than parsing the full attestation.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -696,6 +706,12 @@
     <dd><pre>const char* to_string(ConsentArtefact::Status)</pre></dd>
     <dt><code>artefact_status_from_string</code></dt>
     <dd><pre>Result&lt;ConsentArtefact::Status&gt; artefact_status_from_string(std::string_view)</pre></dd>
+    <dt><code>is_active</code></dt>
+    <dd><pre>bool is_active(const ConsentArtefact&amp; a) noexcept</pre><p>Free-function <code>noexcept</code> bool sugar — true iff <code>a.status == granted</code>. The shape sidecars, exporters, and ABDM-side adapters reach for without unwrapping the enum at every call site.</p></dd>
+    <dt><code>is_expired</code></dt>
+    <dd><pre>bool is_expired(const ConsentArtefact&amp; a) noexcept</pre><p>Free-function <code>noexcept</code> bool sugar — true iff <code>a.status == expired</code>. Sibling of <code>is_active</code> on the lifecycle axis.</p></dd>
+    <dt><code>is_revoked</code></dt>
+    <dd><pre>bool is_revoked(const ConsentArtefact&amp; a) noexcept</pre><p>Free-function <code>noexcept</code> bool sugar — true iff <code>a.status == revoked</code>. The third lifecycle predicate; together with <code>is_active</code> and <code>is_expired</code> covers every artefact state without spelling out the enum.</p></dd>
   </dl>
 
   <h3>family relation — enum</h3>
@@ -747,6 +763,10 @@
       <dd><pre>void set_observer(Observer obs)</pre><p>Install (or clear, by passing {}) the observer fired on <code>recorded</code> / <code>removed</code> events.</p></dd>
       <dt><code>summary_string</code></dt>
       <dd><pre>std::string summary_string()</pre><p>Single-line ASCII summary for ops dashboards.</p></dd>
+      <dt><code>edges_count_for_relation</code></dt>
+      <dd><pre>std::size_t edges_count_for_relation(FamilyRelation relation)</pre><p>O(1) cell — count of edges with a particular <code>FamilyRelation</code> in the graph, without materializing the <code>counts_by_relation()</code> map. The cheap "how many parent-for-minor edges?" row a per-relation dashboard reads.</p></dd>
+      <dt><code>has_path</code></dt>
+      <dd><pre>bool has_path(const PatientId&amp; proxy, const PatientId&amp; subject) noexcept</pre><p>Sugar over <code>can_consent_for(proxy, subject)</code> with explicit "is there a path?" vocabulary a UI surface reads naturally. Same hot-path <code>noexcept</code> contract; never throws, never allocates.</p></dd>
     </dl>
   </article>
 
@@ -800,6 +820,12 @@
       <dd><pre>Summary summary()</pre><p>Aggregate operator probe — total / pending / overdue / completed counts.</p></dd>
       <dt><code>summary_string</code></dt>
       <dd><pre>std::string summary_string()</pre><p>Single-line ASCII summary for ops dashboards.</p></dd>
+      <dt><code>active_for_patient</code></dt>
+      <dd><pre>std::vector&lt;EmergencyOverrideToken&gt; active_for_patient(const PatientId&amp; patient)</pre><p>Currently-pending overrides (not yet backfilled) for a particular patient, ordered by <code>activated_at</code> ascending. The cohort projection an ED-triage dashboard reads alongside <code>pending_backfills()</code> on the per-patient axis.</p></dd>
+      <dt><code>oldest_pending</code></dt>
+      <dd><pre>Result&lt;EmergencyOverrideToken&gt; oldest_pending()</pre><p>The oldest token still awaiting a backfill, regardless of patient or actor. <code>not_found</code> when none. The "what's the oldest break-glass we still owe paperwork on?" pointer a compliance dashboard reads first, ahead of <code>overdue_backfills()</code>'s vector.</p></dd>
+      <dt><code>active_for_actor</code></dt>
+      <dd><pre>std::vector&lt;EmergencyOverrideToken&gt; active_for_actor(const ActorId&amp; actor)</pre><p>Currently-pending overrides activated by a particular actor, ordered by <code>activated_at</code> ascending. The per-clinician projection an audit row reads alongside <code>active_for_patient</code>; sibling on the actor axis.</p></dd>
     </dl>
   </article>
 </section>
@@ -1126,6 +1152,8 @@
       <dd><pre>bool is_pending() noexcept</pre><p><code>noexcept</code> bool — true iff <code>has_run()</code> AND <code>!is_committed()</code>. The "is there work outstanding on this handle?" predicate a graceful-shutdown sweep reads without composing two booleans at the call site; sidecars walking a vector of handles during drain reach for this to pick out the ones that still need <code>ensure_committed()</code>. Distinct from <code>has_run()</code> (true after run regardless of commit) and <code>is_committed()</code> (true only after commit).</p></dd>
       <dt><code>commit_with_metadata</code></dt>
       <dd><pre>Result&lt;void&gt; commit_with_metadata(const std::unordered_map&lt;std::string, std::string&gt;&amp; md)</pre><p>Bulk <code>add_metadata</code> + <code>commit</code> in one call — for each <code>{key, value}</code>, calls <code>add_metadata(key, value)</code>, then <code>commit()</code>. Stops on the first <code>add_metadata</code> failure and surfaces it without committing; the caller can inspect what landed via <code>has_metadata()</code> and retry. Empty map degenerates to plain <code>commit()</code>. The shape sidecars want when metadata gathered over an inference's lifetime needs to apply atomically without threading the loop through every call site.</p></dd>
+      <dt><code>tag_priority</code></dt>
+      <dd><pre>Result&lt;void&gt; tag_priority(std::string_view label)</pre><p>Composed sugar — calls <code>tag(label)</code> and <code>set_priority(label)</code> in one shot when the priority should also surface on the metadata <code>tag</code> axis. Validates against the closed set <code>{low, normal, high, critical}</code> like <code>set_priority</code> alone; <code>invalid_argument</code> outside the set. The cell a queue-admission gate or a load-shed pipeline reads when both metadata facets must move together.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1248,6 +1276,12 @@
       <dd><pre>Result&lt;std::size_t&gt; flush_consent_to_metrics()</pre><p>Materialize four consent counters into the runtime's <code>MetricRegistry</code>: <code>consent.tokens.active</code>, <code>consent.tokens.total</code>, <code>consent.tokens.expired</code>, <code>consent.patients.active</code>. Returns the number of metrics written (4). The bridge from <code>ConsentRegistry</code> state to Prometheus exposition; pairs with <code>flush_drift_to_metrics()</code> on the consent axis. Set-not-inc semantics: each call resets and rewrites the counter so successive flushes reflect live counts rather than accumulating.</p></dd>
       <dt><code>current_seq</code></dt>
       <dd><pre>std::uint64_t current_seq()</pre><p>Sugar over <code>ledger().length()</code> with a <code>std::uint64_t</code> return type that matches <code>LedgerEntry</code>'s <code>seq</code>. Different shape from <code>ledger_length()</code> (<code>std::size_t</code>) — this is the spelling sidecars reach for when threading a "current seq" reference through queue metadata, response headers, or watch-cursor APIs without a <code>static_cast</code> at every call site.</p></dd>
+      <dt><code>quick_status_line</code></dt>
+      <dd><pre>std::string quick_status_line()</pre><p>Terser one-line ASCII status ahead of <code>quick_status()</code>'s richer form — <code>asclepius v&lt;ver&gt; · ledger=&lt;n&gt; · key=&lt;id&gt;</code> in 80 columns. Cheaper than <code>status_line()</code>'s policy / drift-feature breakdown; the cell a status-bar widget reads when only the densest banner is wanted.</p></dd>
+      <dt><code>list_recent_event_types</code></dt>
+      <dd><pre>std::vector&lt;std::string&gt; list_recent_event_types(std::uint64_t window_ms)</pre><p>Sorted vector of distinct event-type strings observed within the last <code>window_ms</code> milliseconds. The "what kinds of activity have landed recently?" probe a forensic operator reads without composing <code>events_in_window_by_type</code> with a clock; pairs with <code>recent_inferences(n)</code> when only the inference axis is wanted.</p></dd>
+      <dt><code>failure_count_in_window</code></dt>
+      <dd><pre>std::uint64_t failure_count_in_window(std::chrono::milliseconds window)</pre><p>Count of inferences with non-<code>ok</code> status committed within the trailing <code>window</code>. The single number a SLO dashboard reads when "how many failures in the last hour?" is the question; distinct from <code>recent_failures(n)</code>'s materialized vector and from <code>aborted_inference_count()</code>'s lifetime total. Returns 0 when nothing failed in the window.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1344,6 +1378,16 @@
       <dd><pre>std::uint64_t observed_max_bin_count()</pre><p>Largest single-bin observation count — the modal bin's <em>count</em>, distinct from <code>nth_largest_bin()</code> which returns the modal bin's <em>index</em>. Returns 0 on an empty histogram. Pairs with <code>total()</code> for concentration ratios without two locks.</p></dd>
       <dt><code>is_balanced</code></dt>
       <dd><pre>bool is_balanced(double max_share = 0.4)</pre><p>Heuristic shape probe — true iff no single bin holds more than <code>max_share</code> of total mass (default 0.4). <code>max_share</code> is clamped to <code>[0, 1]</code>. An empty histogram is vacuously balanced (returns <code>true</code>). The one-shot dashboard predicate that flags "everything is collapsing into one bin" pathologies without unpacking the counts vector.</p></dd>
+      <dt><code>p50</code></dt>
+      <dd><pre>double p50()</pre><p>Convenience over <code>percentile(50.0)</code> — the median in the operator vocabulary every dashboard cell wants without spelling out the percentile argument. Sibling of <code>p99()</code> for the central-tendency-vs-tail pair a latency row reads in one line.</p></dd>
+      <dt><code>p90</code></dt>
+      <dd><pre>double p90()</pre><p>Convenience over <code>percentile(90.0)</code> — the SLO band most production dashboards plot alongside <code>p99()</code>. Cheaper at the call site than <code>percentile(90.0)</code> and lines up with the rest of the percentile shorthand family.</p></dd>
+      <dt><code>p95</code></dt>
+      <dd><pre>double p95()</pre><p>Convenience over <code>percentile(95.0)</code> — the latency band SLOs that don't reach for <code>p99</code> default to. Same shape contract as <code>p50()</code>, <code>p90()</code>, and <code>p99()</code>.</p></dd>
+      <dt><code>bin_midpoint</code></dt>
+      <dd><pre>Result&lt;double&gt; bin_midpoint(std::size_t i)</pre><p>The centre <code>x</code>-value for bin <code>i</code>, computed from the constructed <code>[lo, hi]</code> shape. The cheap cell a sparkline tooltip or a CDF chart reads without re-deriving bin width by hand; pairs with <code>bin_at(i)</code> for the (count, midpoint) pair a custom plotter reads. Returns <code>out_of_range</code> when <code>i</code> exceeds the bin count.</p></dd>
+      <dt><code>confidence_interval_95</code></dt>
+      <dd><pre>std::pair&lt;double, double&gt; confidence_interval_95()</pre><p>The pair <code>{mean - 1.96σ, mean + 1.96σ}</code> across the binned distribution — a normality-assuming 95% confidence band. The single shape a status row reads when "what's the typical band?" is the question; pairs with <code>iqr()</code> for the robust-spread alternative when the tails are heavy. Returns <code>{0.0, 0.0}</code> on an empty histogram.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1407,6 +1451,8 @@
       <dd><pre>bool has_any_severe() noexcept</pre><p><code>noexcept</code> bool — true iff at least one registered feature is currently in the <code>severe</code> band. Sibling of <code>any_severe()</code> with explicit <em>any</em> vocabulary the dashboard cell wants; never throws, never allocates. The cheapest startup-gate or page-the-on-call predicate ahead of <code>list_severe_features()</code> for the named drill-down.</p></dd>
       <dt><code>worst_psi_feature</code></dt>
       <dd><pre>Result&lt;std::pair&lt;std::string, DriftReport&gt;&gt; worst_psi_feature()</pre><p><code>(name, full DriftReport)</code> for the feature with the highest current PSI. Distinct from <code>most_drifted_feature()</code> which returns just the name — this returns the report alongside, so a dashboard renders severity, KS, EMD, and sample counts without a second lookup. <code>not_found</code> on an empty registry; PSI ties are broken alphabetically (matching <code>most_drifted_feature()</code>) so the result is deterministic.</p></dd>
+      <dt><code>observation_total</code></dt>
+      <dd><pre>std::uint64_t observation_total()</pre><p>Sum of observation counts across every registered feature in the current window. The "how much has the monitor seen, period?" cell paired with <code>feature_count_observed()</code> on the cardinality axis; distinct from <code>observation_count(feature)</code> (one feature) and from <code>baseline_count(feature)</code> (frozen reference). Returns 0 on an empty registry.</p></dd>
     </dl>
   </article>
   <article class="api-class">
@@ -1489,6 +1535,8 @@
       <dd><pre>std::vector&lt;std::string&gt; counters_above(std::uint64_t threshold)</pre><p>Sorted vector of counter names whose value is <em>strictly greater</em> than <code>threshold</code>. The "show me only the noisy counters" probe — narrows a snapshot to high-count rows without parsing Prometheus exposition or diffing a <code>counter_snapshot()</code>. <code>threshold = 0</code> returns every non-zero counter; <code>std::uint64_t</code> max conceptually returns the empty set. Alphabetical for diff-friendly output.</p></dd>
       <dt><code>histogram_count_total</code></dt>
       <dd><pre>std::uint64_t histogram_count_total()</pre><p>Sum of observation counts across every registered histogram. Distinct from <code>counter_total()</code> (which sums counter values) and from <code>histogram_count(name)</code> (one histogram). Returns 0 on an empty registry or when every histogram has zero observations. The "how much have histograms seen, period?" cell paired with <code>counter_total()</code> on the histogram axis.</p></dd>
+      <dt><code>reset_counter_pattern</code></dt>
+      <dd><pre>std::size_t reset_counter_pattern(std::string_view prefix)</pre><p>Bulk reset by prefix — zero every counter whose name starts with <code>prefix</code> in one pass; returns the number reset. Distinct from <code>reset_all_counters()</code> (everything in the registry) and from <code>reset()</code> (everything plus histogram observations): <code>reset_counter_pattern</code> is the deliberate "wipe the <code>policy.*</code> namespace, leave the rest alone" verb a per-namespace recalibration ceremony reaches for.</p></dd>
     </dl>
   </article>
   <h3>free functions</h3>

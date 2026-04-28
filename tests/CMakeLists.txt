@@ -18,6 +18,7 @@ add_executable(asclepius_tests
     test_access_constraint.cpp
     test_runtime.cpp
     test_evaluation.cpp
+    test_india_bundles.cpp
     test_fhir.cpp
 )
 

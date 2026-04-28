@@ -250,13 +250,38 @@ should override the sidecar with a HSM-fronted KeyStore.</p>
 </tr>
 <tr>
 <td><code>consent.granted</code></td>
-<td><code>ConsentRegistry</code> (planned)</td>
+<td><code>ConsentRegistry</code></td>
 <td>a consent token was issued</td>
 </tr>
 <tr>
 <td><code>consent.revoked</code></td>
-<td><code>ConsentRegistry</code> (planned)</td>
+<td><code>ConsentRegistry</code></td>
 <td>a consent token was revoked</td>
+</tr>
+<tr>
+<td><code>consent.family.recorded</code></td>
+<td><code>FamilyGraph::record_relation</code></td>
+<td>a proxy-for-subject family edge was added (India profile, ADR-013)</td>
+</tr>
+<tr>
+<td><code>consent.family.removed</code></td>
+<td><code>FamilyGraph::remove_relation</code></td>
+<td>a family edge was removed</td>
+</tr>
+<tr>
+<td><code>consent.override.granted</code></td>
+<td><code>EmergencyOverride::activate</code></td>
+<td>DPDP § 7 break-glass activated; carries actor, patient, reason, deadline</td>
+</tr>
+<tr>
+<td><code>consent.override.attested</code></td>
+<td><code>EmergencyOverride::backfill</code></td>
+<td>break-glass backfilled within window with an <code>evidence_id</code></td>
+</tr>
+<tr>
+<td><code>consent.override.expired</code></td>
+<td><code>EmergencyOverride</code> (sweeper)</td>
+<td>a backfill window passed without an attestation; surfaces in <code>overdue_backfills()</code></td>
 </tr>
 <tr>
 <td><code>policy.config_change</code></td>

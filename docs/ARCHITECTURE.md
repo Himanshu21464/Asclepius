@@ -194,6 +194,34 @@ manifest. No network access required.
 * **An identity provider.** Actors are opaque strings; they come from
   whatever IdP the customer already runs.
 
+## Profile primitives (added in v0.6 — ADR-013)
+
+Three vendor-neutral types layer on `ConsentRegistry` to express
+multi-party and break-glass consent shapes the bare token model does
+not. They are deliberately *not* wired into the Runtime as required
+components — a deployment that does not instantiate them is
+unaffected. The first profile that exercises them is India / ABDM, but
+the types are regime-agnostic.
+
+* **`ConsentArtefact`** — JSON-serialisable wire shape for an outbound
+  consent record. Bidirectional mapping with `ConsentToken` via
+  `artefact_from_token` / `token_from_artefact`. Externally signable.
+* **`FamilyGraph`** — proxy-for-subject relation graph. The registry
+  consults the graph alongside the token: a token issued by a proxy on
+  a subject's behalf is honoured iff a valid edge exists at *grant
+  time*. Edge writes emit `consent.family.recorded` /
+  `consent.family.removed` ledger events.
+* **`EmergencyOverride`** — DPDP § 7 break-glass with a configurable
+  mandatory backfill window (default 72h). Activation emits
+  `consent.override.granted` with actor / patient / reason / deadline;
+  backfill emits `consent.override.attested` with a caller-supplied
+  `evidence_id`; the sweeper emits `consent.override.expired` for any
+  token whose deadline passes without attestation.
+
+The associated threat model is documented at `THREAT_MODEL.md` § A7
+(emergency-override abuse) and § A8 (family-graph forgery). The wire
+events are listed in `SPEC.md` § Standard event types.
+
 ## Future work
 
 * **Object-store body archive.** Encrypted-at-rest storage of full inputs
@@ -201,5 +229,7 @@ manifest. No network access required.
 * **HTTP/gRPC sidecar (`asclepius-svc`).** For non-C++ tools.
 * **Policy DSL.** Today policies are C++ classes. A YAML/JSON DSL with a
   linter (`asclepius policy lint`) is on the roadmap.
-* **Conformance suite.** Levels L1 (audit), L2 (drift), L3 (prospective
-  evidence) with a third-party-runnable test battery.
+* ~~**Conformance suite.** Levels L1 (audit), L2 (drift), L3 (prospective
+  evidence) with a third-party-runnable test battery.~~ Shipped in
+  v0.5–v0.6: L1 / L2 / L3 plus the L2-Medical scaffold against the
+  ACL 2025 Asclepius-Med benchmark. See `/conformance`.

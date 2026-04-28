@@ -121,6 +121,8 @@
 <a href="#a4-bundle-forgery" class="toc-l2">A4. Bundle forgery</a>
 <a href="#a5-side-channel-phi-leakage-via-ledger" class="toc-l2">A5. Side-channel PHI leakage via ledger</a>
 <a href="#a6-drift-undetected" class="toc-l2">A6. Drift undetected</a>
+<a href="#a7-emergency-override-abuse" class="toc-l2">A7. Emergency-override abuse</a>
+<a href="#a8-family-graph-forgery" class="toc-l2">A8. Family-graph forgery</a>
 <a href="#out-of-scope-today" class="toc-l1">Out-of-scope (today)</a>
 <a href="#what-verify-proves" class="toc-l1">What verify() proves</a>
 <a href="#reporting" class="toc-l1">Reporting</a>
@@ -194,6 +196,42 @@ KS and EMD are also exposed for triangulation.</p>
 <p><strong>Residual risk:</strong> Drift detection is statistical; thresholds need
 calibration per customer. Ship dashboards with severity transitions, not
 just snapshots.</p>
+<h3 id="a7-emergency-override-abuse">A7. Emergency-override abuse</h3>
+<p>A clinician activates <code>EmergencyOverride</code> (DPDP § 7 break-glass) and
+either fails to backfill the documented justification, or treats the
+override as a permanent bypass for routine workflows.</p>
+<p><strong>Mitigation:</strong> Every activation writes a <code>consent.override.granted</code>
+ledger entry immediately, with the actor, patient, free-text reason,
+and a hard <code>backfill_deadline</code> (default 72h). The kernel surfaces
+<code>overdue_backfills()</code> for dashboards and <code>is_overdue(token_id)</code> for
+per-token alerts. Backfill takes an <code>evidence_id</code> the operator's
+compliance regime accepts (signed clinical note, scanned consent, ABDM
+artefact id) — the substrate is policy-neutral about <em>what</em> satisfies
+the backfill but enforces <em>that</em> one is filed before the deadline.</p>
+<p><strong>Residual risk:</strong> A clinician who falsifies a backfill evidence id
+still bypasses the deadline. The substrate cannot tell a real signed
+note from a fabricated one — that is a downstream attestation question.
+Mitigation: pair the backfill window with a sampled human-review
+sweep over the actor population.</p>
+<h3 id="a8-family-graph-forgery">A8. Family-graph forgery</h3>
+<p>A proxy (claimed adult child, parent, guardian, spouse) asserts
+authority over a subject they have no real-world relation to, in order
+to extract that subject's records via consent issued on the subject's
+behalf.</p>
+<p><strong>Mitigation:</strong> <code>FamilyGraph::record_relation</code> writes a
+<code>consent.family.recorded</code> ledger entry on every edge addition; the
+audit trail is complete and append-only. Consents granted on a
+subject's behalf are honoured iff a valid edge exists at consent-grant
+time, not at consent-use time — backdating an edge does not
+retroactively unlock past inferences. Proxy identity is enforced by
+<code>PatientId</code> strong typedef, so a proxy with no <code>PatientId</code> cannot be
+recorded.</p>
+<p><strong>Residual risk:</strong> The graph trusts the operator who records edges.
+Asclepius does not adjudicate civil-status claims — that is the
+identity provider's problem (ABDM consent manager, eIDAS, hospital
+registration). Mitigation: edges should be sourced from the same
+identity provider that issues the proxy's <code>PatientId</code>, never from the
+clinical workflow.</p>
 <h2 id="out-of-scope-today">Out-of-scope (today)</h2>
 <ul>
 <li><strong>Compromise of the signing key.</strong> If an attacker exfiltrates <code>&lt;db&gt;.key</code>

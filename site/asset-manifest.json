@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T16:03:36Z",
+  "generated_at": "2026-04-28T16:10:39Z",
   "algorithm": "SHA-256",
   "count": 94,
   "files": {
@@ -20,12 +20,12 @@
       "bytes": 18978
     },
     "api.html": {
-      "sha256": "7c79a4d801dd1724cfd7c4d48f6ec6d98e80cf029674f9e994033f251c49a685",
-      "bytes": 166992
+      "sha256": "d4f68ea77067d987070d97c14dd4f1d8e57f166cd7097f138ef4bc8076453e38",
+      "bytes": 177399
     },
     "architecture.html": {
-      "sha256": "a837ff1156569aa1007a79adca9b8c6a7e68ae69e10e9a09d2852ed8b69d873d",
-      "bytes": 24527
+      "sha256": "b2f0f9e71221e9c75899c7d42e2f12a019337e4d3fcbfe50db1cfe7755789ad5",
+      "bytes": 26748
     },
     "assets/apple-touch-icon.png": {
       "sha256": "db96009398e8d877d5529dbdfa9333064080e1486dbd90e35fe0768e3edb0bf8",
@@ -100,8 +100,8 @@
       "bytes": 22228
     },
     "changelog.html": {
-      "sha256": "a8c9cc83af4dfdea78cf32d063ecdacf4a962eded7b41b0359edd91d326bff90",
-      "bytes": 129646
+      "sha256": "dc0ef4ebeb68af03cb5887e6156bc629bde7243136a82b060989a07203eef02a",
+      "bytes": 138601
     },
     "cheatsheet.html": {
       "sha256": "77f4a44468f7a8e10460154e746c4f03d5d1189c747f04dd5ee519d4048be67a",
@@ -316,8 +316,8 @@
       "bytes": 27965
     },
     "schemas/audit-entry.v1.json": {
-      "sha256": "7307c3f2141f13ae8d276e101df080298fcd9ac3cfd7038e83efba387f019470",
-      "bytes": 6189
+      "sha256": "ff6bb786c89a589db70ef5990da9368e9ce0027b2c140b62e23f5a9690901b15",
+      "bytes": 6342
     },
     "security.html": {
       "sha256": "b8dac7a33b720dc3dc82f51253bc9ddd09e4b2870fd6d2be55c09545cee6030b",
@@ -336,15 +336,15 @@
       "bytes": 8876
     },
     "spec.html": {
-      "sha256": "6781622462bdb09e4859289681304b3482a57639625eb3b3278c71200620b221",
-      "bytes": 15466
+      "sha256": "8437d52c56df1648f728e86a33ee96d2182ff2fa218fb4e23019f7758a634cd5",
+      "bytes": 16362
     },
     "status.html": {
       "sha256": "997f7234a262f8307c42657299ff6296c60790326c901eeeb9239b38408edbe1",
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "8b70c7cd93c3bcec44ef36e26cdce124a900f22a79246088be358479d309d3d7",
+      "sha256": "30423c9bb8f7b749abee6652a3387ceaed19c764a84e46b5aaa4f042a5127b4b",
       "bytes": 1063
     },
     "styles.css": {
@@ -352,8 +352,8 @@
       "bytes": 98395
     },
     "threat-model.html": {
-      "sha256": "43ea4f096a264af2c596e37ee6ac87ab96d4c3226e122fb446cd1208e42af4cc",
-      "bytes": 15384
+      "sha256": "adfa4d78b606669118f4a035a1164684832e02fe550ed90060195288554304f4",
+      "bytes": 17996
     },
     "threat-tabletop.html": {
       "sha256": "969bb64067a31ffde8a41594b25d55eb4ce29bb37f2919c0e35f5c21df8a1cc2",

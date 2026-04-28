@@ -123,6 +123,7 @@
 <a href="#evidence-bundles" class="toc-l1">Evidence bundles</a>
 <a href="#threading-model" class="toc-l1">Threading model</a>
 <a href="#what-is-not-in-the-runtime" class="toc-l1">What is NOT in the runtime</a>
+<a href="#profile-primitives-added-in-v0-6-adr-013" class="toc-l1">Profile primitives (added in v0.6)</a>
 <a href="#future-work" class="toc-l1">Future work</a>
         <b style="margin-top: 1.6rem;">other docs</b>
         <a href="architecture.html" class="is-active">Architecture</a>
@@ -388,6 +389,32 @@ manifest. No network access required.</p>
 <li><strong>An identity provider.</strong> Actors are opaque strings; they come from
   whatever IdP the customer already runs.</li>
 </ul>
+<h2 id="profile-primitives-added-in-v0-6-adr-013">Profile primitives (added in v0.6 — ADR-013)</h2>
+<p>Three vendor-neutral types layer on <code>ConsentRegistry</code> to express
+multi-party and break-glass consent shapes the bare token model does
+not. They are deliberately <em>not</em> wired into the Runtime as required
+components — a deployment that does not instantiate them is
+unaffected. The first profile that exercises them is India / ABDM, but
+the types are regime-agnostic.</p>
+<ul>
+<li><strong><code>ConsentArtefact</code></strong> — JSON-serialisable wire shape for an outbound
+  consent record. Bidirectional mapping with <code>ConsentToken</code> via
+  <code>artefact_from_token</code> / <code>token_from_artefact</code>. Externally signable.</li>
+<li><strong><code>FamilyGraph</code></strong> — proxy-for-subject relation graph. The registry
+  consults the graph alongside the token: a token issued by a proxy on
+  a subject's behalf is honoured iff a valid edge exists at <em>grant
+  time</em>. Edge writes emit <code>consent.family.recorded</code> /
+  <code>consent.family.removed</code> ledger events.</li>
+<li><strong><code>EmergencyOverride</code></strong> — DPDP § 7 break-glass with a configurable
+  mandatory backfill window (default 72h). Activation emits
+  <code>consent.override.granted</code> with actor / patient / reason / deadline;
+  backfill emits <code>consent.override.attested</code> with a caller-supplied
+  <code>evidence_id</code>; the sweeper emits <code>consent.override.expired</code> for any
+  token whose deadline passes without attestation.</li>
+</ul>
+<p>The associated threat model is documented at <a href="threat-model.html#a7-emergency-override-abuse">THREAT_MODEL § A7</a>
+(emergency-override abuse) and <a href="threat-model.html#a8-family-graph-forgery">§ A8</a> (family-graph forgery). The wire
+events are listed in <a href="spec.html">SPEC § Standard event types</a>.</p>
 <h2 id="future-work">Future work</h2>
 <ul>
 <li><strong>Object-store body archive.</strong> Encrypted-at-rest storage of full inputs
@@ -395,8 +422,10 @@ manifest. No network access required.</p>
 <li><strong>HTTP/gRPC sidecar (<code>asclepius-svc</code>).</strong> For non-C++ tools.</li>
 <li><strong>Policy DSL.</strong> Today policies are C++ classes. A YAML/JSON DSL with a
   linter (<code>asclepius policy lint</code>) is on the roadmap.</li>
-<li><strong>Conformance suite.</strong> Levels L1 (audit), L2 (drift), L3 (prospective
-  evidence) with a third-party-runnable test battery.</li>
+<li><del><strong>Conformance suite.</strong> Levels L1 (audit), L2 (drift), L3 (prospective
+  evidence) with a third-party-runnable test battery.</del> Shipped in
+  v0.5–v0.6: L1 / L2 / L3 plus the L2-Medical scaffold against the
+  ACL 2025 Asclepius-Med benchmark. See <a href="conformance.html">/conformance</a>.</li>
 </ul>
 
         <hr>

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T16:03:35Z",
+  "generated_at": "2026-04-28T16:10:39Z",
   "count": 52,
   "pages": [
     {
@@ -96,6 +96,7 @@
         "Evidence bundles",
         "Threading model",
         "What is NOT in the runtime",
+        "Profile primitives (added in v0.6 — ADR-013)",
         "Future work"
       ]
     },
@@ -860,6 +861,8 @@
         "A4. Bundle forgery",
         "A5. Side-channel PHI leakage via ledger",
         "A6. Drift undetected",
+        "A7. Emergency-override abuse",
+        "A8. Family-graph forgery",
         "Out-of-scope (today)",
         "What verify() proves",
         "Reporting"

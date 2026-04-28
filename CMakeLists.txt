@@ -83,6 +83,7 @@ target_sources(asclepius
         src/consent/emergency_override.cpp
         src/evaluation/harness.cpp
         src/evaluation/bundle.cpp
+        src/evaluation/india_bundles.cpp
         src/runtime/runtime.cpp
         src/runtime/inference.cpp
         src/interop/fhir.cpp

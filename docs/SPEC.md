@@ -107,14 +107,19 @@ should override the sidecar with a HSM-fronted KeyStore.
 
 | event_type                  | source            | semantics                                                       |
 |-----------------------------|-------------------|-----------------------------------------------------------------|
-| `inference.committed`       | `Inference::commit`     | one row per successful inference (or one with `status` != `ok`) |
-| `inference.aborted`         | `~Inference`            | inference ran but was never committed                            |
-| `evaluation.ground_truth`   | `EvaluationHarness`     | ground truth attached for an inference                           |
-| `evaluation.override`       | `EvaluationHarness`     | clinician overrode the model output                              |
-| `consent.granted`           | `ConsentRegistry` (planned) | a consent token was issued                                      |
-| `consent.revoked`           | `ConsentRegistry` (planned) | a consent token was revoked                                     |
-| `policy.config_change`      | runtime config (planned)  | a policy was added, removed, or reconfigured                    |
-| `model.registered`          | governance (planned)      | a model id+version was registered for use                       |
+| `inference.committed`       | `Inference::commit`         | one row per successful inference (or one with `status` != `ok`) |
+| `inference.aborted`         | `~Inference`                | inference ran but was never committed                            |
+| `evaluation.ground_truth`   | `EvaluationHarness`         | ground truth attached for an inference                           |
+| `evaluation.override`       | `EvaluationHarness`         | clinician overrode the model output                              |
+| `consent.granted`           | `ConsentRegistry`           | a consent token was issued                                       |
+| `consent.revoked`           | `ConsentRegistry`           | a consent token was revoked                                      |
+| `consent.family.recorded`   | `FamilyGraph::record_relation` | a proxy-for-subject family edge was added (India profile, ADR-013) |
+| `consent.family.removed`    | `FamilyGraph::remove_relation` | a family edge was removed                                       |
+| `consent.override.granted`  | `EmergencyOverride::activate`  | DPDP § 7 break-glass activated; carries actor, patient, reason, deadline |
+| `consent.override.attested` | `EmergencyOverride::backfill`  | break-glass backfilled within window with an `evidence_id`     |
+| `consent.override.expired`  | `EmergencyOverride` (sweeper)  | a backfill window passed without an attestation; surfaces in `overdue_backfills()` |
+| `policy.config_change`      | runtime config (planned)    | a policy was added, removed, or reconfigured                     |
+| `model.registered`          | governance (planned)        | a model id+version was registered for use                        |
 
 The `body` shape per event_type is fixed; future versions will publish a
 JSON-Schema for each.

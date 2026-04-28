@@ -85,6 +85,50 @@ KS and EMD are also exposed for triangulation.
 calibration per customer. Ship dashboards with severity transitions, not
 just snapshots.
 
+### A7. Emergency-override abuse
+
+A clinician activates `EmergencyOverride` (DPDP § 7 break-glass) and
+either fails to backfill the documented justification, or treats the
+override as a permanent bypass for routine workflows.
+
+**Mitigation:** Every activation writes a `consent.override.granted`
+ledger entry immediately, with the actor, patient, free-text reason,
+and a hard `backfill_deadline` (default 72h). The kernel surfaces
+`overdue_backfills()` for dashboards and `is_overdue(token_id)` for
+per-token alerts. Backfill takes an `evidence_id` the operator's
+compliance regime accepts (signed clinical note, scanned consent, ABDM
+artefact id) — the substrate is policy-neutral about *what* satisfies
+the backfill but enforces *that* one is filed before the deadline.
+
+**Residual risk:** A clinician who falsifies a backfill evidence id
+still bypasses the deadline. The substrate cannot tell a real signed
+note from a fabricated one — that is a downstream attestation question.
+Mitigation: pair the backfill window with a sampled human-review
+sweep over the actor population.
+
+### A8. Family-graph forgery
+
+A proxy (claimed adult child, parent, guardian, spouse) asserts
+authority over a subject they have no real-world relation to, in order
+to extract that subject's records via consent issued on the subject's
+behalf.
+
+**Mitigation:** `FamilyGraph::record_relation` writes a
+`consent.family.recorded` ledger entry on every edge addition; the
+audit trail is complete and append-only. Consents granted on a
+subject's behalf are honoured iff a valid edge exists at consent-grant
+time, not at consent-use time — backdating an edge does not
+retroactively unlock past inferences. Proxy identity is enforced by
+`PatientId` strong typedef, so a proxy with no `PatientId` cannot be
+recorded.
+
+**Residual risk:** The graph trusts the operator who records edges.
+Asclepius does not adjudicate civil-status claims — that is the
+identity provider's problem (ABDM consent manager, eIDAS, hospital
+registration). Mitigation: edges should be sourced from the same
+identity provider that issues the proxy's `PatientId`, never from the
+clinical workflow.
+
 ## Out-of-scope (today)
 
 * **Compromise of the signing key.** If an attacker exfiltrates `<db>.key`
