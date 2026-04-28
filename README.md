@@ -353,7 +353,7 @@ managed evidence service are still placeholders.
 
 Treat it as an early-prototype substrate that already has a working core
 (runtime, ledger, policy chain, telemetry, consent, evaluation, CLI,
-Python bindings, 52 test cases / 687 assertions) and known gaps in the
+Python bindings, 1388 test cases / 35086 assertions) and known gaps in the
 edges around it.
 
 ## Status

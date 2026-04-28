@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstring>
+#include <deque>
 #include <fstream>
 #include <limits>
 #include <mutex>
@@ -830,6 +831,53 @@ Ledger::recent_failures(std::size_t n) const {
     return ring;
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::tail_with_status(std::string_view status, std::size_t n) const {
+    if (status.empty()) {
+        return Error::invalid("tail_with_status requires non-empty status");
+    }
+    if (n == 0) return std::vector<LedgerEntry>{};
+
+    // Build the full needle once: the canonical body shape is
+    // `..."status":"<status>"...`. The substring prefilter rejects
+    // bodies without the field before the JSON parse, mirroring
+    // find_inference_by_input_hash and recent_failures.
+    std::string needle;
+    needle.reserve(status.size() + 12);
+    needle.append("\"status\":\"");
+    needle.append(status.data(), status.size());
+    needle.push_back('"');
+
+    // Ring buffer of the last `n` matches, oldest-first; reversed on
+    // return so callers see most-recent-first. Mirrors recent_failures.
+    std::vector<LedgerEntry> ring;
+    ring.reserve(n);
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Only inference.committed entries carry a "status" body field.
+        if (e.header.event_type != "inference.committed") return true;
+        // Cheap substring prefilter before JSON parse.
+        if (e.body_json.find(needle) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("status");
+            if (it == j.end() || !it->is_string()) return true;
+            if (it->get<std::string>() != status) return true;
+        } catch (...) {
+            return true;
+        }
+        if (ring.size() < n) {
+            ring.push_back(e);
+        } else {
+            std::move(ring.begin() + 1, ring.end(), ring.begin());
+            ring.back() = e;
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    std::reverse(ring.begin(), ring.end());
+    return ring;
+}
+
 Result<Hash> Ledger::checksum_range(std::uint64_t start, std::uint64_t end) const {
     if (start > end) {
         return Error::invalid("checksum_range: start > end");
@@ -1216,6 +1264,38 @@ Result<std::string> Ledger::head_attestation_hex() const {
     if (sig_hex.size() > 16) sig_hex.resize(16);
 
     return head.hex() + ":" + kid + ":" + sig_hex;
+}
+
+std::string Ledger::head_attestation_hex_short() const {
+    // 24-char compact form distinct from head_attestation_hex (which is
+    // 64 + 1 + 16 + 1 + 16 = 98 chars). Layout:
+    //     <head_first_8>:<key_id_first_8>:<sig_hex_first_6>
+    // Total: 8 + 1 + 8 + 1 + 6 = 24 chars. Same Ed25519 signature
+    // pipeline as head_attestation_hex, just truncated harder for log
+    // line corners.
+    const auto& head = impl_->head;
+    auto sig = impl_->signer.sign(
+        Bytes{head.bytes.data(), head.bytes.size()});
+
+    static const char* d = "0123456789abcdef";
+    // Build only as many hex chars as we need for the first 6 of sig
+    // (3 leading bytes -> 6 hex). Cheap; avoids the full 128-char
+    // sig_hex allocation.
+    std::string sig_hex;
+    const std::size_t need_bytes = 3;  // 6 hex chars
+    sig_hex.resize(need_bytes * 2);
+    for (std::size_t i = 0; i < need_bytes && i < sig.size(); ++i) {
+        sig_hex[2 * i + 0] = d[(sig[i] >> 4) & 0xF];
+        sig_hex[2 * i + 1] = d[(sig[i] >> 0) & 0xF];
+    }
+
+    std::string head_hex = head.hex();
+    if (head_hex.size() > 8) head_hex.resize(8);
+    std::string kid = impl_->key_id;
+    if (kid.size() > 8) kid.resize(8);
+    if (sig_hex.size() > 6) sig_hex.resize(6);
+
+    return head_hex + ":" + kid + ":" + sig_hex;
 }
 
 std::string Ledger::summary_string() const {
@@ -1792,6 +1872,53 @@ Ledger::range_for_actor_and_event_type(std::string_view actor,
     return out;
 }
 
+Result<std::vector<LedgerEntry>>
+Ledger::range_for_actor_and_patient(std::string_view actor,
+                                    std::string_view patient) const {
+    if (actor.empty()) {
+        return Error::invalid(
+            "range_for_actor_and_patient requires non-empty actor");
+    }
+    if (patient.empty()) {
+        return Error::invalid(
+            "range_for_actor_and_patient requires non-empty patient");
+    }
+    // Build the full needle once: the canonical body shape produced by
+    // the runtime is `..."patient":"<id>"...`. The substring prefilter
+    // rejects unrelated bodies before the JSON parse, mirroring
+    // find_inference_by_input_hash.
+    std::string needle;
+    needle.reserve(patient.size() + 14);
+    needle.append("\"patient\":\"");
+    needle.append(patient.data(), patient.size());
+    needle.push_back('"');
+
+    std::vector<LedgerEntry> out;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Actor scope first — cheap header compare before any body work.
+        if (e.header.actor != actor) return true;
+        // Only inference.committed entries carry the "patient" body
+        // field today.
+        if (e.header.event_type != "inference.committed") return true;
+        // Cheap substring prefilter before JSON parse.
+        if (e.body_json.find(needle) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("patient");
+            if (it != j.end() && it->is_string() &&
+                it->get<std::string>() == patient) {
+                out.push_back(e);
+            }
+        } catch (...) {
+            // body is not JSON — ignore; defensive against future event
+            // types.
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    return out;
+}
+
 Result<std::vector<LedgerEntry>> Ledger::oldest_n(std::size_t n) const {
     if (n == 0) return std::vector<LedgerEntry>{};
     std::vector<LedgerEntry> out;
@@ -2007,6 +2134,48 @@ Ledger::find_inference_by_input_hash(std::string_view hash_hex) const {
     return std::move(*hit);
 }
 
+Result<LedgerEntry>
+Ledger::find_first_consent_grant_for(std::string_view patient) const {
+    if (patient.empty()) {
+        return Error::invalid(
+            "find_first_consent_grant_for requires non-empty patient");
+    }
+    // Build the full needle once: the canonical body shape is
+    // `..."patient":"<id>"...`. Substring prefilter rejects bodies
+    // without the field before the JSON parse.
+    std::string needle;
+    needle.reserve(patient.size() + 14);
+    needle.append("\"patient\":\"");
+    needle.append(patient.data(), patient.size());
+    needle.push_back('"');
+
+    std::optional<LedgerEntry> hit;
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        // Only consent.granted entries qualify — sibling event types
+        // (consent.revoked, custom.*) are explicitly excluded.
+        if (e.header.event_type != "consent.granted") return true;
+        if (e.body_json.find(needle) == std::string::npos) return true;
+        try {
+            auto j = nlohmann::json::parse(e.body_json);
+            auto it = j.find("patient");
+            if (it != j.end() && it->is_string() &&
+                it->get<std::string>() == patient) {
+                hit = e;
+                return false;  // stop scanning — first/oldest match wins
+            }
+        } catch (...) {
+            // body is not JSON — ignore.
+        }
+        return true;
+    });
+    if (!r) return r.error();
+    if (!hit) {
+        return Error::not_found(
+            "no consent.granted entry matches patient");
+    }
+    return std::move(*hit);
+}
+
 LedgerCheckpoint Ledger::checkpoint() const {
     LedgerCheckpoint cp;
     cp.seq        = impl_->length.load();
@@ -2117,6 +2286,40 @@ Result<double> Ledger::seq_density() const {
     auto seconds = static_cast<double>(span_ns.count()) / 1e9;
     if (!(seconds > 0.0)) return 0.0;
     return static_cast<double>(len - 1) / seconds;
+}
+
+Result<std::uint64_t> Ledger::peak_throughput_per_second() const {
+    // Empty chain or a single-entry chain has no measurable burst.
+    if (impl_->length.load() < 2) return std::uint64_t{0};
+
+    // Sliding-window scan: keep a deque of timestamps (ns since epoch)
+    // for entries within the last 1s of the cursor. On each new entry,
+    // evict everything older than (cursor - 1s] and record the
+    // resulting deque size as a candidate peak. O(n) overall — each
+    // entry is pushed and popped at most once. O(min(peak, n)) memory.
+    constexpr std::int64_t kOneSecondNs = 1'000'000'000;
+    std::deque<std::int64_t> window;
+    std::uint64_t            peak = 0;
+
+    auto r = impl_->storage->for_each([&](const LedgerEntry& e) -> bool {
+        const auto ts = e.header.ts.nanos_since_epoch();
+        // Evict entries strictly older than (ts - 1s). The window is
+        // half-open at the trailing edge: an entry exactly 1s older
+        // does NOT count as "within the same second".
+        const auto cutoff = ts - kOneSecondNs;
+        while (!window.empty() && window.front() <= cutoff) {
+            window.pop_front();
+        }
+        window.push_back(ts);
+        if (window.size() > peak) peak = window.size();
+        return true;
+    });
+    if (!r) return r.error();
+    // Spec: a chain that all fits in <= 1 entry returns 0, not 1. Any
+    // burst observed (peak >= 2) is reported verbatim; otherwise the
+    // chain is too sparse for a meaningful per-second peak.
+    if (peak <= 1) return std::uint64_t{0};
+    return peak;
 }
 
 Result<std::vector<LedgerEntry>>

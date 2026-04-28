@@ -70,8 +70,11 @@ target_sources(asclepius
         src/audit/sqlite_backend.cpp
         src/audit/migrator.cpp
         src/audit/jsonl.cpp
+        src/audit/event_codes.cpp
+        src/audit/human_attestation.cpp
         src/telemetry/drift.cpp
         src/telemetry/metrics.cpp
+        src/telemetry/calibration.cpp
         src/consent/registry.cpp
         src/consent/artefact.cpp
         src/consent/family_graph.cpp

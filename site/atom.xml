@@ -5,7 +5,7 @@
   <link rel="self"      href="https://asclepius.health/atom.xml" type="application/atom+xml"/>
   <link rel="alternate" href="https://asclepius.health/changelog.html" type="text/html"/>
   <id>https://asclepius.health/atom.xml</id>
-  <updated>2026-04-25T00:00:00Z</updated>
+  <updated>2026-04-28T00:00:00Z</updated>
   <author>
     <name>Asclepius contributors</name>
     <uri>https://asclepius.health/</uri>
@@ -14,6 +14,27 @@
   <logo>https://asclepius.health/assets/og-card.png</logo>
   <rights>Apache-2.0</rights>
   <generator uri="https://asclepius.health/">asclepius-site</generator>
+
+  <entry>
+    <id>asclepius:release:v0.6.0</id>
+    <title>v0.6.0 — India profile · ABDM artefact, family graph, DPDP break-glass.</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v0-6-0"/>
+    <published>2026-04-28T00:00:00Z</published>
+    <updated>2026-04-28T00:00:00Z</updated>
+    <category term="release"/>
+    <category term="india-profile"/>
+    <summary>Round 90. ConsentArtefact, FamilyGraph, EmergencyOverride; six new Purpose values; ADR-012/013/014. Examples 05/06/07. L2-Medical conformance scaffold (4/128 doctest assertions). Kernel: 1388 cases / 35086 assertions / 0 failed.</summary>
+  </entry>
+
+  <entry>
+    <id>asclepius:release:v0.5.0</id>
+    <title>v0.5.0 — Round 89: reverse-hash lookup, tenant histograms, lifecycle summaries.</title>
+    <link rel="alternate" href="https://asclepius.health/changelog.html#v0-5-0"/>
+    <published>2026-04-27T00:00:00Z</published>
+    <updated>2026-04-27T00:00:00Z</updated>
+    <category term="release"/>
+    <summary>find_inference_by_input_hash reverse index; tenant body-size histograms; consent lifecycle summaries; atomic commit_then_attest; commit_with_metadata; flush_consent_to_metrics. No on-disk format changes.</summary>
+  </entry>
 
   <entry>
     <id>asclepius:release:v0.1.0</id>

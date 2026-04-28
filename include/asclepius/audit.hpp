@@ -17,6 +17,7 @@
 
 #include "asclepius/core.hpp"
 #include "asclepius/hashing.hpp"
+#include "asclepius/identity.hpp"
 #include "asclepius/telemetry.hpp"
 
 namespace asclepius {
@@ -298,6 +299,16 @@ public:
     // length.
     Result<double> seq_density() const;
 
+    // Maximum entries within any single one-second window across the
+    // entire chain. Streams via for_each, tracking a running window via
+    // a deque keyed by ts in nanoseconds — entries older than 1s from
+    // the current cursor are evicted. Returns 0 for an empty chain or
+    // a chain whose entries all fit in <= 1 entry. Companion to
+    // seq_density (which reports the average rate) — this captures the
+    // worst-case burst, useful for capacity sizing and SLO probes that
+    // need the peak rather than the mean.
+    Result<std::uint64_t> peak_throughput_per_second() const;
+
     // Count entries grouped by event_type. Returns a map keyed by the
     // header.event_type string. O(n) scan over the chain via for_each;
     // O(1) memory aside from the result map. Useful for dashboards
@@ -349,6 +360,17 @@ public:
     // canonical hash of the request payload.
     Result<LedgerEntry>
         find_inference_by_input_hash(std::string_view hash_hex) const;
+
+    // First consent.granted entry whose body's "patient" field matches
+    // the supplied PatientId. Returns the first match (smallest seq) or
+    // not_found if no entry matches. Empty patient returns
+    // invalid_argument. Cheap substring prefilter on
+    // `"patient":"<patient>"` rejects non-matching bodies before the
+    // JSON parse. Used by consent-replay paths that need the genesis
+    // grant for a patient (the row that authorised every inference
+    // since) without scanning the whole chain.
+    Result<LedgerEntry>
+        find_first_consent_grant_for(std::string_view patient) const;
 
     // Return the last `n` entries whose header.actor matches the supplied
     // string, most-recent first. Used for "what did this clinician do
@@ -402,6 +424,18 @@ public:
     // at O(min(n, matches)). Empty chain returns the empty vector.
     Result<std::vector<LedgerEntry>>
         recent_failures(std::size_t n) const;
+
+    // Last `n` inference.committed entries whose body's "status" field
+    // matches the supplied string. Most-recent first. Pairs with
+    // recent_failures (which fans across every non-ok status); this
+    // narrows to a single class — useful for "show me the last 50
+    // timeouts" or "last 50 blocked.input" forensic views. Cheap
+    // substring prefilter on `"status":"<status>"` rejects bodies
+    // without the field before the JSON parse; bounded ring buffer of
+    // `n` keeps memory at O(min(n, matches)). Empty status returns
+    // invalid_argument; n=0 returns the empty vector (cheap no-op).
+    Result<std::vector<LedgerEntry>>
+        tail_with_status(std::string_view status, std::size_t n) const;
 
     // Longest consecutive run of `event_type` entries in the chain (in
     // seq-ascending order). Useful for detecting bursts ("we had 50
@@ -467,6 +501,18 @@ public:
     Result<std::vector<LedgerEntry>>
         range_for_actor_and_event_type(std::string_view actor,
                                        std::string_view event_type) const;
+
+    // Composite forensic filter: inference.committed entries whose
+    // header.actor matches `actor` AND whose body's "patient" field
+    // matches `patient`. Seq-ascending. Empty actor or empty patient
+    // returns invalid_argument. O(n) scan via for_each with a cheap
+    // substring prefilter on the patient string before the JSON parse.
+    // Used by audit dashboards that pin both axes — "what inferences
+    // did this clinician run on this patient?" — without composing two
+    // separate scans on the caller side.
+    Result<std::vector<LedgerEntry>>
+        range_for_actor_and_patient(std::string_view actor,
+                                    std::string_view patient) const;
 
     // First `n` entries (oldest), seq-ascending. Complement to
     // tail(n) which returns the most-recent slice. n=0 returns the
@@ -653,6 +699,17 @@ public:
     // parser. Empty chain emits an all-zero head plus a real signature
     // over those zero bytes, so the field shape is constant.
     Result<std::string> head_attestation_hex() const;
+
+    // Even more compact 24-char form of head_attestation_hex:
+    //     <head_first_8>:<key_id_first_8>:<sig_hex_first_6>
+    // Two ':' separators and three short fields, fixed length of 24
+    // chars (8 + 1 + 8 + 1 + 6). Distinct from head_attestation_hex
+    // (which is 64 + 16 + 16 hex chars plus separators). Useful for
+    // tight log lines, badge corners, and one-line status displays
+    // where every column counts. Not a verifier-grade proof on its
+    // own — the 6-char sig prefix is a convenience hash for visual
+    // comparison, not a standalone Ed25519 signature.
+    std::string head_attestation_hex_short() const;
 
     // Sum of body_json sizes (bytes) grouped by header.tenant. O(n) scan
     // via for_each; result map memory is O(distinct tenants). The empty
@@ -982,6 +1039,85 @@ public:
     static Result<LedgerMigrationStats>
     copy(const std::string& src_uri, const std::string& dst_uri, KeyStore key);
 };
+
+// ===========================================================================
+// Round 92 — well-known event-type codes and HumanAttestation
+// ===========================================================================
+//
+// The kernel's existing API takes a free-form `event_type` string for
+// every Ledger::append. Round 92 codifies the set of canonical event
+// codes that the India healthtech profile expects. Callers may still
+// pass any string; these constants are the agreed shape so dashboards
+// and conformance tests can enumerate "what happened" without
+// stringly-typed mismatches.
+
+namespace events {
+
+inline constexpr std::string_view prescription_parsed              = "rx.parsed";
+inline constexpr std::string_view triage_decision                  = "triage.decision";
+inline constexpr std::string_view tele_consult_closed              = "consult.tele.closed";
+inline constexpr std::string_view bill_audited                     = "bill.audited";
+inline constexpr std::string_view substitution_event               = "rx.substitution";
+inline constexpr std::string_view consent_artefact_issued          = "consent.artefact.issued";
+inline constexpr std::string_view consent_artefact_revoked         = "consent.artefact.revoked";
+inline constexpr std::string_view sample_collected                 = "sample.collected";
+inline constexpr std::string_view sample_resulted                  = "sample.resulted";
+inline constexpr std::string_view human_attestation                = "human.attestation";
+inline constexpr std::string_view emergency_override_activated     = "override.emergency.activated";
+inline constexpr std::string_view emergency_override_backfilled    = "override.emergency.backfilled";
+
+}  // namespace events
+
+// True iff `event_type` is one of the round 92 well-known India-profile
+// codes. Useful for audit dashboards that want to flag kernel-known
+// events distinct from caller-defined ones. Not a gate — callers can
+// still emit any event_type string.
+bool is_well_known_event(std::string_view event_type) noexcept;
+
+// All round 92 well-known event types, sorted. Useful for dashboards
+// and conformance tests that want to enumerate the canonical set.
+std::vector<std::string_view> well_known_events();
+
+// ---- HumanAttestation -----------------------------------------------------
+//
+// A signed clinician sign-off on a payload — the cryptographic primitive
+// behind second-opinion review, triage override, billing-audit approval,
+// or any other workflow that requires a named human to put their name
+// on a decision. The kernel produces and verifies attestations; callers
+// anchor them in the Ledger via `events::human_attestation`.
+
+struct HumanAttestation {
+    ActorId                                       actor;
+    std::string                                   subject_kind;   // e.g. "second_opinion"
+    std::string                                   subject_id;     // free-form id
+    std::string                                   statement;      // free-text or JSON
+    Time                                          attested_at;
+    std::array<std::uint8_t, KeyStore::sig_bytes> signature{};
+    std::array<std::uint8_t, KeyStore::pk_bytes>  public_key{};
+};
+
+// Produce a HumanAttestation by signing the canonical bytes of the
+// attestation with `signer`. attested_at is captured at call time.
+HumanAttestation
+sign_human_attestation(const KeyStore& signer,
+                       ActorId         actor,
+                       std::string     subject_kind,
+                       std::string     subject_id,
+                       std::string     statement);
+
+// Verify the attestation's signature against its embedded public_key
+// over the canonical bytes. Returns false on any failure (malformed
+// fields, sig mismatch, libsodium error). noexcept.
+bool verify_human_attestation(const HumanAttestation&) noexcept;
+
+// Canonical JSON serialisation suitable for use as a Ledger entry's
+// payload. Stable schema:
+//   {"actor","subject_kind","subject_id","statement",
+//    "attested_at" (ISO-8601),"signature" (base64),"public_key" (hex)}
+std::string attestation_to_json(const HumanAttestation&);
+
+// Inverse. Returns Error::invalid on malformed input or missing fields.
+Result<HumanAttestation> attestation_from_json(std::string_view);
 
 }  // namespace asclepius
 

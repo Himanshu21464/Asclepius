@@ -208,7 +208,7 @@
     <a class="status__brand" href="index.html">
       <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
       <span class="brand-word">asclepius</span>
-      <span class="brand-version">v0.1.0</span>
+      <span class="brand-version">v0.6.0</span>
     </a>
     <nav class="status__nav" aria-label="primary">
       <a href="index.html#manifesto">manifesto</a>
@@ -357,6 +357,21 @@
             <li class="add"><b>add</b><span><a href="decisions.html#adr-014">ADR-014</a> — <code>Purpose</code> enum extension policy. Additions are governance events, not patches.</span></li>
             <li class="add"><b>add</b><span><a href="india.html">/india</a> — full India profile page (ABDM mapping, the four <em>HIP/HIU/Gateway/CM</em> roles, family-graph defaults, emergency-override 72h DPDP § 7 alignment).</span></li>
             <li class="add"><b>add</b><span><a href="glossary.html#abdm">/glossary §A</a> — six new entries: <code>abdm</code>, <code>abha</code>, <code>hip-hiu</code>, <code>dpdp-7</code>, <code>emergency-override</code>, <code>family-graph</code>.</span></li>
+            <li class="add"><b>add</b><span><a href="decisions.html#adr-012">ADR-012</a> — <em>"On the name Asclepius"</em>. Eighty GitHub repos share the name; the decision is to keep it and sharpen the substrate-not-app positioning across every surface. Same-name disambiguation rows shipped on <a href="concepts.html#adjacent">/concepts §07</a>, <a href="press.html">/press</a> fact sheet, and the Cmd-K palette.</span></li>
+            <li class="add"><b>add</b><span><code>examples/05_wrap_ms_asclepius/</code> — wrap the <a href="https://github.com/microsoft/asclepius">microsoft/asclepius</a> Azure-OpenAI lab-summary Function App. Compiles clean under the project's strict-warning preset; runs end-to-end with stubbed Function App.</span></li>
+            <li class="add"><b>add</b><span><code>examples/06_wrap_starmpcc/</code> — wrap the open clinical LLM family <a href="https://github.com/starmpcc/Asclepius">starmpcc/Asclepius</a> (Llama3-8B / Mistral) with PHI scrub, schema validation, and a clinician override capturing a corrected monitoring cadence. Three ledger entries per run.</span></li>
+            <li class="add"><b>add</b><span><code>examples/07_india_profile/</code> — runnable end-to-end demo of all three India primitives (<code>EmergencyOverride</code> activation + 72h backfill, <code>FamilyGraph</code> parent-for-minor edge, <code>ConsentArtefact</code> ABDM round-trip).</span></li>
+            <li class="add"><b>add</b><span><code>tests/benchmarks/asclepius_med/</code> — L2-Medical conformance adapter scaffold targeting the ACL&nbsp;2025 <a href="https://github.com/Asclepius-Med/Asclepius">Asclepius-Med</a> benchmark. Four doctest cases mapping 1:1 to the new <a href="conformance.html#l2-medical">L2-Medical</a> conformance row. <em>4 cases / 128 assertions / 0 failed</em> against the offline 5-item fixture.</span></li>
+            <li class="add"><b>add</b><span><code>integrations.html</code> §06 (Microsoft Asclepius wrap), §07 (starmpcc/Asclepius wrap), §08 (ABDM India primitives) — TOC bumped from "five recipes" → "eight recipes".</span></li>
+            <li class="add"><b>add</b><span><code>conformance.html</code> L2-Medical tier — <em>4 / 4 fixture</em> · pending real Asclepius-Med dev-split swap. Each test deep-links to <code>tests/benchmarks/asclepius_med/test_adapter.cpp</code>.</span></li>
+            <li class="add"><b>add</b><span><code>roadmap.html</code> L2-Medical card on the conformance ladder; Q3 2026 milestone "real Asclepius-Med dev-split swap".</span></li>
+            <li class="add"><b>add</b><span><code>use-cases.html §04</code> — runnable-binaries gallery linking each shape to a concrete <code>examples/*</code> directory.</span></li>
+            <li class="add"><b>add</b><span><code>bindings/python/asclepius/bench.py</code> — Python parity for the L2-Medical adapter (pure-Python <code>BenchItem</code> + <code>load_fixture</code>; <code>drive_one</code> via the new <code>Inference.add_metadata</code>). 6 unittest cases pass under Python 3.14.</span></li>
+            <li class="add"><b>add</b><span>pybind11 bindings for the India primitives — <code>ConsentArtefact</code> + <code>Status</code>, <code>FamilyGraph</code> + <code>FamilyRelation</code>, <code>EmergencyOverride</code> + <code>EmergencyOverrideToken</code>, plus the four free functions <code>to_abdm_json</code> / <code>from_abdm_json</code> / <code>artefact_from_token</code> / <code>token_from_artefact</code>. Re-exported from <code>asclepius/__init__.py</code> so the §08 Python tab matches reality.</span></li>
+            <li class="add"><b>add</b><span><code>Inference.add_metadata(key, value)</code> exposed in pybind11 — round-trips Python values via <code>json.dumps</code> into the inference's <code>metadata</code> envelope (same reserved-key set as the C++ side).</span></li>
+            <li class="fix"><b>fix</b><span>Five orphan pages cleared (<code>badges</code>, <code>release-process</code>, <code>sitegraph</code>, <code>sitemap</code>, <code>threat-tabletop</code>) and <code>js/badges.js</code> reachable from BFS via the decisions-page coda. <em>visited 71 → 86 · orphans 6 → 0 · js loaded 10/11 → 11/11</em>.</span></li>
+            <li class="fix"><b>fix</b><span>Three site gates that flagged after the India profile landed: <code>_redirects</code> coverage (<code>/india</code> → <code>/india.html</code>), <code>sitemap.xml</code> entry, and the <code>sitemap.html</code> human-readable link.</span></li>
+            <li class="fix"><b>fix</b><span>Stale test totals — <code>conformance.html</code>, <code>release-process.html</code>, <code>CLAUDE.md</code>, project <code>README.md</code> all updated from <em>52 cases / 687 assertions</em> to <em>1388 cases / 35086 assertions</em> (verified by running <code>build/tests/asclepius_tests</code>: 0 failed).</span></li>
           </ul>
         </article>
 

@@ -239,6 +239,28 @@ void MetricRegistry::reset_all_counters() {
     }
 }
 
+std::size_t MetricRegistry::reset_counter_pattern(std::string_view prefix) {
+    // Scoped variant of reset_all_counters(). An empty prefix matches
+    // every counter (string_view::starts_with(""sv) is unconditionally
+    // true), so the empty-prefix call degrades to reset_all_counters()
+    // semantics, returning the total counter count. Names are
+    // preserved (data zeroed only) so subsequent counter_value() probes
+    // continue to succeed. Histograms are NOT touched — this mirrors
+    // reset_all_counters()'s independence from the histogram registry,
+    // and matches sum_counters_with_prefix()'s prefix-scoping
+    // convention. Single lock for the whole sweep so the snapshot is
+    // consistent under concurrent inc().
+    std::lock_guard<std::mutex> lk(mu_);
+    std::size_t n = 0;
+    for (auto& [name, v] : counters_) {
+        if (std::string_view{name}.starts_with(prefix)) {
+            v = 0;
+            ++n;
+        }
+    }
+    return n;
+}
+
 std::unordered_map<std::string, std::uint64_t>
 MetricRegistry::counter_snapshot() const {
     std::lock_guard<std::mutex> lk(mu_);

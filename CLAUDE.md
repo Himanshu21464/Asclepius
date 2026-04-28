@@ -40,7 +40,8 @@ Kubernetes for self-driving labs, Linux kernel for clinical AI).
 ├── apps/svc/           HTTP/gRPC sidecar (placeholder)
 ├── bindings/python/    pybind11 → `import asclepius`
 ├── examples/01..04/    end-to-end demos (wrap_scribe, drift, bundle, bench)
-├── tests/              doctest unit + integration (52 cases / 687 asserts)
+├── tests/              doctest unit + integration (1388 cases / 35086 asserts)
+│   └── benchmarks/asclepius_med/  L2-Medical conformance scaffold (4 cases / 128 asserts)
 ├── docs/               markdown sources for ARCHITECTURE / SPEC / THREAT_MODEL
 ├── proto/              gRPC proto schemas
 └── site/               product website (static HTML+CSS+vanilla JS)
@@ -209,7 +210,8 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo \
 cmake --build build -j
 
 # run tests
-build/tests/asclepius_tests       # 52 cases / 687 asserts
+build/tests/asclepius_tests       # 1388 cases / 35086 asserts
+build/tests/benchmarks/asclepius_med/asclepius_bench_asclepius_med  # L2-Medical · 4/128
 ctest --test-dir build --output-on-failure
 
 # run the bench harness (regenerates site/assets/bench.json)

@@ -236,6 +236,91 @@ double Histogram::p99() const {
     return percentile(99.0);
 }
 
+double Histogram::p50() const {
+    // Sugar over percentile(50.0). Distinct from median() in name only —
+    // both call quantile(0.5) under the hood and are bit-for-bit
+    // identical; this exists so call sites that lay out the canonical
+    // p50/p95/p99 triple read uniformly without mixing
+    // median()+p99() naming. percentile() takes its own lock and
+    // handles the empty case (returns 0.0 via quantile()).
+    return percentile(50.0);
+}
+
+double Histogram::p90() const {
+    // Sugar over percentile(90.0). The "warning band" companion to
+    // p99 — operators reach for p90 when they want a less-noisy
+    // dashboard signal that still excludes the slowest 10% of
+    // traffic. percentile() takes its own lock and handles empty.
+    return percentile(90.0);
+}
+
+double Histogram::p95() const {
+    // Sugar over percentile(95.0). The industry-default warning
+    // ceiling between p90 and p99; operators typically dashboard
+    // p50/p95/p99 as the canonical triple. percentile() takes its
+    // own lock and handles the empty case.
+    return percentile(95.0);
+}
+
+double Histogram::bin_midpoint(std::size_t i) const {
+    // Locked because counts_.size() is held under mu_ semantically (the
+    // vector is never resized post-construction in practice, but we
+    // honor the documented locking pattern of the rest of the API).
+    // Saturation: indices >= bin_count() collapse to the last bin's
+    // midpoint, which equals hi() - bin_width/2. We deliberately do NOT
+    // return Result<double> with an out-of-range error — callers reach
+    // for bin_midpoint() to label dashboard rows or chart x-axes, where
+    // the saturation is a more useful contract than a hard error.
+    std::lock_guard<std::mutex> lk(mu_);
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    // Saturate i to the last valid bin index (n - 1). Constructor
+    // guarantees n >= 1 (zero-bin histograms are padded), so n - 1 is
+    // always a valid index here.
+    const std::size_t idx = (i >= n ? n - 1 : i);
+    return lo_ + bin_w * (static_cast<double>(idx) + 0.5);
+}
+
+std::pair<double, double> Histogram::confidence_interval_95() const {
+    // Compute mean AND stddev under a single lock so a concurrent
+    // observe() can't tear the pair. Calling mean() then stddev() each
+    // takes the lock separately, which would expose a (mean_at_t0,
+    // stddev_at_t1) read where the two no longer correspond — that
+    // would make the resulting interval mathematically inconsistent.
+    // Instead we inline the same loops mean()/stddev() use under one
+    // critical section.
+    std::lock_guard<std::mutex> lk(mu_);
+    if (total_ == 0) return {0.0, 0.0};
+    const auto   n     = counts_.size();
+    const double bin_w = (hi_ - lo_) / static_cast<double>(n);
+    // Mean: sum of midpoint * count, divided by total.
+    double sum = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        sum += mid * static_cast<double>(counts_[i]);
+    }
+    const double m = sum / static_cast<double>(total_);
+    // total_ == 1: stddev is 0.0 (matching stddev()'s contract). Return
+    // a degenerate interval (m, m) rather than (m - 0, m + 0) — same
+    // numerically, but the explicit branch avoids the unused variance
+    // pass below for the single-sample case.
+    if (total_ == 1) return {m, m};
+    double var = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const double mid = lo_ + bin_w * (static_cast<double>(i) + 0.5);
+        const double d   = mid - m;
+        var += d * d * static_cast<double>(counts_[i]);
+    }
+    var /= static_cast<double>(total_);
+    const double sd = std::sqrt(var);
+    // 1.96 is the canonical normal-approximation z-score for a 95%
+    // two-sided CI. Documented as a "rough" interval — the
+    // normal-approximation assumption only holds for near-normal
+    // empirical distributions, which the kernel does not enforce.
+    constexpr double z95 = 1.96;
+    return {m - z95 * sd, m + z95 * sd};
+}
+
 std::size_t Histogram::nth_largest_bin() const {
     std::lock_guard<std::mutex> lk(mu_);
     // Empty histogram → every bin has count 0, smallest index wins
@@ -978,6 +1063,21 @@ Result<std::uint64_t> DriftMonitor::observation_count(std::string_view feature) 
         return Error::not_found(fmt::format("unregistered feature: {}", feature));
     }
     return it->second->current->total();
+}
+
+std::uint64_t DriftMonitor::observation_total() const {
+    // Aggregate sweep across every registered feature's current window.
+    // We don't compose this on top of summary() (which also computes
+    // PSI per feature) because callers reach for observation_total()
+    // when they only want a traffic-volume probe — paying for the PSI
+    // pass would be wasted work. Locked once for the whole sum so the
+    // result is a consistent snapshot under concurrent observe().
+    std::lock_guard<std::mutex> lk(mu_);
+    std::uint64_t s = 0;
+    for (const auto& [_, fs] : features_) {
+        s += fs->current->total();
+    }
+    return s;
 }
 
 DriftMonitor::Summary DriftMonitor::summary() const {

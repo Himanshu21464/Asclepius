@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T15:36:48Z",
+  "generated_at": "2026-04-28T15:49:54Z",
   "count": 52,
   "pages": [
     {
@@ -226,7 +226,7 @@
     {
       "url": "conformance.html",
       "title": "Conformance — Asclepius",
-      "description": "The Asclepius conformance suite: every L1 / L2 / L3 test, what it asserts, and the current pass/fail status from the v0.1.0 reference build.",
+      "description": "The Asclepius conformance suite: every L1 / L2 / L3 / L2-Medical test, what it asserts, and the current pass/fail status from the v0.6.0 reference build.",
       "headings": [
         "Trustworthy log.",
         "Observable behaviour.",

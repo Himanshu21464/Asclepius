@@ -68,7 +68,7 @@ def main() -> int:
     rel, date = latest_release()
     out = {
         "ok":              True,
-        "version":         "0.1.0",
+        "version":         rel.lstrip("v"),
         "current_release": rel,
         "released_at":     date,
         "site_built_at":   datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -78,7 +78,7 @@ def main() -> int:
         "key_id":          "a1f2…74e6",
         "key_alg":         "Ed25519",
         "hash_alg":        "BLAKE2b-256",
-        "conformance":     ["L1", "L2", "L3"],
+        "conformance":     ["L1", "L2", "L2-Medical", "L3"],
         "feeds": {
             "rss":  "https://asclepius.health/feed.xml",
             "atom": "https://asclepius.health/atom.xml",

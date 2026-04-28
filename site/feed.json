@@ -10,6 +10,24 @@
   "authors": [{ "name": "Asclepius Contributors", "url": "https://asclepius.health/" }],
   "items": [
     {
+      "id": "asclepius:v0.6.0",
+      "url": "https://asclepius.health/changelog.html#v0-6-0",
+      "title": "v0.6.0 — India profile · ABDM artefact, family graph, DPDP break-glass.",
+      "summary": "Three vendor-neutral consent-side primitives (ConsentArtefact, FamilyGraph, EmergencyOverride) plus six new Purpose values aligned with ABDM. ADR-013 + ADR-014. End-to-end demo at examples/07_india_profile/.",
+      "content_text": "Round 90. Three vendor-neutral consent-side primitives — ConsentArtefact (ABDM-shaped wire record), FamilyGraph (proxy-for-subject relation graph), EmergencyOverride (DPDP § 7 break-glass with mandatory backfill window) — plus six new Purpose values (prescription_resolution, second_opinion, specialist_referral, billing_audit, longitudinal_outcomes_research, emergency_clinical_access). ADR-013 documents the primitives; ADR-014 codifies enum-extension as a governance event. Same-name disambiguation (ADR-012) shipped: ~80 GitHub repos share the name; we are the substrate, not the model. Examples 05 (Microsoft Asclepius wrap), 06 (starmpcc/Asclepius wrap), 07 (India profile in motion). L2-Medical conformance scaffold with 4/128 doctest assertions against the ACL 2025 Asclepius-Med benchmark. Kernel test suite: 1388 cases / 35086 assertions / 0 failed.",
+      "tags": ["release", "india-profile", "abdm"],
+      "date_published": "2026-04-28T00:00:00Z"
+    },
+    {
+      "id": "asclepius:v0.5.0",
+      "url": "https://asclepius.health/changelog.html#v0-5-0",
+      "title": "v0.5.0 — Round 89: reverse-hash lookup, tenant histograms, lifecycle summaries.",
+      "summary": "Reverse-hash lookup, tenant histograms, balanced-shape probe; lifecycle summaries, atomic attest, consent metric counters. No on-disk format changes.",
+      "content_text": "Round 89 (parts one and two). find_inference_by_input_hash() reverse index. tenant_event_counts() and tenant body-size histograms. balanced-shape probe. Consent: token_lifecycle_summary, tokens_revoked_for_patient, patients_with_active_count, has_pending_expiry, compact_state. Inference: commit_then_attest, commit_with_metadata, is_pending. Runtime: flush_consent_to_metrics, current_seq.",
+      "tags": ["release"],
+      "date_published": "2026-04-27T00:00:00Z"
+    },
+    {
       "id": "asclepius:v0.1.0",
       "url": "https://asclepius.health/changelog.html#v0-1-0",
       "title": "v0.1.0 — The substrate, open-sourced.",

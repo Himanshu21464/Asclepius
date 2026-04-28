@@ -159,6 +159,46 @@ public:
     // (matching quantile()).
     double p99() const;
 
+    // Sugar wrapper over percentile(50.0). The median; common-enough on
+    // operator dashboards that it deserves its own name alongside p99().
+    // Empty histograms return 0.0 (matching quantile()). Distinct from
+    // median() in name only — both call quantile(0.5) under the hood and
+    // are bit-for-bit identical; use whichever reads more naturally at
+    // the call site.
+    double p50() const;
+
+    // Sugar wrapper over percentile(90.0). The 90th percentile is the
+    // canonical "warning band" cutoff that operator dashboards reach for
+    // when they want a less-noisy companion to p99() — values above p90
+    // cover the slow 10% of traffic without being dominated by the very
+    // long tail. Empty histograms return 0.0 (matching quantile()).
+    double p90() const;
+
+    // Sugar wrapper over percentile(95.0). The 95th percentile is the
+    // industry-default "warning ceiling" between p90 and p99 — operators
+    // typically dashboard p50/p95/p99 as the canonical triple. Giving it
+    // its own name keeps call sites self-documenting. Empty histograms
+    // return 0.0 (matching quantile()).
+    double p95() const;
+
+    // Returns lo + bin_width * (i + 0.5) — the value at the center of
+    // bin i. Saturates: i >= bin_count() collapses to the last bin's
+    // midpoint (which equals hi() - bin_width/2). Useful when callers
+    // want to know what value a specific bin represents without
+    // reverse-engineering the formula. Locked.
+    double bin_midpoint(std::size_t i) const;
+
+    // Rough 95% normal-approximation confidence interval over the
+    // empirical distribution. Returns (mean - 1.96*stddev,
+    // mean + 1.96*stddev). Empty histograms return (0.0, 0.0). The
+    // result is "rough" because the normal-CI assumption only holds
+    // when the empirical distribution is itself near-normal — for
+    // long-tailed or multimodal data this should be read as a
+    // diagnostic spread rather than a probabilistic guarantee. Both
+    // bounds are computed under one lock so a concurrent observe()
+    // can't tear the pair.
+    std::pair<double, double> confidence_interval_95() const;
+
     // Index of the bin with the highest count (the modal bin). Ties are
     // broken by smallest index. Returns 0 on an empty histogram (since
     // every bin has count 0, the smallest index wins). Useful for
@@ -373,6 +413,16 @@ public:
     // not_found if the feature was never registered. Useful for sidecars
     // that want to gate report() on a minimum sample size.
     Result<std::uint64_t> observation_count(std::string_view feature) const;
+
+    // Sum of current-window observation counts across all registered
+    // features. Returns 0 if no features are registered. Pairs with
+    // feature_count() and feature_count_observed() as a "how much
+    // traffic has the monitor seen this window?" probe — distinct from
+    // observation_count(name) which returns the per-feature total. Used
+    // by aggregate health dashboards that want a single scalar without
+    // walking list_features() and summing per-feature counts. Locked
+    // once for the whole sweep so the result is a consistent snapshot.
+    std::uint64_t observation_total() const;
 
     // Returns the reference (baseline) window's total observation count.
     // Pairs with observation_count(), which returns the current window
@@ -604,6 +654,17 @@ public:
     // (use reset_histograms() for that). Locked.
     void reset_all_counters();
 
+    // Reset every counter whose name starts with `prefix` to 0,
+    // returning the number of counters reset. An empty prefix matches
+    // every counter, which makes this equivalent to reset_all_counters()
+    // in effect (and the return is the total counter count). Names are
+    // preserved (data zeroed only) so subsequent counter_value() probes
+    // continue to succeed — mirrors reset_all_counters() semantics
+    // scoped to a prefix. Used to scope-reset families like "inference."
+    // or "drift." without affecting unrelated subsystem counters.
+    // Histograms are NOT affected. Locked.
+    std::size_t reset_counter_pattern(std::string_view prefix);
+
     // Drop all counters and histograms. Used by tests and by live deploy
     // resets that want to start from a clean slate. Mutex-protected.
     void clear();
@@ -710,6 +771,101 @@ private:
     std::unordered_map<std::string, std::uint64_t>    counters_;
     std::unordered_map<std::string, Hist>             histograms_;
 };
+
+// ============================================================================
+// Round 92 — CalibrationMonitor
+// ============================================================================
+//
+// Tracks empirical sensitivity / specificity / PPV / NPV against a configured
+// target floor and surfaces a below-floor signal when the empirical value
+// drops below the floor by more than `tolerance`. Used by products like
+// TriageMate where the substrate guarantees a sensitivity target the
+// deployment commits to (e.g. ≥99% for fracture-rule-out).
+//
+// Vendor-neutral: the kernel does not know what diagnostic the model is
+// performing; it just keeps four counters (TP/FP/TN/FN) and reports
+// derived rates. Callers feed Outcome events from their own ground-truth
+// pipeline.
+
+class CalibrationMonitor {
+public:
+    enum class Outcome : std::uint8_t {
+        true_positive  = 1,
+        false_positive = 2,
+        true_negative  = 3,
+        false_negative = 4,
+    };
+
+    struct Targets {
+        double sensitivity_floor = 0.0;  // [0, 1]
+        double specificity_floor = 0.0;  // [0, 1]
+        double tolerance         = 0.0;  // [0, 1] — alarm when below floor by more than this
+    };
+
+    CalibrationMonitor();
+    explicit CalibrationMonitor(Targets t);
+
+    void record(Outcome);
+    void record_n(Outcome, std::size_t n);
+
+    std::size_t tp() const noexcept;
+    std::size_t fp() const noexcept;
+    std::size_t tn() const noexcept;
+    std::size_t fn() const noexcept;
+    std::size_t total() const noexcept;
+
+    // Returns 0..1 or NaN if the relevant denominator is zero.
+    double sensitivity() const noexcept;  // TP / (TP + FN)
+    double specificity() const noexcept;  // TN / (TN + FP)
+    double ppv()         const noexcept;  // TP / (TP + FP)
+    double npv()         const noexcept;  // TN / (TN + FN)
+    double accuracy()    const noexcept;  // (TP + TN) / total
+
+    // True iff sensitivity OR specificity is below the configured floor by
+    // more than tolerance, AND total observations >= min_samples (else
+    // the result is not statistically meaningful and we return false).
+    bool is_below_floor(std::size_t min_samples = 30) const noexcept;
+
+    // Per-axis variants of is_below_floor.
+    bool sensitivity_below_floor(std::size_t min_samples = 30) const noexcept;
+    bool specificity_below_floor(std::size_t min_samples = 30) const noexcept;
+
+    Targets targets() const noexcept;
+    void    set_targets(Targets);
+
+    void reset();
+
+    // Aggregate snapshot for /healthz dashboards.
+    struct Snapshot {
+        std::size_t tp;
+        std::size_t fp;
+        std::size_t tn;
+        std::size_t fn;
+        std::size_t total;
+        double      sensitivity;
+        double      specificity;
+        double      ppv;
+        double      npv;
+        double      accuracy;
+        bool        below_floor;
+    };
+    Snapshot snapshot(std::size_t min_samples = 30) const noexcept;
+
+    // Single-line ASCII summary. Format:
+    //   "tp=<n> fp=<n> tn=<n> fn=<n> sens=<f> spec=<f>"
+    // No trailing newline.
+    std::string summary_string() const;
+
+private:
+    mutable std::mutex mu_;
+    std::size_t        tp_      = 0;
+    std::size_t        fp_      = 0;
+    std::size_t        tn_      = 0;
+    std::size_t        fn_      = 0;
+    Targets            targets_{};
+};
+
+const char* to_string(CalibrationMonitor::Outcome) noexcept;
 
 }  // namespace asclepius
 

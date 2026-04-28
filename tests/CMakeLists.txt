@@ -12,6 +12,8 @@ add_executable(asclepius_tests
     test_consent_artefact.cpp
     test_family_graph.cpp
     test_emergency_override.cpp
+    test_human_attestation.cpp
+    test_calibration_monitor.cpp
     test_runtime.cpp
     test_evaluation.cpp
     test_fhir.cpp

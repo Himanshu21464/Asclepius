@@ -12,6 +12,24 @@
   <ttl>1440</ttl>
 
   <item>
+    <title>v0.6.0 — India profile · ABDM artefact, family graph, DPDP break-glass.</title>
+    <link>https://asclepius.health/changelog.html#v0-6-0</link>
+    <guid isPermaLink="false">asclepius:v0.6.0</guid>
+    <pubDate>Tue, 28 Apr 2026 00:00:00 GMT</pubDate>
+    <category>release</category>
+    <description>Round 90. Three vendor-neutral consent-side primitives (ConsentArtefact, FamilyGraph, EmergencyOverride) plus six new Purpose values aligned with ABDM. ADR-012 (name collision), ADR-013 (India primitives), ADR-014 (Purpose extension policy). Examples 05 (Microsoft Asclepius), 06 (starmpcc/Asclepius), 07 (India profile in motion). L2-Medical conformance scaffold against the ACL 2025 Asclepius-Med benchmark — 4 / 128 doctest assertions. Kernel: 1388 cases / 35086 assertions / 0 failed.</description>
+  </item>
+
+  <item>
+    <title>v0.5.0 — Round 89: reverse-hash lookup, tenant histograms, lifecycle summaries.</title>
+    <link>https://asclepius.health/changelog.html#v0-5-0</link>
+    <guid isPermaLink="false">asclepius:v0.5.0</guid>
+    <pubDate>Mon, 27 Apr 2026 00:00:00 GMT</pubDate>
+    <category>release</category>
+    <description>find_inference_by_input_hash reverse index, tenant body-size histograms, balanced-shape probe, consent lifecycle summaries (token_lifecycle_summary, tokens_revoked_for_patient, patients_with_active_count, has_pending_expiry, compact_state), atomic commit_then_attest, commit_with_metadata, is_pending, flush_consent_to_metrics, current_seq. No on-disk format changes.</description>
+  </item>
+
+  <item>
     <title>v0.1.0 — The substrate, open-sourced.</title>
     <link>https://asclepius.health/changelog.html#v0-1-0</link>
     <guid isPermaLink="false">asclepius:v0.1.0</guid>

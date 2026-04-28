@@ -12,7 +12,7 @@
 <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
 
 <title>Conformance — Asclepius</title>
-<meta name="description" content="The Asclepius conformance suite: every L1 / L2 / L3 test, what it asserts, and the current pass/fail status from the v0.1.0 reference build.">
+<meta name="description" content="The Asclepius conformance suite: every L1 / L2 / L3 / L2-Medical test, what it asserts, and the current pass/fail status from the v0.6.0 reference build.">
 <meta name="generator" content="asclepius-site · hand-rolled vanilla">
 <meta name="theme-color" content="#0A0710">
 
@@ -212,7 +212,7 @@
     <a class="status__brand" href="index.html">
       <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
       <span class="brand-word">asclepius</span>
-      <span class="brand-version">v0.1.0</span>
+      <span class="brand-version">v0.6.0</span>
     </a>
     <nav class="status__nav" aria-label="primary">
       <a href="index.html#manifesto">manifesto</a>
@@ -269,7 +269,7 @@
       </div>
       <div>
         <span>last run</span>
-        <b style="font-size: .88rem; font-family: var(--font-mono); color: var(--ink); display: block; margin-top: .55rem;">2026-04-25 · g++ 15.2 · 687 assertions</b>
+        <b style="font-size: .88rem; font-family: var(--font-mono); color: var(--ink); display: block; margin-top: .55rem;">2026-04-28 · g++ 15.2 · 1388 cases · 35086 assertions · 0 failed</b>
       </div>
     </div>
   </div>
@@ -466,7 +466,7 @@
   <div class="container">
     <p>
       reproduce the run · <code>cmake --build build --target asclepius_tests &amp;&amp; ctest --output-on-failure</code><br>
-      raw asserts · 687 / 687 ·
+      raw asserts · 35086 / 35086 ·
       <a href="benchmarks.html">benchmarks</a> ·
       <a href="docs.html">docs</a> ·
       <a href="changelog.html">changelog</a>

@@ -5838,3 +5838,376 @@ TEST_CASE("aborted_inference_count: substring 'aborted' in other event types doe
     REQUIRE(r);
     CHECK(r.value() == 1u);
 }
+
+// ============== Ledger::range_for_actor_and_patient =====================
+
+TEST_CASE("range_for_actor_and_patient: returns matching inferences in seq order") {
+    auto p = tmp_db("rfap_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Mix actors and patients; expect only (alice, p1) inferences.
+    REQUIRE(l.append("inference.committed", "alice",
+        nlohmann::json{{"patient", "p1"}, {"i", 1}}, ""));
+    REQUIRE(l.append("inference.committed", "bob",
+        nlohmann::json{{"patient", "p1"}, {"i", 2}}, ""));
+    REQUIRE(l.append("inference.committed", "alice",
+        nlohmann::json{{"patient", "p2"}, {"i", 3}}, ""));
+    REQUIRE(l.append("inference.committed", "alice",
+        nlohmann::json{{"patient", "p1"}, {"i", 4}}, ""));
+    REQUIRE(l.append("inference.committed", "alice",
+        nlohmann::json{{"patient", "p1"}, {"i", 5}}, ""));
+
+    auto r = l.range_for_actor_and_patient("alice", "p1");
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 3u);
+    // Seq-ascending order.
+    CHECK(r.value()[0].header.seq == 1u);
+    CHECK(r.value()[1].header.seq == 4u);
+    CHECK(r.value()[2].header.seq == 5u);
+    for (const auto& e : r.value()) {
+        CHECK(e.header.actor == "alice");
+        CHECK(e.header.event_type == "inference.committed");
+        auto body = nlohmann::json::parse(e.body_json);
+        CHECK(body.at("patient").get<std::string>() == "p1");
+    }
+}
+
+TEST_CASE("range_for_actor_and_patient: empty actor or empty patient -> invalid_argument") {
+    auto p = tmp_db("rfap_invalid");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto r1 = l.range_for_actor_and_patient("", "p1");
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+    auto r2 = l.range_for_actor_and_patient("alice", "");
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::invalid_argument);
+    auto r3 = l.range_for_actor_and_patient("", "");
+    CHECK(!r3);
+    CHECK(r3.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("range_for_actor_and_patient: skips non-inference.committed and unknown matches") {
+    auto p = tmp_db("rfap_skips");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Decoy: actor matches, patient body field present, but event_type
+    // is not inference.committed — should be skipped.
+    REQUIRE(l.append("custom.evt", "alice",
+        nlohmann::json{{"patient", "p1"}}, ""));
+    // Decoy: substring "p1" appears but as part of another field.
+    REQUIRE(l.append("inference.committed", "alice",
+        nlohmann::json{{"input_hash", "p1xx"}, {"patient", "p_other"}}, ""));
+    // Decoy: drift event — not inference.committed.
+    REQUIRE(l.append("drift.crossed", "alice",
+        nlohmann::json{{"patient", "p1"}}, ""));
+    // Real match.
+    REQUIRE(l.append("inference.committed", "alice",
+        nlohmann::json{{"patient", "p1"}, {"v", 99}}, ""));
+
+    auto r = l.range_for_actor_and_patient("alice", "p1");
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 1u);
+    auto body = nlohmann::json::parse(r.value()[0].body_json);
+    CHECK(body.at("v").get<int>() == 99);
+
+    // Unknown actor or unknown patient returns the empty vector.
+    auto rg = l.range_for_actor_and_patient("ghost", "p1");
+    REQUIRE(rg); CHECK(rg.value().empty());
+    auto rp = l.range_for_actor_and_patient("alice", "nobody");
+    REQUIRE(rp); CHECK(rp.value().empty());
+}
+
+// ============== Ledger::tail_with_status ================================
+
+TEST_CASE("tail_with_status: returns last n with matching status, most-recent first") {
+    auto p = tmp_db("tws_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Six entries: timeout, ok, timeout, blocked.input, ok, timeout.
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"status", "timeout"}, {"i", 1}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"status", "ok"}, {"i", 2}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"status", "timeout"}, {"i", 3}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"status", "blocked.input"}, {"i", 4}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"status", "ok"}, {"i", 5}}, ""));
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"status", "timeout"}, {"i", 6}}, ""));
+
+    auto r = l.tail_with_status("timeout", 5);
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 3u);
+    // Most-recent first: seq=6, seq=3, seq=1.
+    CHECK(r.value()[0].header.seq == 6u);
+    CHECK(r.value()[1].header.seq == 3u);
+    CHECK(r.value()[2].header.seq == 1u);
+    for (const auto& e : r.value()) {
+        CHECK(e.header.event_type == "inference.committed");
+        auto body = nlohmann::json::parse(e.body_json);
+        CHECK(body.at("status").get<std::string>() == "timeout");
+    }
+}
+
+TEST_CASE("tail_with_status: empty status -> invalid_argument; n=0 -> empty vector") {
+    auto p = tmp_db("tws_invalid");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("inference.committed", "sys",
+        nlohmann::json{{"status", "timeout"}}, ""));
+
+    auto r1 = l.tail_with_status("", 10);
+    CHECK(!r1);
+    CHECK(r1.error().code() == ErrorCode::invalid_argument);
+
+    auto r2 = l.tail_with_status("timeout", 0);
+    REQUIRE(r2); CHECK(r2.value().empty());
+
+    // No matches returns the empty vector (not an error).
+    auto r3 = l.tail_with_status("never_seen", 10);
+    REQUIRE(r3); CHECK(r3.value().empty());
+}
+
+TEST_CASE("tail_with_status: ring buffer keeps last n; ignores non-inference.committed") {
+    auto p = tmp_db("tws_ring");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Decoy: event_type matches "blocked.input" status but not type.
+    REQUIRE(l.append("custom.evt", "sys",
+        nlohmann::json{{"status", "blocked.input"}, {"i", -1}}, ""));
+    // Twelve real blocked.input failures; expect last three.
+    for (int i = 0; i < 12; ++i) {
+        REQUIRE(l.append("inference.committed", "sys",
+            nlohmann::json{{"status", "blocked.input"}, {"i", i}}, ""));
+    }
+    auto r = l.tail_with_status("blocked.input", 3);
+    REQUIRE(r);
+    REQUIRE(r.value().size() == 3u);
+    auto b0 = nlohmann::json::parse(r.value()[0].body_json);
+    auto b1 = nlohmann::json::parse(r.value()[1].body_json);
+    auto b2 = nlohmann::json::parse(r.value()[2].body_json);
+    CHECK(b0.at("i").get<int>() == 11);
+    CHECK(b1.at("i").get<int>() == 10);
+    CHECK(b2.at("i").get<int>() ==  9);
+    // Decoy event_type was excluded.
+    for (const auto& e : r.value()) {
+        CHECK(e.header.event_type == "inference.committed");
+    }
+}
+
+TEST_CASE("tail_with_status: empty chain returns empty vector") {
+    auto p = tmp_db("tws_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().tail_with_status("timeout", 50);
+    REQUIRE(r);
+    CHECK(r.value().empty());
+}
+
+// ============== Ledger::peak_throughput_per_second ======================
+
+TEST_CASE("peak_throughput_per_second: empty chain returns 0") {
+    auto p = tmp_db("pkt_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().peak_throughput_per_second();
+    REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("peak_throughput_per_second: single entry returns 0 (no measurable burst)") {
+    auto p = tmp_db("pkt_single");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto r = l.peak_throughput_per_second();
+    REQUIRE(r);
+    CHECK(r.value() == 0u);
+}
+
+TEST_CASE("peak_throughput_per_second: dense burst lifts the peak above scattered baseline") {
+    auto p = tmp_db("pkt_burst");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // A tight burst of 30 appends within ~30ms easily falls within a
+    // single 1s window; the peak must therefore be at least 30.
+    for (int i = 0; i < 30; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto r = l.peak_throughput_per_second();
+    REQUIRE(r);
+    CHECK(r.value() >= 30u);
+}
+
+TEST_CASE("peak_throughput_per_second: window cuts off entries older than 1s") {
+    auto p = tmp_db("pkt_cutoff");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Two entries, then sleep > 1s, then five entries — peak should be
+    // 5 (the second cluster), not 7. The ts on each entry is wall-clock
+    // from Time::now(), so the spaced cluster crosses the 1s boundary.
+    for (int i = 0; i < 2; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+    for (int i = 0; i < 5; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i + 100}}, ""));
+    }
+    auto r = l.peak_throughput_per_second();
+    REQUIRE(r);
+    // Tight cluster of 5 lands within the same 1s window; older 2-cluster
+    // is fully outside the window when the 3rd-of-second-cluster entry
+    // is processed.
+    CHECK(r.value() == 5u);
+}
+
+// ============== Ledger::find_first_consent_grant_for ====================
+
+TEST_CASE("find_first_consent_grant_for: finds the matching consent.granted entry") {
+    auto p = tmp_db("ffcg_basic");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("consent.granted", "system:consent",
+        nlohmann::json{{"patient", "p_alice"}, {"v", 1}}, ""));
+    REQUIRE(l.append("consent.granted", "system:consent",
+        nlohmann::json{{"patient", "p_bob"}, {"v", 2}}, ""));
+    auto e = l.find_first_consent_grant_for("p_bob");
+    REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body.at("patient").get<std::string>() == "p_bob");
+    CHECK(body.at("v").get<int>() == 2);
+    CHECK(e.value().header.seq == 2u);
+    CHECK(e.value().header.event_type == "consent.granted");
+}
+
+TEST_CASE("find_first_consent_grant_for: returns first/oldest match for duplicates") {
+    auto p = tmp_db("ffcg_dup");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("consent.granted", "system:consent",
+        nlohmann::json{{"patient", "p_alice"}, {"v", 1}}, ""));
+    REQUIRE(l.append("consent.granted", "system:consent",
+        nlohmann::json{{"patient", "p_alice"}, {"v", 2}}, ""));
+    REQUIRE(l.append("consent.granted", "system:consent",
+        nlohmann::json{{"patient", "p_alice"}, {"v", 3}}, ""));
+    auto e = l.find_first_consent_grant_for("p_alice");
+    REQUIRE(e);
+    auto body = nlohmann::json::parse(e.value().body_json);
+    CHECK(body.at("v").get<int>() == 1);
+    CHECK(e.value().header.seq == 1u);
+}
+
+TEST_CASE("find_first_consent_grant_for: empty patient -> invalid_argument") {
+    auto p = tmp_db("ffcg_inv");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto r = l_.value().find_first_consent_grant_for("");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::invalid_argument);
+}
+
+TEST_CASE("find_first_consent_grant_for: not_found if no consent.granted matches") {
+    auto p = tmp_db("ffcg_miss");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    // Decoy: consent.revoked carries the patient but isn't a grant.
+    REQUIRE(l.append("consent.revoked", "system:consent",
+        nlohmann::json{{"patient", "p_alice"}}, ""));
+    // Decoy: inference.committed carries patient but isn't consent.
+    REQUIRE(l.append("inference.committed", "system:rt",
+        nlohmann::json{{"patient", "p_alice"}, {"status", "ok"}}, ""));
+    auto r = l.find_first_consent_grant_for("p_alice");
+    CHECK(!r);
+    CHECK(r.error().code() == ErrorCode::not_found);
+
+    // Empty-chain probe also returns not_found.
+    auto p2 = tmp_db("ffcg_empty");
+    auto l2_ = Ledger::open(p2); REQUIRE(l2_);
+    auto r2 = l2_.value().find_first_consent_grant_for("p_alice");
+    CHECK(!r2);
+    CHECK(r2.error().code() == ErrorCode::not_found);
+}
+
+// ============== Ledger::head_attestation_hex_short ======================
+
+TEST_CASE("head_attestation_hex_short: 24-char shape <8>:<8>:<6> on a non-empty chain") {
+    auto p = tmp_db("hahs_shape");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    for (int i = 0; i < 3; ++i) {
+        REQUIRE(l.append("e", "x", nlohmann::json{{"i", i}}, ""));
+    }
+    auto s = l.head_attestation_hex_short();
+    CHECK(s.size() == 24u);  // 8 + 1 + 8 + 1 + 6
+    auto first  = s.find(':');
+    REQUIRE(first != std::string::npos);
+    auto second = s.find(':', first + 1);
+    REQUIRE(second != std::string::npos);
+    CHECK(s.find(':', second + 1) == std::string::npos);
+
+    auto head_field = s.substr(0, first);
+    auto key_field  = s.substr(first + 1, second - first - 1);
+    auto sig_field  = s.substr(second + 1);
+
+    CHECK(head_field.size() == 8u);
+    CHECK(head_field == l.head().hex().substr(0, 8));
+    CHECK(key_field.size() == 8u);
+    CHECK(key_field == l.key_id().substr(0, 8));
+    CHECK(sig_field.size() == 6u);
+
+    // Distinct from head_attestation_hex (which is 98 chars).
+    auto full = l.head_attestation_hex();
+    REQUIRE(full);
+    CHECK(s != full.value());
+    CHECK(s.size() < full.value().size());
+}
+
+TEST_CASE("head_attestation_hex_short: empty chain emits all-zero head prefix and stable shape") {
+    auto p = tmp_db("hahs_empty");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    auto s = l.head_attestation_hex_short();
+    CHECK(s.size() == 24u);
+    auto colon = s.find(':');
+    REQUIRE(colon != std::string::npos);
+    // First 8 chars of the all-zero hash hex.
+    CHECK(s.substr(0, colon) == Hash::zero().hex().substr(0, 8));
+}
+
+TEST_CASE("head_attestation_hex_short: head field advances; key field is stable across appends") {
+    auto p = tmp_db("hahs_advance");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 0}}, ""));
+    auto s1 = l.head_attestation_hex_short();
+    REQUIRE(l.append("e", "x", nlohmann::json{{"i", 1}}, ""));
+    auto s2 = l.head_attestation_hex_short();
+
+    auto head1 = s1.substr(0, s1.find(':'));
+    auto head2 = s2.substr(0, s2.find(':'));
+    CHECK(head1 != head2);
+
+    // Middle slice (key_id) is identical.
+    auto colon1_a = s1.find(':');
+    auto colon1_b = s1.find(':', colon1_a + 1);
+    auto colon2_a = s2.find(':');
+    auto colon2_b = s2.find(':', colon2_a + 1);
+    auto key1 = s1.substr(colon1_a + 1, colon1_b - colon1_a - 1);
+    auto key2 = s2.substr(colon2_a + 1, colon2_b - colon2_a - 1);
+    CHECK(key1 == key2);
+    CHECK(key1 == l.key_id().substr(0, 8));
+}
+
+TEST_CASE("head_attestation_hex_short: distinct from head_attestation_hex on identical chain") {
+    auto p = tmp_db("hahs_distinct");
+    auto l_ = Ledger::open(p); REQUIRE(l_);
+    auto& l = l_.value();
+    REQUIRE(l.append("e", "x", nlohmann::json::object(), ""));
+    auto compact_short = l.head_attestation_hex_short();
+    auto compact_full  = l.head_attestation_hex();
+    REQUIRE(compact_full);
+    CHECK(compact_short != compact_full.value());
+    // The short head prefix is the leading 8 chars of the full one.
+    CHECK(compact_short.substr(0, 8) == compact_full.value().substr(0, 8));
+}
