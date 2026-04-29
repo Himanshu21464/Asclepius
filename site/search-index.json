@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-04-29T16:03:52Z",
+  "generated_at": "2026-04-29T16:11:37Z",
   "count": 53,
   "pages": [
     {
       "url": "accessibility.html",
-      "title": "Accessibility — Asclepius",
+      "title": "Accessibility — Asclepius Kernel",
       "description": "Accessibility statement: WCAG 2.2 AA target, current conformance, known issues, contact for accessibility complaints.",
       "headings": [
         "Current conformance",
@@ -16,7 +16,7 @@
     },
     {
       "url": "api.html",
-      "title": "API reference — Asclepius",
+      "title": "API reference — Asclepius Kernel",
       "description": "Auto-generated reference of every public C++ symbol in include/asclepius/. Classes, methods, free functions, enums — direct from the source.",
       "headings": [
         "asclepius.hpp",
@@ -83,7 +83,7 @@
     },
     {
       "url": "architecture.html",
-      "title": "Architecture — Asclepius",
+      "title": "Architecture — Asclepius Kernel",
       "description": "Component map, data flow, and the rationale behind every layer of the runtime.",
       "headings": [
         "Component map",
@@ -105,7 +105,7 @@
     },
     {
       "url": "badges.html",
-      "title": "Badges — Asclepius",
+      "title": "Badges — Asclepius Kernel",
       "description": "Embeddable SVG status badges for the Asclepius project. Drop them into your README, your dashboard, your runbook.",
       "headings": [
         "Release version",
@@ -120,7 +120,7 @@
     },
     {
       "url": "benchmarks.html",
-      "title": "Benchmarks — Asclepius",
+      "title": "Benchmarks — Asclepius Kernel",
       "description": "Real performance numbers from the Asclepius C++20 runtime: sub-millisecond p99 on wrapped inferences, 633 MB/s BLAKE2b-256, 62,657 Ed25519 sigs/sec on commodity hardware.",
       "headings": [
         "Cryptographic primitives are not the bottleneck.",
@@ -135,7 +135,7 @@
     },
     {
       "url": "changelog.html",
-      "title": "Changelog &amp; roadmap — Asclepius",
+      "title": "Changelog &amp; roadmap — Asclepius Kernel",
       "description": "Versioned release log and forward roadmap for the Asclepius clinical-AI trust substrate.",
       "headings": [
         "§ release log",
@@ -148,7 +148,7 @@
     },
     {
       "url": "cheatsheet.html",
-      "title": "Cheatsheet — Asclepius",
+      "title": "Cheatsheet — Asclepius Kernel",
       "description": "The fewest-words version. Every common pattern, every CLI invocation, every verification ritual on one dense page. Print it, pin it, paste from it.",
       "headings": [
         "Wrap an inference C++20",
@@ -188,7 +188,7 @@
     },
     {
       "url": "colophon.html",
-      "title": "Colophon — Asclepius",
+      "title": "Colophon — Asclepius Kernel",
       "description": "How the Asclepius site itself is built: type stack, design tokens, no-framework discipline, build pipeline, self-attestation, lessons learned.",
       "headings": [
         "Type stack",
@@ -203,14 +203,14 @@
     },
     {
       "url": "compare.html",
-      "title": "Compare bundles — Asclepius",
+      "title": "Compare bundles — Asclepius Kernel",
       "description": "Drop two ledger excerpts side by side. Asclepius diffs them by seq and payload_hash and highlights added, removed, and modified entries — in your browser, no upload.",
       "headings": []
     },
     {
       "url": "concepts.html",
-      "title": "Concepts — Asclepius primer",
-      "description": "Concepts primer for Asclepius: trust substrate, audit chain, consent as state, drift in three numbers, policy chain, offline-verifiable evidence.",
+      "title": "Concepts — Asclepius Kernel primer",
+      "description": "Concepts primer for Asclepius Kernel: trust substrate, audit chain, consent as state, drift in three numbers, policy chain, offline-verifiable evidence.",
       "headings": [
         "What \"trust substrate\" actually means.",
         "The audit chain.",
@@ -230,7 +230,7 @@
     },
     {
       "url": "conformance.html",
-      "title": "Conformance — Asclepius",
+      "title": "Conformance — Asclepius Kernel",
       "description": "The Asclepius conformance suite: every L1 / L2 / L3 / L2-Medical test, what it asserts, and the current pass/fail status from the v0.6.0 reference build.",
       "headings": [
         "Trustworthy log.",
@@ -241,7 +241,7 @@
     },
     {
       "url": "contributing.html",
-      "title": "Contributing — Asclepius",
+      "title": "Contributing — Asclepius Kernel",
       "description": "How to contribute to the Asclepius runtime — PR flow, RFC process, code style, sign-off, security disclosure.",
       "headings": [
         "Read first",
@@ -259,7 +259,7 @@
     },
     {
       "url": "cookies.html",
-      "title": "Cookies — Asclepius",
+      "title": "Cookies — Asclepius Kernel",
       "description": "The complete list of cookies asclepius.health sets: zero. The complete list of trackers it loads: zero. What it does store, and where.",
       "headings": [
         "What we do store",
@@ -271,7 +271,7 @@
     },
     {
       "url": "crypto.html",
-      "title": "Crypto toolbox — Asclepius",
+      "title": "Crypto toolbox — Asclepius Kernel",
       "description": "In-browser cryptographic playground: hash visualizer (SHA-256/384/512), Ed25519 keypair gen + signing, chain-forge demo. All Web Crypto, no network.",
       "headings": [
         "Same input, three fingerprints.",
@@ -281,7 +281,7 @@
     },
     {
       "url": "decisions.html",
-      "title": "Decisions — Asclepius",
+      "title": "Decisions — Asclepius Kernel",
       "description": "Architecture Decision Records for Asclepius. Why Ed25519, BLAKE2b, C++20, SQLite, canonical JSON, USTAR tar, Pimpl, Result&lt;T&gt; — and what we ruled out.",
       "headings": [
         "Ed25519 over RSA / ECDSA.",
@@ -309,8 +309,8 @@
     },
     {
       "url": "demo.html",
-      "title": "Asclepius — playground",
-      "description": "A live, in-browser simulation of an Asclepius-wrapped clinical-AI inference. PHI scrubbed, schema-checked, signed Merkle row appended in front of you.",
+      "title": "Asclepius Kernel — playground",
+      "description": "A live, in-browser simulation of an Asclepius Kernel-wrapped clinical-AI inference. PHI scrubbed, schema-checked, signed Merkle row appended in front of you.",
       "headings": [
         "Clinician transcript",
         "detected PHI",
@@ -321,7 +321,7 @@
     },
     {
       "url": "deploy.html",
-      "title": "Deploy — Asclepius",
+      "title": "Deploy — Asclepius Kernel",
       "description": "Production deployment recipes for Asclepius: docker-compose, SQLite-backed ledger, sidecar, key custody, retention, multi-tenant. Read this first.",
       "headings": [
         "Development.",
@@ -338,7 +338,7 @@
     },
     {
       "url": "docs.html",
-      "title": "Docs — Asclepius",
+      "title": "Docs — Asclepius Kernel",
       "description": "Architecture, on-disk + on-wire spec, threat model, and an in-browser playground for the Asclepius clinical-AI trust substrate.",
       "headings": [
         "Architecture",
@@ -354,7 +354,7 @@
     },
     {
       "url": "economics.html",
-      "title": "Economics — Asclepius",
+      "title": "Economics — Asclepius Kernel",
       "description": "What does Asclepius actually cost? Bytes per entry, signing CPU, bundle export size, retention — with worked examples for small / medium / large operators.",
       "headings": [
         "One signed entry.",
@@ -367,8 +367,8 @@
     },
     {
       "url": "explained.html",
-      "title": "Explained — Asclepius in plain words",
-      "description": "What Asclepius is, what it does, and why it exists — in plain English, for hospital admins, non-AI clinicians, journalists, and the curious. The on-ramp before the spec.",
+      "title": "Explained — Asclepius Kernel in plain words",
+      "description": "What Asclepius Kernel is, what it does, and why it exists — in plain English, for hospital admins, non-AI clinicians, journalists, and the curious. The on-ramp before the spec.",
       "headings": [
         "What this is.",
         "The problem.",
@@ -389,13 +389,13 @@
     },
     {
       "url": "explorer.html",
-      "title": "Explorer — Asclepius",
+      "title": "Explorer — Asclepius Kernel",
       "description": "Drop or paste a ledger JSONL excerpt. Inspect entries, walk the prev_hash chain, recompute payload hashes, see breaks in red. The auditor's microscope.",
       "headings": []
     },
     {
       "url": "glossary.html",
-      "title": "Glossary — Asclepius",
+      "title": "Glossary — Asclepius Kernel",
       "description": "Every clinical and cryptographic term Asclepius uses, defined in one place. Other pages deep-link here.",
       "headings": [
         "A",
@@ -420,7 +420,7 @@
     },
     {
       "url": "governance.html",
-      "title": "Governance — Asclepius",
+      "title": "Governance — Asclepius Kernel",
       "description": "How decisions get made in the Asclepius project: lazy consensus for routine PRs, RFCs for shape changes, public voting for breaking changes, no BDFL.",
       "headings": [
         "Three tiers of change",
@@ -484,7 +484,7 @@
     },
     {
       "url": "integrations.html",
-      "title": "Integrations — Asclepius",
+      "title": "Integrations — Asclepius Kernel",
       "description": "Copy-paste recipes for wrapping clinical-AI tools in Asclepius. Ambient scribe, in-house model, agent, FHIR sidecar, batch eval. C++ and Python side-by-side.",
       "headings": [
         "An ambient-scribe vendor.",
@@ -504,7 +504,7 @@
     },
     {
       "url": "labs.html",
-      "title": "Labs — Asclepius",
+      "title": "Labs — Asclepius Kernel",
       "description": "Where Asclepius is being piloted: design partners, research collaborators, and active conformance battery sites.",
       "headings": [
         "A multi-speciality chain, Bengaluru.",
@@ -519,7 +519,7 @@
     },
     {
       "url": "learn.html",
-      "title": "Learn — Asclepius",
+      "title": "Learn — Asclepius Kernel",
       "description": "Three interactive surfaces, in order: build a chain in the playground, walk the offline verify ritual, then inspect a real ledger in the explorer.",
       "headings": [
         "Wrap a model in your tab.",
@@ -530,7 +530,7 @@
     },
     {
       "url": "licenses.html",
-      "title": "Licenses — Asclepius",
+      "title": "Licenses — Asclepius Kernel",
       "description": "Third-party licenses for the Asclepius runtime and the website. Apache 2.0 ourselves; everything else attributed.",
       "headings": [
         "Runtime dependencies",
@@ -542,7 +542,7 @@
     },
     {
       "url": "migrations.html",
-      "title": "Migrations — Asclepius",
+      "title": "Migrations — Asclepius Kernel",
       "description": "Version-to-version upgrade guides for Asclepius. v0.0→v0.1, snapshot/restore, gRPC sidecar GA, v0.3→v1.0 (ML-DSA). Pre-flight, runbook, rollback, verify.",
       "headings": [
         "v0.0.x → v0.1 · initial GA.",
@@ -563,7 +563,7 @@
     },
     {
       "url": "observability.html",
-      "title": "Observability — Asclepius",
+      "title": "Observability — Asclepius Kernel",
       "description": "Every metric, trace span, and log line the substrate emits. Prometheus shape, OpenTelemetry conventions, JSON Lines logs, dashboards, alert rules.",
       "headings": [
         "Metrics — Prometheus shape.",
@@ -580,7 +580,7 @@
     },
     {
       "url": "operators.html",
-      "title": "Operators — running Asclepius in production",
+      "title": "Operators — running Asclepius Kernel in production",
       "description": "Production-ops runbook: day-one checklist, daily probes, incident response, capacity planning, disaster recovery, multi-tenant ops, what you'll page on.",
       "headings": [
         "Day one.",
@@ -635,7 +635,7 @@
     },
     {
       "url": "playbooks.html",
-      "title": "Playbooks — Asclepius",
+      "title": "Playbooks — Asclepius Kernel",
       "description": "Operator runbooks for the incidents you will face: key rotation, ledger truncation, drift breach, consent revocation, subpoena, sidecar partition.",
       "headings": [
         "Ledger truncation detected.",
@@ -677,7 +677,7 @@
     },
     {
       "url": "press.html",
-      "title": "Press kit — Asclepius",
+      "title": "Press kit — Asclepius Kernel",
       "description": "Wordmark, mark, color tokens, fact sheet, downloadable brand assets, sample copy. For journalists, partners, and the AI Governance Office.",
       "headings": [
         "Palette",
@@ -690,7 +690,7 @@
     },
     {
       "url": "principles.html",
-      "title": "Principles — Asclepius",
+      "title": "Principles — Asclepius Kernel",
       "description": "The seven design tenets that drive Asclepius decisions. Each is opinionated, and the trade-offs we accept are stated explicitly.",
       "headings": [
         "Cryptographic provenance, not \"trust us.\"",
@@ -704,7 +704,7 @@
     },
     {
       "url": "quickstart.html",
-      "title": "Quickstart — Asclepius in five minutes",
+      "title": "Quickstart — Asclepius Kernel in five minutes",
       "description": "From git clone to a verified ledger in five minutes. Three commands, one example, one CLI tour, one tiny C++ snippet. The first hands-on for builders.",
       "headings": [
         "In one minute.",
@@ -716,7 +716,7 @@
     },
     {
       "url": "regulator.html",
-      "title": "For regulators — Asclepius",
+      "title": "For regulators — Asclepius Kernel",
       "description": "DPDP Act &amp; ABDM, EU AI Act, HIPAA, CDSCO SaMD, FDA SaMD, California AB 3030, Joint Commission record integrity — each clause tied to the Asclepius primitive that addresses it. India-first; jurisdiction-neutral.",
       "headings": [
         "DPDP Act &amp; ABDM — India healthtech obligations.",
@@ -730,7 +730,7 @@
     },
     {
       "url": "release-process.html",
-      "title": "Release process — Asclepius",
+      "title": "Release process — Asclepius Kernel",
       "description": "How an Asclepius release actually happens. Version cut, signing, SBOM, advisory issuance, deprecation windows, downstream notification. Public, reproducible, auditable.",
       "headings": [
         "Cut a release branch.",
@@ -754,7 +754,7 @@
     },
     {
       "url": "research.html",
-      "title": "Research — Asclepius",
+      "title": "Research — Asclepius Kernel",
       "description": "Annotated bibliography of papers Asclepius is built on. Merkle 1979, Ed25519, BLAKE2, drift literature, FHIR R5, clinical-AI accountability canon.",
       "headings": [
         "Crypto we chose to build on.",
@@ -790,7 +790,7 @@
     },
     {
       "url": "roadmap.html",
-      "title": "Roadmap — Asclepius",
+      "title": "Roadmap — Asclepius Kernel",
       "description": "Asclepius roadmap: gRPC sidecar, HSM signer, conformance suite L1/L2/L3, multi-tenant evidence-bundle service.",
       "headings": [
         "Q2&nbsp;2026",
@@ -811,7 +811,7 @@
     },
     {
       "url": "sandbox.html",
-      "title": "Policy sandbox — Asclepius",
+      "title": "Policy sandbox — Asclepius Kernel",
       "description": "Write a custom regex or schema policy. Test it live against synthetic clinical encounters. See exactly what the runtime would see, in your browser, without a build.",
       "headings": [
         "your policy",
@@ -820,7 +820,7 @@
     },
     {
       "url": "security.html",
-      "title": "Security — Asclepius",
+      "title": "Security — Asclepius Kernel",
       "description": "Asclepius security policy: vulnerability disclosure, supported versions, signing keys, and how to report a finding.",
       "headings": [
         "How to report.",
@@ -832,13 +832,13 @@
     },
     {
       "url": "sitegraph.html",
-      "title": "Site graph — Asclepius",
+      "title": "Site graph — Asclepius Kernel",
       "description": "Every page on this site, every link between them. A force-directed graph rendered in your browser from a fetched JSON index.",
       "headings": []
     },
     {
       "url": "sitemap.html",
-      "title": "Sitemap — Asclepius",
+      "title": "Sitemap — Asclepius Kernel",
       "description": "Every page on asclepius.health, grouped. The crawler version lives at sitemap.xml.",
       "headings": [
         "§ landing",
@@ -852,7 +852,7 @@
     },
     {
       "url": "spec.html",
-      "title": "Spec — Asclepius",
+      "title": "Spec — Asclepius Kernel",
       "description": "On-disk and on-wire formats. The bytes a verifier sees, in lexicographic order.",
       "headings": [
         "Hash function",
@@ -868,7 +868,7 @@
     },
     {
       "url": "status.html",
-      "title": "Status — Asclepius",
+      "title": "Status — Asclepius Kernel",
       "description": "What an Asclepius-deployed health system sees in production: live ledger throughput, drift alerts, recent bundle exports, last attestation.",
       "headings": [
         "Live throughput.",
@@ -879,7 +879,7 @@
     },
     {
       "url": "threat-model.html",
-      "title": "Threat Model — Asclepius",
+      "title": "Threat Model — Asclepius Kernel",
       "description": "Adversaries A1–A6, residual risk, and exactly what verify() proves.",
       "headings": [
         "Assumptions",
@@ -899,7 +899,7 @@
     },
     {
       "url": "threat-tabletop.html",
-      "title": "Tabletop exercises — Asclepius",
+      "title": "Tabletop exercises — Asclepius Kernel",
       "description": "Five adversarial scenarios: insider re-write, consent forgery, model swap, drift gaslighting, key leak. With detection signals and response runbook refs.",
       "headings": [
         "An insider tries to re-write a row.",
@@ -915,7 +915,7 @@
     },
     {
       "url": "use-cases.html",
-      "title": "Use cases — Asclepius",
+      "title": "Use cases — Asclepius Kernel",
       "description": "Three clinical-AI deployments wrapped by Asclepius: ambient scribe, diagnostic suggestion, agentic action. With policy chain, consent flow, and bundle.",
       "headings": [
         "An ambient scribe.",
@@ -934,13 +934,13 @@
     },
     {
       "url": "validate.html",
-      "title": "Validate an entry — Asclepius",
+      "title": "Validate an entry — Asclepius Kernel",
       "description": "Paste a JSON ledger entry. The page loads the published audit-entry JSON Schema and validates the entry in your browser. No upload, no server. The schema is the contract.",
       "headings": []
     },
     {
       "url": "verify-bundle.html",
-      "title": "Verify a bundle — Asclepius",
+      "title": "Verify a bundle — Asclepius Kernel",
       "description": "A guided five-step walkthrough of the offline evidence-bundle verify ritual: tar, openssl, jq, sha256sum. The bytes a regulator's verifier sees, line by line.",
       "headings": [
         "Extract the tar.",
@@ -952,8 +952,8 @@
     },
     {
       "url": "walkthrough.html",
-      "title": "Walkthrough — Asclepius in motion",
-      "description": "A nine-scene scrollytelling tour of the Asclepius substrate: wrap, ledger, drift, consent, evidence. Animated, narrated, no marketing.",
+      "title": "Walkthrough — Asclepius Kernel in motion",
+      "description": "A nine-scene scrollytelling tour of the Asclepius Kernel substrate: wrap, ledger, drift, consent, evidence. Animated, narrated, no marketing.",
       "headings": [
         "Hospital floor, 2026.",
         "A thin layer between.",

@@ -6,6 +6,7 @@
 // can `jq` it, any operator can re-ingest it into a fresh DB.
 
 #include "asclepius/audit.hpp"
+#include "asclepius/canonical.hpp"
 
 #include "storage.hpp"
 
@@ -22,47 +23,24 @@ using nlohmann::json;
 
 namespace {
 
-std::string hex(std::span<const std::uint8_t> in) {
-    static const char* d = "0123456789abcdef";
-    std::string out;
-    out.resize(in.size() * 2);
-    for (std::size_t i = 0; i < in.size(); ++i) {
-        out[2 * i + 0] = d[(in[i] >> 4) & 0xF];
-        out[2 * i + 1] = d[(in[i] >> 0) & 0xF];
-    }
-    return out;
-}
-
-bool from_hex(std::string_view s, std::span<std::uint8_t> out) {
-    if (s.size() != out.size() * 2) return false;
-    auto val = [](char c) -> int {
-        if (c >= '0' && c <= '9') return c - '0';
-        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-        return -1;
-    };
-    for (std::size_t i = 0; i < out.size(); ++i) {
-        int hi = val(s[2*i]);
-        int lo = val(s[2*i + 1]);
-        if (hi < 0 || lo < 0) return false;
-        out[i] = static_cast<std::uint8_t>((hi << 4) | lo);
-    }
-    return true;
-}
+// Round 103 / 104: hex helpers hoisted to canonical::; this file routes
+// through the substrate primitive (canonical::to_hex for encode,
+// canonical::from_hex_into for fixed-size decode into a caller-supplied
+// span).
 
 json entry_to_json(const LedgerEntry& e) {
     json j;
     j["seq"]        = e.header.seq;
     j["ts_ns"]      = e.header.ts.nanos_since_epoch();
-    j["prev_hash"]  = hex({e.header.prev_hash.bytes.data(),    e.header.prev_hash.bytes.size()});
-    j["payload_hash"] = hex({e.header.payload_hash.bytes.data(), e.header.payload_hash.bytes.size()});
+    j["prev_hash"]  = canonical::to_hex({e.header.prev_hash.bytes.data(),    e.header.prev_hash.bytes.size()});
+    j["payload_hash"] = canonical::to_hex({e.header.payload_hash.bytes.data(), e.header.payload_hash.bytes.size()});
     j["actor"]      = e.header.actor;
     j["event_type"] = e.header.event_type;
     j["tenant"]     = e.header.tenant;
     j["body"]       = e.body_json;
-    j["signature"]  = hex({e.signature.data(), e.signature.size()});
+    j["signature"]  = canonical::to_hex({e.signature.data(), e.signature.size()});
     j["key_id"]     = e.key_id;
-    j["entry_hash"] = hex({e.entry_hash().bytes.data(), e.entry_hash().bytes.size()});
+    j["entry_hash"] = canonical::to_hex({e.entry_hash().bytes.data(), e.entry_hash().bytes.size()});
     return j;
 }
 
@@ -71,18 +49,21 @@ Result<LedgerEntry> entry_from_json(const json& j) {
     try {
         e.header.seq        = j.at("seq").get<std::uint64_t>();
         e.header.ts         = Time{j.at("ts_ns").get<std::int64_t>()};
-        if (!from_hex(j.at("prev_hash").get<std::string>(),
-                      {e.header.prev_hash.bytes.data(), e.header.prev_hash.bytes.size()}))
+        if (!canonical::from_hex_into(
+                j.at("prev_hash").get<std::string>(),
+                {e.header.prev_hash.bytes.data(), e.header.prev_hash.bytes.size()}))
             return Error::invalid("malformed prev_hash hex");
-        if (!from_hex(j.at("payload_hash").get<std::string>(),
-                      {e.header.payload_hash.bytes.data(), e.header.payload_hash.bytes.size()}))
+        if (!canonical::from_hex_into(
+                j.at("payload_hash").get<std::string>(),
+                {e.header.payload_hash.bytes.data(), e.header.payload_hash.bytes.size()}))
             return Error::invalid("malformed payload_hash hex");
         e.header.actor      = j.at("actor").get<std::string>();
         e.header.event_type = j.at("event_type").get<std::string>();
         e.header.tenant     = j.value("tenant", std::string{});
         e.body_json         = j.at("body").get<std::string>();
-        if (!from_hex(j.at("signature").get<std::string>(),
-                      {e.signature.data(), e.signature.size()}))
+        if (!canonical::from_hex_into(
+                j.at("signature").get<std::string>(),
+                {e.signature.data(), e.signature.size()}))
             return Error::invalid("malformed signature hex");
         e.key_id            = j.at("key_id").get<std::string>();
     } catch (const std::exception& ex) {

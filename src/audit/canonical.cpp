@@ -23,27 +23,41 @@ std::string to_hex(std::span<const std::uint8_t> bytes) {
     return out;
 }
 
+namespace {
+inline int hex_val(char c) noexcept {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+}  // namespace
+
 Result<std::vector<std::uint8_t>> from_hex(std::string_view s) {
     if (s.size() % 2 != 0) {
         return Error::invalid("hex string must have even length");
     }
-    auto val = [](char c) -> int {
-        if (c >= '0' && c <= '9') return c - '0';
-        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-        return -1;
-    };
     std::vector<std::uint8_t> out;
     out.reserve(s.size() / 2);
     for (std::size_t i = 0; i < s.size(); i += 2) {
-        int hi = val(s[i]);
-        int lo = val(s[i + 1]);
+        int hi = hex_val(s[i]);
+        int lo = hex_val(s[i + 1]);
         if (hi < 0 || lo < 0) {
             return Error::invalid("hex string has non-hex character");
         }
         out.push_back(static_cast<std::uint8_t>((hi << 4) | lo));
     }
     return out;
+}
+
+bool from_hex_into(std::string_view s, std::span<std::uint8_t> out) noexcept {
+    if (s.size() != out.size() * 2) return false;
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        int hi = hex_val(s[2 * i]);
+        int lo = hex_val(s[2 * i + 1]);
+        if (hi < 0 || lo < 0) return false;
+        out[i] = static_cast<std::uint8_t>((hi << 4) | lo);
+    }
+    return true;
 }
 
 // ---- Sign / verify -------------------------------------------------------

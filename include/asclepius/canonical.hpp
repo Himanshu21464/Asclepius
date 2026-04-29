@@ -44,6 +44,13 @@ std::string to_hex(std::span<const std::uint8_t> bytes);
 // The decoded vector has size == s.size() / 2.
 Result<std::vector<std::uint8_t>> from_hex(std::string_view s);
 
+// Fixed-size decode variant: decodes into a caller-supplied output
+// buffer, returning true on success and false on length mismatch or
+// non-hex content. Used by callers that already own the destination
+// (e.g. ledger fields with fixed-size Hash / signature arrays). No
+// allocations; no exceptions.
+bool from_hex_into(std::string_view s, std::span<std::uint8_t> out) noexcept;
+
 // ---- Sign / verify -------------------------------------------------------
 
 // Sign canonical bytes with `signer`. Wraps KeyStore::sign over a span
