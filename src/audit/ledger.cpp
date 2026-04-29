@@ -327,7 +327,7 @@ Result<std::uint64_t> Ledger::body_byte_size_at(std::uint64_t seq) const {
     }
     auto e = impl_->storage->select_at(seq);
     if (!e) return e.error();
-    return static_cast<std::uint64_t>(e.value().body_json.size());
+    return e.value().body_json.size();
 }
 
 Result<std::vector<LedgerEntry>> Ledger::tail(std::size_t n) const {
@@ -1050,7 +1050,7 @@ Result<std::uint64_t> Ledger::distinct_actors_count() const {
         return true;
     });
     if (!r) return r.error();
-    return static_cast<std::uint64_t>(seen.size());
+    return seen.size();
 }
 
 Result<std::vector<LedgerEntry>>
@@ -1187,7 +1187,7 @@ Result<std::uint64_t> Ledger::distinct_inference_ids_count() const {
         return true;
     });
     if (!r) return r.error();
-    return static_cast<std::uint64_t>(seen.size());
+    return seen.size();
 }
 
 std::string Ledger::attestation_json() const {
@@ -1806,9 +1806,9 @@ Ledger::most_active_actors(std::size_t top_n) const {
     for (auto& [a, c] : counts) all.emplace_back(a, c);
     // Sort by count desc, ties alphabetic asc for deterministic output.
     std::sort(all.begin(), all.end(),
-              [](const auto& l, const auto& r) {
-                  if (l.second != r.second) return l.second > r.second;
-                  return l.first < r.first;
+              [](const auto& lhs, const auto& rhs) {
+                  if (lhs.second != rhs.second) return lhs.second > rhs.second;
+                  return lhs.first < rhs.first;
               });
     if (all.size() > top_n) all.resize(top_n);
     return all;

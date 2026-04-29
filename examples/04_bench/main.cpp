@@ -82,7 +82,8 @@ int main(int argc, char** argv) {
     Bytes b{reinterpret_cast<const std::uint8_t*>(sample.data()), sample.size()};
     auto hash_t = bench(N, [&](std::size_t) { (void)hash(b); });
     double hash_ns_per = (hash_t / static_cast<double>(N)) * 1e9;
-    double hash_mb_s   = (sample.size() * static_cast<double>(N)) / hash_t / (1024.0 * 1024.0);
+    double hash_mb_s   = (static_cast<double>(sample.size()) * static_cast<double>(N))
+                          / hash_t / (1024.0 * 1024.0);
 
     // ── 2. signing throughput ──────────────────────────────────────────────
     auto signer = KeyStore::generate();
@@ -152,11 +153,11 @@ int main(int argc, char** argv) {
             .consent_token_id = tok.value().token_id,
         });
         if (!inf_r) continue;
-        auto t0 = clk::now();
+        auto t_iter = clk::now();
         auto out = inf_r.value().run(std::string{with_phi},
             [](std::string s) -> Result<std::string> { return s; });
         if (out) (void)inf_r.value().commit();
-        auto dt = duration<double, std::micro>(clk::now() - t0).count();
+        auto dt = duration<double, std::micro>(clk::now() - t_iter).count();
         e2e_us.push_back(dt);
     }
 
@@ -198,7 +199,8 @@ int main(int argc, char** argv) {
         {"p90_us", quantile(e2e_us, 0.90)},
         {"p99_us", quantile(e2e_us, 0.99)},
         {"mean_us", e2e_us.empty() ? 0.0
-                       : std::accumulate(e2e_us.begin(), e2e_us.end(), 0.0) / e2e_us.size()},
+                       : std::accumulate(e2e_us.begin(), e2e_us.end(), 0.0)
+                            / static_cast<double>(e2e_us.size())},
         {"samples", e2e_us.size()},
     };
 

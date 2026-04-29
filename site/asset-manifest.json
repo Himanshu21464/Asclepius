@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-29T14:51:14Z",
+  "generated_at": "2026-04-29T15:01:07Z",
   "algorithm": "SHA-256",
   "count": 94,
   "files": {
@@ -56,8 +56,8 @@
       "bytes": 846
     },
     "assets/bench.json": {
-      "sha256": "6b591ae46913dcf4c59b3e349fb0ef43e2b6b3fe52bcf4471e3df89671bed1aa",
-      "bytes": 910
+      "sha256": "6035d17457b905c44c7767fd98d7c062f3c5b6e78ee99d155d11c9547b066f83",
+      "bytes": 913
     },
     "assets/favicon-mono.svg": {
       "sha256": "658da6d4180d367ecde78cd7cc6e6ecc1bf0d6988990333971ddcc4f4ee28af1",
@@ -344,7 +344,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "15bca0d446083073bc345336f9fe5cee46a1499de5542fc58b567f4494948588",
+      "sha256": "698d918e6a40c8bf8a1f3d7706cc3abbf990390ff7b434d5999d8e2c53c86758",
       "bytes": 1063
     },
     "styles.css": {

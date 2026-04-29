@@ -54,8 +54,9 @@ void octal(char* dst, std::size_t n, std::uint64_t v) {
     std::memset(dst, '0', n - 1);
     dst[n - 1] = '\0';
     char buf[32];
-    std::size_t len = std::snprintf(buf, sizeof(buf), "%llo",
-                                     static_cast<unsigned long long>(v));
+    int rc = std::snprintf(buf, sizeof(buf), "%llo",
+                            static_cast<unsigned long long>(v));
+    std::size_t len = (rc < 0) ? 0 : static_cast<std::size_t>(rc);
     if (len >= n) len = n - 1;
     std::memcpy(dst + (n - 1 - len), buf, len);
 }
@@ -77,7 +78,7 @@ void write_file_entry(std::ostream& out,
     octal(h.mode,  sizeof(h.mode),  0644);
     octal(h.uid,   sizeof(h.uid),   0);
     octal(h.gid,   sizeof(h.gid),   0);
-    octal(h.size,  sizeof(h.size),  static_cast<std::uint64_t>(data.size()));
+    octal(h.size,  sizeof(h.size),  data.size());
     octal(h.mtime, sizeof(h.mtime), 0);
     h.typeflag = '0';
     std::memcpy(h.magic,   "ustar", 5);

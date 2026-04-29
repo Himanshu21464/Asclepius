@@ -80,7 +80,7 @@ struct Runtime::Impl {
             body["severity"]     = std::string{to_string(r.severity)};
             body["reference_n"]  = r.reference_n;
             body["current_n"]    = r.current_n;
-            ledger.append("drift.crossed", "system:drift_monitor", body);
+            (void)ledger.append("drift.crossed", "system:drift_monitor", body);
             metrics.inc("drift.crossings");
         }, DriftSeverity::moder);
     }
@@ -259,7 +259,7 @@ Result<void> Runtime::record_shutdown(const std::string& reason) {
 }
 
 std::size_t Runtime::ledger_length() const noexcept {
-    return static_cast<std::size_t>(impl_->ledger.length());
+    return impl_->ledger.length();
 }
 
 std::string Runtime::head_hash() const {
@@ -496,7 +496,7 @@ std::size_t Runtime::active_inference_count() const {
     const std::uint64_t terminal  =
         ok + timed_out + cancelled + model_err + blk_in + blk_out + deduped;
     if (terminal >= started) return 0;
-    return static_cast<std::size_t>(started - terminal);
+    return started - terminal;
 }
 
 Runtime::Health Runtime::health() const {
@@ -780,12 +780,11 @@ Runtime::SystemSummary Runtime::system_summary() const {
 }
 
 Result<std::size_t> Runtime::dispatched_inferences() const {
-    return static_cast<std::size_t>(
-        impl_->metrics.count("inference.attempts"));
+    return impl_->metrics.count("inference.attempts");
 }
 
 std::size_t Runtime::counter_total() const {
-    return static_cast<std::size_t>(impl_->metrics.counter_total());
+    return impl_->metrics.counter_total();
 }
 
 std::uint64_t Runtime::counter(std::string_view name) const {
@@ -831,11 +830,10 @@ Result<std::size_t> Runtime::flush_consent_to_metrics() {
         }
     };
     const auto& cr = impl_->consent;
-    put("consent.tokens.active",   static_cast<std::uint64_t>(cr.active_count()));
-    put("consent.tokens.total",    static_cast<std::uint64_t>(cr.total_count()));
-    put("consent.tokens.expired",  static_cast<std::uint64_t>(cr.expired_count()));
-    put("consent.patients.active",
-        static_cast<std::uint64_t>(cr.patients_with_active_count()));
+    put("consent.tokens.active",   cr.active_count());
+    put("consent.tokens.total",    cr.total_count());
+    put("consent.tokens.expired",  cr.expired_count());
+    put("consent.patients.active", cr.patients_with_active_count());
     return std::size_t{4};
 }
 
@@ -917,7 +915,7 @@ std::string Runtime::env_summary() const {
     j["sqlite"] = std::string{SQLITE_VERSION};
     // C++ standard. __cplusplus values: 201703L=C++17, 202002L=C++20,
     // 202302L=C++23. Surface the raw long for forward-compat.
-    j["cpp_standard"] = static_cast<long>(__cplusplus);
+    j["cpp_standard"] = __cplusplus;
     // Compiler. Order matters: clang defines __GNUC__ for compatibility,
     // so check __clang__ first.
 #if defined(__clang__)
