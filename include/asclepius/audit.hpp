@@ -1119,6 +1119,110 @@ std::string attestation_to_json(const HumanAttestation&);
 // Inverse. Returns Error::invalid on malformed input or missing fields.
 Result<HumanAttestation> attestation_from_json(std::string_view);
 
+// ============================================================================
+// Round 98 — Typed-append helpers for round 90-96 evidence shapes
+// ============================================================================
+//
+// The Ledger's existing Ledger::append takes a free-form event_type and a
+// JSON body. The helpers below codify the convention for the seven
+// round-90-96 evidence shapes: each helper picks the canonical event_type
+// from `events::`, serialises the bundle's payload deterministically, and
+// calls Ledger::append. They centralise three things callers would otherwise
+// duplicate: event_type spelling, body schema, and tenant scope.
+//
+// Forward-declared bundle types are deliberate: this header lives in the
+// audit subsystem and we do not want a hard dependency on every other
+// header. Callers include both audit.hpp and the relevant primitive
+// header (consent.hpp / evaluation.hpp) before using these helpers.
+
+struct ConsentArtefact;            // declared in consent.hpp
+struct EmergencyOverrideToken;     // declared in consent.hpp
+struct TeleConsultEnvelope;        // declared in evaluation.hpp
+struct BillAuditBundle;            // declared in evaluation.hpp
+struct SampleIntegrityBundle;      // declared in evaluation.hpp
+struct CarePathAttestation;        // declared in evaluation.hpp
+
+// Append a HumanAttestation. event_type is `events::human_attestation`.
+// Body shape: the attestation_to_json output. Returns the LedgerEntry as
+// produced by Ledger::append. The actor field on the ledger header is
+// taken from the attestation's actor.str().
+Result<LedgerEntry>
+append_human_attestation(Ledger&                 ledger,
+                         const HumanAttestation& attestation,
+                         std::string             tenant = "");
+
+// Append a ConsentArtefact-issued event.
+// event_type is `events::consent_artefact_issued`; actor is the artefact's
+// requester_id (the HIU). The body carries the full ABDM-shaped JSON via
+// to_abdm_json so consumers can replay the artefact verbatim.
+Result<LedgerEntry>
+append_consent_artefact_issued(Ledger&                ledger,
+                               const ConsentArtefact& artefact,
+                               std::string            tenant = "");
+
+// Append a ConsentArtefact-revoked event. event_type is
+// `events::consent_artefact_revoked`; actor is the artefact's
+// requester_id. Body carries the artefact's id and its current status.
+Result<LedgerEntry>
+append_consent_artefact_revoked(Ledger&                ledger,
+                                const ConsentArtefact& artefact,
+                                std::string            tenant = "");
+
+// Append a TeleConsultEnvelope close event. event_type is
+// `events::tele_consult_closed`. Body is the envelope_to_json output.
+// Actor is the clinician's actor.str() because the close is the
+// clinician-side event semantically (the patient signed too, but the
+// audit chain is operator-attached to the clinician).
+Result<LedgerEntry>
+append_tele_consult(Ledger&                    ledger,
+                    const TeleConsultEnvelope& envelope,
+                    std::string                tenant = "");
+
+// Append a BillAuditBundle. event_type is `events::bill_audited`. Body
+// is the bill_audit_to_json output. Actor is the auditor's actor.str().
+Result<LedgerEntry>
+append_bill_audit(Ledger&                ledger,
+                  const BillAuditBundle& bundle,
+                  std::string            tenant = "");
+
+// Append a SampleIntegrityBundle's collection AND result events. The
+// helper writes one entry of `events::sample_collected` and one of
+// `events::sample_resulted`, both with the bundle's full JSON. Returns
+// the (collected, resulted) pair on success. Actor is the bundle's
+// collected_by string.
+Result<std::pair<LedgerEntry, LedgerEntry>>
+append_sample_integrity(Ledger&                      ledger,
+                        const SampleIntegrityBundle& bundle,
+                        std::string                  tenant = "");
+
+// Append a CarePathAttestation. event_type derives from the decision:
+// allow → "care.path.allow", deny → "care.path.deny". (These are NOT in
+// the events:: well-known set yet — they are the operator-private
+// convention we ship for now; we'll codify them once the event_codes
+// list grows the appropriate slots.) Body is care_path_to_json output.
+// Actor is the attester's actor.str().
+Result<LedgerEntry>
+append_care_path(Ledger&                     ledger,
+                 const CarePathAttestation&  attestation,
+                 std::string                 tenant = "");
+
+// Append an EmergencyOverride activation. event_type is
+// `events::emergency_override_activated`. Body is the override token's
+// JSON. Actor is the token's actor.str(). Used by callers who want a
+// clean ledger trail for break-glass invocations.
+Result<LedgerEntry>
+append_emergency_override_activated(Ledger&                       ledger,
+                                    const EmergencyOverrideToken& token,
+                                    std::string                   tenant = "");
+
+// Append an EmergencyOverride backfill. event_type is
+// `events::emergency_override_backfilled`. Body carries token_id and
+// backfill_evidence_id. Actor is the token's actor.str().
+Result<LedgerEntry>
+append_emergency_override_backfilled(Ledger&                       ledger,
+                                     const EmergencyOverrideToken& token,
+                                     std::string                   tenant = "");
+
 }  // namespace asclepius
 
 #endif  // ASCLEPIUS_AUDIT_HPP

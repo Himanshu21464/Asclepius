@@ -73,6 +73,7 @@ target_sources(asclepius
         src/audit/jsonl.cpp
         src/audit/event_codes.cpp
         src/audit/human_attestation.cpp
+        src/audit/india_helpers.cpp
         src/telemetry/drift.cpp
         src/telemetry/metrics.cpp
         src/telemetry/calibration.cpp

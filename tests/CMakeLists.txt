@@ -14,6 +14,7 @@ add_executable(asclepius_tests
     test_emergency_override.cpp
     test_human_attestation.cpp
     test_calibration_monitor.cpp
+    test_audit_india_helpers.cpp
     test_cohort_ledger.cpp
     test_access_constraint.cpp
     test_runtime.cpp
