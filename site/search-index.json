@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-29T15:52:05Z",
+  "generated_at": "2026-04-29T16:03:52Z",
   "count": 53,
   "pages": [
     {
@@ -438,7 +438,7 @@
     },
     {
       "url": "index.html",
-      "title": "Asclepius — A Trust Substrate for Clinical AI",
+      "title": "Asclepius Kernel — A Trust Substrate for Clinical AI",
       "description": "Open, vendor-neutral C++ runtime that wraps any clinical AI with audit-grade safety: signed Merkle ledger, policy chain, drift, consent, evidence bundles.",
       "headings": [
         "Indian healthtech is&nbsp;deploying clinical AI faster than&nbsp;the&nbsp;audit&nbsp;substrate can&nbsp;be&nbsp;hand-rolled.",
@@ -468,7 +468,7 @@
     },
     {
       "url": "india.html",
-      "title": "India profile — Asclepius",
+      "title": "India profile — Asclepius Kernel",
       "description": "The India healthtech profile of Asclepius: ABDM-shaped consent artefacts, family graph, emergency override, six purpose values, DPDP § 7 alignment.",
       "headings": [
         "Substrate, not jurisdiction.",
@@ -619,7 +619,7 @@
     },
     {
       "url": "pitch.html",
-      "title": "The pitch — Asclepius",
+      "title": "The pitch — Asclepius Kernel",
       "description": "Eight scenes. The story of Asclepius — a trust substrate for clinical AI in India — told as it happens, frame by frame.",
       "headings": [
         "A clinic in Bengaluru.",

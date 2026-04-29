@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-29T15:52:06Z",
+  "generated_at": "2026-04-29T16:03:53Z",
   "algorithm": "SHA-256",
   "count": 95,
   "files": {
@@ -188,12 +188,12 @@
       "bytes": 1846
     },
     "index.html": {
-      "sha256": "4a1635bbd6cd79123ac301a2fec91455c202d2e7760f769cca2f5e15c0370c89",
-      "bytes": 55385
+      "sha256": "20af7ac64bb1e6ea24c9f96308779c472122a5d0cfd19a7543f80251dade996f",
+      "bytes": 55399
     },
     "india.html": {
-      "sha256": "2dcf57746f87091ce7f99af01933095d19f7aa1e7a0ebb1be6797f518aabae39",
-      "bytes": 34157
+      "sha256": "c9336d61524fd740dc34006ff579454f90d2e45fe6dcbb7a80371f91e75d20f3",
+      "bytes": 34171
     },
     "integrations.html": {
       "sha256": "324a9b19e8c36f1161ed25e3f8cd600c7cc93b0731142b912516ed82842f8802",
@@ -276,8 +276,8 @@
       "bytes": 51436
     },
     "pitch.html": {
-      "sha256": "99ca28a0e87a6d21895869dd403d8c601ff25c168e90c3457348d290f73530f2",
-      "bytes": 40020
+      "sha256": "d47a649ad293e29ac8a942615180d15c116803061b39eafed8b3a880bcc8d99e",
+      "bytes": 40034
     },
     "playbooks.html": {
       "sha256": "9baa01a0bf5133e8c96139efa72ec3f0f32e690c96f0170d834d40ddba6ef174",
@@ -348,7 +348,7 @@
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "f4b8a10fcd9ba6dce3672b1856f2b8914a8c727b2688771f6be8046c5aab07b2",
+      "sha256": "60cd427d394c1bc19e58e5a9d93e9df20dbcb809b7624b1bad0bbbcf978af15c",
       "bytes": 1063
     },
     "styles.css": {

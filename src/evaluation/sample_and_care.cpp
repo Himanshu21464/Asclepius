@@ -8,6 +8,8 @@
 
 #include "asclepius/evaluation.hpp"
 
+#include "asclepius/canonical.hpp"
+
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
 
@@ -20,35 +22,8 @@ namespace asclepius {
 
 namespace {
 
-std::string to_hex(std::span<const std::uint8_t> bytes) {
-    static constexpr char kHex[] = "0123456789abcdef";
-    std::string out;
-    out.reserve(bytes.size() * 2);
-    for (auto b : bytes) {
-        out.push_back(kHex[(b >> 4) & 0xF]);
-        out.push_back(kHex[b & 0xF]);
-    }
-    return out;
-}
-
-Result<std::vector<std::uint8_t>> from_hex(std::string_view s) {
-    if (s.size() % 2 != 0) return Error::invalid("hex must have even length");
-    auto val = [](char c) -> int {
-        if (c >= '0' && c <= '9') return c - '0';
-        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-        return -1;
-    };
-    std::vector<std::uint8_t> out;
-    out.reserve(s.size() / 2);
-    for (std::size_t i = 0; i < s.size(); i += 2) {
-        int hi = val(s[i]);
-        int lo = val(s[i + 1]);
-        if (hi < 0 || lo < 0) return Error::invalid("hex non-digit");
-        out.push_back(static_cast<std::uint8_t>((hi << 4) | lo));
-    }
-    return out;
-}
+// Round 103: hex / sign / verify hoisted to canonical:: — only the
+// shape-specific canonical-bytes builders stay here.
 
 // Canonical bytes for a SampleIntegrityBundle.
 std::vector<std::uint8_t> sample_canonical_bytes(const SampleIntegrityBundle& s) {
@@ -114,7 +89,7 @@ std::vector<std::uint8_t> care_path_canonical_bytes(const CarePathAttestation& a
 SampleIntegrityBundle&
 sign_sample_integrity(SampleIntegrityBundle& s, const KeyStore& signer) {
     auto bytes = sample_canonical_bytes(s);
-    s.signature  = signer.sign(Bytes{bytes.data(), bytes.size()});
+    s.signature  = canonical::sign(signer, bytes);
     s.public_key = signer.public_key();
     return s;
 }
@@ -122,8 +97,8 @@ sign_sample_integrity(SampleIntegrityBundle& s, const KeyStore& signer) {
 bool verify_sample_integrity(const SampleIntegrityBundle& s) noexcept {
     try {
         auto bytes = sample_canonical_bytes(s);
-        return KeyStore::verify(
-            Bytes{bytes.data(), bytes.size()},
+        return canonical::verify(
+            bytes,
             std::span<const std::uint8_t, KeyStore::sig_bytes>{s.signature},
             std::span<const std::uint8_t, KeyStore::pk_bytes>{s.public_key});
     } catch (...) { return false; }
@@ -156,8 +131,8 @@ std::string sample_integrity_to_json(const SampleIntegrityBundle& s) {
         {"result_hash",  s.result_hash.hex()},
         {"resulted_by",  s.resulted_by},
         {"resulted_at",  s.resulted_at.iso8601()},
-        {"signature",    to_hex(s.signature)},
-        {"public_key",   to_hex(s.public_key)},
+        {"signature",    canonical::to_hex(s.signature)},
+        {"public_key",   canonical::to_hex(s.public_key)},
     };
     return j.dump();
 }
@@ -197,7 +172,7 @@ sample_integrity_from_json(std::string_view sv) {
     std::string rh_s;
     r = get_str("result_hash",       rh_s);           if (!r) return r.error();
     if (!rh_s.empty()) {
-        auto rb = from_hex(rh_s);
+        auto rb = canonical::from_hex(rh_s);
         if (!rb) return rb.error();
         if (rb.value().size() != Hash::size) {
             return Error::invalid("result_hash wrong byte length");
@@ -232,12 +207,10 @@ sample_integrity_from_json(std::string_view sv) {
     } catch (const nlohmann::json::exception& e) {
         return Error::invalid(std::string{"sample field type error: "} + e.what());
     }
-    auto sig = from_hex(sig_hex); if (!sig) return sig.error();
-    auto pk  = from_hex(pk_hex);  if (!pk)  return pk.error();
-    if (sig.value().size() != KeyStore::sig_bytes) return Error::invalid("bad signature size");
-    if (pk.value().size()  != KeyStore::pk_bytes)  return Error::invalid("bad public_key size");
-    std::copy(sig.value().begin(), sig.value().end(), s.signature.begin());
-    std::copy(pk.value().begin(),  pk.value().end(),  s.public_key.begin());
+    auto fields = canonical::parse_signature_fields(sig_hex, pk_hex);
+    if (!fields) return fields.error();
+    s.signature  = fields.value().signature;
+    s.public_key = fields.value().public_key;
 
     return s;
 }
@@ -268,7 +241,7 @@ make_care_path_attestation(std::string                attestation_id,
 CarePathAttestation&
 sign_care_path(CarePathAttestation& a, const KeyStore& signer) {
     auto bytes = care_path_canonical_bytes(a);
-    a.signature  = signer.sign(Bytes{bytes.data(), bytes.size()});
+    a.signature  = canonical::sign(signer, bytes);
     a.public_key = signer.public_key();
     return a;
 }
@@ -276,8 +249,8 @@ sign_care_path(CarePathAttestation& a, const KeyStore& signer) {
 bool verify_care_path(const CarePathAttestation& a) noexcept {
     try {
         auto bytes = care_path_canonical_bytes(a);
-        return KeyStore::verify(
-            Bytes{bytes.data(), bytes.size()},
+        return canonical::verify(
+            bytes,
             std::span<const std::uint8_t, KeyStore::sig_bytes>{a.signature},
             std::span<const std::uint8_t, KeyStore::pk_bytes>{a.public_key});
     } catch (...) { return false; }
@@ -340,8 +313,8 @@ std::string care_path_to_json(const CarePathAttestation& a) {
         {"decision",       std::string{asclepius::access::to_string(a.decision)}},
         {"reason",         a.reason},
         {"attested_at",    a.attested_at.iso8601()},
-        {"signature",      to_hex(a.signature)},
-        {"public_key",     to_hex(a.public_key)},
+        {"signature",      canonical::to_hex(a.signature)},
+        {"public_key",     canonical::to_hex(a.public_key)},
     };
     return j.dump();
 }
@@ -422,12 +395,10 @@ care_path_from_json(std::string_view sv) {
 
     auto sig_hex = j.value("signature",  std::string{});
     auto pk_hex  = j.value("public_key", std::string{});
-    auto sig = from_hex(sig_hex); if (!sig) return sig.error();
-    auto pk  = from_hex(pk_hex);  if (!pk)  return pk.error();
-    if (sig.value().size() != KeyStore::sig_bytes) return Error::invalid("bad signature size");
-    if (pk.value().size()  != KeyStore::pk_bytes)  return Error::invalid("bad public_key size");
-    std::copy(sig.value().begin(), sig.value().end(), a.signature.begin());
-    std::copy(pk.value().begin(),  pk.value().end(),  a.public_key.begin());
+    auto fields = canonical::parse_signature_fields(sig_hex, pk_hex);
+    if (!fields) return fields.error();
+    a.signature  = fields.value().signature;
+    a.public_key = fields.value().public_key;
 
     return a;
 }

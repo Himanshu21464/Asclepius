@@ -9,6 +9,7 @@
 // HumanAttestation uses, so signing is reproducible across serialisers.
 
 #include "asclepius/evaluation.hpp"
+#include "asclepius/canonical.hpp"
 
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
@@ -22,35 +23,8 @@ namespace asclepius {
 
 namespace {
 
-std::string to_hex(std::span<const std::uint8_t> bytes) {
-    static constexpr char kHex[] = "0123456789abcdef";
-    std::string out;
-    out.reserve(bytes.size() * 2);
-    for (auto b : bytes) {
-        out.push_back(kHex[(b >> 4) & 0xF]);
-        out.push_back(kHex[b & 0xF]);
-    }
-    return out;
-}
-
-Result<std::vector<std::uint8_t>> from_hex(std::string_view s) {
-    if (s.size() % 2 != 0) return Error::invalid("hex string must have even length");
-    auto val = [](char c) -> int {
-        if (c >= '0' && c <= '9') return c - '0';
-        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-        return -1;
-    };
-    std::vector<std::uint8_t> out;
-    out.reserve(s.size() / 2);
-    for (std::size_t i = 0; i < s.size(); i += 2) {
-        int hi = val(s[i]);
-        int lo = val(s[i + 1]);
-        if (hi < 0 || lo < 0) return Error::invalid("hex string has non-hex character");
-        out.push_back(static_cast<std::uint8_t>((hi << 4) | lo));
-    }
-    return out;
-}
+// Round 103: hex / sign / verify hoisted to canonical:: — only the
+// shape-specific canonical-bytes builders stay here.
 
 // ---- TeleConsultEnvelope canonical bytes -----------------------------------
 
@@ -121,7 +95,7 @@ make_envelope(std::string consult_id,
 TeleConsultEnvelope&
 sign_as_clinician(TeleConsultEnvelope& env, const KeyStore& key) {
     auto bytes = envelope_canonical_bytes(env);
-    env.clinician_signature  = key.sign(Bytes{bytes.data(), bytes.size()});
+    env.clinician_signature  = canonical::sign(key, bytes);
     env.clinician_public_key = key.public_key();
     return env;
 }
@@ -129,7 +103,7 @@ sign_as_clinician(TeleConsultEnvelope& env, const KeyStore& key) {
 TeleConsultEnvelope&
 sign_as_patient(TeleConsultEnvelope& env, const KeyStore& key) {
     auto bytes = envelope_canonical_bytes(env);
-    env.patient_signature  = key.sign(Bytes{bytes.data(), bytes.size()});
+    env.patient_signature  = canonical::sign(key, bytes);
     env.patient_public_key = key.public_key();
     return env;
 }
@@ -142,22 +116,22 @@ bool sig_is_zero(std::span<const std::uint8_t, KeyStore::sig_bytes> s) noexcept 
 }  // namespace
 
 bool verify_clinician_signature(const TeleConsultEnvelope& env) noexcept {
+    if (sig_is_zero(env.clinician_signature)) return false;
     try {
-        if (sig_is_zero(env.clinician_signature)) return false;
         auto bytes = envelope_canonical_bytes(env);
-        return KeyStore::verify(
-            Bytes{bytes.data(), bytes.size()},
+        return canonical::verify(
+            bytes,
             std::span<const std::uint8_t, KeyStore::sig_bytes>{env.clinician_signature},
             std::span<const std::uint8_t, KeyStore::pk_bytes>{env.clinician_public_key});
     } catch (...) { return false; }
 }
 
 bool verify_patient_signature(const TeleConsultEnvelope& env) noexcept {
+    if (sig_is_zero(env.patient_signature)) return false;
     try {
-        if (sig_is_zero(env.patient_signature)) return false;
         auto bytes = envelope_canonical_bytes(env);
-        return KeyStore::verify(
-            Bytes{bytes.data(), bytes.size()},
+        return canonical::verify(
+            bytes,
             std::span<const std::uint8_t, KeyStore::sig_bytes>{env.patient_signature},
             std::span<const std::uint8_t, KeyStore::pk_bytes>{env.patient_public_key});
     } catch (...) { return false; }
@@ -177,10 +151,10 @@ std::string envelope_to_json(const TeleConsultEnvelope& e) {
         {"ended_at",              e.ended_at.iso8601()},
         {"video_hash",            e.video_hash.hex()},
         {"transcript_hash",       e.transcript_hash.hex()},
-        {"patient_signature",     to_hex(e.patient_signature)},
-        {"patient_public_key",    to_hex(e.patient_public_key)},
-        {"clinician_signature",   to_hex(e.clinician_signature)},
-        {"clinician_public_key",  to_hex(e.clinician_public_key)},
+        {"patient_signature",     canonical::to_hex(e.patient_signature)},
+        {"patient_public_key",    canonical::to_hex(e.patient_public_key)},
+        {"clinician_signature",   canonical::to_hex(e.clinician_signature)},
+        {"clinician_public_key",  canonical::to_hex(e.clinician_public_key)},
     };
     return j.dump();
 }
@@ -202,7 +176,7 @@ Result<TeleConsultEnvelope> envelope_from_json(std::string_view s) {
     auto fill_array = [&](const char* k, std::size_t expected,
                            std::vector<std::uint8_t>& out) -> Result<void> {
         auto sv = get_str(k); if (!sv) return sv.error();
-        auto raw = from_hex(sv.value()); if (!raw) return raw.error();
+        auto raw = canonical::from_hex(sv.value()); if (!raw) return raw.error();
         if (raw.value().size() != expected) {
             return Error::invalid(std::string{"wrong-size hex field: "} + k);
         }
@@ -228,8 +202,8 @@ Result<TeleConsultEnvelope> envelope_from_json(std::string_view s) {
     e.started_at   = Time::from_iso8601(started.value());
     e.ended_at     = Time::from_iso8601(ended.value());
 
-    auto vh_bytes = from_hex(vh.value()); if (!vh_bytes) return vh_bytes.error();
-    auto th_bytes = from_hex(th.value()); if (!th_bytes) return th_bytes.error();
+    auto vh_bytes = canonical::from_hex(vh.value()); if (!vh_bytes) return vh_bytes.error();
+    auto th_bytes = canonical::from_hex(th.value()); if (!th_bytes) return th_bytes.error();
     if (vh_bytes.value().size() != Hash::size && !vh_bytes.value().empty()) {
         return Error::invalid("video_hash wrong byte length");
     }
@@ -297,7 +271,7 @@ BillAuditBundle& aggregate_totals(BillAuditBundle& a) {
 
 BillAuditBundle& sign_bill_audit(BillAuditBundle& a, const KeyStore& key) {
     auto bytes = bill_audit_canonical_bytes(a);
-    a.signature  = key.sign(Bytes{bytes.data(), bytes.size()});
+    a.signature  = canonical::sign(key, bytes);
     a.public_key = key.public_key();
     return a;
 }
@@ -305,8 +279,8 @@ BillAuditBundle& sign_bill_audit(BillAuditBundle& a, const KeyStore& key) {
 bool verify_bill_audit(const BillAuditBundle& a) noexcept {
     try {
         auto bytes = bill_audit_canonical_bytes(a);
-        return KeyStore::verify(
-            Bytes{bytes.data(), bytes.size()},
+        return canonical::verify(
+            bytes,
             std::span<const std::uint8_t, KeyStore::sig_bytes>{a.signature},
             std::span<const std::uint8_t, KeyStore::pk_bytes>{a.public_key});
     } catch (...) { return false; }
@@ -347,8 +321,8 @@ std::string bill_audit_to_json(const BillAuditBundle& a) {
         {"total_billed",    a.total_billed},
         {"total_reference", a.total_reference},
         {"audited_at",      a.audited_at.iso8601()},
-        {"signature",       to_hex(a.signature)},
-        {"public_key",      to_hex(a.public_key)},
+        {"signature",       canonical::to_hex(a.signature)},
+        {"public_key",      canonical::to_hex(a.public_key)},
     };
     return j.dump();
 }
@@ -417,12 +391,10 @@ Result<BillAuditBundle> bill_audit_from_json(std::string_view s) {
     } catch (const nlohmann::json::exception& e) {
         return Error::invalid(std::string{"bill_audit field type error: "} + e.what());
     }
-    auto sig_b = from_hex(sig_hex); if (!sig_b) return sig_b.error();
-    auto pk_b  = from_hex(pk_hex);  if (!pk_b)  return pk_b.error();
-    if (sig_b.value().size() != KeyStore::sig_bytes) return Error::invalid("bad signature size");
-    if (pk_b.value().size()  != KeyStore::pk_bytes)  return Error::invalid("bad public_key size");
-    std::copy(sig_b.value().begin(), sig_b.value().end(), a.signature.begin());
-    std::copy(pk_b.value().begin(),  pk_b.value().end(),  a.public_key.begin());
+    auto fields = canonical::parse_signature_fields(sig_hex, pk_hex);
+    if (!fields) return fields.error();
+    a.signature  = fields.value().signature;
+    a.public_key = fields.value().public_key;
 
     return a;
 }

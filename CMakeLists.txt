@@ -71,6 +71,7 @@ target_sources(asclepius
         src/audit/sqlite_backend.cpp
         src/audit/migrator.cpp
         src/audit/jsonl.cpp
+        src/audit/canonical.cpp
         src/audit/event_codes.cpp
         src/audit/human_attestation.cpp
         src/audit/india_helpers.cpp
