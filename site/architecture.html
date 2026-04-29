@@ -3,72 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme"        content="dark light">
-<meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
-<meta name="referrer"           content="strict-origin-when-cross-origin">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
-<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-<meta http-equiv="X-Content-Type-Options" content="nosniff">
-<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()">
-
 <title>Architecture — Asclepius</title>
 <meta name="description" content="Component map, data flow, and the rationale behind every layer of the runtime.">
-<meta name="generator" content="asclepius-site · hand-rolled vanilla">
 <meta name="theme-color" content="#0A0710">
 
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
-<link rel="canonical" href="https://asclepius.health/architecture.html">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-<link rel="alternate" type="application/rss+xml" title="Asclepius — changelog" href="feed.xml">
-<link rel="alternate" type="application/feed+json" title="Asclepius — changelog" href="feed.json">
-<link rel="alternate" type="application/atom+xml"  title="Asclepius — changelog" href="atom.xml">
-<link rel="search" type="application/opensearchdescription+xml" title="Asclepius" href="opensearch.xml">
 
 <meta property="og:title"        content="Architecture — Asclepius">
 <meta property="og:description"  content="Component map, data flow, and the rationale behind every layer of the runtime.">
-<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:image"        content="assets/og-card.svg">
 <meta property="og:type"         content="article">
-<meta property="og:url"        content="https://asclepius.health/architecture.html">
-<meta property="og:site_name"  content="Asclepius">
 <meta name="twitter:card"        content="summary_large_image">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
 
-<link rel="prefetch" href="spec.html">
-<link rel="prefetch" href="demo.html">
 <link rel="stylesheet" href="styles.css">
-<!-- breadcrumb-jsonld -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    {
-      "@type": "ListItem",
-      "position": 1,
-      "name": "Home",
-      "item": "https://asclepius.health/"
-    },
-    {
-      "@type": "ListItem",
-      "position": 2,
-      "name": "Documentation",
-      "item": "https://asclepius.health/docs.html"
-    },
-    {
-      "@type": "ListItem",
-      "position": 3,
-      "name": "Architecture",
-      "item": "https://asclepius.health/architecture.html"
-    }
-  ]
-}
-</script>
 </head>
 <body class="page-docs">
 
@@ -92,7 +44,7 @@
     <div class="status__meta">
       <span>apache&nbsp;2.0</span>
       <span class="dot"></span>
-      <button type="button" data-theme-toggle class="theme-toggle" aria-keyshortcuts="t" aria-label="toggle theme" aria-pressed="false">
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false">
         <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
         <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
       </button>
@@ -117,13 +69,16 @@
 <a href="#data-flow-for-a-single-inference" class="toc-l1">Data flow for a single inference</a>
 <a href="#why-a-merkle-chained-signed-ledger" class="toc-l1">Why a Merkle-chained signed ledger</a>
 <a href="#why-sqlite" class="toc-l1">Why SQLite</a>
-<a href="#why-ed25519---blake2b" class="toc-l1">Why Ed25519 + BLAKE2b</a>
-<a href="#why-c--20" class="toc-l1">Why C++20</a>
+<a href="#why-ed25519-blake2b" class="toc-l1">Why Ed25519 + BLAKE2b</a>
+<a href="#why-c-20" class="toc-l1">Why C++20</a>
 <a href="#storage-model" class="toc-l1">Storage model</a>
 <a href="#evidence-bundles" class="toc-l1">Evidence bundles</a>
 <a href="#threading-model" class="toc-l1">Threading model</a>
 <a href="#what-is-not-in-the-runtime" class="toc-l1">What is NOT in the runtime</a>
-<a href="#profile-primitives-added-in-v0-6-adr-013" class="toc-l1">Profile primitives (added in v0.6)</a>
+<a href="#profile-primitives-added-in-v0-6-adr-013" class="toc-l1">Profile primitives (added in v0.6 — ADR-013)</a>
+<a href="#evidence-shapes-rounds-92-96" class="toc-l1">Evidence shapes (rounds 92–96)</a>
+<a href="#operational-knobs-rounds-92-94" class="toc-l1">Operational knobs (rounds 92–94)</a>
+<a href="#typed-append-helpers-round-98" class="toc-l1">Typed-append helpers (round 98)</a>
 <a href="#future-work" class="toc-l1">Future work</a>
         <b style="margin-top: 1.6rem;">other docs</b>
         <a href="architecture.html" class="is-active">Architecture</a>
@@ -136,90 +91,7 @@
         <p>This document describes the runtime topology, the data flow for a single
 clinical-AI inference, and the rationale behind each component.</p>
 <h2 id="component-map">Component map</h2>
-
-<figure class="arch-diagram" aria-label="Asclepius runtime component map">
-  <svg viewBox="0 0 880 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Asclepius architecture diagram: actor → Runtime → policy chain → model boundary → ledger → bundle exporter">
-    <defs>
-      <linearGradient id="ag-fill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="rgba(181,123,255,.10)"/>
-        <stop offset="1" stop-color="rgba(181,123,255,.02)"/>
-      </linearGradient>
-      <marker id="ag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--primary)"/>
-      </marker>
-    </defs>
-
-    <!-- caller -->
-    <g class="arch-node" data-step="0">
-      <rect x="320" y="20" width="240" height="56" rx="8" fill="url(#ag-fill)" stroke="var(--rule)" stroke-width="1.5"/>
-      <text x="440" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="var(--ink-faint)">CALLER</text>
-      <text x="440" y="64" text-anchor="middle" font-family="Newsreader, serif" font-size="15" fill="var(--ink-warm)">EHR · scribe daemon · PACS plugin</text>
-    </g>
-
-    <!-- runtime -->
-    <g class="arch-node" data-step="1">
-      <rect x="200" y="120" width="480" height="120" rx="10" fill="url(#ag-fill)" stroke="var(--primary)" stroke-width="1.5"/>
-      <text x="220" y="146" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--primary)" letter-spacing="2">ASCLEPIUS RUNTIME</text>
-      <g font-family="JetBrains Mono, monospace" font-size="13" fill="var(--ink-warm)">
-        <text x="220" y="174">begin_inference()  </text>
-        <text x="420" y="174">policies()          </text>
-        <text x="600" y="174">drift()</text>
-        <text x="220" y="200">consent()         </text>
-        <text x="420" y="200">evaluation()        </text>
-        <text x="600" y="200">metrics()</text>
-      </g>
-      <text x="220" y="224" font-family="Newsreader, serif" font-size="13" font-style="italic" fill="var(--ink-mute)">consent → policy in → model → policy out → commit</text>
-    </g>
-
-    <!-- policy chain -->
-    <g class="arch-node" data-step="2">
-      <rect x="40" y="290" width="240" height="86" rx="8" fill="url(#ag-fill)" stroke="var(--rule)" stroke-width="1.5"/>
-      <text x="60" y="316" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--accent)" letter-spacing="2">POLICY CHAIN</text>
-      <text x="60" y="338" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">PHI · schema · length</text>
-      <text x="60" y="358" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">action allow-list</text>
-    </g>
-
-    <!-- drift / metrics -->
-    <g class="arch-node" data-step="3">
-      <rect x="320" y="290" width="240" height="86" rx="8" fill="url(#ag-fill)" stroke="var(--rule)" stroke-width="1.5"/>
-      <text x="340" y="316" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--accent)" letter-spacing="2">DRIFT MONITOR</text>
-      <text x="340" y="338" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">PSI · KS · EMD</text>
-      <text x="340" y="358" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">override telemetry</text>
-    </g>
-
-    <!-- consent registry -->
-    <g class="arch-node" data-step="4">
-      <rect x="600" y="290" width="240" height="86" rx="8" fill="url(#ag-fill)" stroke="var(--rule)" stroke-width="1.5"/>
-      <text x="620" y="316" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--accent)" letter-spacing="2">CONSENT REGISTRY</text>
-      <text x="620" y="338" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">tokens · purposes</text>
-      <text x="620" y="358" font-family="Newsreader, serif" font-size="13" fill="var(--ink-warm)">scope check before model</text>
-    </g>
-
-    <!-- ledger -->
-    <g class="arch-node" data-step="5">
-      <rect x="200" y="416" width="480" height="92" rx="10" fill="url(#ag-fill)" stroke="var(--primary)" stroke-width="1.5"/>
-      <text x="220" y="442" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--primary)" letter-spacing="2">SIGNED MERKLE LEDGER (SQLite WAL)</text>
-      <text x="220" y="466" font-family="Newsreader, serif" font-size="14" fill="var(--ink-warm)">BLAKE2b-256 payload + entry hashes · Ed25519 detached signatures</text>
-      <text x="220" y="490" font-family="Newsreader, serif" font-size="13" fill="var(--ink-mute)" font-style="italic">verify() walks the chain in O(n) · evidence bundle exports a signed tar</text>
-    </g>
-
-    <!-- arrows -->
-    <g class="arch-edge" data-step="6" fill="none" stroke="var(--primary)" stroke-width="1.6" marker-end="url(#ag-arrow)" stroke-dasharray="600 600" stroke-dashoffset="600">
-      <path d="M 440 76 L 440 116"/>
-      <path d="M 280 240 L 160 286"/>
-      <path d="M 440 240 L 440 286"/>
-      <path d="M 600 240 L 720 286"/>
-      <path d="M 160 376 L 280 412"/>
-      <path d="M 440 376 L 440 412"/>
-      <path d="M 720 376 L 600 412"/>
-    </g>
-  </svg>
-  <figcaption>Six layers, one append. The ledger is below; everything else flows toward it.</figcaption>
-</figure>
-
-<details class="arch-ascii">
-  <summary>plain-text version</summary>
-<pre data-no-copy="1"><code>                       +----------------------+
+<pre><code>                       +----------------------+
                        |  Caller (your tool)  |
                        +-----------+----------+
                                    |
@@ -254,7 +126,6 @@ clinical-AI inference, and the rationale behind each component.</p>
                        | - bundle export |
                        +-----------------+
 </code></pre>
-</details>
 <p>The layers are deliberately decoupled: PolicyChain knows nothing about
 Ledger, Ledger knows nothing about Drift. The Runtime is the only object
 that wires them, and it does so through narrow interfaces. Callers can
@@ -304,7 +175,7 @@ file each, one trust anchor each, one chain each. <em>One backend, less
 drift.</em> A previous prototype shipped a parallel Postgres backend; we
 ripped it in v0.4.0 after benchmarks came in 30× in SQLite's favour and
 the substrate-not-app posture made shared-write semantics irrelevant.</p>
-<h2 id="why-ed25519---blake2b">Why Ed25519 + BLAKE2b</h2>
+<h2 id="why-ed25519-blake2b">Why Ed25519 + BLAKE2b</h2>
 <ul>
 <li><strong>BLAKE2b-256</strong> for hashing: faster than SHA-256, stronger margin,
   first-class libsodium support, 32-byte digest is unwieldy enough to
@@ -316,7 +187,7 @@ the substrate-not-app posture made shared-write semantics irrelevant.</p>
 <p>We did not use ECDSA P-256 or RSA. ECDSA leaks the private key on RNG
 failures during signing; RSA is slower and bigger. Ed25519 is the right
 default in 2026.</p>
-<h2 id="why-c--20">Why C++20</h2>
+<h2 id="why-c-20">Why C++20</h2>
 <ul>
 <li><strong>Inline latency.</strong> Pre/post guards run on every inference. We need
   microseconds, not milliseconds.</li>
@@ -412,9 +283,76 @@ the types are regime-agnostic.</p>
   <code>evidence_id</code>; the sweeper emits <code>consent.override.expired</code> for any
   token whose deadline passes without attestation.</li>
 </ul>
-<p>The associated threat model is documented at <a href="threat-model.html#a7-emergency-override-abuse">THREAT_MODEL § A7</a>
-(emergency-override abuse) and <a href="threat-model.html#a8-family-graph-forgery">§ A8</a> (family-graph forgery). The wire
-events are listed in <a href="spec.html">SPEC § Standard event types</a>.</p>
+<p>The associated threat model is documented at <code>THREAT_MODEL.md</code> § A7
+(emergency-override abuse) and § A8 (family-graph forgery). The wire
+events are listed in <code>SPEC.md</code> § Standard event types.</p>
+<h2 id="evidence-shapes-rounds-92-96">Evidence shapes (rounds 92–96)</h2>
+<p>Five signed evidence shapes layer on top of the round-90 consent
+primitives. Each is a substrate object: the kernel produces it, signs
+it, verifies it; operators decide <em>what</em> to attest. All five use field-
+concatenation canonical bytes (not JSON) so signatures are reproducible
+across serialiser versions.</p>
+<ul>
+<li><strong><code>HumanAttestation</code></strong> (round 92) — Ed25519-signed clinician sign-off:
+  <code>actor + subject_kind + subject_id + statement + attested_at</code>. Anchored
+  via <code>events::human_attestation</code>. Backs second-opinion review, triage
+  override, billing approval — any workflow that requires a named human
+  on a decision.</li>
+<li><strong><code>TeleConsultEnvelope</code></strong> (round 95) — two-party signed encounter
+  envelope. Patient <em>and</em> clinician each sign over consult metadata,
+  video-recording hash, transcript hash. <code>is_fully_signed()</code> is the
+  integrity probe; either signature alone is meaningful but partial.</li>
+<li><strong><code>BillAuditBundle</code></strong> (round 95) — auditor-signed audit of an itemised
+  bill against a named reference table (CGHS-2025, PMJAY, operator-
+  private). Each <code>BillLineFinding</code> is classified
+  <code>consistent / over_billed / under_billed / unknown_item</code> via the
+  shipped <code>classify_line</code> (1.5x / 0.5x band convention). Operators
+  needing different bands feed pre-classified findings.</li>
+<li><strong><code>SampleIntegrityBundle</code></strong> (round 96) — chain-of-custody for a
+  field-collected diagnostic sample: collector + checkpoint trail +
+  result hash. <code>cold_chain_intact()</code> is true iff every checkpoint was
+  within spec. Anchored via <code>sample.collected</code> + <code>sample.resulted</code>.</li>
+<li><strong><code>CarePathAttestation</code></strong> (round 96) — operator-side signed proof
+  that an inference call was evaluated against an <code>access::Constraint</code>
+  (Sakhi-style female-only, on-device-only, language allowlist, role
+  gate) and either allowed or denied. Replays the kernel's care-path
+  decision at audit time.</li>
+</ul>
+<h2 id="operational-knobs-rounds-92-94">Operational knobs (rounds 92–94)</h2>
+<ul>
+<li><strong><code>events::</code> namespace</strong> (round 92) — twelve canonical event-type
+  string constants for the India healthtech profile so dashboards and
+  conformance tests agree on what counts. Free-form <code>event_type</code> still
+  works; <code>is_well_known_event</code> / <code>well_known_events</code> discover the set.</li>
+<li><strong><code>CalibrationMonitor</code></strong> (round 92) — empirical sensitivity /
+  specificity / PPV / NPV tracking against a configured floor with
+  tolerance and min-samples gate. Used by TriageMate to surface "model
+  is below the agreed sensitivity floor" before the regulator does.</li>
+<li><strong><code>CohortLedger</code></strong> (round 93) — append-only longitudinal observation
+  chain. Per-patient or per-metric outcome tracking with <code>stats_for_*</code>
+  aggregate primitives.</li>
+<li><strong><code>access::Constraint</code></strong> (round 93) — composable predicate
+  (staff_gender / device_mode / language allowlist / role).
+  <code>evaluate(constraint, context) -&gt; {allow|deny, reason}</code>.</li>
+</ul>
+<h2 id="typed-append-helpers-round-98">Typed-append helpers (round 98)</h2>
+<p>Free functions in <code>&lt;asclepius/audit.hpp&gt;</code> codify the convention for
+appending each round 90-96 evidence shape into a <code>Ledger</code>:</p>
+<pre><code class="language-cpp">append_human_attestation             (Ledger&amp;, const HumanAttestation&amp;,    tenant)
+append_consent_artefact_issued       (Ledger&amp;, const ConsentArtefact&amp;,     tenant)
+append_consent_artefact_revoked      (Ledger&amp;, const ConsentArtefact&amp;,     tenant)
+append_tele_consult                  (Ledger&amp;, const TeleConsultEnvelope&amp;, tenant)
+append_bill_audit                    (Ledger&amp;, const BillAuditBundle&amp;,     tenant)
+append_sample_integrity              (Ledger&amp;, const SampleIntegrityBundle&amp;, tenant)
+append_care_path                     (Ledger&amp;, const CarePathAttestation&amp;, tenant)
+append_emergency_override_activated  (Ledger&amp;, const EmergencyOverrideToken&amp;, tenant)
+append_emergency_override_backfilled (Ledger&amp;, const EmergencyOverrideToken&amp;, tenant)
+</code></pre>
+<p>Each helper picks the canonical event_type from <code>events::</code>, serialises
+the bundle's payload via the existing <code>_to_json</code> function, and calls
+<code>Ledger::append</code> with the right actor — eliminating event_type typo
+risk and centralising the body schema. <code>examples/08_india_full_journey</code>
+demonstrates all nine in one end-to-end run.</p>
 <h2 id="future-work">Future work</h2>
 <ul>
 <li><strong>Object-store body archive.</strong> Encrypted-at-rest storage of full inputs
@@ -422,10 +360,10 @@ events are listed in <a href="spec.html">SPEC § Standard event types</a>.</p>
 <li><strong>HTTP/gRPC sidecar (<code>asclepius-svc</code>).</strong> For non-C++ tools.</li>
 <li><strong>Policy DSL.</strong> Today policies are C++ classes. A YAML/JSON DSL with a
   linter (<code>asclepius policy lint</code>) is on the roadmap.</li>
-<li><del><strong>Conformance suite.</strong> Levels L1 (audit), L2 (drift), L3 (prospective
-  evidence) with a third-party-runnable test battery.</del> Shipped in
+<li>~~<strong>Conformance suite.</strong> Levels L1 (audit), L2 (drift), L3 (prospective
+  evidence) with a third-party-runnable test battery.~~ Shipped in
   v0.5–v0.6: L1 / L2 / L3 plus the L2-Medical scaffold against the
-  ACL 2025 Asclepius-Med benchmark. See <a href="conformance.html">/conformance</a>.</li>
+  ACL 2025 Asclepius-Med benchmark. See <code>/conformance</code>.</li>
 </ul>
 
         <hr>
@@ -456,8 +394,6 @@ events are listed in <a href="spec.html">SPEC § Standard event types</a>.</p>
         <a href="architecture.html">architecture</a>
         <a href="spec.html">spec</a>
         <a href="threat-model.html">threat model</a>
-        <a href="verify-bundle.html">verify a bundle</a>
-        <a href="glossary.html">glossary</a>
       </div>
       <div>
         <b>code</b>
@@ -469,16 +405,8 @@ events are listed in <a href="spec.html">SPEC § Standard event types</a>.</p>
   </div>
 </footer>
 
-<script src="js/themes.js" defer></script>
 <script src="js/main.js" defer></script>
 <script src="js/palette.js" defer></script>
-<script src="js/help.js" defer></script>
-<script src="js/attest-site.js" defer></script>
-<script src="js/floating.js" defer></script>
 <script src="js/extras.js" defer></script>
-<script src="js/source.js" defer></script>
-<script type="speculationrules">
-{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/*\?*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"and":[{"href_matches":"/*"}]},"eagerness":"conservative"}]}
-</script>
 </body>
 </html>

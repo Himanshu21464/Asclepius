@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-29T15:06:56Z",
+  "generated_at": "2026-04-29T15:08:48Z",
   "algorithm": "SHA-256",
   "count": 94,
   "files": {
@@ -24,8 +24,8 @@
       "bytes": 177399
     },
     "architecture.html": {
-      "sha256": "b2f0f9e71221e9c75899c7d42e2f12a019337e4d3fcbfe50db1cfe7755789ad5",
-      "bytes": 26748
+      "sha256": "602aa5409c22607359bdd488a85dd632f5f515e7c6af358ccdc6a9b18b64e212",
+      "bytes": 23327
     },
     "assets/apple-touch-icon.png": {
       "sha256": "db96009398e8d877d5529dbdfa9333064080e1486dbd90e35fe0768e3edb0bf8",
@@ -336,15 +336,15 @@
       "bytes": 8876
     },
     "spec.html": {
-      "sha256": "8437d52c56df1648f728e86a33ee96d2182ff2fa218fb4e23019f7758a634cd5",
-      "bytes": 16362
+      "sha256": "0b402c73ce3c454ba682bf1e04ceb1ca24619f718517fe15209c727338c8c403",
+      "bytes": 16605
     },
     "status.html": {
       "sha256": "997f7234a262f8307c42657299ff6296c60790326c901eeeb9239b38408edbe1",
       "bytes": 21575
     },
     "status.json": {
-      "sha256": "f8c1d89cd73bdde15a550116c0a4d8872094221f01e3a45815a69e78beafa3ea",
+      "sha256": "0421a88e08166e511b46d913265a1947095f37ebef94512252bcefc41b616842",
       "bytes": 1063
     },
     "styles.css": {
@@ -352,8 +352,8 @@
       "bytes": 98395
     },
     "threat-model.html": {
-      "sha256": "adfa4d78b606669118f4a035a1164684832e02fe550ed90060195288554304f4",
-      "bytes": 17996
+      "sha256": "af580ce84d7577cb0b75053301137654790cdab47a9abae88e0d1fda5f6c42e6",
+      "bytes": 14900
     },
     "threat-tabletop.html": {
       "sha256": "969bb64067a31ffde8a41594b25d55eb4ce29bb37f2919c0e35f5c21df8a1cc2",

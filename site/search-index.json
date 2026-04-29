@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-29T15:06:56Z",
+  "generated_at": "2026-04-29T15:08:48Z",
   "count": 52,
   "pages": [
     {
@@ -97,6 +97,9 @@
         "Threading model",
         "What is NOT in the runtime",
         "Profile primitives (added in v0.6 — ADR-013)",
+        "Evidence shapes (rounds 92–96)",
+        "Operational knobs (rounds 92–94)",
+        "Typed-append helpers (round 98)",
         "Future work"
       ]
     },

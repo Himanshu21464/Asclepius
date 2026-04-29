@@ -222,6 +222,79 @@ The associated threat model is documented at `THREAT_MODEL.md` § A7
 (emergency-override abuse) and § A8 (family-graph forgery). The wire
 events are listed in `SPEC.md` § Standard event types.
 
+## Evidence shapes (rounds 92–96)
+
+Five signed evidence shapes layer on top of the round-90 consent
+primitives. Each is a substrate object: the kernel produces it, signs
+it, verifies it; operators decide *what* to attest. All five use field-
+concatenation canonical bytes (not JSON) so signatures are reproducible
+across serialiser versions.
+
+* **`HumanAttestation`** (round 92) — Ed25519-signed clinician sign-off:
+  `actor + subject_kind + subject_id + statement + attested_at`. Anchored
+  via `events::human_attestation`. Backs second-opinion review, triage
+  override, billing approval — any workflow that requires a named human
+  on a decision.
+* **`TeleConsultEnvelope`** (round 95) — two-party signed encounter
+  envelope. Patient *and* clinician each sign over consult metadata,
+  video-recording hash, transcript hash. `is_fully_signed()` is the
+  integrity probe; either signature alone is meaningful but partial.
+* **`BillAuditBundle`** (round 95) — auditor-signed audit of an itemised
+  bill against a named reference table (CGHS-2025, PMJAY, operator-
+  private). Each `BillLineFinding` is classified
+  `consistent / over_billed / under_billed / unknown_item` via the
+  shipped `classify_line` (1.5x / 0.5x band convention). Operators
+  needing different bands feed pre-classified findings.
+* **`SampleIntegrityBundle`** (round 96) — chain-of-custody for a
+  field-collected diagnostic sample: collector + checkpoint trail +
+  result hash. `cold_chain_intact()` is true iff every checkpoint was
+  within spec. Anchored via `sample.collected` + `sample.resulted`.
+* **`CarePathAttestation`** (round 96) — operator-side signed proof
+  that an inference call was evaluated against an `access::Constraint`
+  (Sakhi-style female-only, on-device-only, language allowlist, role
+  gate) and either allowed or denied. Replays the kernel's care-path
+  decision at audit time.
+
+## Operational knobs (rounds 92–94)
+
+* **`events::` namespace** (round 92) — twelve canonical event-type
+  string constants for the India healthtech profile so dashboards and
+  conformance tests agree on what counts. Free-form `event_type` still
+  works; `is_well_known_event` / `well_known_events` discover the set.
+* **`CalibrationMonitor`** (round 92) — empirical sensitivity /
+  specificity / PPV / NPV tracking against a configured floor with
+  tolerance and min-samples gate. Used by TriageMate to surface "model
+  is below the agreed sensitivity floor" before the regulator does.
+* **`CohortLedger`** (round 93) — append-only longitudinal observation
+  chain. Per-patient or per-metric outcome tracking with `stats_for_*`
+  aggregate primitives.
+* **`access::Constraint`** (round 93) — composable predicate
+  (staff_gender / device_mode / language allowlist / role).
+  `evaluate(constraint, context) -> {allow|deny, reason}`.
+
+## Typed-append helpers (round 98)
+
+Free functions in `<asclepius/audit.hpp>` codify the convention for
+appending each round 90-96 evidence shape into a `Ledger`:
+
+```cpp
+append_human_attestation             (Ledger&, const HumanAttestation&,    tenant)
+append_consent_artefact_issued       (Ledger&, const ConsentArtefact&,     tenant)
+append_consent_artefact_revoked      (Ledger&, const ConsentArtefact&,     tenant)
+append_tele_consult                  (Ledger&, const TeleConsultEnvelope&, tenant)
+append_bill_audit                    (Ledger&, const BillAuditBundle&,     tenant)
+append_sample_integrity              (Ledger&, const SampleIntegrityBundle&, tenant)
+append_care_path                     (Ledger&, const CarePathAttestation&, tenant)
+append_emergency_override_activated  (Ledger&, const EmergencyOverrideToken&, tenant)
+append_emergency_override_backfilled (Ledger&, const EmergencyOverrideToken&, tenant)
+```
+
+Each helper picks the canonical event_type from `events::`, serialises
+the bundle's payload via the existing `_to_json` function, and calls
+`Ledger::append` with the right actor — eliminating event_type typo
+risk and centralising the body schema. `examples/08_india_full_journey`
+demonstrates all nine in one end-to-end run.
+
 ## Future work
 
 * **Object-store body archive.** Encrypted-at-rest storage of full inputs

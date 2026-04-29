@@ -118,8 +118,34 @@ should override the sidecar with a HSM-fronted KeyStore.
 | `consent.override.granted`  | `EmergencyOverride::activate`  | DPDP § 7 break-glass activated; carries actor, patient, reason, deadline |
 | `consent.override.attested` | `EmergencyOverride::backfill`  | break-glass backfilled within window with an `evidence_id`     |
 | `consent.override.expired`  | `EmergencyOverride` (sweeper)  | a backfill window passed without an attestation; surfaces in `overdue_backfills()` |
+| `consent.artefact.issued`   | `append_consent_artefact_issued` | ABDM-shaped consent artefact emitted to a HIU (India profile, ADR-013, round 90) |
+| `consent.artefact.revoked`  | `append_consent_artefact_revoked` | ABDM-shaped consent artefact recall                                              |
+| `override.emergency.activated`  | `append_emergency_override_activated`  | round 98 helper: DPDP § 7 break-glass activated with deadline           |
+| `override.emergency.backfilled` | `append_emergency_override_backfilled` | round 98 helper: backfill filed with an `evidence_id`                   |
+| `human.attestation`         | `append_human_attestation`     | Ed25519-signed clinician sign-off (round 92, ADR-013); body = `attestation_to_json` shape |
+| `consult.tele.closed`       | `append_tele_consult`          | round 95: two-party signed `TeleConsultEnvelope` for SpecHub-style specialist consult |
+| `bill.audited`              | `append_bill_audit`            | round 95: auditor-signed `BillAuditBundle` with line-finding severity vs reference (CGHS-2025) |
+| `sample.collected`          | `append_sample_integrity` (1/2)| round 96: VanRoute-style sample chain-of-custody, collection event                 |
+| `sample.resulted`           | `append_sample_integrity` (2/2)| round 96: same `SampleIntegrityBundle`, result event                               |
+| `rx.parsed`                 | well-known (round 92)          | a prescription was parsed (caller-provided body)                                   |
+| `rx.substitution`           | well-known (round 92)          | a generic-for-branded substitution recorded                                        |
+| `triage.decision`           | well-known (round 92)          | a triage classifier produced a decision; pairs with `CalibrationMonitor`            |
+| `care.path.allow`           | `append_care_path` (decision=allow) | round 96: `CarePathAttestation` signed proof of access::Constraint match     |
+| `care.path.deny`            | `append_care_path` (decision=deny)  | round 96: signed proof of access::Constraint deny + reason                   |
 | `policy.config_change`      | runtime config (planned)    | a policy was added, removed, or reconfigured                     |
 | `model.registered`          | governance (planned)        | a model id+version was registered for use                        |
+
+Round 92's `events::` namespace declares twelve canonical
+event-type strings that callers should prefer over free-form spelling.
+`is_well_known_event(string_view)` and `well_known_events()` are the
+discoverability primitives. The round 98 typed-append helpers
+(`append_human_attestation`, `append_consent_artefact_issued`,
+`append_consent_artefact_revoked`, `append_tele_consult`,
+`append_bill_audit`, `append_sample_integrity`, `append_care_path`,
+`append_emergency_override_activated`,
+`append_emergency_override_backfilled`) write the canonical event_type
+and a deterministic body shape so dashboards and conformance tests can
+parse without per-call schema knowledge.
 
 The `body` shape per event_type is fixed; future versions will publish a
 JSON-Schema for each.
