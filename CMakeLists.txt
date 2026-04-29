@@ -119,6 +119,7 @@ if(ASCLEPIUS_BUILD_EXAMPLES)
     add_subdirectory(examples/05_wrap_ms_asclepius)
     add_subdirectory(examples/06_wrap_starmpcc)
     add_subdirectory(examples/07_india_profile)
+    add_subdirectory(examples/08_india_full_journey)
 endif()
 
 # ---- Tests ---------------------------------------------------------------

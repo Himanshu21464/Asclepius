@@ -1,0 +1,4 @@
+add_executable(example_india_full_journey main.cpp)
+target_link_libraries(example_india_full_journey PRIVATE asclepius::asclepius)
+asclepius_target_warnings(example_india_full_journey)
+asclepius_target_sanitizers(example_india_full_journey)
