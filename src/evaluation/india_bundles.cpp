@@ -275,11 +275,13 @@ const char* to_string(BillLineFinding::Severity s) noexcept {
 }
 
 BillLineFinding::Severity
-classify_line(double billed_amount, double reference_amount) noexcept {
+classify_line(double billed_amount,
+              double reference_amount,
+              ClassifyThresholds t) noexcept {
     if (reference_amount <= 0.0) return BillLineFinding::Severity::unknown_item;
     const double ratio = billed_amount / reference_amount;
-    if (ratio > 1.5) return BillLineFinding::Severity::over_billed;
-    if (ratio < 0.5) return BillLineFinding::Severity::under_billed;
+    if (ratio > t.over_factor)  return BillLineFinding::Severity::over_billed;
+    if (ratio < t.under_factor) return BillLineFinding::Severity::under_billed;
     return BillLineFinding::Severity::consistent;
 }
 
@@ -385,34 +387,42 @@ Result<BillAuditBundle> bill_audit_from_json(std::string_view s) {
     if (!j.contains("findings") || !j["findings"].is_array()) {
         return Error::invalid("missing or non-array field: findings");
     }
-    for (const auto& f : j["findings"]) {
-        if (!f.is_object()) return Error::invalid("finding entry not an object");
-        BillLineFinding lf;
-        lf.item_code        = f.value("item_code",        std::string{});
-        lf.item_description = f.value("item_description", std::string{});
-        lf.billed_amount    = f.value("billed_amount",    0.0);
-        lf.reference_amount = f.value("reference_amount", 0.0);
-        lf.note             = f.value("note",             std::string{});
-        const auto sev_s    = f.value("severity",         std::string{"consistent"});
-        if      (sev_s == "consistent")   lf.severity = BillLineFinding::Severity::consistent;
-        else if (sev_s == "over_billed")  lf.severity = BillLineFinding::Severity::over_billed;
-        else if (sev_s == "under_billed") lf.severity = BillLineFinding::Severity::under_billed;
-        else if (sev_s == "unknown_item") lf.severity = BillLineFinding::Severity::unknown_item;
-        else return Error::invalid(std::string{"unknown finding severity: "} + sev_s);
-        a.findings.push_back(std::move(lf));
+    try {
+        for (const auto& f : j["findings"]) {
+            if (!f.is_object()) return Error::invalid("finding entry not an object");
+            BillLineFinding lf;
+            lf.item_code        = f.value("item_code",        std::string{});
+            lf.item_description = f.value("item_description", std::string{});
+            lf.billed_amount    = f.value("billed_amount",    0.0);
+            lf.reference_amount = f.value("reference_amount", 0.0);
+            lf.note             = f.value("note",             std::string{});
+            const auto sev_s    = f.value("severity",         std::string{"consistent"});
+            if      (sev_s == "consistent")   lf.severity = BillLineFinding::Severity::consistent;
+            else if (sev_s == "over_billed")  lf.severity = BillLineFinding::Severity::over_billed;
+            else if (sev_s == "under_billed") lf.severity = BillLineFinding::Severity::under_billed;
+            else if (sev_s == "unknown_item") lf.severity = BillLineFinding::Severity::unknown_item;
+            else return Error::invalid(std::string{"unknown finding severity: "} + sev_s);
+            a.findings.push_back(std::move(lf));
+        }
+    } catch (const nlohmann::json::exception& e) {
+        return Error::invalid(std::string{"finding has wrong-type field: "} + e.what());
     }
 
-    a.total_billed    = j.value("total_billed",    0.0);
-    a.total_reference = j.value("total_reference", 0.0);
-
-    auto sig_hex = j.value("signature",  std::string{});
-    auto pk_hex  = j.value("public_key", std::string{});
-    auto sig = from_hex(sig_hex); if (!sig) return sig.error();
-    auto pk  = from_hex(pk_hex);  if (!pk)  return pk.error();
-    if (sig.value().size() != KeyStore::sig_bytes) return Error::invalid("bad signature size");
-    if (pk.value().size()  != KeyStore::pk_bytes)  return Error::invalid("bad public_key size");
-    std::copy(sig.value().begin(), sig.value().end(), a.signature.begin());
-    std::copy(pk.value().begin(),  pk.value().end(),  a.public_key.begin());
+    std::string sig_hex, pk_hex;
+    try {
+        a.total_billed    = j.value("total_billed",    0.0);
+        a.total_reference = j.value("total_reference", 0.0);
+        sig_hex = j.value("signature",  std::string{});
+        pk_hex  = j.value("public_key", std::string{});
+    } catch (const nlohmann::json::exception& e) {
+        return Error::invalid(std::string{"bill_audit field type error: "} + e.what());
+    }
+    auto sig_b = from_hex(sig_hex); if (!sig_b) return sig_b.error();
+    auto pk_b  = from_hex(pk_hex);  if (!pk_b)  return pk_b.error();
+    if (sig_b.value().size() != KeyStore::sig_bytes) return Error::invalid("bad signature size");
+    if (pk_b.value().size()  != KeyStore::pk_bytes)  return Error::invalid("bad public_key size");
+    std::copy(sig_b.value().begin(), sig_b.value().end(), a.signature.begin());
+    std::copy(pk_b.value().begin(),  pk_b.value().end(),  a.public_key.begin());
 
     return a;
 }

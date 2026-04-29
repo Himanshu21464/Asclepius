@@ -188,10 +188,25 @@ struct BillLineFinding {
     std::string note;
 };
 
-// Classify by billed vs reference using the 1.5x / 0.5x band convention.
-// reference_amount == 0 → unknown_item regardless of billed.
+// Operator-supplied band thresholds for `classify_line`. The substrate
+// SHIPS DEFAULT values (over=1.5, under=0.5) for ergonomics, but those
+// defaults are not a regulatory or clinical claim — they are an
+// industry-customary starting point. Operators with different
+// jurisdictional or institutional conventions pass their own
+// `Thresholds` and own the policy. The kernel's job is to record the
+// classification deterministically, not to mandate it.
+struct ClassifyThresholds {
+    double over_factor  = 1.5;   // billed > reference * over_factor  -> over_billed
+    double under_factor = 0.5;   // billed < reference * under_factor -> under_billed
+};
+
+// Classify by billed vs reference using the supplied thresholds (or
+// the documented defaults). reference_amount == 0 -> unknown_item
+// regardless of billed.
 BillLineFinding::Severity
-classify_line(double billed_amount, double reference_amount) noexcept;
+classify_line(double billed_amount,
+              double reference_amount,
+              ClassifyThresholds = ClassifyThresholds{}) noexcept;
 
 const char* to_string(BillLineFinding::Severity) noexcept;
 

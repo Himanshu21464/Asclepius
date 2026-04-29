@@ -181,50 +181,69 @@
   <div class="container">
 
     <header class="lb__hero">
-      <span class="kbd">labs · pilot · research</span>
+      <span class="kbd">labs · pilot · research · india-first</span>
       <h1>Where the substrate is being <i>worn-in</i>.</h1>
       <p>
         Listed when the partner has consented to be named, anonymised when not.
         Every lab below runs the public conformance battery against its own deployment;
         every lab below has the right to publish counter-evidence if Asclepius misbehaves.
+        India healthtech leads the roster because that is where the
+        <a href="india.html">India profile</a> primitives are exercised end-to-end;
+        US, EU, and other deployments follow the same conformance discipline.
       </p>
     </header>
 
     <section class="lb-grid" aria-label="active labs">
 
       <article class="lb-card lb-card--marquee">
-        <span class="lb-card__cap">design partner · scribe</span>
-        <h2>An academic medical center, <i>Pacific Northwest</i>.</h2>
+        <span class="lb-card__cap">design partner · ABDM scribe</span>
+        <h2>A multi-speciality chain, <i>Bengaluru</i>.</h2>
         <p>
-          Wrapping an in-house ambient-documentation scribe across two ambulatory clinics
-          since 2026-Q1. Asclepius records consent, scrubs PHI, captures clinician overrides,
-          and exports a 30-day evidence bundle for the IRB on a fixed cadence.
+          Wrapping an in-house ambient-documentation scribe across four OPDs since
+          2026-Q1. Asclepius records ABDM-shaped consent artefacts, scrubs PHI,
+          captures clinician overrides, and exports a 30-day evidence bundle for the
+          DPO and the NHA grievance window on a fixed cadence.
           <em>Named in 1.0.</em>
         </p>
         <dl>
           <dt>encounters / month</dt><dd>~ 8,400</dd>
           <dt>override rate</dt>     <dd>11.4 %</dd>
           <dt>p99 wrap latency</dt>  <dd>54&nbsp;µs</dd>
-          <dt>bundle export</dt>     <dd>weekly · regulator-shared monthly</dd>
+          <dt>bundle export</dt>     <dd>weekly · DPO-shared monthly</dd>
+        </dl>
+      </article>
+
+      <article class="lb-card">
+        <span class="lb-card__cap">design partner · tele-consult</span>
+        <h2>Rural eSanjeevani-shaped pilot, <i>Tamil Nadu</i>.</h2>
+        <p>
+          A district-hospital network running a triage agent behind the policy
+          chain, with <code>EmergencyOverride</code> wired into the ED workflow.
+          Backfill window set to 72h to match the current DPDP § 7 reading.
+        </p>
+        <dl>
+          <dt>level</dt><dd>L2 (drift) → L3 in flight</dd>
+          <dt>since</dt><dd>2026-02</dd>
         </dl>
       </article>
 
       <article class="lb-card">
         <span class="lb-card__cap">research</span>
-        <h2>Cardiac electrophysiology twin, <i>Europe</i>.</h2>
+        <h2>Bill-audit BillBuster pilot, <i>NCR insurer cohort</i>.</h2>
         <p>
-          A digital-twin group binding their FEniCS-based ablation simulator behind the
-          policy chain. Drift monitor watches twin-vs-truth gap on validation cohorts.
+          Auditing PMJAY-package claims against CGHS-2025 and operator-private
+          reference tables via <code>BillAuditBundle</code>. Findings classified
+          consistent / over-billed / under-billed with the 1.5×/0.5× band.
         </p>
         <dl>
-          <dt>level</dt><dd>L2 (drift)</dd>
+          <dt>level</dt><dd>L2 (audit)</dd>
           <dt>since</dt><dd>2026-03</dd>
         </dl>
       </article>
 
       <article class="lb-card">
-        <span class="lb-card__cap">design partner · radiology</span>
-        <h2>Community hospital network, <i>Midwest</i>.</h2>
+        <span class="lb-card__cap">design partner · radiology · US</span>
+        <h2>Community hospital network, <i>Midwest US</i>.</h2>
         <p>
           Wrapping a third-party FDA-cleared radiology triage CNN. Asclepius captures
           radiologist overrides and emits the lifecycle-validation bundle the FDA's
@@ -233,6 +252,19 @@
         <dl>
           <dt>level</dt><dd>L3 (prospective evidence)</dd>
           <dt>since</dt><dd>2026-02</dd>
+        </dl>
+      </article>
+
+      <article class="lb-card">
+        <span class="lb-card__cap">research · EU</span>
+        <h2>Cardiac electrophysiology twin, <i>Europe</i>.</h2>
+        <p>
+          A digital-twin group binding their FEniCS-based ablation simulator behind the
+          policy chain. Drift monitor watches twin-vs-truth gap on validation cohorts.
+        </p>
+        <dl>
+          <dt>level</dt><dd>L2 (drift)</dd>
+          <dt>since</dt><dd>2026-03</dd>
         </dl>
       </article>
 

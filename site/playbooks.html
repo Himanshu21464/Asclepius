@@ -584,7 +584,7 @@ asclepius drift ack --feature <span class="s">"vitals.spo2"</span> --reason <spa
     <div class="pb-step">
       <h3 data-step="4">confirm</h3>
       <ul>
-        <li>send patient-facing confirmation (per HIPAA)</li>
+        <li>send data-principal-facing confirmation (per DPDP § 11 / HIPAA § 164.508)</li>
         <li>verify next inference attempt → <code>consent.denied</code></li>
         <li>log audit-trail in privacy-team bundle</li>
       </ul>
@@ -724,7 +724,7 @@ cp build/tools/verify_bundle <span class="s">/secure/verifier.bin</span></pre>
     rows; <code>overdue_backfills()</code> returns non-empty. <em>Every overdue
     token is a regulatory exposure</em> until either backfilled or escalated.
     Pairs with <a href="threat-model.html#a7-emergency-override-abuse">THREAT § A7</a>
-    and the ABDM mapping at <a href="regulator.html#dpdp-india">/regulator §06</a>.
+    and the ABDM mapping at <a href="regulator.html#dpdp-india">/regulator §01</a>.
   </p>
 
   <div class="pb-steps">

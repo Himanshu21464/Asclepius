@@ -345,18 +345,23 @@
         or <em>whether the model was still behaving the way it did at deployment</em>.
       </p>
       <p>
-        Regulators have noticed. The FDA, ONC, and state attorneys general are starting to
-        demand that proof. AI vendors, asked to provide it, mostly say <em>trust us</em>.
-        That gap — between what's being asked and what anyone can actually produce — is what
-        Asclepius exists to close.
+        Regulators have noticed. India's DPDP Act 2023 expects a documented justification
+        for every emergency access, and the ABDM consent fabric expects every HIP / HIU
+        exchange to ride a verifiable wire format. The FDA, EU AI Act, and state attorneys
+        general are starting to demand the same shape of proof. AI vendors, asked to
+        provide it, mostly say <em>trust us</em>. That gap — between what's being asked
+        and what anyone can actually produce — is what Asclepius exists to close.
       </p>
 
       <p class="ex-callout">
         <b>concrete</b>
-        <em>Q1 2026 alone: a $556M Medicare-Advantage AI settlement, 100,000+ ambient-scribe
-        encounters recorded without consent at a single health system, and a denial model
-        whose decisions were reportedly reversed on appeal about 90% of the time. None of the
-        three had an audit trail anyone could verify.</em>
+        <em>India deployed clinical AI faster in 2025 than the audit substrate could be
+        hand-rolled — every operator built their own DPDP § 7 break-glass logging, their
+        own ABDM consent-artefact roundtrip, their own override telemetry. The same
+        bespoke-in-a-thousand-places problem also produced, across the Pacific, a
+        Rs. 4,600 cr (US$556M) Medicare-Advantage AI settlement in the US and 100,000+
+        ambient-scribe encounters recorded without consent at a single American health
+        system. None of those had an audit trail anyone could verify.</em>
       </p>
     </section>
 
@@ -413,7 +418,7 @@
       <ul>
         <li><em>Hospitals deploying clinical AI</em> — health systems that have one or more AI tools in production and a CISO, compliance officer, or chief medical informatics officer who has been asked, "can you prove this is safe?"</li>
         <li><em>AI vendors who have to prove safety</em> — scribe companies, radiology AI firms, decision-support startups that need an audit story they did not have to invent themselves.</li>
-        <li><em>Regulators</em> — FDA reviewers, state AGs, accreditation bodies. The receiving end of an evidence bundle. They run our verifier, not our runtime.</li>
+        <li><em>Regulators</em> — DPDP Data Protection Board officers, NHA grievance reviewers, CDSCO / FDA panelists, state DPOs and AGs, NABH / Joint Commission accreditation bodies. The receiving end of an evidence bundle. They run our verifier, not our runtime.</li>
         <li><em>Security and compliance teams</em> — the people who would rather not write yet another bespoke audit pipeline in Python.</li>
         <li><em>Researchers</em> — academics studying real-world AI behavior, drift, and override patterns, who currently have no standard substrate to study.</li>
       </ul>
@@ -443,9 +448,11 @@
         regulator audit them line-by-line.
       </p>
       <p>
-        <em>EHR vendors won't ship this.</em> For Epic, Cerner, athena, this is a compliance
-        problem two layers down — interesting in slide decks, never on the roadmap. The same
-        institutional gravity that keeps EHR APIs slow keeps AI auditing out of the EHR.
+        <em>EHR vendors won't ship this.</em> For an Indian HMIS like a hospital's Apollo
+        / Manipal / Practo backend stack, or for Epic / Cerner / athena in the US, this is
+        a compliance problem two layers down — interesting in slide decks, never on the
+        roadmap. The same institutional gravity that keeps EHR APIs slow keeps AI
+        auditing out of the EHR.
       </p>
       <p>
         <em>Hospitals can't build this.</em> The cryptography is specialized. The drift

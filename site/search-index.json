@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-29T15:08:48Z",
-  "count": 52,
+  "generated_at": "2026-04-29T15:52:05Z",
+  "count": 53,
   "pages": [
     {
       "url": "accessibility.html",
@@ -441,10 +441,10 @@
       "title": "Asclepius — A Trust Substrate for Clinical AI",
       "description": "Open, vendor-neutral C++ runtime that wraps any clinical AI with audit-grade safety: signed Merkle ledger, policy chain, drift, consent, evidence bundles.",
       "headings": [
-        "Q1&nbsp;2026 alone&nbsp;cost&nbsp;American health systems more than&nbsp;the&nbsp;entire&nbsp;clinical-AI tooling&nbsp;market&nbsp;earned.",
-        "Kaiser, Medicare-Advantage AI settlement.",
-        "Sharp HealthCare AI-scribe encounters recorded without patient consent.",
-        "UnitedHealth nH Predict denials reportedly reversed on appeal.",
+        "Indian healthtech is&nbsp;deploying clinical AI faster than&nbsp;the&nbsp;audit&nbsp;substrate can&nbsp;be&nbsp;hand-rolled.",
+        "Deferred-consent break-glass becomes auditable, not aspirational.",
+        "HIP / HIU consent artefacts have a wire format; Indian deployments have no shared kernel.",
+        "Kaiser US Medicare-Advantage AI settlement (≈ $556M) is the canary, not the outlier.",
         "of healthcare executives cite \"lack of guidelines\" and \"resource allocation\" as the primary AI-adoption barriers.",
         "Five primitives. One library. One library binding into every clinical AI you ship.",
         "Signed Merkle ledger",
@@ -459,10 +459,10 @@
         "Every adjacent tool solves a fragment. Asclepius is what you'd get if you built the missing whole.",
         "The questions a CTO asks before putting it in front of the AI Governance Office.",
         "Liability is biting now, not someday.",
-        "HHS Request for Information",
-        "FDA lifecycle-based model",
-        "California AI laws take effect",
-        "Nature Medicine editorial",
+        "DPDP Act, 2023, in force",
+        "ABDM / NHA consent fabric",
+        "CDSCO SaMD guidance",
+        "FDA, EU AI Act, AB 3030 in parallel",
         "A trust substrate must be auditable to be&nbsp;trusted."
       ]
     },
@@ -507,9 +507,11 @@
       "title": "Labs — Asclepius",
       "description": "Where Asclepius is being piloted: design partners, research collaborators, and active conformance battery sites.",
       "headings": [
-        "An academic medical center, Pacific Northwest.",
+        "A multi-speciality chain, Bengaluru.",
+        "Rural eSanjeevani-shaped pilot, Tamil Nadu.",
+        "Bill-audit BillBuster pilot, NCR insurer cohort.",
+        "Community hospital network, Midwest US.",
         "Cardiac electrophysiology twin, Europe.",
-        "Community hospital network, Midwest.",
         "Drug repurposing for the long tail, academic consortium.",
         "Asclepius dogfood, everywhere.",
         "Apply to pilot"
@@ -616,6 +618,22 @@
       ]
     },
     {
+      "url": "pitch.html",
+      "title": "The pitch — Asclepius",
+      "description": "Eight scenes. The story of Asclepius — a trust substrate for clinical AI in India — told as it happens, frame by frame.",
+      "headings": [
+        "A clinic in Bengaluru.",
+        "The inference vanishes.",
+        "Asclepius wraps the model.",
+        "Every call chains.",
+        "One call. Verifies.",
+        "India-shaped primitives.",
+        "One bundle. Regulator-portable.",
+        "CDSCO. NABH. DPDP DPB.",
+        "One library. Eight scenes. Linkable today."
+      ]
+    },
+    {
       "url": "playbooks.html",
       "title": "Playbooks — Asclepius",
       "description": "Operator runbooks for the incidents you will face: key rotation, ledger truncation, drift breach, consent revocation, subpoena, sidecar partition.",
@@ -699,14 +717,14 @@
     {
       "url": "regulator.html",
       "title": "For regulators — Asclepius",
-      "description": "HIPAA, EU AI Act, FDA SaMD, California AB 3030, Joint Commission record integrity — each clause tied to the Asclepius primitive that addresses it.",
+      "description": "DPDP Act &amp; ABDM, EU AI Act, HIPAA, CDSCO SaMD, FDA SaMD, California AB 3030, Joint Commission record integrity — each clause tied to the Asclepius primitive that addresses it. India-first; jurisdiction-neutral.",
       "headings": [
-        "HIPAA — Security &amp; Privacy Rules.",
-        "EU AI Act — high-risk obligations.",
-        "FDA — SaMD pre-market submissions.",
-        "California AB 3030 — generative AI in clinical comms.",
-        "Joint Commission — medical record integrity.",
         "DPDP Act &amp; ABDM — India healthtech obligations.",
+        "EU AI Act — high-risk obligations.",
+        "HIPAA — Security &amp; Privacy Rules.",
+        "CDSCO &amp; FDA — SaMD pre-market submissions.",
+        "California AB 3030 — generative AI in clinical comms.",
+        "NABH &amp; Joint Commission — medical record integrity.",
         "What the substrate is not."
       ]
     },

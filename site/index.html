@@ -27,7 +27,7 @@
 <link rel="canonical" href="https://asclepius.health/">
 
 <meta property="og:title"        content="Asclepius — A Trust Substrate for Clinical AI">
-<meta property="og:description"  content="Open, vendor-neutral C++ runtime that wraps any clinical AI tool with audit-grade safety: signed Merkle ledger, policy chain, drift detection, consent enforcement, and FDA-grade evidence bundles.">
+<meta property="og:description"  content="Open, vendor-neutral C++ runtime that wraps any clinical AI tool with audit-grade safety: signed Merkle ledger, policy chain, drift detection, consent enforcement, and DPDP / FDA evidence bundles. India-first; runs anywhere.">
 <meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
 <meta property="og:url"          content="https://asclepius.health/">
 <meta property="og:type"         content="website">
@@ -94,6 +94,7 @@
       <a href="#manifesto">manifesto</a>
       <a href="#substrate">substrate</a>
       <a href="#anatomy">anatomy</a>
+      <a href="pitch.html">pitch</a>
       <a href="walkthrough.html">walkthrough</a>
       <a href="#start">quickstart</a>
       <a href="#benchmarks">bench</a>
@@ -180,11 +181,11 @@
         </header>
 
         <dl class="entry__body">
-          <div><dt>actor</dt>      <dd>clinician:dr.smith</dd></div>
+          <div><dt>actor</dt>      <dd>clinician:dr.iyer</dd></div>
           <div><dt>model</dt>      <dd>scribe@v3</dd></div>
           <div><dt>patient</dt>    <dd>pat:9f1a-…-c20e</dd></div>
           <div><dt>purpose</dt>    <dd>ambient_documentation</dd></div>
-          <div><dt>tenant</dt>     <dd>kp-northwest</dd></div>
+          <div><dt>tenant</dt>     <dd>apollo-blr</dd></div>
           <div class="hr"></div>
           <div><dt>input_hash</dt> <dd>3f9c1ad8…0e7d21</dd></div>
           <div><dt>output_hash</dt><dd>8e510bf4…21b04a</dd></div>
@@ -247,35 +248,35 @@
     </div>
 
     <h2 class="display">
-      <span>Q1&nbsp;2026 alone&nbsp;cost&nbsp;American</span>
-      <span><i>health systems more</i></span>
-      <span>than&nbsp;the&nbsp;entire&nbsp;clinical-AI</span>
-      <span>tooling&nbsp;market&nbsp;earned.</span>
+      <span>Indian healthtech is&nbsp;deploying</span>
+      <span><i>clinical AI faster</i></span>
+      <span>than&nbsp;the&nbsp;audit&nbsp;substrate</span>
+      <span>can&nbsp;be&nbsp;hand-rolled.</span>
     </h2>
 
     <ol class="incidents">
       <li class="incident">
-        <span class="incident__amount">$556M</span>
-        <h3>Kaiser, Medicare-Advantage AI settlement.</h3>
-        <p>One unaudited algorithm. No standard substrate to record what it recommended, when, to whom, or with what consent. The settlement was the cheap part.</p>
-        <span class="incident__tag">audit gap</span>
+        <span class="incident__amount">DPDP&nbsp;§&nbsp;7</span>
+        <h3>Deferred-consent break-glass becomes auditable, not aspirational.</h3>
+        <p>The Digital Personal Data Protection Act, 2023 expects a recorded justification and a path to retrospective notice for every emergency access. No standard substrate; every operator is hand-rolling break-glass logging on their own EHR.</p>
+        <span class="incident__tag">consent gap · IN</span>
       </li>
       <li class="incident">
-        <span class="incident__amount">100,000+</span>
-        <h3>Sharp HealthCare AI-scribe encounters recorded without patient consent.</h3>
-        <p>The scribe worked. The consent layer didn't. There was no consent layer — every integration team built their own, and Sharp's didn't.</p>
-        <span class="incident__tag">consent gap</span>
+        <span class="incident__amount">ABDM</span>
+        <h3>HIP / HIU consent artefacts have a wire format; Indian deployments have no shared kernel.</h3>
+        <p>The Ayushman Bharat Digital Mission ships the consent envelope; what the kernel records, signs, and replays underneath has been every team's bespoke project. Apollo's audit trail and Manipal's audit trail look nothing alike.</p>
+        <span class="incident__tag">substrate gap · IN</span>
       </li>
       <li class="incident">
-        <span class="incident__amount">~90%</span>
-        <h3>UnitedHealth nH Predict denials reportedly reversed on appeal.</h3>
-        <p>A model that fails open. No prospective-evidence pipeline. No drift monitor that flagged the failure. The patients who didn't appeal absorbed the model's errors.</p>
-        <span class="incident__tag">evidence gap</span>
+        <span class="incident__amount">Rs.&nbsp;556&nbsp;cr&nbsp;∼</span>
+        <h3>Kaiser US Medicare-Advantage AI settlement (≈ $556M) is the canary, not the outlier.</h3>
+        <p>One unaudited algorithm in one health system. Without a substrate to record what was recommended, when, to whom, with what consent, the settlement is the cheap part — and Indian payers are next on the same curve.</p>
+        <span class="incident__tag">audit gap · US</span>
       </li>
       <li class="incident">
         <span class="incident__amount">87 / 88%</span>
         <h3>of healthcare executives cite "lack of guidelines" and "resource allocation" as the primary AI-adoption barriers.</h3>
-        <p>Translation: governance is the bottleneck, and there is nothing to buy. Asclepius is the thing to buy.</p>
+        <p>Translation: governance is the bottleneck, and there is nothing to buy. Asclepius is the thing to buy. The same answer in Bengaluru, Boston, or Berlin.</p>
         <span class="incident__tag">governance gap</span>
       </li>
     </ol>
@@ -811,13 +812,15 @@ ground_truth.jsonl:   <span class="t-ok">OK</span>
       </details>
 
       <details>
-        <summary>Does Asclepius see PHI? What about HIPAA?</summary>
+        <summary>Does Asclepius see PHI? What about DPDP / HIPAA?</summary>
         <p class="faq__answer">
           By default the ledger stores <em>hashes</em> of inputs and outputs, not the content itself.
           PHI never enters the audit log unless an operator explicitly opts in via the encrypted
           body-store. Patient identifiers are pseudonymous tokens — Asclepius does not hold the
-          MRN-to-token mapping; the EHR keeps that. The runtime is designed to be deployed inside the
-          customer's HIPAA boundary; nothing calls home.
+          ABHA / MRN-to-token mapping; the EHR keeps that. The runtime is designed to be deployed
+          inside the customer's DPDP / HIPAA boundary; nothing calls home. See
+          <a href="india.html">/india</a> for the DPDP § 7 break-glass primitives and the
+          ABDM consent-artefact wire format.
         </p>
       </details>
 
@@ -908,24 +911,24 @@ ground_truth.jsonl:   <span class="t-ok">OK</span>
 
     <ol class="signals">
       <li>
-        <time>Feb&nbsp;2026</time>
-        <h3>HHS Request for Information</h3>
-        <p>Federal direction toward <em>lifecycle</em> validation of clinical AI. Static one-time clearance is on its way out.</p>
+        <time>2025–26</time>
+        <h3>DPDP Act, 2023, in force</h3>
+        <p>Every consent-mediated processing of personal data needs a recorded purpose, a TTL, and — for § 7 emergencies — a deferred-consent justification with a defensible window. No substrate, no defensible bundle.</p>
       </li>
       <li>
-        <time>Mar&nbsp;2026</time>
-        <h3>FDA lifecycle-based model</h3>
-        <p>Predetermined Change Control Plans go from optional to expected. Without a runtime that emits the artifacts, you cannot file one.</p>
+        <time>2025–26</time>
+        <h3>ABDM / NHA consent fabric</h3>
+        <p>HIP / HIU exchanges land on a stable consent-artefact wire format. The kernel that wraps clinical AI underneath has to round-trip that envelope; piping it through bespoke per-operator code does not scale.</p>
       </li>
       <li>
-        <time>Apr&nbsp;2026</time>
-        <h3>California AI laws take effect</h3>
-        <p>Runtime guardrails must <em>function</em>, not just exist. Hand-rolled governance committee decks no longer count as compliance.</p>
+        <time>2025–26</time>
+        <h3>CDSCO SaMD guidance</h3>
+        <p>India's medical-devices regime now reaches AI-driven software. The artefacts a CDSCO reviewer expects — model lineage, drift, post-market performance — are exactly what an audit substrate emits, or not.</p>
       </li>
       <li>
-        <time>2026 Q2</time>
-        <h3><i>Nature Medicine</i> editorial</h3>
-        <p>Explicit demand for prospective comparative evidence. Almost every clinical-AI tool in production today is retrospectively validated only.</p>
+        <time>2026 Q1–Q2</time>
+        <h3>FDA, EU AI Act, AB 3030 in parallel</h3>
+        <p>For operators with US or EU exposure, lifecycle validation, Article 12 record-keeping, and AB 3030 disclosure obligations land at the same time. One substrate, every regime.</p>
       </li>
     </ol>
   </div>

@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme"        content="dark light">
+<meta name="format-detection"    content="telephone=no, date=no, address=no, email=no">
+<meta name="referrer"            content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+
+<title>The pitch — Asclepius</title>
+<meta name="description" content="Eight scenes. The story of Asclepius — a trust substrate for clinical AI in India — told as it happens, frame by frame.">
+<meta name="generator" content="asclepius-site · hand-rolled vanilla">
+<meta name="theme-color" content="#0A0710">
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="canonical" href="https://asclepius.health/pitch.html">
+
+<meta property="og:title"        content="Asclepius — the pitch, in eight scenes">
+<meta property="og:description"  content="A clinic in Bengaluru. A model. A decision. The substrate that turns the inference into evidence.">
+<meta property="og:image"        content="https://asclepius.health/assets/og-card.png">
+<meta property="og:type"         content="article">
+<meta property="og:url"          content="https://asclepius.health/pitch.html">
+<meta property="og:site_name"    content="Asclepius">
+<meta name="twitter:card"        content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+  /* ============================================================
+     pitch.html — scrollytelling deck for the project pitch.
+     Layout: every scene is a 2-up sticky pair (text / svg). On
+     scroll, the svg pins to the viewport and animates as the
+     accompanying text scrolls past it. Eight scenes total.
+     ============================================================ */
+
+  body.page-pitch { background: var(--bg); }
+
+  .pitch-hero {
+    padding: clamp(4rem, 9vw, 8rem) 0 clamp(2rem, 4vw, 4rem);
+    border-bottom: 1px solid var(--rule);
+  }
+  .pitch-hero h1 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(3rem, 9vw, 7rem);
+    line-height: .95; letter-spacing: -.025em;
+    color: var(--ink-warm); margin: .8rem 0 1.4rem; max-width: 16ch;
+  }
+  .pitch-hero h1 i { color: var(--primary); font-style: italic; }
+  .pitch-hero p {
+    font-family: var(--font-prose); color: var(--ink-mute);
+    font-size: 1.18rem; line-height: 1.6; max-width: 56ch;
+    margin: 0 0 .8rem;
+  }
+  .pitch-hero p em { color: var(--primary); font-style: italic; }
+  .pitch-hero .kbd { display: inline-block; margin-bottom: 1rem; }
+
+  .pitch-jump {
+    margin: 1.8rem 0 0; padding: 1rem 1.2rem;
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 6px; max-width: 64ch;
+  }
+  .pitch-jump b {
+    display: block; margin-bottom: .55rem;
+    font-family: var(--font-mono); font-size: .72rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .pitch-jump ol {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: .15rem .9rem;
+    counter-reset: jump;
+    font-family: var(--font-prose); font-size: .95rem;
+  }
+  .pitch-jump li::before {
+    content: "§" counter(jump, decimal-leading-zero) "  ";
+    counter-increment: jump;
+    font-family: var(--font-mono); color: var(--ink-faint);
+    font-size: .76rem; letter-spacing: .04em;
+  }
+  .pitch-jump a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted transparent; }
+  .pitch-jump a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+  .pitch-jump a em { color: var(--primary); font-style: italic; }
+
+  /* ---- scene scaffold -------------------------------------- */
+  .scene {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: clamp(2rem, 5vw, 5rem);
+    padding: clamp(4rem, 8vw, 7rem) 0;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .scene:last-of-type { border-bottom: 0; }
+
+  .scene__copy { padding-top: 1rem; }
+  .scene__num {
+    font-family: var(--font-mono); font-size: .76rem;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 .6rem;
+  }
+  .scene__title {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.015em;
+    line-height: 1.1; color: var(--ink-warm);
+    margin: 0 0 1.2rem; max-width: 22ch;
+  }
+  .scene__title i { color: var(--primary); font-style: italic; }
+  .scene__title b { color: var(--accent); font-weight: 400; font-style: italic; }
+  .scene__body {
+    font-family: var(--font-prose); color: var(--ink);
+    font-size: 1.06rem; line-height: 1.65; max-width: 42ch;
+    margin: 0 0 1rem;
+  }
+  .scene__body em { color: var(--primary); font-style: italic; }
+  .scene__body b { color: var(--ink-warm); font-weight: 500; }
+  .scene__body code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 3px; padding: .04em .3em; color: var(--ink-warm);
+  }
+  .scene__pull {
+    margin: 1.2rem 0 0; padding: .9rem 1.1rem;
+    background: var(--surface); border-left: 2px solid var(--primary);
+    font-family: var(--font-prose); font-size: .98rem;
+    line-height: 1.55; color: var(--ink-mute); max-width: 44ch;
+  }
+  .scene__pull b {
+    color: var(--primary); font-family: var(--font-mono);
+    font-size: .74rem; letter-spacing: .14em; text-transform: uppercase;
+    display: block; margin-bottom: .35rem;
+  }
+
+  .scene__viz {
+    position: sticky; top: 7rem;
+    height: clamp(360px, 60vh, 540px);
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: linear-gradient(160deg, var(--surface) 0%, var(--surface-2) 100%);
+    overflow: hidden;
+    transition: transform .6s cubic-bezier(.2,.7,.2,1),
+                border-color .6s, box-shadow .6s;
+  }
+  .scene.is-active .scene__viz {
+    border-color: var(--primary);
+    box-shadow: 0 0 60px -10px var(--primary-glow);
+  }
+  .scene__viz svg {
+    width: 92%; height: 92%; display: block;
+  }
+
+  /* responsive: stack on narrow */
+  @media (max-width: 900px) {
+    .scene { grid-template-columns: 1fr; gap: 1.6rem; }
+    .scene__viz { position: static; height: 320px; }
+  }
+
+  /* ---- shared svg primitives ------------------------------- */
+  .ink-base   { stroke: var(--ink-faint); fill: none; stroke-width: 1.2; }
+  .ink-mid    { stroke: var(--ink-mute); fill: none; stroke-width: 1.4; }
+  .ink-bright { stroke: var(--ink-warm); fill: none; stroke-width: 1.6; }
+  .ink-prim   { stroke: var(--primary);  fill: none; stroke-width: 1.8; }
+  .ink-acc    { stroke: var(--accent);   fill: none; stroke-width: 1.8; }
+  .fill-bg    { fill: var(--surface-2); }
+  .fill-prim  { fill: var(--primary); }
+  .fill-acc   { fill: var(--accent); }
+  .label-mono {
+    font-family: var(--font-mono); fill: var(--ink-mute);
+    font-size: 11px; letter-spacing: .04em;
+  }
+  .label-mono.bright { fill: var(--ink-warm); }
+  .label-mono.acc    { fill: var(--accent); }
+  .label-mono.prim   { fill: var(--primary); }
+
+  /* draw-on animation helpers */
+  .draw {
+    stroke-dasharray: 1; stroke-dashoffset: 1;
+    pathLength: 1;
+    transition: stroke-dashoffset 1.4s ease;
+  }
+  .scene.is-active .draw { stroke-dashoffset: 0; }
+  .scene.is-active .draw.delay-1 { transition-delay: .15s; }
+  .scene.is-active .draw.delay-2 { transition-delay: .35s; }
+  .scene.is-active .draw.delay-3 { transition-delay: .55s; }
+  .scene.is-active .draw.delay-4 { transition-delay: .75s; }
+  .scene.is-active .draw.delay-5 { transition-delay: .95s; }
+  .scene.is-active .draw.delay-6 { transition-delay: 1.15s; }
+
+  .pop {
+    opacity: 0; transform: scale(.85); transform-origin: center;
+    transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1);
+  }
+  .scene.is-active .pop { opacity: 1; transform: scale(1); }
+  .scene.is-active .pop.delay-1 { transition-delay: .25s; }
+  .scene.is-active .pop.delay-2 { transition-delay: .45s; }
+  .scene.is-active .pop.delay-3 { transition-delay: .65s; }
+  .scene.is-active .pop.delay-4 { transition-delay: .85s; }
+  .scene.is-active .pop.delay-5 { transition-delay: 1.05s; }
+  .scene.is-active .pop.delay-6 { transition-delay: 1.25s; }
+  .scene.is-active .pop.delay-7 { transition-delay: 1.45s; }
+  .scene.is-active .pop.delay-8 { transition-delay: 1.65s; }
+
+  .breathe {
+    animation: breathe 3.4s ease-in-out infinite;
+    transform-origin: center;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: .55; }
+    50%      { opacity: 1; }
+  }
+
+  .glow-prim { filter: drop-shadow(0 0 4px var(--primary-glow)); }
+
+  /* end-of-deck closing strip */
+  .pitch-close {
+    padding: clamp(4rem, 8vw, 7rem) 0;
+    text-align: center;
+    border-top: 1px solid var(--rule);
+  }
+  .pitch-close h2 {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: clamp(2.6rem, 6vw, 4.4rem); letter-spacing: -.02em;
+    line-height: 1.05; color: var(--ink-warm);
+    margin: 0 auto 1.4rem; max-width: 22ch;
+  }
+  .pitch-close h2 i { color: var(--primary); font-style: italic; }
+  .pitch-close p {
+    font-family: var(--font-prose); font-size: 1.1rem;
+    color: var(--ink-mute); max-width: 56ch;
+    margin: 0 auto 1.4rem; line-height: 1.6;
+  }
+  .pitch-close p em { color: var(--primary); font-style: italic; }
+  .pitch-cta {
+    display: inline-flex; gap: 1rem; flex-wrap: wrap;
+    justify-content: center; margin-top: 1rem;
+  }
+  .pitch-cta a {
+    display: inline-block; padding: .8rem 1.4rem;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    font-family: var(--font-mono); font-size: .9rem;
+    color: var(--ink-warm); text-decoration: none;
+    background: var(--surface);
+    transition: border-color .3s, background .3s, color .3s;
+  }
+  .pitch-cta a:hover {
+    border-color: var(--primary); background: var(--surface-2);
+    color: var(--primary);
+  }
+  .pitch-cta a.is-primary {
+    background: var(--primary-deep); color: var(--ink-warm);
+    border-color: var(--primary-deep);
+  }
+  .pitch-cta a.is-primary:hover {
+    background: var(--primary); border-color: var(--primary);
+    color: var(--surface);
+  }
+</style>
+</head>
+<body class="page-pitch">
+
+<a class="skip-link" href="#main">skip to content</a>
+
+<header class="status">
+  <div class="status__row">
+    <a class="status__brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark__inner"></span></span>
+      <span class="brand-word">asclepius</span>
+      <span class="brand-version">v0.6.0</span>
+    </a>
+    <nav class="status__nav" aria-label="primary">
+      <a href="concepts.html">concepts</a>
+      <a href="docs.html">docs</a>
+      <a href="india.html">india</a>
+      <a href="pitch.html" class="is-active" aria-current="page">pitch</a>
+      <a href="api.html">api</a>
+      <a href="demo.html" class="status__nav-cta">playground&nbsp;↗</a>
+    </nav>
+    <div class="status__meta">
+      <span>apache&nbsp;2.0</span>
+      <span class="dot"></span>
+      <button type="button" data-theme-toggle class="theme-toggle" aria-label="toggle theme" aria-pressed="false" aria-keyshortcuts="t">
+        <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 11.5A6 6 0 0 1 4.5 4.5a6 6 0 1 0 7 7Z"/></svg>
+        <svg class="icon-sun"  viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><g stroke="currentColor" stroke-width="1.4"><line x1="8" y1=".7" x2="8" y2="2.4"/><line x1="8" y1="13.6" x2="8" y2="15.3"/><line x1=".7" y1="8" x2="2.4" y2="8"/><line x1="13.6" y1="8" x2="15.3" y2="8"/><line x1="2.7" y1="2.7" x2="3.9" y2="3.9"/><line x1="12.1" y1="12.1" x2="13.3" y2="13.3"/><line x1="2.7" y1="13.3" x2="3.9" y2="12.1"/><line x1="12.1" y1="3.9" x2="13.3" y2="2.7"/></g></svg>
+      </button>
+      <a href="https://github.com/Himanshu21464/Asclepius" class="status__cta">github&nbsp;↗</a>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<main id="main">
+  <div class="container">
+
+    <!-- =========================  HERO  ========================= -->
+    <header class="pitch-hero">
+      <span class="kbd">the&nbsp;pitch&nbsp;·&nbsp;eight&nbsp;scenes&nbsp;·&nbsp;~3&nbsp;min</span>
+      <h1>What is this <i>thing</i>, exactly?</h1>
+      <p>
+        Asclepius is a C++20 library you <em>link against</em>. It is not a
+        hospital, not an EHR, not a model. It wraps any clinical-AI tool
+        running in an Indian deployment and turns every inference into a
+        chained, signed, regulator-readable event.
+      </p>
+      <p>
+        This page is the story, told as it happens. A clinic in Bengaluru. A
+        model. A decision. The eight things the substrate does, scene by
+        scene, before the patient leaves the room.
+      </p>
+
+      <div class="pitch-jump">
+        <b>jump to scene</b>
+        <ol>
+          <li><a href="#s1">the&nbsp;<em>clinic</em></a></li>
+          <li><a href="#s2">the&nbsp;<em>black hole</em></a></li>
+          <li><a href="#s3"><em>wrap</em>&nbsp;the model</a></li>
+          <li><a href="#s4">chain&nbsp;<em>every</em>&nbsp;call</a></li>
+          <li><a href="#s5"><em>signed</em>, verifiable</a></li>
+          <li><a href="#s6">the&nbsp;<em>India</em>&nbsp;profile</a></li>
+          <li><a href="#s7">one&nbsp;<em>bundle</em></a></li>
+          <li><a href="#s8">the&nbsp;<em>regulator</em>&nbsp;reads&nbsp;it</a></li>
+        </ol>
+      </div>
+    </header>
+
+    <!-- =========================  S1  ========================= -->
+    <section class="scene" id="s1" data-scene>
+      <div class="scene__copy">
+        <p class="scene__num">§01 — the setting</p>
+        <h2 class="scene__title">A clinic in <i>Bengaluru.</i></h2>
+        <p class="scene__body">
+          A 72-year-old patient. <b>Dr. Iyer</b> wants a faster read on a
+          chest X-ray. The hospital has a screening model — built by an
+          ABDM-listed AI vendor, signed off by the radiology HOD,
+          deployed last quarter. It runs in &lt;200&nbsp;ms.
+        </p>
+        <p class="scene__body">
+          The model decides. The patient nods. The line moves forward.
+          <em>Today, in Bengaluru, the kernel is not in the loop.</em>
+        </p>
+        <div class="scene__pull">
+          <b>question</b>
+          What did the model see, what did it say, who was the patient,
+          what consent was on file, and where is the trace?
+        </div>
+      </div>
+      <div class="scene__viz" aria-hidden="true">
+        <svg viewBox="0 0 360 240">
+          <!-- clinic outline -->
+          <rect x="40" y="60" width="280" height="140" rx="3"
+                class="ink-mid draw delay-1"/>
+          <line x1="40" y1="100" x2="320" y2="100" class="ink-base draw delay-2"/>
+          <!-- patient + clinician dots -->
+          <circle cx="120" cy="160" r="14" class="fill-bg ink-mid pop delay-3"/>
+          <circle cx="120" cy="160" r="6"  class="fill-prim pop delay-4"/>
+          <text x="120" y="195" text-anchor="middle" class="label-mono prim pop delay-4">patient</text>
+          <circle cx="240" cy="160" r="14" class="fill-bg ink-mid pop delay-3"/>
+          <circle cx="240" cy="160" r="6"  class="fill-acc pop delay-4"/>
+          <text x="240" y="195" text-anchor="middle" class="label-mono acc pop delay-4">dr.&nbsp;iyer</text>
+          <!-- model panel -->
+          <rect x="148" y="120" width="64" height="36" rx="3"
+                class="ink-bright draw delay-5"/>
+          <text x="180" y="142" text-anchor="middle" class="label-mono bright pop delay-6">model</text>
+          <!-- output arrow -->
+          <line x1="180" y1="156" x2="180" y2="186" class="ink-bright draw delay-6"/>
+          <polygon points="176,180 184,180 180,190" class="fill-bg pop delay-6"/>
+          <!-- top heading -->
+          <text x="180" y="48" text-anchor="middle" class="label-mono">apollo · bengaluru · 11:42 ist</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- =========================  S2  ========================= -->
+    <section class="scene" id="s2" data-scene>
+      <div class="scene__copy">
+        <p class="scene__num">§02 — the gap</p>
+        <h2 class="scene__title">The inference <i>vanishes.</i></h2>
+        <p class="scene__body">
+          No record of consent. No fingerprint of the model version. No
+          hash of the input. No hash of the output. Three months from
+          now, when a DPDP officer asks <em>"who saw which X-ray
+          when, on what authority?"</em> — the answer is a SQL row that
+          says <code>2026-04-29 11:42 inference</code> and an exhausted
+          ops engineer.
+        </p>
+        <p class="scene__body">
+          This is the failure mode every Indian clinical-AI deployment
+          will eventually meet — at <b>NABH audit</b>, at <b>CDSCO
+          SaMD review</b>, or in <b>court</b>.
+        </p>
+        <div class="scene__pull">
+          <b>cost</b>
+          A retroactive evidence pipeline costs 6–12 engineer-months,
+          and it can never reconstruct what wasn't logged at the moment
+          of the call.
+        </div>
+      </div>
+      <div class="scene__viz" aria-hidden="true">
+        <svg viewBox="0 0 360 240">
+          <!-- model -->
+          <rect x="56" y="98" width="68" height="44" rx="3"
+                class="ink-bright draw delay-1"/>
+          <text x="90" y="124" text-anchor="middle" class="label-mono bright pop delay-2">model</text>
+          <!-- inference arrow into void -->
+          <line x1="124" y1="120" x2="220" y2="120" class="ink-mid draw delay-2"/>
+          <!-- the void -->
+          <circle cx="270" cy="120" r="48" class="ink-base draw delay-3"
+                  stroke-dasharray="3 4"/>
+          <circle cx="270" cy="120" r="32" class="ink-base draw delay-4"
+                  stroke-dasharray="2 5"/>
+          <circle cx="270" cy="120" r="16" class="fill-bg pop delay-5"/>
+          <text x="270" y="124" text-anchor="middle" class="label-mono pop delay-5">?</text>
+          <!-- caption -->
+          <text x="180" y="200" text-anchor="middle" class="label-mono">inference&nbsp;→&nbsp;no audit · no consent · no replay</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- =========================  S3  ========================= -->
+    <section class="scene" id="s3" data-scene>
+      <div class="scene__copy">
+        <p class="scene__num">§03 — wrap</p>
+        <h2 class="scene__title">Asclepius <i>wraps</i> the model.</h2>
+        <p class="scene__body">
+          One line: <code>Runtime::open(db).infer(ctx)</code>. Returns
+          an <code>Inference</code> handle. Now the kernel is in the
+          loop. <b>Consent is checked</b> against the patient's
+          ABHA-linked token <em>before</em> the model runs.
+          <b>PHI is scrubbed</b> from the input. The model still
+          decides; it just decides inside a substrate.
+        </p>
+        <p class="scene__body">
+          The kernel does not look at the model's weights. It does
+          not have an opinion about the diagnosis. It only ensures
+          the call happens with consent, with PHI removed, and with
+          a hash on the way in and on the way out.
+        </p>
+        <div class="scene__pull">
+          <b>integration</b>
+          Add <code>-lasclepius</code> to the link line. Existing model
+          code unchanged.
+        </div>
+      </div>
+      <div class="scene__viz" aria-hidden="true">
+        <svg viewBox="0 0 360 240">
+          <!-- substrate frame -->
+          <rect x="40" y="40" width="280" height="160" rx="6"
+                class="ink-prim draw delay-1 glow-prim"/>
+          <text x="180" y="62" text-anchor="middle" class="label-mono prim pop delay-2">asclepius runtime</text>
+          <!-- consent gate -->
+          <rect x="60" y="100" width="48" height="40" rx="2"
+                class="ink-acc draw delay-3"/>
+          <text x="84" y="124" text-anchor="middle" class="label-mono acc pop delay-3">consent</text>
+          <!-- phi scrub -->
+          <rect x="120" y="100" width="48" height="40" rx="2"
+                class="ink-acc draw delay-4"/>
+          <text x="144" y="124" text-anchor="middle" class="label-mono acc pop delay-4">scrub</text>
+          <!-- model -->
+          <rect x="180" y="100" width="48" height="40" rx="2"
+                class="ink-bright draw delay-5"/>
+          <text x="204" y="124" text-anchor="middle" class="label-mono bright pop delay-5">model</text>
+          <!-- ledger out -->
+          <rect x="240" y="100" width="60" height="40" rx="2"
+                class="ink-prim draw delay-6"/>
+          <text x="270" y="124" text-anchor="middle" class="label-mono prim pop delay-6">ledger&nbsp;+1</text>
+          <!-- flow -->
+          <line x1="108" y1="120" x2="120" y2="120" class="ink-mid draw delay-3"/>
+          <line x1="168" y1="120" x2="180" y2="120" class="ink-mid draw delay-4"/>
+          <line x1="228" y1="120" x2="240" y2="120" class="ink-mid draw delay-5"/>
+          <text x="180" y="184" text-anchor="middle" class="label-mono">inference flow · sub-millisecond overhead</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- =========================  S4  ========================= -->
+    <section class="scene" id="s4" data-scene>
+      <div class="scene__copy">
+        <p class="scene__num">§04 — chain</p>
+        <h2 class="scene__title">Every call <i>chains.</i></h2>
+        <p class="scene__body">
+          A new ledger entry. <b>seq</b> = previous + 1.
+          <b>prev_hash</b> = BLAKE2b-256 of the entry before. Body
+          = canonical JSON: actor, patient, encounter, model id,
+          input_hash, output_hash, latency. <b>Ed25519 signature</b>
+          over the whole row. SQLite WAL append. ~50&nbsp;µs per
+          entry on a modern laptop.
+        </p>
+        <p class="scene__body">
+          One year of inference at 10/sec is roughly 300&nbsp;million
+          rows. The chain still verifies in one
+          <code>ledger.verify()</code> call.
+        </p>
+        <div class="scene__pull">
+          <b>property</b>
+          Mutate any byte of any row and the chain breaks at that
+          row's seq. Tampering is detectable, not mitigable.
+        </div>
+      </div>
+      <div class="scene__viz" aria-hidden="true">
+        <svg viewBox="0 0 360 240">
+          <!-- six chained boxes, each linked by hash -->
+          <g class="pop delay-1">
+            <rect x="20"  y="100" width="40" height="40" rx="2" class="ink-prim"/>
+            <text x="40"  y="124" text-anchor="middle" class="label-mono prim">#1</text>
+          </g>
+          <g class="pop delay-2">
+            <rect x="74"  y="100" width="40" height="40" rx="2" class="ink-prim"/>
+            <text x="94"  y="124" text-anchor="middle" class="label-mono prim">#2</text>
+          </g>
+          <g class="pop delay-3">
+            <rect x="128" y="100" width="40" height="40" rx="2" class="ink-prim"/>
+            <text x="148" y="124" text-anchor="middle" class="label-mono prim">#3</text>
+          </g>
+          <g class="pop delay-4">
+            <rect x="182" y="100" width="40" height="40" rx="2" class="ink-prim"/>
+            <text x="202" y="124" text-anchor="middle" class="label-mono prim">#4</text>
+          </g>
+          <g class="pop delay-5">
+            <rect x="236" y="100" width="40" height="40" rx="2" class="ink-prim"/>
+            <text x="256" y="124" text-anchor="middle" class="label-mono prim">#5</text>
+          </g>
+          <g class="pop delay-6">
+            <rect x="290" y="100" width="40" height="40" rx="2" class="ink-prim"/>
+            <text x="310" y="124" text-anchor="middle" class="label-mono prim">#6</text>
+          </g>
+          <!-- prev_hash arrows -->
+          <line x1="60"  y1="120" x2="74"  y2="120" class="ink-acc draw delay-2"/>
+          <line x1="114" y1="120" x2="128" y2="120" class="ink-acc draw delay-3"/>
+          <line x1="168" y1="120" x2="182" y2="120" class="ink-acc draw delay-4"/>
+          <line x1="222" y1="120" x2="236" y2="120" class="ink-acc draw delay-5"/>
+          <line x1="276" y1="120" x2="290" y2="120" class="ink-acc draw delay-6"/>
+          <text x="180" y="68" text-anchor="middle" class="label-mono">merkle chain · prev_hash links every row</text>
+          <text x="180" y="180" text-anchor="middle" class="label-mono acc pop delay-6">→ ed25519 over header || body || sig || key_id</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- =========================  S5  ========================= -->
+    <section class="scene" id="s5" data-scene>
+      <div class="scene__copy">
+        <p class="scene__num">§05 — verify</p>
+        <h2 class="scene__title">One call. <i>Verifies.</i></h2>
+        <p class="scene__body">
+          <code>ledger.verify()</code>. Returns <b>OK</b> or fails
+          with the seq at which the chain breaks. No off-system
+          tooling, no third-party SaaS. The signing key sits in a
+          <code>0600</code> sidecar in dev or a HSM-fronted KeyStore
+          in production. <b>Apache 2.0</b>. <b>Vendor-neutral</b>.
+          Built on <code>libsodium</code>; no rolled crypto.
+        </p>
+        <p class="scene__body">
+          <b>L1 / L2 / L3 / L2-Medical</b> conformance ladders.
+          The current reference build verifies a 2,000-entry chain
+          in <b>~103 ms</b> end-to-end.
+        </p>
+        <div class="scene__pull">
+          <b>tagline</b>
+          The Linux kernel for clinical AI. The same framing applies
+          everywhere; India is where we lead.
+        </div>
+      </div>
+      <div class="scene__viz" aria-hidden="true">
+        <svg viewBox="0 0 360 240">
+          <!-- chain with verify halo -->
+          <g>
+            <rect x="36"  y="100" width="40" height="40" rx="2" class="ink-acc pop delay-1"/>
+            <rect x="90"  y="100" width="40" height="40" rx="2" class="ink-acc pop delay-2"/>
+            <rect x="144" y="100" width="40" height="40" rx="2" class="ink-acc pop delay-3"/>
+            <rect x="198" y="100" width="40" height="40" rx="2" class="ink-acc pop delay-4"/>
+            <rect x="252" y="100" width="40" height="40" rx="2" class="ink-acc pop delay-5"/>
+            <line x1="76"  y1="120" x2="90"  y2="120" class="ink-acc draw delay-2"/>
+            <line x1="130" y1="120" x2="144" y2="120" class="ink-acc draw delay-3"/>
+            <line x1="184" y1="120" x2="198" y2="120" class="ink-acc draw delay-4"/>
+            <line x1="238" y1="120" x2="252" y2="120" class="ink-acc draw delay-5"/>
+          </g>
+          <!-- check mark -->
+          <g class="pop delay-6 glow-prim">
+            <circle cx="180" cy="180" r="22" class="ink-acc"/>
+            <polyline points="170,180 178,188 192,170" class="ink-acc"
+                      stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"/>
+          </g>
+          <text x="180" y="64" text-anchor="middle" class="label-mono acc">ledger.verify()</text>
+          <text x="180" y="220" text-anchor="middle" class="label-mono">~51 µs / entry · 2000 entries / 103 ms</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- =========================  S6  ========================= -->
+    <section class="scene" id="s6" data-scene>
+      <div class="scene__copy">
+        <p class="scene__num">§06 — india profile</p>
+        <h2 class="scene__title">India-shaped <i>primitives.</i></h2>
+        <p class="scene__body">
+          The same substrate, switched into the <b>India profile</b>:
+          <em>ABDM consent artefacts</em> that round-trip through the
+          national Health Information Provider gateway.
+          <em>FamilyGraph</em> for adult-children consenting on behalf
+          of elder parents — the eldercare workflow no Western kernel
+          has. <em>EmergencyOverride</em> implementing DPDP § 7
+          break-glass with a <b>72-hour mandatory backfill</b>.
+        </p>
+        <p class="scene__body">
+          Plus <b>HumanAttestation</b>, <b>BillAuditBundle</b>,
+          <b>TeleConsultEnvelope</b>, <b>SampleIntegrityBundle</b>,
+          <b>CarePathAttestation</b> — five signed evidence shapes
+          covering the workflows from <a href="https://razorpay.com/m/fix-my-itch/">Razorpay's "Fix My Itch"</a>
+          health list.
+        </p>
+        <div class="scene__pull">
+          <b>opt-in</b>
+          A US or EU deployment never instantiates these types.
+          The India profile compiles in but is opt-in per primitive.
+        </div>
+      </div>
+      <div class="scene__viz" aria-hidden="true">
+        <svg viewBox="0 0 360 240">
+          <!-- spoke + 5 satellites -->
+          <circle cx="180" cy="120" r="34" class="ink-prim draw delay-1 glow-prim"/>
+          <text x="180" y="115" text-anchor="middle" class="label-mono prim pop delay-2">india</text>
+          <text x="180" y="130" text-anchor="middle" class="label-mono prim pop delay-2">profile</text>
+
+          <!-- satellites -->
+          <g class="pop delay-3">
+            <line x1="180" y1="86"  x2="180" y2="50"  class="ink-acc"/>
+            <rect x="148" y="20" width="64" height="30" rx="3" class="ink-acc"/>
+            <text x="180" y="40" text-anchor="middle" class="label-mono acc">ConsentArtefact</text>
+          </g>
+          <g class="pop delay-4">
+            <line x1="207" y1="100" x2="252" y2="62"  class="ink-acc"/>
+            <rect x="240" y="32" width="100" height="28" rx="3" class="ink-acc"/>
+            <text x="290" y="50" text-anchor="middle" class="label-mono acc">FamilyGraph</text>
+          </g>
+          <g class="pop delay-5">
+            <line x1="207" y1="140" x2="252" y2="178" class="ink-acc"/>
+            <rect x="234" y="180" width="116" height="28" rx="3" class="ink-acc"/>
+            <text x="292" y="198" text-anchor="middle" class="label-mono acc">EmergencyOverride</text>
+          </g>
+          <g class="pop delay-6">
+            <line x1="153" y1="140" x2="108" y2="178" class="ink-acc"/>
+            <rect x="20"  y="180" width="100" height="28" rx="3" class="ink-acc"/>
+            <text x="70"  y="198" text-anchor="middle" class="label-mono acc">BillAudit</text>
+          </g>
+          <g class="pop delay-6">
+            <line x1="153" y1="100" x2="108" y2="62"  class="ink-acc"/>
+            <rect x="14"  y="32" width="100" height="28" rx="3" class="ink-acc"/>
+            <text x="64"  y="50" text-anchor="middle" class="label-mono acc">TeleConsult</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- =========================  S7  ========================= -->
+    <section class="scene" id="s7" data-scene>
+      <div class="scene__copy">
+        <p class="scene__num">§07 — bundle</p>
+        <h2 class="scene__title">One <i>bundle.</i> Regulator-portable.</h2>
+        <p class="scene__body">
+          When the auditor asks, <code>asclepius bundle &gt; case.tar</code>
+          emits a <b>USTAR archive</b> with the manifest, the ledger
+          excerpt for the time window, the metrics snapshot, the
+          drift report, the override and ground-truth files, the
+          public key, and a <b>manifest signature</b>.
+        </p>
+        <p class="scene__body">
+          The auditor verifies offline. No network, no SaaS dependency,
+          no per-seat licence. <em>Evidence is the deliverable.</em>
+        </p>
+        <div class="scene__pull">
+          <b>format</b>
+          Plain USTAR tar. Anyone with libsodium can verify the
+          manifest signature. Spec is one page in <code>SPEC.md</code>.
+        </div>
+      </div>
+      <div class="scene__viz" aria-hidden="true">
+        <svg viewBox="0 0 360 240">
+          <!-- tar bundle -->
+          <rect x="100" y="48" width="160" height="156" rx="4"
+                class="ink-prim draw delay-1 glow-prim"/>
+          <text x="180" y="42" text-anchor="middle" class="label-mono prim pop delay-1">case.tar</text>
+          <!-- contents -->
+          <g class="pop delay-2">
+            <rect x="116" y="70"  width="128" height="18" rx="2" class="ink-mid"/>
+            <text x="120" y="82"  class="label-mono">manifest.json</text>
+          </g>
+          <g class="pop delay-3">
+            <rect x="116" y="92"  width="128" height="18" rx="2" class="ink-mid"/>
+            <text x="120" y="104" class="label-mono">ledger_excerpt.jsonl</text>
+          </g>
+          <g class="pop delay-4">
+            <rect x="116" y="114" width="128" height="18" rx="2" class="ink-mid"/>
+            <text x="120" y="126" class="label-mono">metrics.json</text>
+          </g>
+          <g class="pop delay-5">
+            <rect x="116" y="136" width="128" height="18" rx="2" class="ink-mid"/>
+            <text x="120" y="148" class="label-mono">drift.json</text>
+          </g>
+          <g class="pop delay-6">
+            <rect x="116" y="158" width="128" height="18" rx="2" class="ink-acc"/>
+            <text x="120" y="170" class="label-mono acc">manifest.sig (ed25519)</text>
+          </g>
+          <g class="pop delay-7">
+            <rect x="116" y="180" width="128" height="18" rx="2" class="ink-acc"/>
+            <text x="120" y="192" class="label-mono acc">public_key (32 bytes)</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- =========================  S8  ========================= -->
+    <section class="scene" id="s8" data-scene>
+      <div class="scene__copy">
+        <p class="scene__num">§08 — the regulator</p>
+        <h2 class="scene__title">CDSCO. NABH. <i>DPDP DPB.</i></h2>
+        <p class="scene__body">
+          The auditor runs <code>asclepius evidence verify case.tar</code>.
+          Returns OK or a precise reason it does not. Same binary the
+          operator built. Same crypto. <em>The chain of custody is the
+          product.</em>
+        </p>
+        <p class="scene__body">
+          When CDSCO finalises its SaMD framework, when the DPDP Data
+          Protection Board issues its first compliance order, when an
+          NABH inspector wants to know what consent was on file at
+          11:42 ist on April 29 — the answer is a single <code>tar</code>
+          and a single command.
+        </p>
+        <div class="scene__pull">
+          <b>candid risk</b>
+          The Indian regulatory demand we are building for is real but
+          maturing. CDSCO SaMD is draft; DPDP Board is staffing up.
+          The kernel works in any jurisdiction today; India is where
+          we believe the demand lands first because the rails (ABDM)
+          are already there.
+        </div>
+      </div>
+      <div class="scene__viz" aria-hidden="true">
+        <svg viewBox="0 0 360 240">
+          <!-- regulator at terminal -->
+          <rect x="80" y="44" width="200" height="120" rx="6"
+                class="ink-bright draw delay-1"/>
+          <line x1="80" y1="64" x2="280" y2="64" class="ink-base draw delay-2"/>
+          <!-- prompt -->
+          <text x="92" y="100" class="label-mono pop delay-3">$ asclepius evidence verify case.tar</text>
+          <text x="92" y="124" class="label-mono acc pop delay-5">OK</text>
+          <text x="92" y="146" class="label-mono pop delay-6">  manifest sig: ✓  chain head: ✓  3 models</text>
+
+          <!-- regulator labels -->
+          <g class="pop delay-7">
+            <rect x="40"  y="184" width="60" height="24" rx="3" class="ink-acc"/>
+            <text x="70"  y="200" text-anchor="middle" class="label-mono acc">CDSCO</text>
+          </g>
+          <g class="pop delay-7">
+            <rect x="110" y="184" width="60" height="24" rx="3" class="ink-acc"/>
+            <text x="140" y="200" text-anchor="middle" class="label-mono acc">NABH</text>
+          </g>
+          <g class="pop delay-8">
+            <rect x="180" y="184" width="60" height="24" rx="3" class="ink-acc"/>
+            <text x="210" y="200" text-anchor="middle" class="label-mono acc">DPDP</text>
+          </g>
+          <g class="pop delay-8">
+            <rect x="250" y="184" width="60" height="24" rx="3" class="ink-acc"/>
+            <text x="280" y="200" text-anchor="middle" class="label-mono acc">IRDAI</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ===================  CLOSING / CTA  ==================== -->
+  <section class="pitch-close">
+    <div class="container">
+      <h2>One <i>library.</i> Eight <i>scenes.</i> Linkable today.</h2>
+      <p>
+        v0.6.0. Apache 2.0. <em>1,565 tests, 36,098 assertions, zero failures.</em>
+        Build it, link it, run the end-to-end India journey example
+        (<code>examples/08_india_full_journey</code>). Eight ledger
+        entries, one chain-verify, &lt; 1 second wall-clock.
+      </p>
+      <div class="pitch-cta">
+        <a href="india.html" class="is-primary">read the India profile</a>
+        <a href="quickstart.html">quickstart →</a>
+        <a href="https://github.com/Himanshu21464/Asclepius">github →</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="container foot__row">
+    <div class="foot__brand">
+      <span class="brand-mark"><span class="brand-mark__inner"></span></span>
+      <span>Asclepius — the pitch.</span>
+    </div>
+    <div class="foot__cols">
+      <div>
+        <b>start here</b>
+        <a href="explained.html">explained</a>
+        <a href="concepts.html">concepts</a>
+        <a href="quickstart.html">quickstart</a>
+        <a href="india.html">india</a>
+      </div>
+      <div>
+        <b>docs</b>
+        <a href="docs.html">overview</a>
+        <a href="architecture.html">architecture</a>
+        <a href="spec.html">spec</a>
+        <a href="api.html">API reference</a>
+      </div>
+      <div>
+        <b>community</b>
+        <a href="contributing.html">contributing</a>
+        <a href="governance.html">governance</a>
+        <a href="security.html">security</a>
+        <a href="press.html">press</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js" defer></script>
+<script src="js/extras.js" defer></script>
+<script src="js/palette.js" defer></script>
+<script src="js/help.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/themes.js" defer></script>
+
+<!-- scrollytelling: arm each .scene as it enters the viewport -->
+<script>
+  (function() {
+    if (!('IntersectionObserver' in window)) {
+      // Reduced fallback: just mark every scene active so static SVG shows.
+      document.querySelectorAll('[data-scene]').forEach(el => el.classList.add('is-active'));
+      return;
+    }
+    const obs = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          e.target.classList.add('is-active');
+        }
+      }
+    }, {
+      rootMargin: '0px 0px -25% 0px',
+      threshold: 0.18,
+    });
+    document.querySelectorAll('[data-scene]').forEach(el => obs.observe(el));
+  })();
+</script>
+
+</body>
+</html>

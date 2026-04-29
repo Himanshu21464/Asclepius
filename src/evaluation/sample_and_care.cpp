@@ -210,19 +210,28 @@ sample_integrity_from_json(std::string_view sv) {
     if (!j.contains("checkpoints") || !j["checkpoints"].is_array()) {
         return Error::invalid("missing or non-array field: checkpoints");
     }
-    for (const auto& c : j["checkpoints"]) {
-        if (!c.is_object()) return Error::invalid("checkpoint not an object");
-        SampleIntegrityCheckpoint cp;
-        cp.at            = Time::from_iso8601(c.value("at",       std::string{}));
-        cp.location      = c.value("location",                    std::string{});
-        cp.temperature_c = c.value("temperature_c",               0.0);
-        cp.within_spec   = c.value("within_spec",                 true);
-        cp.note          = c.value("note",                        std::string{});
-        s.checkpoints.push_back(std::move(cp));
+    try {
+        for (const auto& c : j["checkpoints"]) {
+            if (!c.is_object()) return Error::invalid("checkpoint not an object");
+            SampleIntegrityCheckpoint cp;
+            cp.at            = Time::from_iso8601(c.value("at",       std::string{}));
+            cp.location      = c.value("location",                    std::string{});
+            cp.temperature_c = c.value("temperature_c",               0.0);
+            cp.within_spec   = c.value("within_spec",                 true);
+            cp.note          = c.value("note",                        std::string{});
+            s.checkpoints.push_back(std::move(cp));
+        }
+    } catch (const nlohmann::json::exception& e) {
+        return Error::invalid(std::string{"checkpoint has wrong-type field: "} + e.what());
     }
 
-    auto sig_hex = j.value("signature",  std::string{});
-    auto pk_hex  = j.value("public_key", std::string{});
+    std::string sig_hex, pk_hex;
+    try {
+        sig_hex = j.value("signature",  std::string{});
+        pk_hex  = j.value("public_key", std::string{});
+    } catch (const nlohmann::json::exception& e) {
+        return Error::invalid(std::string{"sample field type error: "} + e.what());
+    }
     auto sig = from_hex(sig_hex); if (!sig) return sig.error();
     auto pk  = from_hex(pk_hex);  if (!pk)  return pk.error();
     if (sig.value().size() != KeyStore::sig_bytes) return Error::invalid("bad signature size");
