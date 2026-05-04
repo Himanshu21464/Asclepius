@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-04T16:52:17Z",
+  "generated_at": "2026-05-04T17:20:01Z",
   "algorithm": "SHA-256",
   "count": 95,
   "files": {
@@ -24,8 +24,8 @@
       "bytes": 177406
     },
     "architecture.html": {
-      "sha256": "a7cc085f887ee67ae4f81d90392cf7be3ac17cc40be5a2efd73ed0e3967fade7",
-      "bytes": 23334
+      "sha256": "148f7064d76dda59c2b613bab19d1ff75d780769903fcd2e2f5904c8f6299af6",
+      "bytes": 23761
     },
     "assets/apple-touch-icon.png": {
       "sha256": "db96009398e8d877d5529dbdfa9333064080e1486dbd90e35fe0768e3edb0bf8",
@@ -160,8 +160,8 @@
       "bytes": 24938
     },
     "explained.html": {
-      "sha256": "653b10d6038beff47dbb201914eda68dd5adac20d696d8fb6f98f5f74f70027d",
-      "bytes": 32877
+      "sha256": "03f007798f8d0bd3451bb88395a94dc092b59536ba594436d82d40ee9fd2120c",
+      "bytes": 32832
     },
     "explorer.html": {
       "sha256": "2f5e8df2af47dbc35269edc2da190a057ebccede0d359f6ca2fbd010556ed3b1",
@@ -188,8 +188,8 @@
       "bytes": 1846
     },
     "index.html": {
-      "sha256": "20af7ac64bb1e6ea24c9f96308779c472122a5d0cfd19a7543f80251dade996f",
-      "bytes": 55399
+      "sha256": "ac31203afc84788cde09f73805f6be844c06557981d0a7947536d1c51e9d18d3",
+      "bytes": 55344
     },
     "india.html": {
       "sha256": "c9336d61524fd740dc34006ff579454f90d2e45fe6dcbb7a80371f91e75d20f3",
@@ -276,8 +276,8 @@
       "bytes": 51457
     },
     "pitch.html": {
-      "sha256": "d47a649ad293e29ac8a942615180d15c116803061b39eafed8b3a880bcc8d99e",
-      "bytes": 40034
+      "sha256": "a0db2195f999e45551ed451a7a38ff191fc363a44becbfb539b11069039747c4",
+      "bytes": 40277
     },
     "playbooks.html": {
       "sha256": "93ccc75855b340dfa04b69478e0c20d9ca21f3af339c1c0fd1864f1378fb1a8d",
@@ -296,8 +296,8 @@
       "bytes": 29667
     },
     "regulator.html": {
-      "sha256": "fa25c216569c9a80694f1eab6649b98418c86b47cf584b44956e50292d8213d3",
-      "bytes": 39521
+      "sha256": "72e3703d89f6cda609e57168fd188b1cbf4a22b6f7195330b9ccdeaf379ea2c7",
+      "bytes": 39449
     },
     "release-process.html": {
       "sha256": "e81b6f3b7e301dc06a729f81023ece9fccf482996915629c89ffa44a88b9595f",
@@ -332,16 +332,16 @@
       "bytes": 18432
     },
     "sitemap.html": {
-      "sha256": "4fef74cdca68c4dc03984307d31ae9f8b7735c8ae08a2926090fb9122d33cf04",
-      "bytes": 17549
+      "sha256": "a4a4515182cbad45b119abfd4c828804fb8cc07f7fffadaea28260ce1d43139a",
+      "bytes": 17642
     },
     "sitemap.xml": {
-      "sha256": "337c2724bfcd028f8535e60e1aee66c0d890a5f2a45cf54d39a06f8a8048b427",
-      "bytes": 8876
+      "sha256": "6d2e660432bfcd46524237037c47de15495eb6a1bcc714fffb0aab8d2078ec9e",
+      "bytes": 9032
     },
     "spec.html": {
-      "sha256": "4b25d805ec95ec6581f9bd2479f5ffe2163f9f89ab3404d8b355c134809756c6",
-      "bytes": 16612
+      "sha256": "a6bcce5f4ee2c3375386bd3e1c9d37572b3cb138e449838f66c3d1f75576c706",
+      "bytes": 17023
     },
     "status.html": {
       "sha256": "4b41cd78c07f8e93116f1fc949e1fd03484e3783423a080ab3565e3c7a8ff894",
@@ -356,8 +356,8 @@
       "bytes": 108359
     },
     "threat-model.html": {
-      "sha256": "a76f7728e01dcd9de1d12d2efcae1ea7c127a2f7c7ae413c5dd6dec6fbf609eb",
-      "bytes": 14907
+      "sha256": "515db922a6524573114142c121f9014b8b1a5c29b6fd15685ad371064dfaea27",
+      "bytes": 15334
     },
     "threat-tabletop.html": {
       "sha256": "4f6d2bdc60de83ef65d86db8104500d51037be64fcd9bbacce0a4d70467aeae3",

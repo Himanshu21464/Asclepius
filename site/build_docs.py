@@ -80,11 +80,14 @@ SHELL = """<!doctype html>
 
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="mask-icon" href="assets/favicon-mono.svg" color="#B57BFF">
+<link rel="canonical" href="https://asclepius.health/{out}">
 
 <meta property="og:title"        content="{title}">
 <meta property="og:description"  content="{description}">
 <meta property="og:image"        content="assets/og-card.svg">
 <meta property="og:type"         content="article">
+<meta property="og:url"          content="https://asclepius.health/{out}">
+<meta property="og:site_name"    content="Asclepius">
 <meta name="twitter:card"        content="summary_large_image">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -186,9 +189,14 @@ SHELL = """<!doctype html>
   </div>
 </footer>
 
+<script src="js/themes.js" defer></script>
 <script src="js/main.js" defer></script>
+<script src="js/help.js" defer></script>
 <script src="js/palette.js" defer></script>
+<script src="js/floating.js" defer></script>
+<script src="js/attest-site.js" defer></script>
 <script src="js/extras.js" defer></script>
+<script src="js/source.js" defer></script>
 </body>
 </html>
 """
@@ -259,6 +267,7 @@ def build():
         out_text = SHELL.format(
             title       = p['title'],
             description = p['lede'],
+            out         = p['out'],
             eyebrow     = p['eyebrow'],
             h1          = p['h1'],
             lede        = p['lede'],
