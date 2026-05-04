@@ -4737,11 +4737,17 @@ TEST_CASE("wait_for_quiet: detects late-arriving commit and restarts the window"
     auto& rt = rt_.value();
     // Background thread emits a single commit ~30ms in, then goes
     // silent. wait_for_quiet(40ms, 500ms) must not return true before
-    // that commit lands and 40ms has elapsed afterward.
+    // that commit lands and 40ms has elapsed afterward. We synchronize
+    // on a flag so t0 is captured *after* bg has begun its sleep —
+    // otherwise thread-launch overhead can let the commit land before
+    // the lower-bound timer even starts (CI flake on macos-14).
+    std::atomic<bool> bg_ready{false};
     std::thread bg([&]() {
+        bg_ready.store(true, std::memory_order_release);
         std::this_thread::sleep_for(30ms);
         (void)rt.record_event("late", "system:test", nlohmann::json::object());
     });
+    while (!bg_ready.load(std::memory_order_acquire)) std::this_thread::yield();
     auto t0 = std::chrono::steady_clock::now();
     bool ok = rt.wait_for_quiet(40ms, 500ms);
     auto dt = std::chrono::steady_clock::now() - t0;
