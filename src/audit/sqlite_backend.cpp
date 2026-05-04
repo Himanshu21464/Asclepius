@@ -9,6 +9,7 @@
 
 #include <cstring>
 #include <fmt/core.h>
+#include <mutex>
 #include <utility>
 
 namespace asclepius::detail {
@@ -86,6 +87,7 @@ public:
     }
 
     Result<void> init_schema() override {
+        std::lock_guard<std::mutex> lk(mu_);
         if (sqlite3_exec(db_, kSchema, nullptr, nullptr, nullptr) != SQLITE_OK) {
             return Error::backend(std::string{"sqlite schema: "} + sqlite3_errmsg(db_));
         }
@@ -93,18 +95,21 @@ public:
     }
 
     Result<void> begin_transaction() override {
+        std::lock_guard<std::mutex> lk(mu_);
         if (sqlite3_exec(db_, "BEGIN IMMEDIATE;", nullptr, nullptr, nullptr) != SQLITE_OK) {
             return Error::backend(std::string{"sqlite begin: "} + sqlite3_errmsg(db_));
         }
         return Result<void>::ok();
     }
     Result<void> commit_transaction() override {
+        std::lock_guard<std::mutex> lk(mu_);
         if (sqlite3_exec(db_, "COMMIT;", nullptr, nullptr, nullptr) != SQLITE_OK) {
             return Error::backend(std::string{"sqlite commit: "} + sqlite3_errmsg(db_));
         }
         return Result<void>::ok();
     }
     Result<void> rollback_transaction() override {
+        std::lock_guard<std::mutex> lk(mu_);
         // ROLLBACK can fail if no transaction is active; that's fine —
         // callers only invoke this on a known-active transaction. We
         // still report any sqlite error for diagnostics.
@@ -115,6 +120,7 @@ public:
     }
 
     Result<void> insert_entry(const LedgerEntry& e, const Hash& entry_h) override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* stmt = nullptr;
         const char* sql =
             "INSERT INTO asclepius_ledger("
@@ -152,6 +158,7 @@ public:
     }
 
     Result<std::pair<std::uint64_t, Hash>> read_tail() override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         const char* sql =
             "SELECT seq, entry_hash FROM asclepius_ledger ORDER BY seq DESC LIMIT 1;";
@@ -172,6 +179,7 @@ public:
     }
 
     Result<LedgerEntry> select_at(std::uint64_t seq) override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         std::string sql = std::string{kSelectCols} + "WHERE seq = ? LIMIT 1;";
         if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
@@ -188,6 +196,7 @@ public:
     }
 
     Result<std::vector<LedgerEntry>> select_tail(std::size_t n) override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         std::string sql = std::string{kSelectCols} + "ORDER BY seq DESC LIMIT ?;";
         if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
@@ -201,6 +210,7 @@ public:
     }
 
     Result<std::vector<LedgerEntry>> select_range(std::uint64_t start, std::uint64_t end) override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         std::string sql = std::string{kSelectCols} + "WHERE seq >= ? AND seq < ? ORDER BY seq ASC;";
         if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
@@ -215,6 +225,7 @@ public:
     }
 
     Result<std::vector<LedgerEntry>> select_all() override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         std::string sql = std::string{kSelectCols} + "ORDER BY seq ASC;";
         if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
@@ -228,6 +239,7 @@ public:
 
     Result<std::vector<LedgerEntry>> select_time_range(std::int64_t from_ns,
                                                        std::int64_t to_ns) override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         std::string sql = std::string{kSelectCols}
                         + "WHERE ts_ns >= ? AND ts_ns < ? ORDER BY seq ASC;";
@@ -244,6 +256,7 @@ public:
 
     Result<std::vector<LedgerEntry>> select_tail_for_tenant(const std::string& tenant,
                                                             std::size_t n) override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         std::string sql = std::string{kSelectCols}
                         + "WHERE tenant = ? ORDER BY seq DESC LIMIT ?;";
@@ -261,6 +274,7 @@ public:
     Result<std::vector<LedgerEntry>> select_range_for_tenant(const std::string& tenant,
                                                              std::uint64_t start,
                                                              std::uint64_t end) override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         std::string sql = std::string{kSelectCols}
                         + "WHERE tenant = ? AND seq >= ? AND seq < ? ORDER BY seq ASC;";
@@ -277,6 +291,7 @@ public:
     }
 
     Result<void> for_each(std::function<bool(const LedgerEntry&)> visitor) override {
+        std::lock_guard<std::mutex> lk(mu_);
         sqlite3_stmt* st = nullptr;
         std::string sql = std::string{kSelectCols} + "ORDER BY seq ASC;";
         if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
@@ -291,6 +306,11 @@ public:
     }
 
 private:
+    // SQLite connections are not safe for concurrent use across threads
+    // (default multi-thread build). Serialize every public entry point —
+    // readers (e.g. wait_for_quiet's tail(1) poll) racing an in-flight
+    // append on the same connection would crash inside sqlite3_step.
+    std::mutex   mu_;
     std::string  path_;
     sqlite3*     db_ = nullptr;
 };
