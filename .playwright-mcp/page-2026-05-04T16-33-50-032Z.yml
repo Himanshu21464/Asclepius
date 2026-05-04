@@ -1,0 +1,329 @@
+- generic [active] [ref=e1]:
+  - link "skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "asclepius" [ref=e5] [cursor=pointer]:
+        - /url: index.html
+        - generic [ref=e8]: asclepius
+      - button "menu" [ref=e9] [cursor=pointer]
+      - navigation "primary" [ref=e13]:
+        - link "quickstart" [ref=e14] [cursor=pointer]:
+          - /url: quickstart.html
+        - link "explained" [ref=e15] [cursor=pointer]:
+          - /url: explained.html
+        - link "docs" [ref=e16] [cursor=pointer]:
+          - /url: docs.html
+        - link "api" [ref=e17] [cursor=pointer]:
+          - /url: api.html
+        - link "playground ↗" [ref=e18] [cursor=pointer]:
+          - /url: demo.html
+      - generic [ref=e19]:
+        - button "switch to dark theme" [pressed] [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+        - button "choose color preset" [ref=e28] [cursor=pointer]
+        - link "github ↗" [ref=e30] [cursor=pointer]:
+          - /url: https://github.com/Himanshu21464/Asclepius
+  - main [ref=e31]:
+    - generic [ref=e32]:
+      - generic [ref=e33]:
+        - generic [ref=e34]: five minutes · hands-on
+        - heading "Quickstart, for builders." [level=1] [ref=e35]
+        - paragraph [ref=e36]:
+          - text: From
+          - code [ref=e37]: git clone
+          - text: to a verified, signed ledger entry on disk — in roughly five minutes on a laptop.
+          - emphasis [ref=e38]: No vendor account, no sign-up, no telemetry.
+          - text: A C++ toolchain and libsodium are the whole prerequisite.
+        - paragraph [ref=e39]:
+          - text: This page is the on-ramp for first-time builders. If you wanted the plain-language version of
+          - emphasis [ref=e40]: what
+          - text: Asclepius is, that lives at
+          - link "/explained" [ref=e41] [cursor=pointer]:
+            - /url: explained.html
+          - text: . If you want to skip the local build entirely and play in a browser tab, that's
+          - link "/demo" [ref=e42] [cursor=pointer]:
+            - /url: demo.html
+          - text: . Otherwise, pick a terminal and read on.
+        - generic "time budget" [ref=e43]:
+          - generic [ref=e44]:
+            - generic [ref=e45]: 1m
+            - text: clone
+          - generic [ref=e46]:
+            - generic [ref=e47]: 2m
+            - text: build
+          - generic [ref=e48]:
+            - generic [ref=e49]: 30s
+            - text: run example
+          - generic [ref=e50]:
+            - generic [ref=e51]: 1m
+            - text: cli tour
+          - generic [ref=e52]:
+            - generic [ref=e53]: 30s
+            - text: read the chain
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]: §01
+          - generic [ref=e57]: in one minute
+        - heading "In one minute." [level=2] [ref=e58]
+        - paragraph [ref=e59]: Three commands. Paste them into a fresh terminal and read on while the build runs.
+        - generic [ref=e60]: "# 1. clone $ git clone https://github.com/Himanshu21464/Asclepius.git $ cd Asclepius # 2. build (RelWithDebInfo, ~90s on a 2024 laptop) $ cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo \\ -DCMAKE_POLICY_VERSION_MINIMUM=3.5 $ cmake --build build -j # 3. run the wrap_scribe example $ ./build/examples/01_wrap_scribe/example_wrap_scribe wrap_scribe · ok · seq=1 · head=8e510bf4...c20e"
+        - paragraph [ref=e61]:
+          - generic [ref=e62]: prereqs
+          - emphasis [ref=e63]:
+            - text: "build-essential, cmake (≥ 3.20), ninja-build, libsodium-dev, libsqlite3-dev. On Debian/Ubuntu:"
+            - code [ref=e64]: sudo apt install build-essential cmake ninja-build libsodium-dev libsqlite3-dev
+            - text: ". On macOS:"
+            - code [ref=e65]: brew install cmake ninja libsodium
+            - text: and SQLite via the system framework.
+        - paragraph [ref=e66]:
+          - text: If the third line printed an
+          - emphasis [ref=e67]: ok
+          - text: with a
+          - code [ref=e68]: seq=1
+          - text: and a 64-character hex head — you're done with the install. The substrate works on your machine. The rest of this page is what to do with it.
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]: §02
+          - generic [ref=e72]: what you just did
+        - heading "What you just did." [level=2] [ref=e73]
+        - paragraph [ref=e74]:
+          - text: The example program at
+          - code [ref=e75]: examples/01_wrap_scribe/main.cpp
+          - text: "opens a runtime against a fresh SQLite file, pushes the default policy chain, and wraps one inference against a tiny mock scribe callback. On disk, three things appeared next to the binary:"
+        - generic [ref=e76]:
+          - term [ref=e77]:
+            - code [ref=e78]: asclepius.db
+          - definition [ref=e79]:
+            - text: The SQLite-WAL ledger.
+            - emphasis [ref=e80]: One file
+            - text: holds the entire chain — entries, signatures, key registry, drift baselines. Roughly 80 KB after one inference.
+          - term [ref=e81]:
+            - code [ref=e82]: asclepius.db.key
+          - definition [ref=e83]:
+            - text: The Ed25519 keypair used to sign entries.
+            - emphasis [ref=e84]: Mode 0600.
+            - text: Generated on first open if not provided. Move this off the box for production; the runtime will accept it back via
+            - code [ref=e85]: Runtime::open(path, KeyStore)
+            - text: .
+          - term [ref=e86]:
+            - code [ref=e87]: asclepius.db-wal
+          - definition [ref=e88]: SQLite's write-ahead log. Transient; rolls into the main file on checkpoint.
+        - paragraph [ref=e89]:
+          - text: Inside
+          - code [ref=e90]: asclepius.db
+          - text: there is now exactly one
+          - code [ref=e91]: inference.committed
+          - text: "entry. The entry records:"
+        - list [ref=e92]:
+          - listitem [ref=e93]:
+            - paragraph [ref=e94]:
+              - text: the
+              - emphasis [ref=e95]: actor
+              - text: — the clinician id the example uses (
+              - code [ref=e96]: clinician:dr.demo
+              - text: );
+          - listitem [ref=e97]:
+            - paragraph [ref=e98]:
+              - text: the
+              - emphasis [ref=e99]: model
+              - text: id and version, hashed alongside the input and output;
+          - listitem [ref=e100]:
+            - paragraph [ref=e101]:
+              - text: the
+              - emphasis [ref=e102]: input hash
+              - text: and
+              - emphasis [ref=e103]: output hash
+              - text: — BLAKE2b-256 of the post-policy payload the model saw and produced;
+          - listitem [ref=e104]:
+            - paragraph [ref=e105]:
+              - text: the verdicts of every policy that ran, in order, with their decisions (
+              - emphasis [ref=e106]: allow / modify / block
+              - text: );
+          - listitem [ref=e107]:
+            - paragraph [ref=e108]:
+              - text: the
+              - emphasis [ref=e109]: previous-entry hash
+              - text: — zero, because this is the first entry — so the next entry will chain to this one.
+        - paragraph [ref=e110]:
+          - text: Every byte of that record is signed with the keypair in
+          - code [ref=e111]: asclepius.db.key
+          - text: .
+          - emphasis [ref=e112]: The bytes carry the proof.
+          - text: Hand the file to a verifier and they can reconstruct the chain without trusting you.
+      - generic [ref=e113]:
+        - generic [ref=e114]:
+          - generic [ref=e115]: §03
+          - generic [ref=e116]: open it up
+        - heading "Open it up." [level=2] [ref=e117]
+        - paragraph [ref=e118]:
+          - text: The
+          - code [ref=e119]: asclepius
+          - text: CLI binary built alongside the example lives at
+          - code [ref=e120]: ./build/apps/cli/asclepius
+          - text: . Pin it to your path or invoke directly. Four subcommands cover ninety percent of what you'll do day-to-day.
+        - generic [ref=e121]: "# integrity-check the whole chain $ ./build/apps/cli/asclepius ledger verify ./asclepius.db OK · 1 entries · head=8e510bf4...c20e · key=a1f274e6"
+        - paragraph [ref=e122]:
+          - text: That command walked the chain, recomputed each entry's hash, re-checked each Ed25519 signature, and confirmed the prev-pointer of every entry matches the hash of the one before.
+          - emphasis [ref=e123]: It is the thing the regulator will run.
+        - generic [ref=e124]: "# dump the last 5 entries as JSON $ ./build/apps/cli/asclepius ledger inspect ./asclepius.db --tail 5 [ { \"seq\": 1, \"ts\": \"2026-04-26T17:22:25.301Z\", \"actor\": \"clinician:dr.demo\", \"event_type\": \"inference.committed\", \"tenant\": \"demo-tenant\", \"prev_hash\": \"0000000000000000000000000000000000000000000000000000000000000000\", \"payload_hash\": \"8e510bf4b39c...c20e\", \"key_id\": \"a1f274e6\", \"signature\": \"...\" } ]"
+        - generic [ref=e125]: "# aggregate counters at a glance $ ./build/apps/cli/asclepius ledger stats ./asclepius.db entries 1 bytes_on_disk 81920 tenants 1 actors 1 oldest 2026-04-26T17:22:25.301Z (seq 1) newest 2026-04-26T17:22:25.301Z (seq 1)"
+        - generic [ref=e126]: "# runtime liveness — pairs nicely with a /healthz $ ./build/apps/cli/asclepius runtime health ./asclepius.db { \"version\": \"0.4.1\", \"ledger_length\": 1, \"ledger_head\": \"8e510bf4...c20e\", \"ledger_size_bytes\": 81920, \"key_id\": \"a1f274e6\", \"drift_features\": 0, \"active_inferences\": 0, \"is_chain_empty\": false }"
+        - paragraph [ref=e127]:
+          - text: The
+          - code [ref=e128]: cheatsheet
+          - text: page lists every CLI subcommand on one page; the
+          - code [ref=e129]: api
+          - text: page lists the C++ surface they call. Both are now enough for an integration without leaving the site.
+      - generic [ref=e130]:
+        - generic [ref=e131]:
+          - generic [ref=e132]: §04
+          - generic [ref=e133]: wrap your own model
+        - heading "Wrap your own model." [level=2] [ref=e134]
+        - paragraph [ref=e135]:
+          - text: The wrap-scribe example is twenty lines without comments. Replace the mock callback with your own and you have an audited inference. The pattern is always the same —
+          - emphasis [ref=e136]: open, push, begin, run, commit
+          - text: .
+        - generic [ref=e137]: "#include <asclepius/asclepius.hpp> using namespace asclepius; int main() { // 1. open the runtime against a SQLite file (created on first open) auto rt = Runtime::open(\"./asclepius.db\").value(); // 2. push policies — order matters; first block wins rt.policies().push(make_phi_scrubber()); rt.policies().push(make_length_limit(8000, 8000)); // 3. begin one inference, scoped to a clinician + patient + purpose auto inf = rt.begin_inference({ .model = ModelId{\"my-scribe\", \"v1\"}, .actor = ActorId::clinician(\"dr.smith\"), .patient = PatientId::pseudonymous(\"p_9f1a\"), .encounter = EncounterId::make(), .purpose = Purpose::ambient_documentation, }).value(); // 4. run — the model_call lambda is your model. Anything callable. auto model_call = [](std::string_view in) -> std::string { // in production: call your transformer, your gRPC stub, // your scribe vendor's HTTP endpoint. Whatever returns text. return \"SOAP: subjective ...\\nobjective ...\\nassessment ...\\nplan ...\"; }; auto out = inf.run(\"chief complaint: chest pain, 2h\", model_call).value(); // 5. commit — appends one signed inference.committed entry inf.commit().value(); std::cout << \"ok · seq=\" << inf.seq().value() << \" · output=\" << out << \"\\n\"; }"
+        - paragraph [ref=e138]:
+          - text: Five calls, in order.
+          - code [ref=e139]: open
+          - text: gives you a runtime;
+          - code [ref=e140]: policies().push
+          - text: wires the input/output filter chain;
+          - code [ref=e141]: begin_inference
+          - text: creates a scoped handle that already knows the clinician, patient, and purpose;
+          - code [ref=e142]: inf.run
+          - text: sends the input through the input policies, invokes your model callback, sends the output through the output policies, and stages the entry;
+          - code [ref=e143]: inf.commit
+          - text: signs and appends.
+        - paragraph [ref=e144]:
+          - text: If a policy
+          - emphasis [ref=e145]: blocks
+          - text: ","
+          - code [ref=e146]: run
+          - text: returns an error and no
+          - code [ref=e147]: inference.committed
+          - text: entry is appended — but an
+          - code [ref=e148]: inference.aborted
+          - text: entry
+          - emphasis [ref=e149]: is
+          - text: ", so the refusal itself is auditable."
+          - emphasis [ref=e150]: The chain records what didn't happen as well as what did.
+        - paragraph [ref=e151]:
+          - generic [ref=e152]: compose
+          - emphasis [ref=e153]:
+            - text: Need a timeout?
+            - code [ref=e154]: inf.run_with_timeout(in, model, 2000ms)
+            - text: . Need cancellation?
+            - code [ref=e155]: inf.run_cancellable(in, model, token)
+            - text: . Need consent? Issue a token in
+            - code [ref=e156]: rt.consent()
+            - text: for the patient and purpose; the begin_inference call will refuse without one. The
+            - link "/api" [ref=e157] [cursor=pointer]:
+              - /url: api.html
+            - text: page lists every overload.
+      - generic [ref=e158]:
+        - generic [ref=e159]:
+          - generic [ref=e160]: §05
+          - generic [ref=e161]: where to go next
+        - heading "Where to go next." [level=2] [ref=e162]
+        - paragraph [ref=e163]: Four doors. Pick by the question you arrived with.
+        - list [ref=e164]:
+          - listitem [ref=e165]:
+            - link "The architecture shape of the runtime · /docs" [ref=e166] [cursor=pointer]:
+              - /url: docs.html
+              - generic [ref=e167]: The architecture
+              - emphasis [ref=e168]: shape of the runtime · /docs
+          - listitem [ref=e169]:
+            - link "The full surface every public C++ symbol · /api" [ref=e170] [cursor=pointer]:
+              - /url: api.html
+              - generic [ref=e171]: The full surface
+              - emphasis [ref=e172]: every public C++ symbol · /api
+          - listitem [ref=e173]:
+            - link "The playground build a chain in-browser · /demo" [ref=e174] [cursor=pointer]:
+              - /url: demo.html
+              - generic [ref=e175]: The playground
+              - emphasis [ref=e176]: build a chain in-browser · /demo
+          - listitem [ref=e177]:
+            - link "The plain-words version what it is, why it exists · /explained" [ref=e178] [cursor=pointer]:
+              - /url: explained.html
+              - generic [ref=e179]: The plain-words version
+              - emphasis [ref=e180]: what it is, why it exists · /explained
+        - paragraph [ref=e181]:
+          - text: "Or peel off into the long-form pages:"
+          - link "/cheatsheet" [ref=e182] [cursor=pointer]:
+            - /url: cheatsheet.html
+          - text: for one-pager-style printouts,
+          - link "/deploy" [ref=e183] [cursor=pointer]:
+            - /url: deploy.html
+          - text: for HSM and sidecar production patterns,
+          - link "/benchmarks" [ref=e184] [cursor=pointer]:
+            - /url: benchmarks.html
+          - text: for the bound-to-source performance numbers,
+          - link "/threat-model" [ref=e185] [cursor=pointer]:
+            - /url: threat-model.html
+          - text: for what the substrate does and doesn't defend against.
+      - paragraph [ref=e186]:
+        - emphasis [ref=e187]: Five minutes from clone to chain.
+        - text: If yours took longer, the build instructions on this page are stale and we'd like to know — open an issue, or email the maintainer linked from
+        - link "/contributing" [ref=e188] [cursor=pointer]:
+          - /url: contributing.html
+        - text: . Patches that shorten the path are the most welcome of all.
+  - contentinfo [ref=e189]:
+    - generic [ref=e190]:
+      - generic [ref=e194]: Asclepius — quickstart.
+      - link "edit this page →" [ref=e195] [cursor=pointer]:
+        - /url: https://github.com/Himanshu21464/Asclepius/edit/main/site/quickstart.html
+      - generic [ref=e196]:
+        - generic [ref=e197]:
+          - generic [ref=e198]: start here
+          - link "quickstart" [ref=e199] [cursor=pointer]:
+            - /url: quickstart.html
+          - link "explained" [ref=e200] [cursor=pointer]:
+            - /url: explained.html
+          - link "learn (3 surfaces)" [ref=e201] [cursor=pointer]:
+            - /url: learn.html
+          - link "manifesto" [ref=e202] [cursor=pointer]:
+            - /url: index.html#manifesto
+        - generic [ref=e203]:
+          - generic [ref=e204]: docs
+          - link "overview" [ref=e205] [cursor=pointer]:
+            - /url: docs.html
+          - link "architecture" [ref=e206] [cursor=pointer]:
+            - /url: architecture.html
+          - link "spec" [ref=e207] [cursor=pointer]:
+            - /url: spec.html
+          - link "API reference" [ref=e208] [cursor=pointer]:
+            - /url: api.html
+          - link "cheatsheet" [ref=e209] [cursor=pointer]:
+            - /url: cheatsheet.html
+        - generic [ref=e210]:
+          - generic [ref=e211]: community
+          - link "contributing" [ref=e212] [cursor=pointer]:
+            - /url: contributing.html
+          - link "governance" [ref=e213] [cursor=pointer]:
+            - /url: governance.html
+          - link "principles" [ref=e214] [cursor=pointer]:
+            - /url: principles.html
+          - link "security" [ref=e215] [cursor=pointer]:
+            - /url: security.html
+        - generic [ref=e216]:
+          - generic [ref=e217]: code
+          - link "github ↗" [ref=e218] [cursor=pointer]:
+            - /url: https://github.com/Himanshu21464/Asclepius
+          - link "changelog" [ref=e219] [cursor=pointer]:
+            - /url: changelog.html
+          - link "playground" [ref=e220] [cursor=pointer]:
+            - /url: demo.html
+    - button "verify this site self-attestation · sha-256" [ref=e222] [cursor=pointer]:
+      - generic [ref=e224]: verify this site
+      - generic [ref=e225]: self-attestation · sha-256
+    - text: no cookies · no analytics · no telemetry · this site does not call home
+  - generic "page tools":
+    - button "scroll to top":
+      - img
+    - button "copy permalink":
+      - img
+    - button "compute page attestation":
+      - img

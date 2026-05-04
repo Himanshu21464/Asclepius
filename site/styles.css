@@ -3688,3 +3688,283 @@ body.chord-pending::after {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
+
+
+/* =============================================================
+   MOBILE RESPONSIVE FIXES — small-viewport guards
+   Appended round 105: catch overflow patterns the per-page
+   stylesheets miss. Selectors include `body.page-*` where
+   needed so the cascade beats inline <style> blocks.
+   ============================================================= */
+
+/* never let a page horizontally scroll the document itself —
+   wide artifacts (tables, code) get their own scroll wrapper */
+html { overflow-x: clip; }
+body  { overflow-x: clip; }
+
+/* hairline guard — long inline content should break at any
+   character on phones rather than fling the layout sideways */
+@media (max-width: 760px) {
+    p, li, dt, dd,
+    blockquote, figcaption, caption,
+    .docs-content em, .docs-content strong,
+    .display, .hero__title, .hero__lede,
+    h1, h2, h3, h4, h5, h6 {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    /* allow non-breaking spans of metadata to actually wrap */
+    .kbd { white-space: normal; word-spacing: 0.18em; }
+
+    /* codified text: wrap unless the block opts into nowrap */
+    code:not(pre code) {
+        overflow-wrap: anywhere;
+        word-break: break-all;
+    }
+    /* every <pre> on a phone gets its own horizontal scroll */
+    pre {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* tiny-screen typography: pull display sizes back from the wall */
+@media (max-width: 420px) {
+    .hero__title  { font-size: clamp(2.4rem, 13vw, 3.4rem); }
+    .display      { font-size: clamp(2rem, 11vw, 3rem); }
+    .display--small { font-size: clamp(1.6rem, 8vw, 2.4rem); }
+    body { font-size: 16px; }
+}
+
+/* ── tabs strip on the index quickstart ────────────────────────
+   six tabs (C++/Py/Go/Java/CLI/gRPC) cannot fit a 360-px viewport;
+   on mobile turn the bar into a horizontal scroller so all tabs
+   stay reachable instead of overflowing the document. */
+@media (max-width: 760px) {
+    .tabs__bar {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--rule) transparent;
+        flex-wrap: nowrap;
+    }
+    .tabs__bar::-webkit-scrollbar { height: 4px; }
+    .tabs__bar::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 2px; }
+    .tabs__tab {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        padding: 0.85rem 1rem;
+    }
+    /* ensure code panels don't bust either */
+    .panel { white-space: pre; }
+    .panel { padding: 1.1rem 1.2rem; font-size: 0.78rem; }
+}
+
+/* ── docs-grid panels (architecture/spec/threat-model) ───────
+   the 1fr column track lets pre/code expand past the viewport;
+   constrain it with minmax(0, 1fr) and force inner pre/code
+   to scroll horizontally instead of pushing the column wider. */
+.page-docs .docs-grid > * { min-width: 0; }
+@media (max-width: 880px) {
+    body.page-docs .docs-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    body.page-docs .docs-content,
+    body.page-docs .docs-toc { min-width: 0; max-width: 100%; }
+    body.page-docs .docs-content pre,
+    body.page-docs .docs-content table,
+    body.page-docs .docs-content .copy-wrap {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.page-docs .docs-content table { display: block; }
+}
+
+/* ── api.html dl/dt/dd ───────────────────────────────────────
+   the same 1fr trap: pre code overruns the dd track without
+   minmax(0, 1fr). re-declare here to win against the page's
+   inline @media block. */
+@media (max-width: 760px) {
+    body.page-api .api-list { grid-template-columns: minmax(0, 1fr); }
+    body.page-api .api-list > * { min-width: 0; max-width: 100%; }
+    body.page-api .api-list pre {
+        max-width: 100%;
+        overflow-x: auto;
+        white-space: pre;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.page-api .api-toc ul { grid-template-columns: 1fr; }
+}
+
+/* ── deploy.html dp-grid ─────────────────────────────────────
+   same shape as docs: aside + content. */
+@media (max-width: 880px) {
+    body.page-deploy .dp-grid { grid-template-columns: minmax(0, 1fr); }
+    body.page-deploy .dp-toc,
+    body.page-deploy .dp-content { min-width: 0; max-width: 100%; }
+    body.page-deploy .dp-content pre,
+    body.page-deploy .dp-content .copy-wrap {
+        max-width: 100%; overflow-x: auto;
+    }
+}
+
+/* ── unwrapped page-specific tables: turn into scroll blocks ──
+   each of these tables sits directly under .container without
+   a side-scrolling wrapper. on phones, give each one its own
+   scroll context so content stays readable. */
+@media (max-width: 760px) {
+    body.page-economics .ec-table,
+    body.page-status .st-table,
+    body.page-observability .ob-table,
+    body.page-regulator .rg-map,
+    body.page-release-process .rp-table,
+    body.page-decisions table,
+    body.page-validate table,
+    body.page-research table,
+    body.page-conformance table,
+    body.page-integrations table,
+    body.page-changelog table {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+    /* allow note/desc cells with prose to wrap */
+    body.page-economics .ec-table td.ec-note,
+    body.page-observability .ob-table td.ob-table__desc {
+        white-space: normal;
+        min-width: 14rem;
+    }
+    /* compare table already has compare__wrap, just keep inner cells comfortable */
+    .compare__wrap { -webkit-overflow-scrolling: touch; }
+}
+
+/* ── changelog: release header pills + items wrap properly ──── */
+@media (max-width: 760px) {
+    body.page-changelog .ch__rel { padding: 1.4rem 1.2rem; }
+    body.page-changelog .ch__ver {
+        flex-wrap: wrap;
+        gap: 0.4rem 0.8rem;
+    }
+    body.page-changelog .ch__ver h3 { font-size: 1.4rem; }
+    body.page-changelog .ch__items li {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    body.page-changelog .ch__items li > * { min-width: 0; }
+}
+
+/* ── sitegraph: aspect-ratio + min-height combo forces 768px wide,
+   shrink the stage on phones. */
+@media (max-width: 760px) {
+    body.page-sitegraph .sg-stage {
+        aspect-ratio: auto;
+        min-height: 60vh;
+        height: 60vh;
+        max-height: 600px;
+    }
+    body.page-sitegraph .sg-info { max-width: 80%; font-size: 0.7rem; }
+}
+
+/* ── walkthrough: wt-action grid stacks on phones ────────────── */
+@media (max-width: 760px) {
+    body.page-walkthrough .wt-action {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.4rem;
+    }
+    body.page-walkthrough .wt-action > * { width: auto; }
+    body.page-walkthrough .wt-action__status { align-self: flex-start; }
+}
+
+/* ── explorer: action button row wraps ───────────────────────── */
+@media (max-width: 760px) {
+    body.page-explorer .ex-pad__actions {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    body.page-explorer .ex-pad__actions > .ex-btn {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+}
+
+/* ── india + concepts: kbd eyebrow wraps on phones ───────────── */
+@media (max-width: 760px) {
+    .kbd {
+        word-break: keep-all;
+        overflow-wrap: anywhere;
+    }
+    body.page-india .cp__hero .kbd,
+    body.page-concepts .cp__hero .kbd {
+        font-size: 0.66rem;
+        letter-spacing: 0.10em;
+        line-height: 1.5;
+    }
+}
+
+/* ── benchmarks/cheatsheet: long single-line code wraps ──────── */
+@media (max-width: 760px) {
+    body.page-bench code:not(pre code),
+    body.page-cheatsheet code:not(pre code) {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}
+
+/* ── demo psi-bar tick row — micro overflow ──────────────────── */
+@media (max-width: 480px) {
+    body.page-demo .d-psi-bar__tick { font-size: 0.62rem; }
+}
+
+/* ── status bar: trim everything on very small phones so the
+   brand+burger+toggle+github fit on one row without overflow.
+   touch-targets stay ≥ 36px so they remain comfortable to tap. */
+@media (max-width: 420px) {
+    .status__row { gap: 0.4rem; padding: 0 0.7rem; }
+    .brand-version { display: none; }
+    .status__cta { font-size: 0.74rem; padding: 0.4rem 0.2rem; }
+    .theme-toggle { width: 36px; height: 36px; }
+    .nav-burger   { width: 38px; height: 38px; }
+}
+@media (max-width: 360px) {
+    .brand-word { font-size: 0.95rem; }
+    .status__meta { gap: 0.5rem; }
+}
+
+/* ── touch targets: anything tappable on a phone needs to be
+   at least ~36px tall. apply on width alone (don't gate on
+   pointer:coarse) — desktop browsers shrunk to phone width
+   are how we frequently test this. */
+@media (max-width: 760px) {
+    .status__nav a,
+    .foot a,
+    .docs-toc a,
+    .api-toc a,
+    .cp-toc a {
+        min-height: 36px;
+        display: flex;
+        align-items: center;
+    }
+    .status__nav a { min-height: 44px; }
+    .btn, .btn--lg { min-height: 44px; }
+    .copy-btn { min-height: 32px; padding: 0.35rem 0.7rem; }
+    .theme-presets {
+        min-width: 36px;
+        min-height: 28px;
+        padding: 6px 10px;
+    }
+}
+
+/* ── PWA / iOS notch padding ─────────────────────────────────── */
+@supports (padding: max(0px)) {
+    .status__row {
+        padding-left: max(var(--gut), env(safe-area-inset-left));
+        padding-right: max(var(--gut), env(safe-area-inset-right));
+    }
+    .foot { padding-bottom: max(2rem, env(safe-area-inset-bottom)); }
+}

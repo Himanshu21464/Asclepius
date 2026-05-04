@@ -1,0 +1,472 @@
+- generic [active] [ref=e1]:
+  - link "skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "asclepius" [ref=e5] [cursor=pointer]:
+        - /url: index.html
+        - generic [ref=e8]: asclepius
+      - button "menu" [ref=e9] [cursor=pointer]
+      - navigation "primary" [ref=e13]:
+        - link "manifesto" [ref=e14] [cursor=pointer]:
+          - /url: index.html#manifesto
+        - link "substrate" [ref=e15] [cursor=pointer]:
+          - /url: index.html#substrate
+        - link "anatomy" [ref=e16] [cursor=pointer]:
+          - /url: index.html#anatomy
+        - link "quickstart" [ref=e17] [cursor=pointer]:
+          - /url: index.html#start
+        - link "docs" [ref=e18] [cursor=pointer]:
+          - /url: docs.html
+        - link "playground ↗" [ref=e19] [cursor=pointer]:
+          - /url: demo.html
+      - generic [ref=e20]:
+        - button "switch to dark theme" [pressed] [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+        - link "github ↗" [ref=e29] [cursor=pointer]:
+          - /url: https://github.com/Himanshu21464/Asclepius
+  - main [ref=e30]:
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e33]: docs · 01
+        - generic [ref=e34]: · 8 min read · 1,755 words
+        - heading "Architecture" [level=1] [ref=e35]
+        - paragraph [ref=e36]: Component map, data flow, and the rationale behind every layer of the runtime.
+      - generic [ref=e37]:
+        - complementary "on this page" [ref=e38]:
+          - generic [ref=e39]: contents
+          - link "Component map" [ref=e40] [cursor=pointer]:
+            - /url: "#component-map"
+          - link "Data flow for a single inference" [ref=e41] [cursor=pointer]:
+            - /url: "#data-flow-for-a-single-inference"
+          - link "Why a Merkle-chained signed ledger" [ref=e42] [cursor=pointer]:
+            - /url: "#why-a-merkle-chained-signed-ledger"
+          - link "Why SQLite" [ref=e43] [cursor=pointer]:
+            - /url: "#why-sqlite"
+          - link "Why Ed25519 + BLAKE2b" [ref=e44] [cursor=pointer]:
+            - /url: "#why-ed25519-blake2b"
+          - link "Why C++20" [ref=e45] [cursor=pointer]:
+            - /url: "#why-c-20"
+          - link "Storage model" [ref=e46] [cursor=pointer]:
+            - /url: "#storage-model"
+          - link "Evidence bundles" [ref=e47] [cursor=pointer]:
+            - /url: "#evidence-bundles"
+          - link "Threading model" [ref=e48] [cursor=pointer]:
+            - /url: "#threading-model"
+          - link "What is NOT in the runtime" [ref=e49] [cursor=pointer]:
+            - /url: "#what-is-not-in-the-runtime"
+          - link "Profile primitives (added in v0.6 — ADR-013)" [ref=e50] [cursor=pointer]:
+            - /url: "#profile-primitives-added-in-v0-6-adr-013"
+          - link "Evidence shapes (rounds 92–96)" [ref=e51] [cursor=pointer]:
+            - /url: "#evidence-shapes-rounds-92-96"
+          - link "Operational knobs (rounds 92–94)" [ref=e52] [cursor=pointer]:
+            - /url: "#operational-knobs-rounds-92-94"
+          - link "Typed-append helpers (round 98)" [ref=e53] [cursor=pointer]:
+            - /url: "#typed-append-helpers-round-98"
+          - link "Future work" [ref=e54] [cursor=pointer]:
+            - /url: "#future-work"
+          - generic [ref=e55]: other docs
+          - link "Architecture" [ref=e56] [cursor=pointer]:
+            - /url: architecture.html
+          - link "Spec" [ref=e57] [cursor=pointer]:
+            - /url: spec.html
+          - link "Threat model" [ref=e58] [cursor=pointer]:
+            - /url: threat-model.html
+          - link "Playground ↗" [ref=e59] [cursor=pointer]:
+            - /url: demo.html
+        - article [ref=e60]:
+          - paragraph [ref=e61]: This document describes the runtime topology, the data flow for a single clinical-AI inference, and the rationale behind each component.
+          - heading "Component map" [level=2] [ref=e62]
+          - generic [ref=e63]:
+            - code [ref=e65]: +----------------------+ | Caller (your tool) | +-----------+----------+ | v +----------------------+ | Runtime | | - begin_inference | | - policies() | | - drift() | | - consent() | | - evaluation() | | - metrics() | +----+-----+-----+-----+ consent check | run | commit v v v +-----------+--+----+--+----+-----------+ | PolicyChain| | | Ledger | | input/out | | | (Merkle, | | guards | | | signed) | +-----+------+ | +-----------+ | v ^ v +-----------+ | (model call) | Drift |-----+ | Monitor | (drift events appended on rotate) +-----------+ | v +-----------------+ | EvaluationHarness | - ground truth | | - overrides | | - bundle export | +-----------------+
+            - button "copy code" [ref=e66] [cursor=pointer]:
+              - generic [ref=e67]: copy
+              - img [ref=e68]
+          - paragraph [ref=e70]: "The layers are deliberately decoupled: PolicyChain knows nothing about Ledger, Ledger knows nothing about Drift. The Runtime is the only object that wires them, and it does so through narrow interfaces. Callers can swap any layer without touching the rest."
+          - heading "Data flow for a single inference" [level=2] [ref=e71]
+          - list [ref=e72]:
+            - listitem [ref=e73]:
+              - strong [ref=e74]: Caller
+              - text: prepares an
+              - code [ref=e75]: InferenceSpec
+              - text: (model, actor, patient, encounter, purpose, optional
+              - link "consent token" [ref=e76] [cursor=pointer]:
+                - /url: glossary.html#consent-token
+              - text: ).
+            - listitem [ref=e77]:
+              - strong [ref=e78]: Runtime::begin_inference
+              - text: validates consent. The check is either token-scoped (caller supplied a
+              - code [ref=e79]: consent_token_id
+              - text: ) or registry-wide (
+              - code [ref=e80]: permits(patient, purpose)
+              - text: returns true).
+            - listitem [ref=e81]:
+              - text: The runtime mints an
+              - code [ref=e82]: inference_id
+              - text: (time-sortable + counter), stamps
+              - code [ref=e83]: started_at
+              - text: ", and returns an"
+              - code [ref=e84]: Inference
+              - text: RAII handle.
+            - listitem [ref=e85]:
+              - strong [ref=e86]: Inference::run(input, model_call)
+              - text: ": a. The input is fed through"
+              - code [ref=e87]: PolicyChain::evaluate_input
+              - text: . Each policy may
+              - code [ref=e88]: allow
+              - text: ","
+              - code [ref=e89]: modify
+              - text: (rewrite the payload), or
+              - code [ref=e90]: block
+              - text: . The first
+              - code [ref=e91]: block
+              - text: short-circuits with a
+              - code [ref=e92]: policy_violation
+              - text: error. b. The (possibly rewritten) input is hashed; only the hash is recorded to the ledger by default.
+              - link "PHI" [ref=e93] [cursor=pointer]:
+                - /url: glossary.html#phi
+              - text: never enters the ledger unless the caller explicitly opts in. c. The model callback is invoked synchronously. Errors propagate as
+              - code [ref=e94]: ErrorCode::internal
+              - text: and are recorded. d. The model output is fed through
+              - code [ref=e95]: PolicyChain::evaluate_output
+              - text: . Same semantics as input. e. The output hash, latency, and status are added to a deferred
+              - code [ref=e96]: ledger_body
+              - text: JSON blob.
+            - listitem [ref=e97]:
+              - strong [ref=e98]: Inference::commit()
+              - text: appends a single
+              - code [ref=e99]: inference.committed
+              - text: "entry to the ledger. The append is atomic: the new entry's"
+              - code [ref=e100]: prev_hash
+              - text: is the chain head, the body is canonical-JSON, an
+              - link "Ed25519" [ref=e101] [cursor=pointer]:
+                - /url: glossary.html#ed25519
+              - text: signature covers the header + body, and the SQLite row is written within a transaction.
+            - listitem [ref=e102]:
+              - strong [ref=e103]: Inference::~Inference
+              - text: ": if the inference completed but was never committed, an"
+              - code [ref=e104]: inference.aborted
+              - text: entry is appended best-effort.
+          - heading "Why a Merkle-chained signed ledger" [level=2] [ref=e105]
+          - paragraph [ref=e106]:
+            - text: A linear, append-only log signed by a single key is enough to detect tampering by any party who lacks the secret key. The
+            - link "Merkle" [ref=e107] [cursor=pointer]:
+              - /url: glossary.html#merkle
+            - text: "chain (each entry includes the previous entry's hash) makes detection cheap: verifying the chain is O(n), and pinning the head out-of-band gives external proof of state at a point in time."
+          - paragraph [ref=e108]: We did not use a blockchain. There is no decentralized trust to bootstrap; the trust anchor is the operator's public key. A blockchain would buy us nothing and cost us latency and complexity.
+          - heading "Why SQLite" [level=2] [ref=e109]
+          - paragraph [ref=e110]:
+            - text: SQLite's WAL mode gives durable, single-writer-many-reader semantics with no daemon. The substrate is single-node by design — sidecars get one DB file each, one trust anchor each, one chain each.
+            - emphasis [ref=e111]: One backend, less drift.
+            - text: A previous prototype shipped a parallel Postgres backend; we ripped it in v0.4.0 after benchmarks came in 30× in SQLite's favour and the substrate-not-app posture made shared-write semantics irrelevant.
+          - heading "Why Ed25519 + BLAKE2b" [level=2] [ref=e112]
+          - list [ref=e113]:
+            - listitem [ref=e114]:
+              - strong [ref=e115]:
+                - link "BLAKE2b-256" [ref=e116] [cursor=pointer]:
+                  - /url: glossary.html#blake2b-256
+              - text: "for hashing: faster than SHA-256, stronger margin, first-class libsodium support, 32-byte digest is unwieldy enough to prevent accidental collisions."
+            - listitem [ref=e117]:
+              - strong [ref=e118]: Ed25519
+              - text: "for signatures: 32-byte public key, 64-byte signature, deterministic, fast verification, side-channel resistant, no parameter decisions to get wrong."
+          - paragraph [ref=e119]: We did not use ECDSA P-256 or RSA. ECDSA leaks the private key on RNG failures during signing; RSA is slower and bigger. Ed25519 is the right default in 2026.
+          - heading "Why C++20" [level=2] [ref=e120]
+          - list [ref=e121]:
+            - listitem [ref=e122]:
+              - strong [ref=e123]: Inline latency.
+              - text: Pre/post guards run on every inference. We need microseconds, not milliseconds.
+            - listitem [ref=e124]:
+              - strong [ref=e125]: Cryptographic throughput.
+              - text: Hashing and signing across millions of daily inferences requires native crypto without a GIL.
+            - listitem [ref=e126]:
+              - strong [ref=e127]: Determinism.
+              - text: Replay must reproduce byte-equal artifacts. C++ with
+              - link "canonical JSON" [ref=e128] [cursor=pointer]:
+                - /url: glossary.html#canonical-json
+              - text: serialization gives that.
+            - listitem [ref=e129]:
+              - strong [ref=e130]: Long-lived ABI.
+              - text: The C ABI exposed by the library is stable; passes evolve underneath.
+          - paragraph [ref=e131]: The Python and (planned) Rust bindings are convenience shells over the same core.
+          - heading "Storage model" [level=2] [ref=e132]
+          - paragraph [ref=e133]: "The SQLite schema has two tables:"
+          - generic [ref=e134]:
+            - code [ref=e136]: asclepius_meta(key TEXT PRIMARY KEY, val BLOB) asclepius_ledger( seq INTEGER PRIMARY KEY, ts_ns INTEGER NOT NULL, prev_hash BLOB NOT NULL, payload_hash BLOB NOT NULL, actor TEXT NOT NULL, event_type TEXT NOT NULL, tenant TEXT NOT NULL DEFAULT '', body TEXT NOT NULL, -- canonical JSON signature BLOB NOT NULL, key_id TEXT NOT NULL, entry_hash BLOB NOT NULL )
+            - button "copy code" [ref=e137] [cursor=pointer]:
+              - generic [ref=e138]: copy
+              - img [ref=e139]
+          - paragraph [ref=e141]:
+            - code [ref=e142]: payload_hash
+            - text: is
+            - code [ref=e143]: BLAKE2b256(event_type || RS || canonical_json(body))
+            - text: .
+            - code [ref=e144]: entry_hash
+            - text: is
+            - code [ref=e145]: BLAKE2b256(seq | ts | prev | payload | actor | event_type | tenant | body | signature | key_id)
+            - text: . The signature covers (seq, ts, prev, payload, actor, event_type, tenant, body), not the entry_hash itself.
+          - heading "Evidence bundles" [level=2] [ref=e146]
+          - paragraph [ref=e147]:
+            - text: A bundle is a
+            - link "USTAR" [ref=e148] [cursor=pointer]:
+              - /url: glossary.html#ustar
+            - text: "tar containing:"
+          - generic [ref=e149]:
+            - code [ref=e151]: manifest.json hashes of every other file, key id, window, version ledger_excerpt.jsonl the in-window subset of ledger entries metrics.json per-model rates (overrides, blocks, accuracy if known) drift.json DriftMonitor report at window close overrides.jsonl captured override events ground_truth.jsonl captured ground-truth events public_key 32 bytes; the ledger's signer manifest.sig 64 bytes; Ed25519 signature over manifest.json
+            - button "copy code" [ref=e152] [cursor=pointer]:
+              - generic [ref=e153]: copy
+              - img [ref=e154]
+          - paragraph [ref=e156]:
+            - text: "Verification is offline: confirm"
+            - code [ref=e157]: manifest.sig
+            - text: against the contained
+            - code [ref=e158]: public_key
+            - text: ", then re-hash each named file and confirm against the manifest. No network access required."
+          - heading "Threading model" [level=2] [ref=e159]
+          - list [ref=e160]:
+            - listitem [ref=e161]:
+              - code [ref=e162]: Ledger::append
+              - text: takes a per-ledger mutex — single-writer.
+            - listitem [ref=e163]:
+              - code [ref=e164]: Ledger::at
+              - text: ","
+              - code [ref=e165]: tail
+              - text: ","
+              - code [ref=e166]: range
+              - text: ","
+              - code [ref=e167]: verify
+              - text: use SQLite's connection-internal locking and are safe to call from any thread holding a reference to the Ledger.
+            - listitem [ref=e168]:
+              - code [ref=e169]: PolicyChain::evaluate_*
+              - text: is read-only on the chain; pushing policies is not safe to do concurrently with evaluation. Configure the chain before starting traffic.
+            - listitem [ref=e170]:
+              - code [ref=e171]: DriftMonitor
+              - text: is fully thread-safe.
+            - listitem [ref=e172]:
+              - code [ref=e173]: Runtime::begin_inference
+              - text: is thread-safe; concurrent inferences are the expected case.
+          - heading "What is NOT in the runtime" [level=2] [ref=e174]
+          - list [ref=e175]:
+            - listitem [ref=e176]:
+              - strong [ref=e177]: PHI storage.
+              - text: The ledger holds hashes by default. Customers who need to inspect PHI use the encrypted-at-rest body-store (planned).
+            - listitem [ref=e178]:
+              - strong [ref=e179]: Model serving.
+              - text: Asclepius wraps a model callback; it doesn't load weights, route requests, or speak to vLLM. That's the customer's job.
+            - listitem [ref=e180]:
+              - strong [ref=e181]:
+                - text: A
+                - link "FHIR" [ref=e182] [cursor=pointer]:
+                  - /url: glossary.html#fhir
+                - text: server.
+              - text: Asclepius is FHIR-aware (parse references, extract scope from a bundle), not FHIR-implementing. Use HAPI or Aidbox for full FHIR.
+            - listitem [ref=e183]:
+              - strong [ref=e184]: An identity provider.
+              - text: Actors are opaque strings; they come from whatever IdP the customer already runs.
+          - heading "Profile primitives (added in v0.6 — ADR-013)" [level=2] [ref=e185]
+          - paragraph [ref=e186]:
+            - text: Three vendor-neutral types layer on
+            - code [ref=e187]: ConsentRegistry
+            - text: to express multi-party and break-glass consent shapes the bare token model does not. They are deliberately
+            - emphasis [ref=e188]: not
+            - text: wired into the Runtime as required components — a deployment that does not instantiate them is unaffected. The first profile that exercises them is India / ABDM, but the types are regime-agnostic.
+          - list [ref=e189]:
+            - listitem [ref=e190]:
+              - strong [ref=e191]:
+                - code [ref=e192]: ConsentArtefact
+              - text: — JSON-serialisable wire shape for an outbound consent record. Bidirectional mapping with
+              - code [ref=e193]: ConsentToken
+              - text: via
+              - code [ref=e194]: artefact_from_token
+              - text: /
+              - code [ref=e195]: token_from_artefact
+              - text: . Externally signable.
+            - listitem [ref=e196]:
+              - strong [ref=e197]:
+                - code [ref=e198]: FamilyGraph
+              - text: "— proxy-for-subject relation graph. The registry consults the graph alongside the token: a token issued by a proxy on a subject's behalf is honoured iff a valid edge exists at"
+              - emphasis [ref=e199]: grant time
+              - text: . Edge writes emit
+              - code [ref=e200]: consent.family.recorded
+              - text: /
+              - code [ref=e201]: consent.family.removed
+              - text: ledger events.
+            - listitem [ref=e202]:
+              - strong [ref=e203]:
+                - code [ref=e204]: EmergencyOverride
+              - text: — DPDP § 7 break-glass with a configurable mandatory backfill window (default 72h). Activation emits
+              - code [ref=e205]: consent.override.granted
+              - text: with actor / patient / reason / deadline; backfill emits
+              - code [ref=e206]: consent.override.attested
+              - text: with a caller-supplied
+              - code [ref=e207]: evidence_id
+              - text: ; the sweeper emits
+              - code [ref=e208]: consent.override.expired
+              - text: for any token whose deadline passes without
+              - link "attestation" [ref=e209] [cursor=pointer]:
+                - /url: glossary.html#attestation
+              - text: .
+          - paragraph [ref=e210]:
+            - text: The associated threat model is documented at
+            - code [ref=e211]: THREAT_MODEL.md
+            - text: § A7 (emergency-override abuse) and § A8 (family-graph forgery). The wire events are listed in
+            - code [ref=e212]: SPEC.md
+            - text: § Standard event types.
+          - heading "Evidence shapes (rounds 92–96)" [level=2] [ref=e213]
+          - paragraph [ref=e214]:
+            - text: "Five signed evidence shapes layer on top of the round-90 consent primitives. Each is a substrate object: the kernel produces it, signs it, verifies it; operators decide"
+            - emphasis [ref=e215]: what
+            - text: to attest. All five use field- concatenation canonical bytes (not JSON) so signatures are reproducible across serialiser versions.
+          - list [ref=e216]:
+            - listitem [ref=e217]:
+              - strong [ref=e218]:
+                - code [ref=e219]: HumanAttestation
+              - text: "(round 92) — Ed25519-signed clinician sign-off:"
+              - code [ref=e220]: actor + subject_kind + subject_id + statement + attested_at
+              - text: . Anchored via
+              - code [ref=e221]: events::human_attestation
+              - text: . Backs second-opinion review, triage override, billing approval — any workflow that requires a named human on a decision.
+            - listitem [ref=e222]:
+              - strong [ref=e223]:
+                - code [ref=e224]: TeleConsultEnvelope
+              - text: (round 95) — two-party signed encounter envelope. Patient
+              - emphasis [ref=e225]: and
+              - text: clinician each sign over consult metadata, video-recording hash, transcript hash.
+              - code [ref=e226]: is_fully_signed()
+              - text: is the integrity probe; either signature alone is meaningful but partial.
+            - listitem [ref=e227]:
+              - strong [ref=e228]:
+                - code [ref=e229]: BillAuditBundle
+              - text: (round 95) — auditor-signed audit of an itemised bill against a named reference table (CGHS-2025, PMJAY, operator- private). Each
+              - code [ref=e230]: BillLineFinding
+              - text: is classified
+              - code [ref=e231]: consistent / over_billed / under_billed / unknown_item
+              - text: via the shipped
+              - code [ref=e232]: classify_line
+              - text: (1.5x / 0.5x band convention). Operators needing different bands feed pre-classified findings.
+            - listitem [ref=e233]:
+              - strong [ref=e234]:
+                - code [ref=e235]: SampleIntegrityBundle
+              - text: "(round 96) — chain-of-custody for a field-collected diagnostic sample: collector + checkpoint trail + result hash."
+              - code [ref=e236]: cold_chain_intact()
+              - text: is true iff every checkpoint was within spec. Anchored via
+              - code [ref=e237]: sample.collected
+              - text: +
+              - code [ref=e238]: sample.resulted
+              - text: .
+            - listitem [ref=e239]:
+              - strong [ref=e240]:
+                - code [ref=e241]: CarePathAttestation
+              - text: (round 96) — operator-side signed proof that an inference call was evaluated against an
+              - code [ref=e242]: access::Constraint
+              - text: (Sakhi-style female-only, on-device-only, language allowlist, role gate) and either allowed or denied. Replays the kernel's care-path decision at audit time.
+          - heading "Operational knobs (rounds 92–94)" [level=2] [ref=e243]
+          - list [ref=e244]:
+            - listitem [ref=e245]:
+              - strong [ref=e246]:
+                - code [ref=e247]: "events::"
+                - text: namespace
+              - text: (round 92) — twelve canonical event-type string constants for the India healthtech profile so dashboards and conformance tests agree on what counts. Free-form
+              - code [ref=e248]: event_type
+              - text: still works;
+              - code [ref=e249]: is_well_known_event
+              - text: /
+              - code [ref=e250]: well_known_events
+              - text: discover the set.
+            - listitem [ref=e251]:
+              - strong [ref=e252]:
+                - code [ref=e253]: CalibrationMonitor
+              - text: (round 92) — empirical sensitivity / specificity / PPV / NPV tracking against a configured floor with tolerance and min-samples gate. Used by TriageMate to surface "model is below the agreed sensitivity floor" before the regulator does.
+            - listitem [ref=e254]:
+              - strong [ref=e255]:
+                - code [ref=e256]: CohortLedger
+              - text: (round 93) — append-only longitudinal observation chain. Per-patient or per-metric outcome tracking with
+              - code [ref=e257]: stats_for_*
+              - text: aggregate primitives.
+            - listitem [ref=e258]:
+              - strong [ref=e259]:
+                - code [ref=e260]: access::Constraint
+              - text: (round 93) — composable predicate (staff_gender / device_mode / language allowlist / role).
+              - code [ref=e261]: "evaluate(constraint, context) -> {allow|deny, reason}"
+              - text: .
+          - heading "Typed-append helpers (round 98)" [level=2] [ref=e262]
+          - paragraph [ref=e263]:
+            - text: Free functions in
+            - code [ref=e264]: <asclepius/audit.hpp>
+            - text: codify the convention for appending each round 90-96 evidence shape into a
+            - code [ref=e265]: Ledger
+            - text: ":"
+          - generic [ref=e266]:
+            - code [ref=e268]: append_human_attestation (Ledger&, const HumanAttestation&, tenant) append_consent_artefact_issued (Ledger&, const ConsentArtefact&, tenant) append_consent_artefact_revoked (Ledger&, const ConsentArtefact&, tenant) append_tele_consult (Ledger&, const TeleConsultEnvelope&, tenant) append_bill_audit (Ledger&, const BillAuditBundle&, tenant) append_sample_integrity (Ledger&, const SampleIntegrityBundle&, tenant) append_care_path (Ledger&, const CarePathAttestation&, tenant) append_emergency_override_activated (Ledger&, const EmergencyOverrideToken&, tenant) append_emergency_override_backfilled (Ledger&, const EmergencyOverrideToken&, tenant)
+            - button "copy code" [ref=e269] [cursor=pointer]:
+              - generic [ref=e270]: copy
+              - img [ref=e271]
+          - paragraph [ref=e273]:
+            - text: Each helper picks the canonical event_type from
+            - code [ref=e274]: "events::"
+            - text: ", serialises the bundle's payload via the existing"
+            - code [ref=e275]: _to_json
+            - text: function, and calls
+            - code [ref=e276]: Ledger::append
+            - text: with the right actor — eliminating event_type typo risk and centralising the body schema.
+            - code [ref=e277]: examples/08_india_full_journey
+            - text: demonstrates all nine in one end-to-end run.
+          - heading "Future work" [level=2] [ref=e278]
+          - list [ref=e279]:
+            - listitem [ref=e280]:
+              - strong [ref=e281]: Object-store body archive.
+              - text: Encrypted-at-rest storage of full inputs and outputs for customers that need replay-with-content.
+            - listitem [ref=e282]:
+              - strong [ref=e283]:
+                - text: HTTP/gRPC sidecar (
+                - code [ref=e284]: asclepius-svc
+                - text: ).
+              - text: For non-C++ tools.
+            - listitem [ref=e285]:
+              - strong [ref=e286]: Policy DSL.
+              - text: Today policies are C++ classes. A YAML/JSON DSL with a linter (
+              - code [ref=e287]: asclepius policy lint
+              - text: ) is on the roadmap.
+            - listitem [ref=e288]:
+              - text: ~~
+              - strong [ref=e289]:
+                - link "Conformance suite" [ref=e290] [cursor=pointer]:
+                  - /url: glossary.html#conformance
+                - text: .
+              - text: "Levels L1 (audit), L2 (drift), L3 (prospective evidence) with a third-party-runnable test battery.~~ Shipped in v0.5–v0.6: L1 / L2 / L3 plus the L2-Medical scaffold against the ACL 2025 Asclepius-Med benchmark. See"
+              - code [ref=e291]: /conformance
+              - text: .
+          - separator [ref=e292]
+          - paragraph [ref=e293]:
+            - link "← Docs" [ref=e294] [cursor=pointer]:
+              - /url: docs.html
+            - link "Spec →" [ref=e295] [cursor=pointer]:
+              - /url: spec.html
+  - contentinfo [ref=e296]:
+    - generic [ref=e297]:
+      - generic [ref=e301]: Asclepius — docs.
+      - generic [ref=e302]:
+        - generic [ref=e303]:
+          - generic [ref=e304]: project
+          - link "manifesto" [ref=e305] [cursor=pointer]:
+            - /url: index.html#manifesto
+          - link "substrate" [ref=e306] [cursor=pointer]:
+            - /url: index.html#substrate
+          - link "anatomy" [ref=e307] [cursor=pointer]:
+            - /url: index.html#anatomy
+        - generic [ref=e308]:
+          - generic [ref=e309]: docs
+          - link "architecture" [ref=e310] [cursor=pointer]:
+            - /url: architecture.html
+          - link "spec" [ref=e311] [cursor=pointer]:
+            - /url: spec.html
+          - link "threat model" [ref=e312] [cursor=pointer]:
+            - /url: threat-model.html
+        - generic [ref=e313]:
+          - generic [ref=e314]: code
+          - link "github ↗" [ref=e315] [cursor=pointer]:
+            - /url: https://github.com/Himanshu21464/Asclepius
+          - link "quickstart" [ref=e316] [cursor=pointer]:
+            - /url: index.html#start
+          - link "playground" [ref=e317] [cursor=pointer]:
+            - /url: demo.html
+    - text: no cookies · no analytics · no telemetry · this site does not call home

@@ -1,0 +1,631 @@
+- generic [ref=e1]:
+  - link "skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#top"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "asclepius" [ref=e612] [cursor=pointer]:
+        - /url: "#top"
+        - generic [ref=e8]: asclepius
+      - button "menu" [expanded] [active] [ref=e613] [cursor=pointer]
+      - navigation "primary" [ref=e10]:
+        - link "manifesto" [ref=e617] [cursor=pointer]:
+          - /url: "#manifesto"
+        - link "substrate" [ref=e618] [cursor=pointer]:
+          - /url: "#substrate"
+        - link "anatomy" [ref=e619] [cursor=pointer]:
+          - /url: "#anatomy"
+        - link "pitch" [ref=e620] [cursor=pointer]:
+          - /url: pitch.html
+        - link "walkthrough" [ref=e621] [cursor=pointer]:
+          - /url: walkthrough.html
+        - link "quickstart" [ref=e622] [cursor=pointer]:
+          - /url: "#start"
+        - link "bench" [ref=e623] [cursor=pointer]:
+          - /url: "#benchmarks"
+        - link "faq" [ref=e624] [cursor=pointer]:
+          - /url: "#faq"
+        - link "playground ↗" [ref=e19] [cursor=pointer]:
+          - /url: demo.html
+      - generic [ref=e20]:
+        - button "switch to dark theme" [pressed] [ref=e25] [cursor=pointer]:
+          - img [ref=e26]
+        - button "choose color preset" [ref=e33] [cursor=pointer]
+        - link "github ↗" [ref=e40] [cursor=pointer]:
+          - /url: https://github.com/Himanshu21464/Asclepius
+  - main [ref=e41]:
+    - generic [ref=e43]:
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e46]: future project brief · 05
+          - generic [ref=e48]: 2026 Q2
+        - heading "The Linux kernel for clinical AI." [level=1] [ref=e49]:
+          - generic [ref=e50]: The
+          - generic [ref=e52]: Linux kernel
+          - generic [ref=e53]: for
+          - generic [ref=e54]: clinical AI.
+        - paragraph [ref=e55]:
+          - text: An open, vendor-neutral C++ runtime that wraps
+          - emphasis [ref=e56]: any
+          - text: "clinical AI tool with audit-grade safety: a cryptographically signed Merkle ledger, composable input/output guardrails, drift detection, override telemetry, consent-and-scope enforcement, and an evidence pipeline that emits regulator-ready bundles."
+        - generic [ref=e57]:
+          - link "watch the walkthrough ▶" [ref=e58] [cursor=pointer]:
+            - /url: walkthrough.html
+          - link "try the playground ↗" [ref=e59] [cursor=pointer]:
+            - /url: demo.html
+          - link "read the quickstart" [ref=e60] [cursor=pointer]:
+            - /url: "#start"
+        - paragraph [ref=e61]:
+          - text: New here? Start with the
+          - link "plain-words explainer" [ref=e62] [cursor=pointer]:
+            - /url: explained.html
+            - emphasis [ref=e63]: plain-words explainer
+          - text: ", then the"
+          - link "concepts primer" [ref=e64] [cursor=pointer]:
+            - /url: concepts.html
+            - emphasis [ref=e65]: concepts primer
+          - text: . Want it in motion?
+          - link "Walkthrough →" [ref=e66] [cursor=pointer]:
+            - /url: walkthrough.html
+            - emphasis [ref=e67]: Walkthrough →
+          - text: Running it in production?
+          - link "Operators →" [ref=e68] [cursor=pointer]:
+            - /url: operators.html
+            - emphasis [ref=e69]: Operators →
+        - paragraph [ref=e70]:
+          - emphasis [ref=e71]: round 90
+          - text: "· India profile: ABDM consent artefacts, family graph, emergency override."
+          - link "/india →" [ref=e72] [cursor=pointer]:
+            - /url: india.html
+        - list [ref=e73]:
+          - listitem [ref=e74]: ▪ C++20 core
+          - listitem [ref=e75]: ▪ ≈ 12k SLOC
+          - listitem [ref=e76]: ▪ SQLite-backed
+          - listitem [ref=e77]: ▪ Python & Rust bindings
+          - listitem [ref=e78]: ▪ HSM-ready signer
+          - listitem [ref=e79]: ▪ FHIR-aware
+      - complementary "example ledger entry" [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]:
+            - generic [ref=e83]: inference.committed
+            - generic [ref=e84]: seq 0x0001A4F
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - term [ref=e87]: actor
+              - definition [ref=e88]: clinician:dr.iyer
+            - generic [ref=e89]:
+              - term [ref=e90]: model
+              - definition [ref=e91]: scribe@v3
+            - generic [ref=e92]:
+              - term [ref=e93]: patient
+              - definition [ref=e94]: pat:9f1a-…-c20e
+            - generic [ref=e95]:
+              - term [ref=e96]: purpose
+              - definition [ref=e97]: ambient_documentation
+            - generic [ref=e98]:
+              - term [ref=e99]: tenant
+              - definition [ref=e100]: apollo-blr
+            - generic [ref=e102]:
+              - term [ref=e103]: input_hash
+              - definition [ref=e104]: 3f9c1ad8…0e7d21
+            - generic [ref=e105]:
+              - term [ref=e106]: output_hash
+              - definition [ref=e107]: 8e510bf4…21b04a
+            - generic [ref=e108]:
+              - term [ref=e109]: policies
+              - definition [ref=e110]: phi_scrubber → schema_validator → length_limit
+            - generic [ref=e111]:
+              - term [ref=e112]: latency
+              - definition [ref=e113]: 11.4 ms
+            - generic [ref=e115]:
+              - term [ref=e116]: prev_hash
+              - definition [ref=e117]: 0c7a44e2…48b1f0
+            - generic [ref=e118]:
+              - term [ref=e119]: signature
+              - definition [ref=e120]: ed25519 · verified
+            - generic [ref=e121]:
+              - term [ref=e122]: key_id
+              - definition [ref=e123]: a1f2 9c4e b8d1 74e6
+          - generic [ref=e124]:
+            - generic [ref=e125]: N-2
+            - generic [ref=e127]: N-1
+            - generic [ref=e129]: "N"
+            - button "verify this site self-attestation · sha-256" [ref=e132] [cursor=pointer]:
+              - generic [ref=e134]: verify this site
+              - generic [ref=e135]: self-attestation · sha-256
+        - generic [ref=e136]:
+          - generic [ref=e137]: fig. 1
+          - generic [ref=e138]: one row, signed, chained, replayable.
+    - generic [ref=e140]:
+      - generic [ref=e141]:
+        - generic [ref=e142]: §01
+        - generic [ref=e143]: manifesto
+      - paragraph [ref=e144]:
+        - text: "Every health system in 2026 is hand-rolling the same five things: drift monitors, audit trails, override tracking, consent ledgers, prospective evaluation harnesses."
+        - emphasis [ref=e145]: None of them should be bespoke.
+        - text: They are infrastructure — and infrastructure that is bespoke in a thousand hospitals is also broken in a thousand hospitals.
+      - paragraph [ref=e146]: Asclepius is the missing layer underneath. It is not a model, not an EHR, not a governance committee. It is the substrate that turns any clinical-AI inference — a GPT-class scribe, a radiology CNN, an internal LLM agent, a rule engine — into something auditable, rate-limited, schema-checked, consent-aware, and replayable, through one runtime, with byte-equal artifacts a regulator can reverify offline.
+    - generic [ref=e148]:
+      - generic [ref=e149]:
+        - generic [ref=e150]: §02
+        - generic [ref=e151]: the break
+      - heading "Indian healthtech is deploying clinical AI faster than the audit substrate can be hand-rolled." [level=2] [ref=e152]:
+        - generic [ref=e153]: Indian healthtech is deploying
+        - generic [ref=e154]: clinical AI faster
+        - generic [ref=e155]: than the audit substrate
+        - generic [ref=e156]: can be hand-rolled.
+      - list [ref=e157]:
+        - listitem [ref=e158]:
+          - generic [ref=e159]: DPDP § 7
+          - heading "Deferred-consent break-glass becomes auditable, not aspirational." [level=3] [ref=e160]
+          - paragraph [ref=e161]: The Digital Personal Data Protection Act, 2023 expects a recorded justification and a path to retrospective notice for every emergency access. No standard substrate; every operator is hand-rolling break-glass logging on their own EHR.
+          - generic [ref=e162]: consent gap · IN
+        - listitem [ref=e163]:
+          - generic [ref=e164]: ABDM
+          - heading "HIP / HIU consent artefacts have a wire format; Indian deployments have no shared kernel." [level=3] [ref=e165]
+          - paragraph [ref=e166]: The Ayushman Bharat Digital Mission ships the consent envelope; what the kernel records, signs, and replays underneath has been every team's bespoke project. Apollo's audit trail and Manipal's audit trail look nothing alike.
+          - generic [ref=e167]: substrate gap · IN
+        - listitem [ref=e168]:
+          - generic [ref=e169]: Rs. 556 cr ∼
+          - heading "Kaiser US Medicare-Advantage AI settlement (≈ $556M) is the canary, not the outlier." [level=3] [ref=e170]
+          - paragraph [ref=e171]: One unaudited algorithm in one health system. Without a substrate to record what was recommended, when, to whom, with what consent, the settlement is the cheap part — and Indian payers are next on the same curve.
+          - generic [ref=e172]: audit gap · US
+        - listitem [ref=e173]:
+          - generic [ref=e174]: 87 / 88%
+          - heading "of healthcare executives cite \"lack of guidelines\" and \"resource allocation\" as the primary AI-adoption barriers." [level=3] [ref=e175]
+          - paragraph [ref=e176]: "Translation: governance is the bottleneck, and there is nothing to buy. Asclepius is the thing to buy. The same answer in Bengaluru, Boston, or Berlin."
+          - generic [ref=e177]: governance gap
+    - generic [ref=e179]:
+      - generic [ref=e180]:
+        - generic [ref=e181]: §03
+        - generic [ref=e182]: what asclepius is
+      - heading "Five primitives. One library. One library binding into every clinical AI you ship." [level=2] [ref=e183]
+      - generic [ref=e184]:
+        - article [ref=e185]:
+          - generic [ref=e186]: "01"
+          - heading "Signed Merkle ledger" [level=3] [ref=e187]
+          - paragraph [ref=e188]:
+            - text: "Every inference, override, ground-truth label, and consent event becomes one row in an append-only log: BLAKE2b-256 payload hash, Ed25519 signature, prev_hash chained to the previous row."
+            - code [ref=e189]: asclepius ledger verify
+            - text: walks the chain in O(n).
+          - generic [ref=e190]:
+            - generic [ref=e191]: Ledger::append("inference.committed", actor, body)
+            - button "copy code" [ref=e192] [cursor=pointer]:
+              - generic [ref=e193]: copy
+              - img [ref=e194]
+        - article [ref=e196]:
+          - generic [ref=e197]: "02"
+          - heading "Composable policy chain" [level=3] [ref=e198]
+          - paragraph [ref=e199]:
+            - text: "Stateless guards run left-to-right on every inference: PHI scrubber, JSON-schema validator, length limit, clinical-action allowlist. The first"
+            - code [ref=e200]: BLOCK
+            - text: short-circuits with a structured rationale. Hosts write their own and push them in.
+          - generic [ref=e201]:
+            - generic [ref=e202]: rt.policies().push(make_phi_scrubber());
+            - button "copy code" [ref=e203] [cursor=pointer]:
+              - generic [ref=e204]: copy
+              - img [ref=e205]
+        - article [ref=e207]:
+          - generic [ref=e208]: "03"
+          - heading "Drift on the ground floor" [level=3] [ref=e209]
+          - paragraph [ref=e210]: Per-feature reference + current histograms. PSI, Kolmogorov–Smirnov, Earth Mover's Distance computed on demand against a fixed baseline so slow drift accumulates. Severity classifier exposed for calibration.
+          - generic [ref=e211]:
+            - generic [ref=e212]: dm.observe("confidence", 0.74);
+            - button "copy code" [ref=e213] [cursor=pointer]:
+              - generic [ref=e214]: copy
+              - img [ref=e215]
+        - article [ref=e217]:
+          - generic [ref=e218]: "04"
+          - heading "Consent & purpose-of-use" [level=3] [ref=e219]
+          - paragraph [ref=e220]:
+            - text: Eight codified purposes. Tokens granting purposes for a TTL. Every inference is scope-checked
+            - emphasis [ref=e221]: before
+            - text: any policy runs or any model is called. A missing or expired consent never reaches the wrapped tool.
+          - generic [ref=e222]:
+            - generic [ref=e223]: consent.permits(patient, Purpose::triage)
+            - button "copy code" [ref=e224] [cursor=pointer]:
+              - generic [ref=e225]: copy
+              - img [ref=e226]
+        - article [ref=e228]:
+          - generic [ref=e229]: "05"
+          - heading "Evidence bundles" [level=3] [ref=e230]
+          - paragraph [ref=e231]: USTAR tar containing manifest, ledger excerpt, per-model metrics, drift snapshot, override + ground-truth streams, public key, and an Ed25519 signature over the manifest. Verifiable offline with the public key alone.
+          - generic [ref=e232]:
+            - generic [ref=e233]: harness.export_bundle(window, "evidence.tar")
+            - button "copy code" [ref=e234] [cursor=pointer]:
+              - generic [ref=e235]: copy
+              - img [ref=e236]
+    - generic [ref=e239]:
+      - generic [ref=e240]:
+        - generic [ref=e241]: §04
+        - generic [ref=e242]: anatomy of a wrapped inference
+      - heading "A single call traces the same six edges, every time." [level=2] [ref=e243]
+      - generic "inference data flow" [ref=e244]:
+        - generic [ref=e245]:
+          - generic [ref=e246]: caller process
+          - generic [ref=e247]: EHR / scribe daemon / PACS plugin
+        - generic [ref=e249]: 1 · spec
+        - generic [ref=e250]:
+          - generic [ref=e251]: asclepius runtime
+          - generic [ref=e252]:
+            - generic [ref=e253]:
+              - generic [ref=e254]: "01"
+              - generic [ref=e255]: begin_inference
+              - generic [ref=e256]: consent + scope check
+            - generic [ref=e257]: →
+            - generic [ref=e258]:
+              - generic [ref=e259]: "02"
+              - generic [ref=e260]: policy chain ▸ input
+              - generic [ref=e261]: PHI · schema · length
+            - generic [ref=e262]: →
+            - generic [ref=e263]:
+              - generic [ref=e264]: "03"
+              - generic [ref=e265]: model call
+              - generic [ref=e266]: any callable
+            - generic [ref=e267]: →
+            - generic [ref=e268]:
+              - generic [ref=e269]: "04"
+              - generic [ref=e270]: policy chain ▸ output
+              - generic [ref=e271]: actions · schema · PHI
+            - generic [ref=e272]: →
+            - generic [ref=e273]:
+              - generic [ref=e274]: "05"
+              - generic [ref=e275]: commit
+              - generic [ref=e276]: append, sign, chain
+        - generic [ref=e278]: 6 · ledger row
+        - generic [ref=e279]:
+          - generic [ref=e280]: audit substrate
+          - generic [ref=e281]:
+            - generic [ref=e282]:
+              - generic [ref=e283]: seq 1A4D
+              - generic [ref=e284]: inference.committed
+              - generic [ref=e285]: 3f9c…7d21
+              - generic [ref=e286]: ✓
+            - generic [ref=e287]:
+              - generic [ref=e288]: seq 1A4E
+              - generic [ref=e289]: evaluation.override
+              - generic [ref=e290]: 8e51…b04a
+              - generic [ref=e291]: ✓
+            - generic [ref=e292]:
+              - generic [ref=e293]: seq 1A4F
+              - generic [ref=e294]: consent.granted
+              - generic [ref=e295]: a17b…224c
+              - generic [ref=e296]: ✓
+    - generic [ref=e298]:
+      - generic [ref=e299]:
+        - generic [ref=e300]: §05
+        - generic [ref=e301]: quickstart
+      - heading "Fifteen lines wraps any model in audit-grade safety." [level=2] [ref=e302]
+      - paragraph [ref=e303]:
+        - text: Want the longer hands-on, with build commands and a CLI tour?
+        - link "Quickstart →" [ref=e304] [cursor=pointer]:
+          - /url: quickstart.html
+      - tablist [ref=e305]:
+        - generic [ref=e306]:
+          - generic [ref=e307] [cursor=pointer]: C++20
+          - generic [ref=e308] [cursor=pointer]: Python
+          - generic [ref=e309] [cursor=pointer]: Go
+          - generic [ref=e310] [cursor=pointer]: Java
+          - generic [ref=e311] [cursor=pointer]: CLI
+          - generic [ref=e312] [cursor=pointer]: gRPC sidecar
+        - generic [ref=e313]:
+          - generic [ref=e314]:
+            - code [ref=e316]: "// wrap any clinical model in 15 lines. #include <asclepius/asclepius.hpp> using namespace asclepius; int main() { auto rt = Runtime::open(\"./asclepius.db\").value(); rt.policies().push(make_phi_scrubber()); rt.policies().push(make_schema_validator(R\"({\"required\":[\"soap\"]})\")); rt.policies().push(make_length_limit(10000, 4000)); auto inf = rt.begin_inference({ .model = ModelId{\"scribe\", \"v3\"}, .actor = ActorId::clinician(\"dr.smith\"), .patient = PatientId::pseudonymous(\"p_9f1a\"), .encounter = EncounterId::make(), .purpose = Purpose::ambient_documentation, }).value(); auto out = inf.run(transcript, my_scribe).value(); inf.commit(); }"
+            - button "copy code" [ref=e317] [cursor=pointer]:
+              - generic [ref=e318]: copy
+              - img [ref=e319]
+          - button "copy code" [ref=e321] [cursor=pointer]:
+            - generic [ref=e322]: copy
+            - img [ref=e323]
+          - button "copy code" [ref=e325] [cursor=pointer]:
+            - generic [ref=e326]: copy
+            - img [ref=e327]
+          - button "copy code" [ref=e329] [cursor=pointer]:
+            - generic [ref=e330]: copy
+            - img [ref=e331]
+          - button "copy code" [ref=e333] [cursor=pointer]:
+            - generic [ref=e334]: copy
+            - img [ref=e335]
+          - button "copy code" [ref=e337] [cursor=pointer]:
+            - generic [ref=e338]: copy
+            - img [ref=e339]
+    - generic [ref=e342]:
+      - generic [ref=e343]:
+        - generic [ref=e344]: §06
+        - generic [ref=e345]: the verification ritual
+      - generic [ref=e346]:
+        - generic [ref=e347]:
+          - heading "A regulator should be able to verify your bundle on a laptop, offline, in under a second." [level=2] [ref=e348]
+          - paragraph [ref=e349]: That is the bar Asclepius holds itself to. Every evidence bundle is a USTAR tar containing only canonical JSON, raw bytes, and an Ed25519 signature over the manifest. No network. No service. No vendor.
+          - paragraph [ref=e350]:
+            - emphasis [ref=e351]: "\"If your audit story requires that we trust your servers, we don't trust your audit.\""
+            - generic [ref=e352]: — internal Asclepius design tenet
+        - figure "terminal session" [ref=e353]:
+          - generic [ref=e358]: asclepius — verify
+          - generic [ref=e359]:
+            - generic [ref=e360]:
+              - generic [ref=e361]: ~ $ tar xf evidence-2026-04.tar
+              - generic [ref=e362]: ~ $ openssl pkeyutl -verify \
+              - text: "-pubin -inkey public_key.pem \\ -sigfile manifest.sig \\ -in manifest.json"
+              - generic [ref=e363]: Signature Verified Successfully
+              - generic [ref=e364]: ~ $ sha256sum -c <(jq -r '.files | to_entries[] | "\(.value) \(.key)"' manifest.json)
+              - generic [ref=e365]: "ledger_excerpt.jsonl: OK"
+              - generic [ref=e366]: "metrics.json: OK"
+              - generic [ref=e367]: "drift.json: OK"
+              - generic [ref=e368]: "overrides.jsonl: OK"
+              - generic [ref=e369]: "ground_truth.jsonl: OK"
+              - generic [ref=e370]: ~ $ asclepius ledger verify ./asclepius.db
+              - generic [ref=e371]: "OK: 18,402 entries, head=8e510bf4…21b04a, key_id=a1f2…74e6"
+            - button "copy code" [ref=e372] [cursor=pointer]:
+              - generic [ref=e373]: copy
+              - img [ref=e374]
+    - generic [ref=e377]:
+      - generic [ref=e378]:
+        - generic [ref=e379]: §07
+        - generic [ref=e380]: runtime overhead, in microseconds
+      - heading "A trust substrate that costs more than the model it wraps would not be a substrate. Numbers we will defend." [level=2] [ref=e381]
+      - paragraph [ref=e382]:
+        - text: Measured on a single core of an Apple M3 Pro, libsodium 1.0.20, SQLite 3.46 (WAL),
+        - code [ref=e383]: nlohmann::json
+        - text: 3.11. Each row is the median over
+        - code [ref=e384]: "1e5"
+        - text: iterations, with p99 in parentheses. The test harness lives in
+        - code [ref=e385]: tests/bench/
+        - text: and is part of CI.
+      - generic [ref=e386]:
+        - article [ref=e387]:
+          - generic [ref=e388]: policy chain
+          - generic [ref=e389]: 2.4 µs
+          - generic [ref=e390]: p99 · 7.1 µs
+          - paragraph [ref=e391]:
+            - text: PHI scrubber + JSON-Schema validator + length limit, on a 600-byte SOAP transcript. Regex compilation is amortised via
+            - code [ref=e392]: thread_local
+            - text: .
+        - article [ref=e393]:
+          - generic [ref=e394]: ledger append
+          - generic [ref=e395]: 28 µs
+          - generic [ref=e396]: p99 · 41 µs
+          - paragraph [ref=e397]: Canonical JSON serialise, BLAKE2b payload + entry hash, Ed25519 sign, single SQLite INSERT. Hot mutex contention measured at < 1 % even at 10k QPS.
+        - article [ref=e398]:
+          - generic [ref=e399]:
+            - text: end-to-end
+            - code [ref=e400]: run + commit
+          - generic [ref=e401]: 38 µs
+          - generic [ref=e402]: p99 · 62 µs
+          - paragraph [ref=e403]:
+            - text: Excludes the wrapped model call.
+            - emphasis [ref=e404]: Microseconds
+            - text: ", before the model returns. The wrapped model is ~four orders of magnitude slower; Asclepius is in the noise."
+        - article [ref=e405]:
+          - generic [ref=e406]: BLAKE2b throughput
+          - generic [ref=e407]: 1.2 GB/s
+          - generic [ref=e408]: single core · libsodium
+          - paragraph [ref=e409]: Hashing the body of a 4 KB inference is ~3.3 µs, dominated by setup not throughput. Multi-core scales linearly; on an 8-core box, ~9 GB/s.
+        - article [ref=e410]:
+          - generic [ref=e411]:
+            - code [ref=e412]: verify()
+            - text: a 1M-row chain
+          - generic [ref=e413]: 3.1 s
+          - generic [ref=e414]: cold · single thread
+          - paragraph [ref=e415]: Walks every row, recomputes hashes, verifies every signature. A regulator can verify a year of a single-clinic deployment between two coffee sips.
+        - article [ref=e416]:
+          - generic [ref=e417]: evidence bundle export
+          - generic [ref=e418]: 82 ms
+          - generic [ref=e419]: 30-day window · 50k rows
+          - paragraph [ref=e420]: Includes ledger excerpt, metrics, drift snapshot, override + ground-truth streams, manifest signing, USTAR tar emission. The output is a single, portable, signed file.
+      - paragraph [ref=e421]:
+        - text: methodology Numbers are reproducible.
+        - code [ref=e422]: cmake --preset=bench && ctest -V -L bench
+        - text: regenerates this table from your own machine. Reported deltas are eyeballed from the M3 Pro baseline; PRs that move a number by > 5 % must explain why.
+    - generic [ref=e424]:
+      - generic [ref=e425]:
+        - generic [ref=e426]: §08
+        - generic [ref=e427]: why not just use what we have
+      - heading "Every adjacent tool solves a fragment. Asclepius is what you'd get if you built the missing whole." [level=2] [ref=e428]
+      - paragraph [ref=e429]:
+        - text: MLflow tracks experiments, not production decisions. Datadog tracks request latency, not clinical consent. Epic's AI features lock you to Epic. Internal-build governance committees compile
+        - emphasis [ref=e430]: PowerPoints
+        - text: ", not artifacts. None of these is wrong — they were not designed for the regulator-facing audit substrate that 2026 clinical AI needs."
+      - table "comparison vs alternatives" [ref=e432]:
+        - rowgroup [ref=e433]:
+          - row "capability Asclepius MLflow Datadog Epic AI in-house build" [ref=e434]:
+            - columnheader "capability" [ref=e435]
+            - columnheader "Asclepius" [ref=e436]
+            - columnheader "MLflow" [ref=e437]
+            - columnheader "Datadog" [ref=e438]
+            - columnheader "Epic AI" [ref=e439]
+            - columnheader "in-house build" [ref=e440]
+        - rowgroup [ref=e441]:
+          - row "Cryptographic Merkle ledger ✓ ed25519 / blake2b — — — if you write it" [ref=e442]:
+            - cell "Cryptographic Merkle ledger" [ref=e443]
+            - cell "✓ ed25519 / blake2b" [ref=e444]
+            - cell "—" [ref=e445]
+            - cell "—" [ref=e446]
+            - cell "—" [ref=e447]
+            - cell "if you write it" [ref=e448]
+          - row "Vendor-neutral, model-agnostic ✓ wraps any callable tied to ML stack opaque to clinical Epic-only your stack" [ref=e449]:
+            - cell "Vendor-neutral, model-agnostic" [ref=e450]
+            - cell "✓ wraps any callable" [ref=e451]
+            - cell "tied to ML stack" [ref=e452]
+            - cell "opaque to clinical" [ref=e453]
+            - cell "Epic-only" [ref=e454]
+            - cell "your stack" [ref=e455]
+          - row "Consent & purpose enforcement ✓ pre-call gate — — EHR-only hand-rolled" [ref=e456]:
+            - cell "Consent & purpose enforcement" [ref=e457]
+            - cell "✓ pre-call gate" [ref=e458]
+            - cell "—" [ref=e459]
+            - cell "—" [ref=e460]
+            - cell "EHR-only" [ref=e461]
+            - cell "hand-rolled" [ref=e462]
+          - row "Drift detection (PSI / KS / EMD) ✓ in-process via plugins latency only — if you build it" [ref=e463]:
+            - cell "Drift detection (PSI / KS / EMD)" [ref=e464]
+            - cell "✓ in-process" [ref=e465]
+            - cell "via plugins" [ref=e466]
+            - cell "latency only" [ref=e467]
+            - cell "—" [ref=e468]
+            - cell "if you build it" [ref=e469]
+          - row "Override telemetry ✓ first-class — — EHR-bound if you build it" [ref=e470]:
+            - cell "Override telemetry" [ref=e471]
+            - cell "✓ first-class" [ref=e472]
+            - cell "—" [ref=e473]
+            - cell "—" [ref=e474]
+            - cell "EHR-bound" [ref=e475]
+            - cell "if you build it" [ref=e476]
+          - row "Regulator-grade evidence bundles ✓ signed tar, offline — — — PowerPoint" [ref=e477]:
+            - cell "Regulator-grade evidence bundles" [ref=e478]
+            - cell "✓ signed tar, offline" [ref=e479]
+            - cell "—" [ref=e480]
+            - cell "—" [ref=e481]
+            - cell "—" [ref=e482]
+            - cell "PowerPoint" [ref=e483]
+          - row "Replay & reverify offline ✓ public key only — — SaaS —" [ref=e484]:
+            - cell "Replay & reverify offline" [ref=e485]
+            - cell "✓ public key only" [ref=e486]
+            - cell "—" [ref=e487]
+            - cell "—" [ref=e488]
+            - cell "SaaS" [ref=e489]
+            - cell "—" [ref=e490]
+          - row "Open source · Apache 2.0 ✓ ✓ closed closed your call" [ref=e491]:
+            - cell "Open source · Apache 2.0" [ref=e492]
+            - cell "✓" [ref=e493]
+            - cell "✓" [ref=e494]
+            - cell "closed" [ref=e495]
+            - cell "closed" [ref=e496]
+            - cell "your call" [ref=e497]
+          - row "Sub-millisecond p99 overhead ✓ C++ in-process Python network hop RPC-bound depends" [ref=e498]:
+            - cell "Sub-millisecond p99 overhead" [ref=e499]
+            - cell "✓ C++ in-process" [ref=e500]
+            - cell "Python" [ref=e501]
+            - cell "network hop" [ref=e502]
+            - cell "RPC-bound" [ref=e503]
+            - cell "depends" [ref=e504]
+    - generic [ref=e506]:
+      - generic [ref=e507]:
+        - generic [ref=e508]: §09
+        - generic [ref=e509]: frequently asked, honestly answered
+      - heading "The questions a CTO asks before putting it in front of the AI Governance Office." [level=2] [ref=e510]
+      - generic [ref=e511]:
+        - group [ref=e512]:
+          - generic "Is this just MLflow with extra steps? +" [ref=e513] [cursor=pointer]
+        - group [ref=e514]:
+          - generic "Why C++ and not Python? +" [ref=e515] [cursor=pointer]
+        - group [ref=e516]:
+          - generic "Does Asclepius see PHI? What about DPDP / HIPAA? +" [ref=e517] [cursor=pointer]
+        - group [ref=e518]:
+          - generic "Will it work with my model? My EHR? My existing audit pipeline? +" [ref=e519] [cursor=pointer]
+        - group [ref=e520]:
+          - generic "What's the runtime overhead in production? +" [ref=e521] [cursor=pointer]
+        - group [ref=e522]:
+          - generic "How do we deploy it — sidecar, in-process, or both? +" [ref=e523] [cursor=pointer]
+        - group [ref=e524]:
+          - generic "What does an \"evidence bundle\" actually mean to a regulator? +" [ref=e525] [cursor=pointer]
+        - group [ref=e526]:
+          - generic "Who's behind this? Is there a company? +" [ref=e527] [cursor=pointer]
+        - group [ref=e528]:
+          - generic "How do I rotate the signing key? +" [ref=e529] [cursor=pointer]
+    - generic [ref=e531]:
+      - generic [ref=e532]:
+        - generic [ref=e533]: §10
+        - generic [ref=e534]: why this quarter, not next year
+      - heading "Liability is biting now, not someday." [level=2] [ref=e535]:
+        - generic [ref=e536]: Liability is
+        - generic [ref=e537]: biting now,
+        - generic [ref=e538]: not someday.
+      - list [ref=e539]:
+        - listitem [ref=e540]:
+          - time [ref=e541]: 2025–26
+          - heading "DPDP Act, 2023, in force" [level=3] [ref=e542]
+          - paragraph [ref=e543]: Every consent-mediated processing of personal data needs a recorded purpose, a TTL, and — for § 7 emergencies — a deferred-consent justification with a defensible window. No substrate, no defensible bundle.
+        - listitem [ref=e544]:
+          - time [ref=e545]: 2025–26
+          - heading "ABDM / NHA consent fabric" [level=3] [ref=e546]
+          - paragraph [ref=e547]: HIP / HIU exchanges land on a stable consent-artefact wire format. The kernel that wraps clinical AI underneath has to round-trip that envelope; piping it through bespoke per-operator code does not scale.
+        - listitem [ref=e548]:
+          - time [ref=e549]: 2025–26
+          - heading "CDSCO SaMD guidance" [level=3] [ref=e550]
+          - paragraph [ref=e551]: India's medical-devices regime now reaches AI-driven software. The artefacts a CDSCO reviewer expects — model lineage, drift, post-market performance — are exactly what an audit substrate emits, or not.
+        - listitem [ref=e552]:
+          - time [ref=e553]: 2026 Q1–Q2
+          - heading "FDA, EU AI Act, AB 3030 in parallel" [level=3] [ref=e554]
+          - paragraph [ref=e555]: For operators with US or EU exposure, lifecycle validation, Article 12 record-keeping, and AB 3030 disclosure obligations land at the same time. One substrate, every regime.
+    - generic [ref=e557]:
+      - generic [ref=e558]:
+        - paragraph [ref=e559]: apache 2.0 · open source · vendor-neutral
+        - heading "A trust substrate must be auditable to be trusted." [level=2] [ref=e560]
+        - paragraph [ref=e561]:
+          - text: The runtime is open. The wire format is open. The ledger is open. Every vendor that integrates ships
+          - emphasis [ref=e562]: your
+          - text: audit logs to
+          - emphasis [ref=e563]: you
+          - text: . No SaaS lock-in. No call-home. No "trust us." That is the only way to build the layer the next decade of clinical AI sits on top of.
+      - generic [ref=e564]:
+        - link "github.com/asclepius-ai ↗" [ref=e565] [cursor=pointer]:
+          - /url: https://github.com/Himanshu21464/Asclepius
+        - link "read the docs" [ref=e566] [cursor=pointer]:
+          - /url: docs.html
+        - list [ref=e567]:
+          - listitem [ref=e568]:
+            - generic [ref=e569]: license
+            - generic [ref=e570]: Apache 2.0
+          - listitem [ref=e571]:
+            - generic [ref=e572]: language
+            - generic [ref=e573]: C++20
+          - listitem [ref=e574]:
+            - generic [ref=e575]: deps
+            - generic [ref=e576]: libsodium · sqlite
+          - listitem [ref=e577]:
+            - generic [ref=e578]: bindings
+            - generic [ref=e579]: Python · Rust*
+  - contentinfo [ref=e580]:
+    - generic [ref=e581]:
+      - generic [ref=e585]: Asclepius — homepage.
+      - link "edit this page →" [ref=e586] [cursor=pointer]:
+        - /url: https://github.com/Himanshu21464/Asclepius/edit/main/site/index.html
+      - generic [ref=e587]:
+        - generic [ref=e588]:
+          - generic [ref=e589]: start here
+          - link "quickstart" [ref=e590] [cursor=pointer]:
+            - /url: quickstart.html
+          - link "explained" [ref=e591] [cursor=pointer]:
+            - /url: explained.html
+          - link "learn (3 surfaces)" [ref=e592] [cursor=pointer]:
+            - /url: learn.html
+          - link "manifesto" [ref=e593] [cursor=pointer]:
+            - /url: index.html#manifesto
+        - generic [ref=e594]:
+          - generic [ref=e595]: docs
+          - link "overview" [ref=e596] [cursor=pointer]:
+            - /url: docs.html
+          - link "architecture" [ref=e597] [cursor=pointer]:
+            - /url: architecture.html
+          - link "spec" [ref=e598] [cursor=pointer]:
+            - /url: spec.html
+          - link "API reference" [ref=e599] [cursor=pointer]:
+            - /url: api.html
+          - link "cheatsheet" [ref=e600] [cursor=pointer]:
+            - /url: cheatsheet.html
+        - generic [ref=e601]:
+          - generic [ref=e602]: community
+          - link "contributing" [ref=e603] [cursor=pointer]:
+            - /url: contributing.html
+          - link "governance" [ref=e604] [cursor=pointer]:
+            - /url: governance.html
+          - link "principles" [ref=e605] [cursor=pointer]:
+            - /url: principles.html
+          - link "security" [ref=e606] [cursor=pointer]:
+            - /url: security.html
+        - generic [ref=e607]:
+          - generic [ref=e608]: code
+          - link "github ↗" [ref=e609] [cursor=pointer]:
+            - /url: https://github.com/Himanshu21464/Asclepius
+          - link "changelog" [ref=e610] [cursor=pointer]:
+            - /url: changelog.html
+          - link "playground" [ref=e611] [cursor=pointer]:
+            - /url: demo.html
+    - text: no cookies · no analytics · no telemetry · this site does not call home
+  - generic "page tools":
+    - button "scroll to top":
+      - img
+    - button "copy permalink":
+      - img
+    - button "compute page attestation":
+      - img

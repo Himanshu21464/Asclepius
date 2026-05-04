@@ -1,0 +1,85 @@
+- generic [active] [ref=e1]:
+  - link "skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "asclepius" [ref=e5] [cursor=pointer]:
+        - /url: index.html
+        - generic [ref=e8]: asclepius
+      - button "menu" [ref=e9] [cursor=pointer]
+      - navigation "primary" [ref=e13]:
+        - link "docs" [ref=e14] [cursor=pointer]:
+          - /url: docs.html
+        - link "learn" [ref=e15] [cursor=pointer]:
+          - /url: learn.html
+        - link "site graph" [ref=e16] [cursor=pointer]:
+          - /url: sitegraph.html
+        - link "changelog" [ref=e17] [cursor=pointer]:
+          - /url: changelog.html
+        - link "playground ↗" [ref=e18] [cursor=pointer]:
+          - /url: demo.html
+      - generic [ref=e19]:
+        - button "switch to dark theme" [pressed] [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+        - button "choose color preset" [ref=e28] [cursor=pointer]
+        - link "github ↗" [ref=e30] [cursor=pointer]:
+          - /url: https://github.com/Himanshu21464/Asclepius
+  - main [ref=e31]:
+    - generic [ref=e33]:
+      - generic [ref=e34]: graph · 23 nodes · drawn in your browser
+      - heading "Every page. Every link." [level=1] [ref=e35]
+      - paragraph [ref=e36]:
+        - text: A force-directed visualization of the Asclepius site, built from
+        - code [ref=e37]: search-index.json
+        - text: + a runtime crawl of the rendered pages. Hover any node to see its neighbours; click to navigate. Useful for spotting orphans and dense subgraphs.
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - img "force-directed graph visualization of every site page and its outbound links" [ref=e40]
+        - generic: fetching links…
+      - generic [ref=e41]:
+        - generic [ref=e42]: page
+        - generic [ref=e44]: you are here
+        - generic [ref=e46]: hover / neighbour
+  - contentinfo [ref=e48]:
+    - generic [ref=e49]:
+      - generic [ref=e53]: Asclepius — site graph.
+      - link "edit this page →" [ref=e54] [cursor=pointer]:
+        - /url: https://github.com/Himanshu21464/Asclepius/edit/main/site/sitegraph.html
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]: project
+          - link "manifesto" [ref=e58] [cursor=pointer]:
+            - /url: index.html#manifesto
+          - link "changelog" [ref=e59] [cursor=pointer]:
+            - /url: changelog.html
+          - link "roadmap" [ref=e60] [cursor=pointer]:
+            - /url: roadmap.html
+        - generic [ref=e61]:
+          - generic [ref=e62]: docs
+          - link "architecture" [ref=e63] [cursor=pointer]:
+            - /url: architecture.html
+          - link "spec" [ref=e64] [cursor=pointer]:
+            - /url: spec.html
+          - link "threat model" [ref=e65] [cursor=pointer]:
+            - /url: threat-model.html
+          - link "glossary" [ref=e66] [cursor=pointer]:
+            - /url: glossary.html
+        - generic [ref=e67]:
+          - generic [ref=e68]: code
+          - link "github ↗" [ref=e69] [cursor=pointer]:
+            - /url: https://github.com/Himanshu21464/Asclepius
+          - link "explorer" [ref=e70] [cursor=pointer]:
+            - /url: explorer.html
+          - link "playground" [ref=e71] [cursor=pointer]:
+            - /url: demo.html
+    - button "verify this site self-attestation · sha-256" [ref=e73] [cursor=pointer]:
+      - generic [ref=e75]: verify this site
+      - generic [ref=e76]: self-attestation · sha-256
+    - text: no cookies · no analytics · no telemetry · this site does not call home
+  - generic "page tools":
+    - button "scroll to top":
+      - img
+    - button "copy permalink":
+      - img
+    - button "compute page attestation":
+      - img

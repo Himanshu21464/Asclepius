@@ -1,0 +1,519 @@
+- generic [active] [ref=e1]:
+  - link "skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "asclepius" [ref=e5] [cursor=pointer]:
+        - /url: index.html
+        - generic [ref=e8]: asclepius
+      - button "menu" [ref=e9] [cursor=pointer]
+      - navigation "primary" [ref=e13]:
+        - link "docs" [ref=e14] [cursor=pointer]:
+          - /url: docs.html
+        - link "deploy" [ref=e15] [cursor=pointer]:
+          - /url: deploy.html
+        - link "observability" [ref=e16] [cursor=pointer]:
+          - /url: observability.html
+        - link "playbooks" [ref=e17] [cursor=pointer]:
+          - /url: playbooks.html
+        - link "playground ↗" [ref=e18] [cursor=pointer]:
+          - /url: demo.html
+      - generic [ref=e19]:
+        - button "switch to dark theme" [pressed] [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+        - button "choose color preset" [ref=e28] [cursor=pointer]
+        - link "github ↗" [ref=e30] [cursor=pointer]:
+          - /url: https://github.com/Himanshu21464/Asclepius
+  - main [ref=e31]:
+    - generic [ref=e33]:
+      - generic [ref=e34]: §01 · metrics · traces · logs · alerts
+      - heading "What an operator should watch." [level=1] [ref=e35]
+      - paragraph [ref=e36]:
+        - text: Asclepius emits Prometheus-shaped metrics, OpenTelemetry-conventioned traces, and JSON Lines logs.
+        - emphasis [ref=e37]: Nothing magic — everything stock.
+        - text: The four sections below enumerate every signal the substrate produces, with example PromQL alert rules that pair to the runbooks in
+        - link "playbooks" [ref=e38] [cursor=pointer]:
+          - /url: playbooks.html
+        - text: .
+      - navigation "observability index" [ref=e39]:
+        - link "§ 01 metrics prometheus · 27 series" [ref=e40] [cursor=pointer]:
+          - /url: "#metrics"
+          - text: § 01
+          - generic [ref=e41]: metrics
+          - generic [ref=e42]: prometheus · 27 series
+        - link "§ 02 traces OTel · 9 spans" [ref=e43] [cursor=pointer]:
+          - /url: "#traces"
+          - text: § 02
+          - generic [ref=e44]: traces
+          - generic [ref=e45]: OTel · 9 spans
+        - link "§ 03 logs JSON Lines · structured" [ref=e46] [cursor=pointer]:
+          - /url: "#logs"
+          - text: § 03
+          - generic [ref=e47]: logs
+          - generic [ref=e48]: JSON Lines · structured
+        - link "§ 04 alert rules 12 PromQL · pager-ready" [ref=e49] [cursor=pointer]:
+          - /url: "#alerts"
+          - text: § 04
+          - generic [ref=e50]: alert rules
+          - generic [ref=e51]: 12 PromQL · pager-ready
+    - generic [ref=e52]:
+      - text: § 01 · /metrics on :9464 · text exposition
+      - heading "Metrics — Prometheus shape." [level=2] [ref=e53]
+      - paragraph [ref=e54]:
+        - text: Every metric is prefixed
+        - code [ref=e55]: asclepius_
+        - text: . Counters end in
+        - code [ref=e56]: _total
+        - text: ; histograms in
+        - code [ref=e57]: _seconds
+        - text: or
+        - code [ref=e58]: _bytes
+        - text: "; gauges have no suffix. Cardinality is bounded: label sets are limited to actor scheme (not actor id), policy id (not payload), and feature id (not feature value)."
+      - heading "runtime" [level=3] [ref=e59]
+      - table "runtime metrics" [ref=e60]:
+        - rowgroup [ref=e61]:
+          - row "name type description" [ref=e62]:
+            - columnheader "name" [ref=e63]
+            - columnheader "type" [ref=e64]
+            - columnheader "description" [ref=e65]
+        - rowgroup [ref=e66]:
+          - 'row "asclepius_inferences_total counter Inferences started · labels: purpose, verdict (committed/rejected)." [ref=e67]':
+            - cell "asclepius_inferences_total" [ref=e68]
+            - cell "counter" [ref=e69]:
+              - generic [ref=e70]: counter
+            - 'cell "Inferences started · labels: purpose, verdict (committed/rejected)." [ref=e71]':
+              - text: "Inferences started · labels:"
+              - code [ref=e72]: purpose
+              - text: ","
+              - code [ref=e73]: verdict
+              - text: (committed/rejected).
+          - 'row "asclepius_inference_latency_seconds histogram End-to-end inference latency · labels: purpose. Buckets: 50µs..1s log-spaced." [ref=e74]':
+            - cell "asclepius_inference_latency_seconds" [ref=e75]
+            - cell "histogram" [ref=e76]:
+              - generic [ref=e77]: histogram
+            - 'cell "End-to-end inference latency · labels: purpose. Buckets: 50µs..1s log-spaced." [ref=e78]':
+              - text: "End-to-end inference latency · labels:"
+              - code [ref=e79]: purpose
+              - text: ". Buckets: 50µs..1s log-spaced."
+          - 'row "asclepius_policy_chain_latency_seconds histogram Policy chain latency only (excludes the model call) · labels: policy_id." [ref=e80]':
+            - cell "asclepius_policy_chain_latency_seconds" [ref=e81]
+            - cell "histogram" [ref=e82]:
+              - generic [ref=e83]: histogram
+            - 'cell "Policy chain latency only (excludes the model call) · labels: policy_id." [ref=e84]':
+              - text: "Policy chain latency only (excludes the model call) · labels:"
+              - code [ref=e85]: policy_id
+              - text: .
+          - 'row "asclepius_policy_violations_total counter Inputs/outputs that failed a policy · labels: policy_id, verdict." [ref=e86]':
+            - cell "asclepius_policy_violations_total" [ref=e87]
+            - cell "counter" [ref=e88]:
+              - generic [ref=e89]: counter
+            - 'cell "Inputs/outputs that failed a policy · labels: policy_id, verdict." [ref=e90]':
+              - text: "Inputs/outputs that failed a policy · labels:"
+              - code [ref=e91]: policy_id
+              - text: ","
+              - code [ref=e92]: verdict
+              - text: .
+          - 'row "asclepius_consent_checks_total counter Consent registry lookups · labels: purpose, result (granted/revoked/missing)." [ref=e93]':
+            - cell "asclepius_consent_checks_total" [ref=e94]
+            - cell "counter" [ref=e95]:
+              - generic [ref=e96]: counter
+            - 'cell "Consent registry lookups · labels: purpose, result (granted/revoked/missing)." [ref=e97]':
+              - text: "Consent registry lookups · labels:"
+              - code [ref=e98]: purpose
+              - text: ","
+              - code [ref=e99]: result
+              - text: (granted/revoked/missing).
+          - row "asclepius_runtime_read_only gauge 1 if runtime is in read-only mode (set during PB-01 / PB-03)." [ref=e100]:
+            - cell "asclepius_runtime_read_only" [ref=e101]
+            - cell "gauge" [ref=e102]:
+              - generic [ref=e103]: gauge
+            - cell "1 if runtime is in read-only mode (set during PB-01 / PB-03)." [ref=e104]
+      - heading "ledger" [level=3] [ref=e105]
+      - table "ledger metrics" [ref=e106]:
+        - rowgroup [ref=e107]:
+          - row "name type description" [ref=e108]:
+            - columnheader "name" [ref=e109]
+            - columnheader "type" [ref=e110]
+            - columnheader "description" [ref=e111]
+        - rowgroup [ref=e112]:
+          - 'row "asclepius_ledger_appended_total counter Entries appended · labels: kind (e.g. inference.completed)." [ref=e113]':
+            - cell "asclepius_ledger_appended_total" [ref=e114]
+            - cell "counter" [ref=e115]:
+              - generic [ref=e116]: counter
+            - 'cell "Entries appended · labels: kind (e.g. inference.completed)." [ref=e117]':
+              - text: "Entries appended · labels:"
+              - code [ref=e118]: kind
+              - text: (e.g.
+              - code [ref=e119]: inference.completed
+              - text: ).
+          - row "asclepius_ledger_seq gauge Current ledger tail seq. Should monotonically increase forever." [ref=e120]:
+            - cell "asclepius_ledger_seq" [ref=e121]
+            - cell "gauge" [ref=e122]:
+              - generic [ref=e123]: gauge
+            - cell "Current ledger tail seq. Should monotonically increase forever." [ref=e124]
+          - row "asclepius_ledger_size_bytes gauge SQLite database size (entries + WAL) on disk." [ref=e125]:
+            - cell "asclepius_ledger_size_bytes" [ref=e126]
+            - cell "gauge" [ref=e127]:
+              - generic [ref=e128]: gauge
+            - cell "SQLite database size (entries + WAL) on disk." [ref=e129]
+          - row "asclepius_ledger_wal_lag_seconds gauge Wall-clock lag between WAL tail and last checkpoint." [ref=e130]:
+            - cell "asclepius_ledger_wal_lag_seconds" [ref=e131]
+            - cell "gauge" [ref=e132]:
+              - generic [ref=e133]: gauge
+            - cell "Wall-clock lag between WAL tail and last checkpoint." [ref=e134]
+          - 'row "asclepius_ledger_verify_seconds histogram Time spent in verify_chain · labels: scope (last1k / full)." [ref=e135]':
+            - cell "asclepius_ledger_verify_seconds" [ref=e136]
+            - cell "histogram" [ref=e137]:
+              - generic [ref=e138]: histogram
+            - 'cell "Time spent in verify_chain · labels: scope (last1k / full)." [ref=e139]':
+              - text: Time spent in
+              - code [ref=e140]: verify_chain
+              - text: "· labels:"
+              - code [ref=e141]: scope
+              - text: (last1k / full).
+          - row "asclepius_ledger_chain_broken_total counter P1 — should be exactly zero. Watchdog increments on any verify failure." [ref=e142]:
+            - cell "asclepius_ledger_chain_broken_total" [ref=e143]
+            - cell "counter" [ref=e144]:
+              - generic [ref=e145]: counter
+            - cell "P1 — should be exactly zero. Watchdog increments on any verify failure." [ref=e146]
+      - heading "crypto" [level=3] [ref=e147]
+      - table "crypto metrics" [ref=e148]:
+        - rowgroup [ref=e149]:
+          - row "name type description" [ref=e150]:
+            - columnheader "name" [ref=e151]
+            - columnheader "type" [ref=e152]
+            - columnheader "description" [ref=e153]
+        - rowgroup [ref=e154]:
+          - row "asclepius_sign_seconds histogram Ed25519 sign latency." [ref=e155]:
+            - cell "asclepius_sign_seconds" [ref=e156]
+            - cell "histogram" [ref=e157]:
+              - generic [ref=e158]: histogram
+            - cell "Ed25519 sign latency." [ref=e159]
+          - row "asclepius_verify_seconds histogram Ed25519 verify latency." [ref=e160]:
+            - cell "asclepius_verify_seconds" [ref=e161]
+            - cell "histogram" [ref=e162]:
+              - generic [ref=e163]: histogram
+            - cell "Ed25519 verify latency." [ref=e164]
+          - row "asclepius_hash_bytes_total counter Bytes hashed by BLAKE2b — operational throughput baseline." [ref=e165]:
+            - cell "asclepius_hash_bytes_total" [ref=e166]
+            - cell "counter" [ref=e167]:
+              - generic [ref=e168]: counter
+            - cell "Bytes hashed by BLAKE2b — operational throughput baseline." [ref=e169]
+          - row "asclepius_keystore_operations_total counter Sign/verify counts by key id (cardinality-bounded by configured set)." [ref=e170]:
+            - cell "asclepius_keystore_operations_total" [ref=e171]
+            - cell "counter" [ref=e172]:
+              - generic [ref=e173]: counter
+            - cell "Sign/verify counts by key id (cardinality-bounded by configured set)." [ref=e174]
+          - row "asclepius_key_age_seconds gauge Age of current signing key. Watch this for the 180-day rotation window." [ref=e175]:
+            - cell "asclepius_key_age_seconds" [ref=e176]
+            - cell "gauge" [ref=e177]:
+              - generic [ref=e178]: gauge
+            - cell "Age of current signing key. Watch this for the 180-day rotation window." [ref=e179]
+      - heading "drift & consent" [level=3] [ref=e180]
+      - table "drift and consent metrics" [ref=e181]:
+        - rowgroup [ref=e182]:
+          - row "name type description" [ref=e183]:
+            - columnheader "name" [ref=e184]
+            - columnheader "type" [ref=e185]
+            - columnheader "description" [ref=e186]
+        - rowgroup [ref=e187]:
+          - 'row "asclepius_drift_psi gauge Population Stability Index per feature · labels: feature, window." [ref=e188]':
+            - cell "asclepius_drift_psi" [ref=e189]
+            - cell "gauge" [ref=e190]:
+              - generic [ref=e191]: gauge
+            - 'cell "Population Stability Index per feature · labels: feature, window." [ref=e192]':
+              - text: "Population Stability Index per feature · labels:"
+              - code [ref=e193]: feature
+              - text: ","
+              - code [ref=e194]: window
+              - text: .
+          - row "asclepius_drift_ks gauge Kolmogorov–Smirnov statistic per feature." [ref=e195]:
+            - cell "asclepius_drift_ks" [ref=e196]
+            - cell "gauge" [ref=e197]:
+              - generic [ref=e198]: gauge
+            - cell "Kolmogorov–Smirnov statistic per feature." [ref=e199]
+          - row "asclepius_drift_threshold_breaches_total counter Drift threshold breaches. PB-04." [ref=e200]:
+            - cell "asclepius_drift_threshold_breaches_total" [ref=e201]
+            - cell "counter" [ref=e202]:
+              - generic [ref=e203]: counter
+            - cell "Drift threshold breaches. PB-04." [ref=e204]
+          - 'row "asclepius_consent_revocations_total counter Consent revocations received · labels: purpose." [ref=e205]':
+            - cell "asclepius_consent_revocations_total" [ref=e206]
+            - cell "counter" [ref=e207]:
+              - generic [ref=e208]: counter
+            - 'cell "Consent revocations received · labels: purpose." [ref=e209]':
+              - text: "Consent revocations received · labels:"
+              - code [ref=e210]: purpose
+              - text: .
+          - row "asclepius_consent_revocation_propagation_seconds histogram Wall-clock time from consent.revoked to next denied check. PB-05 SLA." [ref=e211]:
+            - cell "asclepius_consent_revocation_propagation_seconds" [ref=e212]
+            - cell "histogram" [ref=e213]:
+              - generic [ref=e214]: histogram
+            - cell "Wall-clock time from consent.revoked to next denied check. PB-05 SLA." [ref=e215]:
+              - text: Wall-clock time from
+              - code [ref=e216]: consent.revoked
+              - text: to next denied check. PB-05 SLA.
+      - heading "bundle export" [level=3] [ref=e217]
+      - table "bundle export metrics" [ref=e218]:
+        - rowgroup [ref=e219]:
+          - row "name type description" [ref=e220]:
+            - columnheader "name" [ref=e221]
+            - columnheader "type" [ref=e222]
+            - columnheader "description" [ref=e223]
+        - rowgroup [ref=e224]:
+          - 'row "asclepius_bundle_exports_total counter Bundles produced · labels: scope (encounter/range/all)." [ref=e225]':
+            - cell "asclepius_bundle_exports_total" [ref=e226]
+            - cell "counter" [ref=e227]:
+              - generic [ref=e228]: counter
+            - 'cell "Bundles produced · labels: scope (encounter/range/all)." [ref=e229]':
+              - text: "Bundles produced · labels:"
+              - code [ref=e230]: scope
+              - text: (encounter/range/all).
+          - row "asclepius_bundle_export_seconds histogram Bundle build latency end-to-end." [ref=e231]:
+            - cell "asclepius_bundle_export_seconds" [ref=e232]
+            - cell "histogram" [ref=e233]:
+              - generic [ref=e234]: histogram
+            - cell "Bundle build latency end-to-end." [ref=e235]
+          - row "asclepius_bundle_size_bytes summary Bundle size distribution." [ref=e236]:
+            - cell "asclepius_bundle_size_bytes" [ref=e237]
+            - cell "summary" [ref=e238]:
+              - generic [ref=e239]: summary
+            - cell "Bundle size distribution." [ref=e240]
+          - row "asclepius_bundle_verify_failures_total counter P1 — self-verify on export failed. Should be zero." [ref=e241]:
+            - cell "asclepius_bundle_verify_failures_total" [ref=e242]
+            - cell "counter" [ref=e243]:
+              - generic [ref=e244]: counter
+            - cell "P1 — self-verify on export failed. Should be zero." [ref=e245]
+    - generic [ref=e246]:
+      - text: § 02 · OpenTelemetry · OTLP/gRPC :4317
+      - heading "Traces — OpenTelemetry semantic conventions." [level=2] [ref=e247]
+      - paragraph [ref=e248]:
+        - text: Span names follow OTel
+        - code [ref=e249]: "{component}.{operation}"
+        - text: . The runtime propagates trace context across the policy chain and the model call so you can see exactly where the latency lives.
+        - emphasis [ref=e250]: The model call is its own span — vendor-agnostic, always there.
+      - table "trace span catalogue" [ref=e251]:
+        - rowgroup [ref=e252]:
+          - row "span parent attributes" [ref=e253]:
+            - columnheader "span" [ref=e254]
+            - columnheader "parent" [ref=e255]
+            - columnheader "attributes" [ref=e256]
+        - rowgroup [ref=e257]:
+          - 'row "asclepius.inference root Top-level inference span. Attributes: asclepius.purpose, asclepius.actor.scheme, asclepius.model.id, asclepius.model.weights_sha256." [ref=e258]':
+            - cell "asclepius.inference" [ref=e259]
+            - cell "root" [ref=e260]
+            - 'cell "Top-level inference span. Attributes: asclepius.purpose, asclepius.actor.scheme, asclepius.model.id, asclepius.model.weights_sha256." [ref=e261]':
+              - text: "Top-level inference span. Attributes:"
+              - code [ref=e262]: asclepius.purpose
+              - text: ","
+              - code [ref=e263]: asclepius.actor.scheme
+              - text: ","
+              - code [ref=e264]: asclepius.model.id
+              - text: ","
+              - code [ref=e265]: asclepius.model.weights_sha256
+              - text: .
+          - row "asclepius.consent.check inference asclepius.consent.purpose, asclepius.consent.result." [ref=e266]:
+            - cell "asclepius.consent.check" [ref=e267]
+            - cell "inference" [ref=e268]
+            - cell "asclepius.consent.purpose, asclepius.consent.result." [ref=e269]:
+              - code [ref=e270]: asclepius.consent.purpose
+              - text: ","
+              - code [ref=e271]: asclepius.consent.result
+              - text: .
+          - row "asclepius.policy.run inference asclepius.policy.id, asclepius.policy.version, asclepius.policy.verdict." [ref=e272]:
+            - cell "asclepius.policy.run" [ref=e273]
+            - cell "inference" [ref=e274]
+            - cell "asclepius.policy.id, asclepius.policy.version, asclepius.policy.verdict." [ref=e275]:
+              - code [ref=e276]: asclepius.policy.id
+              - text: ","
+              - code [ref=e277]: asclepius.policy.version
+              - text: ","
+              - code [ref=e278]: asclepius.policy.verdict
+              - text: .
+          - 'row "asclepius.model.call inference The model boundary. Operator instruments the body. Attributes: asclepius.model.id." [ref=e279]':
+            - cell "asclepius.model.call" [ref=e280]
+            - cell "inference" [ref=e281]
+            - 'cell "The model boundary. Operator instruments the body. Attributes: asclepius.model.id." [ref=e282]':
+              - text: "The model boundary. Operator instruments the body. Attributes:"
+              - code [ref=e283]: asclepius.model.id
+              - text: .
+          - row "asclepius.drift.update inference asclepius.drift.feature, asclepius.drift.psi." [ref=e284]:
+            - cell "asclepius.drift.update" [ref=e285]
+            - cell "inference" [ref=e286]
+            - cell "asclepius.drift.feature, asclepius.drift.psi." [ref=e287]:
+              - code [ref=e288]: asclepius.drift.feature
+              - text: ","
+              - code [ref=e289]: asclepius.drift.psi
+              - text: .
+          - row "asclepius.ledger.append inference asclepius.ledger.seq, asclepius.ledger.kind." [ref=e290]:
+            - cell "asclepius.ledger.append" [ref=e291]
+            - cell "inference" [ref=e292]
+            - cell "asclepius.ledger.seq, asclepius.ledger.kind." [ref=e293]:
+              - code [ref=e294]: asclepius.ledger.seq
+              - text: ","
+              - code [ref=e295]: asclepius.ledger.kind
+              - text: .
+          - row "asclepius.crypto.sign ledger.append asclepius.crypto.alg = ed25519, asclepius.key.id." [ref=e296]:
+            - cell "asclepius.crypto.sign" [ref=e297]
+            - cell "ledger.append" [ref=e298]
+            - cell "asclepius.crypto.alg = ed25519, asclepius.key.id." [ref=e299]:
+              - code [ref=e300]: asclepius.crypto.alg
+              - text: =
+              - code [ref=e301]: ed25519
+              - text: ","
+              - code [ref=e302]: asclepius.key.id
+              - text: .
+          - row "asclepius.bundle.export root Out-of-band; root span when an export is initiated." [ref=e303]:
+            - cell "asclepius.bundle.export" [ref=e304]
+            - cell "root" [ref=e305]
+            - cell "Out-of-band; root span when an export is initiated." [ref=e306]
+          - row "asclepius.verify.chain root Watchdog or on-demand verify. asclepius.verify.scope, asclepius.verify.result." [ref=e307]:
+            - cell "asclepius.verify.chain" [ref=e308]
+            - cell "root" [ref=e309]
+            - cell "Watchdog or on-demand verify. asclepius.verify.scope, asclepius.verify.result." [ref=e310]:
+              - text: Watchdog or on-demand verify.
+              - code [ref=e311]: asclepius.verify.scope
+              - text: ","
+              - code [ref=e312]: asclepius.verify.result
+              - text: .
+      - paragraph [ref=e313]:
+        - text: What we don't trace. Anything containing PHI. The model call's request/response body is not an attribute — only its hash is. The same is true for the inputs of the policy chain.
+        - emphasis [ref=e314]: The trace is operational, the ledger is forensic.
+    - generic [ref=e315]:
+      - text: § 03 · stdout · JSON Lines · 1 line per event
+      - heading "Logs — JSON Lines, structured." [level=2] [ref=e316]
+      - paragraph [ref=e317]:
+        - text: The substrate writes one JSON object per line to stdout. Operators wire that to whatever ingestor they prefer (Vector, Fluent Bit, journald).
+        - emphasis [ref=e318]: No free-text strings.
+        - text: Every log line has a
+        - code [ref=e319]: code
+        - text: a runbook can look up.
+      - generic [ref=e320]: "{ \"ts\": \"2026-04-26T14:21:08.412Z\", \"level\": \"info\", \"code\": \"inference.completed\", \"actor\": \"clin:np_marisol_h\", \"purpose\": \"scribe\", \"model\": { \"id\": \"scribe-v3\", \"weights_sha256\": \"6a0f…e2\" }, \"latency_us\": 147, \"ledger_seq\": 874, \"trace_id\": \"4f1e…\", \"span_id\": \"a92c…\" }"
+      - paragraph [ref=e321]:
+        - text: Notable codes (each maps to a section of
+        - link "playbooks" [ref=e322] [cursor=pointer]:
+          - /url: playbooks.html
+        - text: "):"
+      - table "log code catalogue" [ref=e323]:
+        - rowgroup [ref=e324]:
+          - row "code level what it means" [ref=e325]:
+            - columnheader "code" [ref=e326]
+            - columnheader "level" [ref=e327]
+            - columnheader "what it means" [ref=e328]
+        - rowgroup [ref=e329]:
+          - row "inference.completed info Successful end-to-end inference. Routine." [ref=e330]:
+            - cell "inference.completed" [ref=e331]
+            - cell "info" [ref=e332]
+            - cell "Successful end-to-end inference. Routine." [ref=e333]
+          - row "policy.violation warn An input or output failed a policy. Includes policy_id and verdict." [ref=e334]:
+            - cell "policy.violation" [ref=e335]
+            - cell "warn" [ref=e336]
+            - cell "An input or output failed a policy. Includes policy_id and verdict." [ref=e337]:
+              - text: An input or output failed a policy. Includes
+              - code [ref=e338]: policy_id
+              - text: and
+              - code [ref=e339]: verdict
+              - text: .
+          - row "consent.denied warn Inference rejected due to missing/revoked consent." [ref=e340]:
+            - cell "consent.denied" [ref=e341]
+            - cell "warn" [ref=e342]
+            - cell "Inference rejected due to missing/revoked consent." [ref=e343]
+          - row "chain.broken error P1. Ledger verify failed. Triggers PB-01." [ref=e344]:
+            - cell "chain.broken" [ref=e345]
+            - cell "error" [ref=e346]
+            - cell "P1. Ledger verify failed. Triggers PB-01." [ref=e347]
+          - row "drift.psi.breach warn A feature's PSI crossed threshold. PB-04." [ref=e348]:
+            - cell "drift.psi.breach" [ref=e349]
+            - cell "warn" [ref=e350]
+            - cell "A feature's PSI crossed threshold. PB-04." [ref=e351]
+          - row "key.rotated info Scheduled rotation succeeded. PB-02." [ref=e352]:
+            - cell "key.rotated" [ref=e353]
+            - cell "info" [ref=e354]
+            - cell "Scheduled rotation succeeded. PB-02." [ref=e355]
+          - row "key.revoked error P1. Emergency revocation. PB-03." [ref=e356]:
+            - cell "key.revoked" [ref=e357]
+            - cell "error" [ref=e358]
+            - cell "P1. Emergency revocation. PB-03." [ref=e359]
+          - row "backend.unreachable warn Sidecar can't reach central backend; running on local WAL. PB-07." [ref=e360]:
+            - cell "backend.unreachable" [ref=e361]
+            - cell "warn" [ref=e362]
+            - cell "Sidecar can't reach central backend; running on local WAL. PB-07." [ref=e363]
+          - row "bundle.exported info Evidence bundle written. Routine for compliance work." [ref=e364]:
+            - cell "bundle.exported" [ref=e365]
+            - cell "info" [ref=e366]
+            - cell "Evidence bundle written. Routine for compliance work." [ref=e367]
+    - generic [ref=e368]:
+      - text: § 04 · pager-ready · paste into prometheus
+      - heading "Alert rules." [level=2] [ref=e369]
+      - paragraph [ref=e370]:
+        - text: Twelve PromQL rules sufficient to run a single tenant. Severity tags align with the runbook severities in
+        - link "playbooks" [ref=e371] [cursor=pointer]:
+          - /url: playbooks.html
+        - text: . Operators almost always want to layer their own org-wide rules on top of this baseline.
+      - generic [ref=e372]: "# PB-01 — chain broken — never zero increment is acceptable - alert: AsclepiusChainBroken expr: increase(asclepius_ledger_chain_broken_total[5m]) > 0 for: 0m labels: { severity: P1 } annotations: { runbook: \"playbooks.html#truncation\" } # PB-03 — key rotation due / overdue (180-day window) - alert: AsclepiusKeyRotationDue expr: asclepius_key_age_seconds > 180 * 86400 for: 1h labels: { severity: P3 } annotations: { runbook: \"playbooks.html#key-rotation\" } # PB-04 — drift PSI breach for > 30 min in any feature - alert: AsclepiusDriftBreach expr: max by (feature) (asclepius_drift_psi) > 0.25 for: 30m labels: { severity: P2 } annotations: { runbook: \"playbooks.html#drift-breach\" } # PB-05 — consent revocation propagation SLA (60 s p99) - alert: AsclepiusConsentLag expr: histogram_quantile(0.99, sum by (le) (rate(asclepius_consent_revocation_propagation_seconds_bucket[10m]))) > 60 for: 10m labels: { severity: P2 } annotations: { runbook: \"playbooks.html#consent-revocation\" } # PB-07 — backend unreachable for > 60 s - alert: AsclepiusBackendUnreachable expr: absent_over_time(asclepius_ledger_seq[60s]) for: 1m labels: { severity: P2 } annotations: { runbook: \"playbooks.html#partition\" } # bundle self-verify failure — should be zero ever - alert: AsclepiusBundleSelfVerifyFailed expr: increase(asclepius_bundle_verify_failures_total[15m]) > 0 for: 0m labels: { severity: P1 } # inference latency p99 > 500ms — soft alert, investigate the chain - alert: AsclepiusInferenceLatencyHigh expr: histogram_quantile(0.99, sum by (le, purpose) (rate(asclepius_inference_latency_seconds_bucket[5m]))) > 0.5 for: 10m labels: { severity: P3 } # policy violation rate > 5% in 5 min — model drift OR adversarial input - alert: AsclepiusPolicyViolationsElevated expr: sum(rate(asclepius_policy_violations_total[5m])) / sum(rate(asclepius_inferences_total[5m])) > 0.05 for: 10m labels: { severity: P2 } # consent denied rate > 1% — process problem, not substrate problem - alert: AsclepiusConsentDeniedElevated expr: sum(rate(asclepius_consent_checks_total{result=\"denied\"}[5m])) / sum(rate(asclepius_consent_checks_total[5m])) > 0.01 for: 15m labels: { severity: P3 } # ledger size growth alarm (4× expected weekly rate) - alert: AsclepiusLedgerGrowthAnomaly expr: deriv(asclepius_ledger_size_bytes[1d]) > 4 * deriv(asclepius_ledger_size_bytes[7d] offset 7d) for: 1h labels: { severity: P3 } # sign latency regression — usually means HSM trouble - alert: AsclepiusSignLatencyRegression expr: histogram_quantile(0.99, sum by (le) (rate(asclepius_sign_seconds_bucket[5m]))) > 0.005 for: 10m labels: { severity: P3 } # runtime read-only flag should be zero in steady state - alert: AsclepiusReadOnlyAsserted expr: asclepius_runtime_read_only == 1 for: 5m labels: { severity: P2 }"
+      - paragraph [ref=e373]:
+        - text: Pair with playbooks. Every runbook above pages out to a specific runbook URL via the
+        - code [ref=e374]: annotations.runbook
+        - text: field. Your paging tool (PagerDuty, Opsgenie, FireHydrant) can link straight to
+        - emphasis [ref=e375]: "\"what to do at 3 a.m.\""
+    - generic [ref=e377]:
+      - heading "Visibility is the other half of trust." [level=2] [ref=e378]
+      - paragraph [ref=e379]:
+        - text: A substrate that emits cryptographic provenance but no operational signal is a black box that
+        - emphasis [ref=e380]: happens to be auditable in retrospect
+        - text: . That is not enough. The runbook companion to "what does the chain prove?" is "what does the system look like, in real time, while it is proving it?"
+      - paragraph [ref=e381]: This page is the answer. Wire it into your stack of choice; the runbooks take it from there.
+      - generic [ref=e382]:
+        - link "playbooks →" [ref=e383] [cursor=pointer]:
+          - /url: playbooks.html
+        - link "live status" [ref=e384] [cursor=pointer]:
+          - /url: status.html
+        - link "deploy guide" [ref=e385] [cursor=pointer]:
+          - /url: deploy.html
+        - link "benchmarks" [ref=e386] [cursor=pointer]:
+          - /url: benchmarks.html
+  - contentinfo [ref=e387]:
+    - generic [ref=e388]:
+      - generic [ref=e392]: Asclepius — substrate, not app.
+      - link "edit this page →" [ref=e393] [cursor=pointer]:
+        - /url: https://github.com/Himanshu21464/Asclepius/edit/main/site/observability.html
+      - generic [ref=e394]:
+        - generic [ref=e395]:
+          - generic [ref=e396]: operate
+          - link "deploy" [ref=e397] [cursor=pointer]:
+            - /url: deploy.html
+          - link "observability" [ref=e398] [cursor=pointer]:
+            - /url: observability.html
+          - link "playbooks" [ref=e399] [cursor=pointer]:
+            - /url: playbooks.html
+          - link "status" [ref=e400] [cursor=pointer]:
+            - /url: status.html
+        - generic [ref=e401]:
+          - generic [ref=e402]: docs
+          - link "docs" [ref=e403] [cursor=pointer]:
+            - /url: docs.html
+          - link "API reference" [ref=e404] [cursor=pointer]:
+            - /url: api.html
+          - link "spec" [ref=e405] [cursor=pointer]:
+            - /url: spec.html
+          - link "threat model" [ref=e406] [cursor=pointer]:
+            - /url: threat-model.html
+        - generic [ref=e407]:
+          - generic [ref=e408]: code
+          - link "github ↗" [ref=e409] [cursor=pointer]:
+            - /url: https://github.com/Himanshu21464/Asclepius
+          - link "benchmarks" [ref=e410] [cursor=pointer]:
+            - /url: benchmarks.html
+          - link "playground" [ref=e411] [cursor=pointer]:
+            - /url: demo.html
+    - button "verify this site self-attestation · sha-256" [ref=e413] [cursor=pointer]:
+      - generic [ref=e415]: verify this site
+      - generic [ref=e416]: self-attestation · sha-256
+    - text: no cookies · no analytics · no telemetry · this site does not call home
+  - generic "page tools":
+    - button "scroll to top":
+      - img
+    - button "copy permalink":
+      - img
+    - button "compute page attestation":
+      - img

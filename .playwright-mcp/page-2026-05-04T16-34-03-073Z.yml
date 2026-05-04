@@ -1,0 +1,115 @@
+- generic [active] [ref=e1]:
+  - link "skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "asclepius" [ref=e5] [cursor=pointer]:
+        - /url: index.html
+        - generic [ref=e8]: asclepius
+      - button "menu" [ref=e9] [cursor=pointer]
+      - navigation "primary" [ref=e13]:
+        - link "docs" [ref=e14] [cursor=pointer]:
+          - /url: docs.html
+        - link "explorer" [ref=e15] [cursor=pointer]:
+          - /url: explorer.html
+        - link "compare" [ref=e16] [cursor=pointer]:
+          - /url: compare.html
+        - link "verify a bundle" [ref=e17] [cursor=pointer]:
+          - /url: verify-bundle.html
+        - link "playground ↗" [ref=e18] [cursor=pointer]:
+          - /url: demo.html
+      - generic [ref=e19]:
+        - button "switch to dark theme" [pressed] [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+        - button "choose color preset" [ref=e28] [cursor=pointer]
+        - link "github ↗" [ref=e30] [cursor=pointer]:
+          - /url: https://github.com/Himanshu21464/Asclepius
+  - main [ref=e31]:
+    - generic [ref=e33]:
+      - generic [ref=e34]: side-by-side · added · removed · modified
+      - heading "Compare two bundles." [level=1] [ref=e35]
+      - paragraph [ref=e36]:
+        - text: An auditor receives two sequential exports from the same operator. Each one is a JSONL ledger excerpt. Drop them in the panes below and Asclepius diffs by
+        - code [ref=e37]: seq
+        - text: and
+        - code [ref=e38]: payload_hash
+        - text: — surfacing newly added rows, anything missing, and anything whose body changed since the previous bundle.
+        - emphasis [ref=e39]: Retroactive edits show up amber.
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e44]: L · earlier bundle
+            - generic [ref=e45]:
+              - button "load file" [ref=e46] [cursor=pointer]
+              - button "sample A" [ref=e47] [cursor=pointer]
+              - button "clear" [ref=e48] [cursor=pointer]
+          - textbox "JSONL — one entry per line" [ref=e49]
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]: R · later bundle
+            - generic [ref=e53]:
+              - button "load file" [ref=e54] [cursor=pointer]
+              - button "sample B" [ref=e55] [cursor=pointer]
+              - button "clear" [ref=e56] [cursor=pointer]
+          - textbox "JSONL — one entry per line" [ref=e57]
+      - generic [ref=e58]:
+        - generic [ref=e60]: drop two bundles · click diff to compare
+        - button "diff" [ref=e61] [cursor=pointer]
+      - generic [ref=e62]:
+        - paragraph [ref=e63]:
+          - text: What this catches. If the operator silently rewrites
+          - code [ref=e64]: seq 442
+          - text: between two bundles, this page shows that row in
+          - emphasis [ref=e65]: amber
+          - text: — same seq, different
+          - code [ref=e66]: payload_hash
+          - text: . That's a retroactive edit; if the chain still verifies, the operator either re-signed it or rotated keys, both of which are events you should ask about.
+        - paragraph [ref=e67]:
+          - text: What it does not catch. Anything outside the JSONL. Bundle metadata, signing-key changes, drift snapshots — see
+          - link "verify-bundle" [ref=e68] [cursor=pointer]:
+            - /url: verify-bundle.html
+          - text: for the full ritual.
+  - contentinfo [ref=e69]:
+    - generic [ref=e70]:
+      - generic [ref=e74]: Asclepius — compare.
+      - link "edit this page →" [ref=e75] [cursor=pointer]:
+        - /url: https://github.com/Himanshu21464/Asclepius/edit/main/site/compare.html
+      - generic [ref=e76]:
+        - generic [ref=e77]:
+          - generic [ref=e78]: project
+          - link "manifesto" [ref=e79] [cursor=pointer]:
+            - /url: index.html#manifesto
+          - link "changelog" [ref=e80] [cursor=pointer]:
+            - /url: changelog.html
+          - link "roadmap" [ref=e81] [cursor=pointer]:
+            - /url: roadmap.html
+        - generic [ref=e82]:
+          - generic [ref=e83]: auditor
+          - link "explorer" [ref=e84] [cursor=pointer]:
+            - /url: explorer.html
+          - link "compare" [ref=e85] [cursor=pointer]:
+            - /url: compare.html
+          - link "verify a bundle" [ref=e86] [cursor=pointer]:
+            - /url: verify-bundle.html
+          - link "conformance" [ref=e87] [cursor=pointer]:
+            - /url: conformance.html
+        - generic [ref=e88]:
+          - generic [ref=e89]: code
+          - link "github ↗" [ref=e90] [cursor=pointer]:
+            - /url: https://github.com/Himanshu21464/Asclepius
+          - link "crypto toolbox" [ref=e91] [cursor=pointer]:
+            - /url: crypto.html
+          - link "playground" [ref=e92] [cursor=pointer]:
+            - /url: demo.html
+    - button "verify this site self-attestation · sha-256" [ref=e94] [cursor=pointer]:
+      - generic [ref=e96]: verify this site
+      - generic [ref=e97]: self-attestation · sha-256
+    - text: no cookies · no analytics · no telemetry · this site does not call home
+  - generic "page tools":
+    - button "scroll to top":
+      - img
+    - button "copy permalink":
+      - img
+    - button "compute page attestation":
+      - img
