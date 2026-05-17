@@ -21,6 +21,14 @@
     const HEX = (buf) =>
         Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 
+    // Defense-in-depth: even though the manifest is fetched same-origin
+    // and the only interpolated values come from it, we never trust the
+    // bytes a network response sent us. Escape everything that flows into
+    // innerHTML; use textContent for user/manifest-controlled values.
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
     const wrap = document.createElement('div');
     wrap.className = 'site-attest';
     wrap.innerHTML = `
@@ -64,7 +72,9 @@
             const res = await fetch('asset-manifest.json', { cache: 'no-store' });
             manifest = await res.json();
         } catch (e) {
-            panel.innerHTML = `<p class="site-attest__err">cannot fetch manifest: ${e.message || e}</p>`;
+            // e.message can contain attacker-influenced data on malformed JSON;
+            // escape before inserting.
+            panel.innerHTML = `<p class="site-attest__err">cannot fetch manifest: ${escapeHtml(e.message || e)}</p>`;
             dot.classList.add('is-err');
             return;
         }
@@ -77,14 +87,17 @@
         // server. The full set is verifiable on demand by clicking an item.
         const sample = Object.entries(manifest.files).slice(0, 12);
 
+        // Manifest-controlled values (sample.length, total, generated_at)
+        // are still escaped — defense in depth in case the manifest is
+        // ever served from a context we don't fully trust.
         panel.innerHTML = `
             <header>
-                <span>verifying <b>${sample.length}</b> of ${total} assets · sha-256</span>
-                <code id="site-attest-progress">0 / ${sample.length}</code>
+                <span>verifying <b>${escapeHtml(sample.length)}</b> of ${escapeHtml(total)} assets · sha-256</span>
+                <code id="site-attest-progress">0 / ${escapeHtml(sample.length)}</code>
             </header>
             <ul id="site-attest-list"></ul>
             <footer>
-                <span>generated ${manifest.generated_at}</span>
+                <span>generated ${escapeHtml(manifest.generated_at)}</span>
                 <a href="asset-manifest.json">manifest&nbsp;↗</a>
             </footer>`;
 
@@ -92,10 +105,19 @@
         const prog = panel.querySelector('#site-attest-progress');
 
         for (const [path, meta] of sample) {
+            // Build the row with DOM nodes + textContent — `path` originates
+            // from the manifest but we treat it as untrusted at the sink.
             const li = document.createElement('li');
-            li.innerHTML = `<span class="site-attest__path">${path}</span>
-                            <span class="site-attest__hash">computing…</span>
-                            <span class="site-attest__verdict">·</span>`;
+            const pSpan = document.createElement('span');
+            pSpan.className = 'site-attest__path';
+            pSpan.textContent = path;
+            const hSpan = document.createElement('span');
+            hSpan.className = 'site-attest__hash';
+            hSpan.textContent = 'computing…';
+            const vSpan = document.createElement('span');
+            vSpan.className = 'site-attest__verdict';
+            vSpan.textContent = '·';
+            li.append(pSpan, hSpan, vSpan);
             list.append(li);
             try {
                 const got = await fetchHash(path);

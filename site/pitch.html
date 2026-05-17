@@ -6,7 +6,7 @@
 <meta name="color-scheme"        content="dark light">
 <meta name="format-detection"    content="telephone=no, date=no, address=no, email=no">
 <meta name="referrer"            content="strict-origin-when-cross-origin">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'inline-speculation-rules'; connect-src 'self'; media-src 'self'; object-src 'none'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 
@@ -840,26 +840,7 @@
 <script src="js/source.js" defer></script>
 
 <!-- scrollytelling: arm each .scene as it enters the viewport -->
-<script>
-  (function() {
-    if (!('IntersectionObserver' in window)) {
-      // Reduced fallback: just mark every scene active so static SVG shows.
-      document.querySelectorAll('[data-scene]').forEach(el => el.classList.add('is-active'));
-      return;
-    }
-    const obs = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting) {
-          e.target.classList.add('is-active');
-        }
-      }
-    }, {
-      rootMargin: '0px 0px -25% 0px',
-      threshold: 0.18,
-    });
-    document.querySelectorAll('[data-scene]').forEach(el => obs.observe(el));
-  })();
-</script>
+<script src="js/page-pitch.js" defer></script>
 
 <script src="js/crystal-cursor.js" defer></script>
 </body>

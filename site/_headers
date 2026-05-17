@@ -1,26 +1,35 @@
 # Asclepius — HTTP headers for Netlify / Cloudflare Pages / Vercel.
 #
-# These complement the `<meta http-equiv>` tags inside every HTML page;
-# real HTTP headers are stronger (CSP enforcement applies to all responses,
-# not just navigations) and are honored by every modern browser.
+# Defense in depth: every HTML page also carries `<meta http-equiv>`
+# security tags. HTTP headers are stronger (CSP enforcement applies to
+# ALL responses, not just top-level navigations; some directives like
+# X-Frame-Options and HSTS only exist as headers). The meta tags
+# protect offline / local previews and double-check the deployment.
 #
 # Test with: curl -I https://asclepius.health/
 
 /*
-  # Strict transport — matches the upgrade-insecure-requests in our CSP.
+  # ── HSTS — pairs with upgrade-insecure-requests in the CSP.
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
 
-  # Identical CSP to the meta tag, kept in sync.
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  # ── Strict CSP. We externalized every inline <script> (see js/page-*.js)
+  # so 'unsafe-inline' is gone from script-src entirely. 'inline-speculation-
+  # rules' (CSP 3) keeps speculation-rules JSON tags working in browsers
+  # that support them; older agents ignore the keyword and fall through.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'inline-speculation-rules'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; media-src 'self'; object-src 'none'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
 
-  # Defenses you can't set with meta http-equiv.
+  # ── Headers that can't be set via <meta http-equiv>.
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=(), bluetooth=(), serial=(), magnetometer=(), gyroscope=(), accelerometer=(), display-capture=(), midi=(), autoplay=(), picture-in-picture=(), encrypted-media=(), fullscreen=(self), web-share=(self), idle-detection=(), screen-wake-lock=(), xr-spatial-tracking=()
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
   X-Robots-Tag: index, follow
+
+  # ── Stop UA hint leaks; static docs don't need them.
+  Accept-CH: ""
 
 # ── HTML pages: SWR (the service worker also handles this client-side) ──
 /*.html

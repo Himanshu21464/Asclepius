@@ -6,8 +6,8 @@
 <meta name="color-scheme"        content="dark light">
 <meta name="format-detection"   content="telephone=no, date=no, address=no, email=no">
 <meta name="referrer"           content="strict-origin-when-cross-origin">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'">
-<meta http-equiv="Permissions-Policy" content="interest-cohort=(), camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'inline-speculation-rules'; connect-src 'self'; media-src 'self'; object-src 'none'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=(), bluetooth=(), serial=(), magnetometer=(), gyroscope=(), accelerometer=(), display-capture=(), midi=(), autoplay=(), picture-in-picture=(), encrypted-media=(), fullscreen=(self), web-share=(self), idle-detection=(), screen-wake-lock=(), xr-spatial-tracking=()">
 <title>Integrations — Asclepius Kernel</title>
 <meta name="description" content="Copy-paste recipes for wrapping clinical-AI tools in Asclepius. Ambient scribe, in-house model, agent, FHIR sidecar, batch eval. C++ and Python side-by-side.">
 <meta name="generator" content="asclepius-site · hand-rolled vanilla">
@@ -835,24 +835,7 @@ eo.backfill(tok.token_id, evidence_id=<span class="s">"signed-clinical-note:0x4a
   </div>
 </footer>
 
-<script>
-(() => {
-    'use strict';
-    document.querySelectorAll('[data-tabs]').forEach((tabs) => {
-        tabs.querySelectorAll('button[data-pane]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const target = btn.dataset.pane;
-                const recipe = btn.closest('.in-recipe');
-                recipe.querySelectorAll('.in-tabs button').forEach((b) => b.classList.remove('is-active'));
-                recipe.querySelectorAll('.in-pane').forEach((p) => p.classList.remove('is-active'));
-                btn.classList.add('is-active');
-                const pane = recipe.querySelector('#' + target);
-                if (pane) pane.classList.add('is-active');
-            });
-        });
-    });
-})();
-</script>
+<script src="js/page-integrations.js" defer></script>
 
 <script src="js/themes.js" defer></script>
 <script src="js/main.js" defer></script>

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-04T16:52:17Z",
+  "generated_at": "2026-05-17T10:23:13Z",
   "count": 53,
   "pages": [
     {
@@ -83,7 +83,7 @@
     },
     {
       "url": "architecture.html",
-      "title": "Architecture — Asclepius Kernel",
+      "title": "Architecture — Asclepius",
       "description": "Component map, data flow, and the rationale behind every layer of the runtime.",
       "headings": [
         "Component map",
@@ -368,7 +368,7 @@
     {
       "url": "explained.html",
       "title": "Explained — Asclepius Kernel in plain words",
-      "description": "What Asclepius Kernel is, what it does, and why it exists — in plain English, for hospital admins, non-AI clinicians, journalists, and the curious. The on-ramp before the spec.",
+      "description": "What Asclepius Kernel is, what it does, and why it exists — in plain English, for admins, clinicians, journalists, and the curious.",
       "headings": [
         "What this is.",
         "The problem.",
@@ -717,7 +717,7 @@
     {
       "url": "regulator.html",
       "title": "For regulators — Asclepius Kernel",
-      "description": "DPDP Act &amp; ABDM, EU AI Act, HIPAA, CDSCO SaMD, FDA SaMD, California AB 3030, Joint Commission record integrity — each clause tied to the Asclepius primitive that addresses it. India-first; jurisdiction-neutral.",
+      "description": "DPDP &amp; ABDM, EU AI Act, HIPAA, CDSCO &amp; FDA SaMD, California AB 3030 — each clause mapped to the Asclepius primitive that addresses it.",
       "headings": [
         "DPDP Act &amp; ABDM — India healthtech obligations.",
         "EU AI Act — high-risk obligations.",
@@ -852,7 +852,7 @@
     },
     {
       "url": "spec.html",
-      "title": "Spec — Asclepius Kernel",
+      "title": "Spec — Asclepius",
       "description": "On-disk and on-wire formats. The bytes a verifier sees, in lexicographic order.",
       "headings": [
         "Hash function",
@@ -879,7 +879,7 @@
     },
     {
       "url": "threat-model.html",
-      "title": "Threat Model — Asclepius Kernel",
+      "title": "Threat Model — Asclepius",
       "description": "Adversaries A1–A6, residual risk, and exactly what verify() proves.",
       "headings": [
         "Assumptions",

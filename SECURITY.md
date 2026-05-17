@@ -81,6 +81,103 @@ responsible reason to.
 - [security.html](https://asclepius.health/security.html) — public security policy
 - [threat-model.html](https://asclepius.health/threat-model.html) — adversaries A1–A6
 
+## Website security model
+
+The website at `asclepius.health` is part of the trust surface — a
+visitor reading the docs is a visitor we have to defend. The site is
+hardened on the same thesis as the kernel: **byte-level verifiability,
+defense in depth, minimum capability**.
+
+### Layered policy
+| Layer                 | Where                | Carries                                                                  |
+|-----------------------|----------------------|--------------------------------------------------------------------------|
+| HTTP response headers | `site/_headers`      | HSTS, CSP, COOP, COEP, CORP, X-Frame-Options, Permissions-Policy, Accept-CH |
+| HTML `<meta>` tags    | every `*.html`       | CSP, Referrer-Policy, X-Content-Type-Options, Permissions-Policy            |
+| Service worker        | `site/sw.js`         | Integrity-gated cache (refuses to persist a hash-mismatched response)       |
+| Asset attestation     | `js/attest-site.js`  | In-browser SHA-256 verification of each served byte vs `asset-manifest.json` |
+
+The two CSP carriers are intentional. HTTP enforces on every response
+including subresources; `<meta>` is the fallback for local previews and
+servers that strip headers. Both are kept in sync.
+
+### Content-Security-Policy (strict)
+```
+default-src 'self';
+script-src 'self' 'inline-speculation-rules';
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+font-src 'self' https://fonts.gstatic.com;
+img-src 'self' data:;
+connect-src 'self';
+media-src 'self';
+object-src 'none';
+manifest-src 'self';
+worker-src 'self';
+base-uri 'self';
+form-action 'self';
+frame-ancestors 'none';        ⟵ HTTP only (meta-ignored per CSP spec)
+upgrade-insecure-requests
+```
+
+What the CSP buys us:
+- **No `'unsafe-inline'` on scripts.** Every previously inline `<script>`
+  block was externalized to `js/page-<name>.js`, which is now covered by
+  the SHA-256 in `asset-manifest.json`. The SW refuses to cache
+  mismatches, and `attest-site.js` lets visitors verify the bytes they
+  receive against the published manifest.
+- **`object-src 'none'`** eliminates `<embed>` / `<object>` legacy plugin
+  XSS vectors permanently.
+- **`base-uri 'self'`** defeats `<base href="https://evil/">` injection.
+- **`frame-ancestors 'none'`** + `X-Frame-Options: DENY` blocks
+  clickjacking.
+- **`upgrade-insecure-requests`** auto-upgrades any straggler `http://`
+  reference to `https://`.
+- **`'unsafe-inline'` on styles remains** (inline `<style>` blocks +
+  Google Fonts CSS varies per User-Agent so SRI is not stable). This is
+  the one accepted residual.
+
+### Permissions-Policy
+Every powerful capability the docs site can't possibly need is denied:
+camera, microphone, geolocation, payment, USB, bluetooth, serial,
+magnetometer, gyroscope, accelerometer, display-capture, MIDI, autoplay,
+picture-in-picture, encrypted-media, idle-detection, screen-wake-lock,
+xr-spatial-tracking, interest-cohort (FLoC). Only `fullscreen` and
+`web-share` are granted `self`.
+
+### Cross-origin isolation
+- `Cross-Origin-Opener-Policy: same-origin` — strict process isolation.
+- `Cross-Origin-Resource-Policy: same-origin` — own resources can't be
+  consumed by attacker pages.
+- `Cross-Origin-Embedder-Policy: credentialless` — high-resolution
+  timers available, but cross-origin requests strip cookies (no
+  ambient-auth leaks to embedded resources).
+
+### Service-worker integrity gate
+The SW pins `asset-manifest.json` on activate and verifies the SHA-256
+of every same-origin response **before** caching it. A mid-flight
+tampered byte stream still reaches the page (best-effort availability),
+but is **never persisted**, so a single bad delivery cannot poison
+offline reads on subsequent visits. HTML pages and Google Fonts CSS
+remain SWR without integrity (HTML changes per release; fonts CSS
+varies by UA).
+
+### In-flight integrity for content the visitor sees
+`js/attest-site.js` exposes a "verify this site" pill in every footer.
+On demand, it fetches `asset-manifest.json` and re-hashes a sample of
+served assets in the browser, displaying the verdict. The manifest is
+regenerated on every release (`regen_manifest.py`) and ships with the
+site.
+
+### Out of scope (website)
+- Network MITM below TLS — out of scope; HSTS preload + COOP/CORP/COEP
+  are the maximum we can do from the application.
+- A compromised Netlify/Cloudflare egress that swaps both the asset and
+  the asset-manifest in lock-step — defeats the SW gate and the in-page
+  attestation alike. Signed manifests (Sigstore transparency log) are
+  on the roadmap for v1.0.
+- Browser zero-days that bypass CSP — out of scope.
+- DoS against the SW cache via crafted responses — bounded by browser
+  origin quota; not a vulnerability.
+
 ## Acknowledgments
 
 We list (with permission) every researcher whose disclosure resulted in a
