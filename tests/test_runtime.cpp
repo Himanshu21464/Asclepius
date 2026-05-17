@@ -4710,23 +4710,32 @@ TEST_CASE("wait_for_quiet: returns true when the chain is idle long enough") {
 TEST_CASE("wait_for_quiet: returns false when commits keep arriving") {
     auto rt_ = fresh_runtime("wfq_busy"); REQUIRE(rt_);
     auto& rt = rt_.value();
-    // A background thread keeps appending events at 10ms intervals so
-    // the runtime never goes quiet for the requested 50ms period. We
-    // use record_event() directly (no inference handle needed) — the
-    // contract is about ledger growth, not inference shape.
+    // A background thread keeps appending events so the runtime never
+    // goes quiet for the requested 50 ms period.
     //
-    // Race avoided: do NOT capture t0 until bg has actually produced
-    // its first commit. Otherwise on a slow CI runner bg's thread
-    // start can be delayed by >50 ms; main would call wait_for_quiet
-    // on an empty chain, see no activity for the full quiet period,
-    // and return true (the assertion CHECK(!ok) then flakes). We spin
-    // on rt.ledger().length() until it is non-zero, which proves bg
-    // is alive and actively appending.
+    // Two races to defeat on macos-14:
+    //   1. Slow bg thread launch (>50 ms) lets main observe an empty
+    //      chain for the full quiet period and return true. Defence:
+    //      spin on rt.ledger().length() before capturing t0.
+    //   2. macOS scheduling can deschedule bg for >50 ms between
+    //      sleep_for(10 ms) calls, opening a quiet window where the
+    //      contract says there shouldn't be one. Observed once on run
+    //      25988658802 (dt = 100 ms; would have been ~50 ms-gap +
+    //      catch-up). Defence: deadline-driven busy-wait at 5 ms
+    //      target intervals — bg would have to be scheduled away for
+    //      ten consecutive intervals before the quiet condition can
+    //      be falsely satisfied.
     std::atomic<bool> stop{false};
     std::thread bg([&]() {
+        constexpr auto interval = std::chrono::milliseconds{5};
+        auto next = std::chrono::steady_clock::now();
         while (!stop.load(std::memory_order_acquire)) {
             (void)rt.record_event("noise", "system:test", nlohmann::json::object());
-            std::this_thread::sleep_for(10ms);
+            next += interval;
+            while (std::chrono::steady_clock::now() < next) {
+                if (stop.load(std::memory_order_acquire)) return;
+                std::this_thread::yield();
+            }
         }
     });
     while (rt.ledger().length() == 0) std::this_thread::yield();
