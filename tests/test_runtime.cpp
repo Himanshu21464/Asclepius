@@ -4737,24 +4737,33 @@ TEST_CASE("wait_for_quiet: detects late-arriving commit and restarts the window"
     auto& rt = rt_.value();
     // Background thread emits a single commit ~30ms in, then goes
     // silent. wait_for_quiet(40ms, 500ms) must not return true before
-    // that commit lands and 40ms has elapsed afterward. We synchronize
-    // on a flag so t0 is captured *after* bg has begun its sleep —
-    // otherwise thread-launch overhead can let the commit land before
-    // the lower-bound timer even starts (CI flake on macos-14).
-    std::atomic<bool> bg_ready{false};
+    // that commit lands and 40ms has elapsed afterward.
+    //
+    // Handshake direction matters: bg must NOT start its sleep until
+    // *after* main has captured t0. The earlier "bg-ready" handshake
+    // had bg set ready=true and immediately sleep, while main spun on
+    // that flag and then captured t0 — but on a contended CI runner
+    // there is a non-trivial gap (observed up to ~8 ms on macos-14)
+    // between bg's store-release and main observing it. That gap
+    // shortens the *observed* commit arrival time to under 30 ms and
+    // flaked the lower bound (61.67 ms < 65 ms). Reversed: main
+    // captures t0 first, then signals bg to begin sleeping, so the
+    // commit reliably lands at t0 + 30 ms (± clock resolution).
+    std::atomic<bool> go{false};
     std::thread bg([&]() {
-        bg_ready.store(true, std::memory_order_release);
+        while (!go.load(std::memory_order_acquire)) std::this_thread::yield();
         std::this_thread::sleep_for(30ms);
         (void)rt.record_event("late", "system:test", nlohmann::json::object());
     });
-    while (!bg_ready.load(std::memory_order_acquire)) std::this_thread::yield();
     auto t0 = std::chrono::steady_clock::now();
+    go.store(true, std::memory_order_release);
     bool ok = rt.wait_for_quiet(40ms, 500ms);
     auto dt = std::chrono::steady_clock::now() - t0;
     bg.join();
     CHECK(ok);
-    // The window had to restart after the late commit at ~30ms in;
-    // total wait must be at least 30ms + 40ms = 70ms (with slack).
+    // The window had to restart after the late commit at ~30 ms in;
+    // total wait must be at least 30 ms + 40 ms = 70 ms. We keep a
+    // 5 ms tolerance below for clock-resolution noise.
     CHECK(dt >= 65ms);
     CHECK(dt < 500ms);
 }
