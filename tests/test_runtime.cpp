@@ -4714,6 +4714,14 @@ TEST_CASE("wait_for_quiet: returns false when commits keep arriving") {
     // the runtime never goes quiet for the requested 50ms period. We
     // use record_event() directly (no inference handle needed) — the
     // contract is about ledger growth, not inference shape.
+    //
+    // Race avoided: do NOT capture t0 until bg has actually produced
+    // its first commit. Otherwise on a slow CI runner bg's thread
+    // start can be delayed by >50 ms; main would call wait_for_quiet
+    // on an empty chain, see no activity for the full quiet period,
+    // and return true (the assertion CHECK(!ok) then flakes). We spin
+    // on rt.ledger().length() until it is non-zero, which proves bg
+    // is alive and actively appending.
     std::atomic<bool> stop{false};
     std::thread bg([&]() {
         while (!stop.load(std::memory_order_acquire)) {
@@ -4721,6 +4729,7 @@ TEST_CASE("wait_for_quiet: returns false when commits keep arriving") {
             std::this_thread::sleep_for(10ms);
         }
     });
+    while (rt.ledger().length() == 0) std::this_thread::yield();
     auto t0 = std::chrono::steady_clock::now();
     bool ok = rt.wait_for_quiet(50ms, 200ms);
     auto dt = std::chrono::steady_clock::now() - t0;
