@@ -4735,35 +4735,42 @@ TEST_CASE("wait_for_quiet: returns false when commits keep arriving") {
 TEST_CASE("wait_for_quiet: detects late-arriving commit and restarts the window") {
     auto rt_ = fresh_runtime("wfq_late"); REQUIRE(rt_);
     auto& rt = rt_.value();
-    // Background thread emits a single commit ~30ms in, then goes
-    // silent. wait_for_quiet(40ms, 500ms) must not return true before
-    // that commit lands and 40ms has elapsed afterward.
+    // Background thread emits a single commit at *precisely* t0 + 30 ms,
+    // then goes silent. wait_for_quiet(40 ms, 500 ms) must observe that
+    // commit, restart its quiet window, and return ~40 ms afterward.
     //
-    // Handshake direction matters: bg must NOT start its sleep until
-    // *after* main has captured t0. The earlier "bg-ready" handshake
-    // had bg set ready=true and immediately sleep, while main spun on
-    // that flag and then captured t0 — but on a contended CI runner
-    // there is a non-trivial gap (observed up to ~8 ms on macos-14)
-    // between bg's store-release and main observing it. That gap
-    // shortens the *observed* commit arrival time to under 30 ms and
-    // flaked the lower bound (61.67 ms < 65 ms). Reversed: main
-    // captures t0 first, then signals bg to begin sleeping, so the
-    // commit reliably lands at t0 + 30 ms (± clock resolution).
+    // Why not std::this_thread::sleep_for(30 ms): on macos-14 the sleep
+    // primitive underruns by several ms (observed 47 ms total when it
+    // should have been ≥70). Compounded with thread-launch scheduling
+    // jitter, the commit can land after wait_for_quiet's empty-chain
+    // grace period (`period`) expires, at which point wait_for_quiet
+    // returns true with dt ≈ `period` (≈47 ms on the failing run).
+    //
+    // Fix: pin the commit to a precise wall-clock target. bg busy-waits
+    // on steady_clock::now() < commit_at and fires the moment that's
+    // false. The target is computed in main BEFORE spawning bg and
+    // passed by value, so both threads share an identical anchor.
+    // Busy-wait accuracy is ~clock-tick resolution (microseconds),
+    // independent of OS scheduler behaviour.
+    auto t0 = std::chrono::steady_clock::now();
+    const auto commit_at = t0 + 30ms;
     std::atomic<bool> go{false};
-    std::thread bg([&]() {
+    std::thread bg([&rt, &go, commit_at]() {
         while (!go.load(std::memory_order_acquire)) std::this_thread::yield();
-        std::this_thread::sleep_for(30ms);
+        while (std::chrono::steady_clock::now() < commit_at) {
+            std::this_thread::yield();
+        }
         (void)rt.record_event("late", "system:test", nlohmann::json::object());
     });
-    auto t0 = std::chrono::steady_clock::now();
     go.store(true, std::memory_order_release);
     bool ok = rt.wait_for_quiet(40ms, 500ms);
     auto dt = std::chrono::steady_clock::now() - t0;
     bg.join();
     CHECK(ok);
-    // The window had to restart after the late commit at ~30 ms in;
-    // total wait must be at least 30 ms + 40 ms = 70 ms. We keep a
-    // 5 ms tolerance below for clock-resolution noise.
+    // bg commits at t0 + 30 ms (± clock-tick). wait_for_quiet polls every
+    // 5 ms and resets last_change to that observation. Minimum dt is
+    // therefore 30 + 40 = 70 ms; 65 ms lower bound keeps 5 ms of slack
+    // for the 5 ms poll-step rounding.
     CHECK(dt >= 65ms);
     CHECK(dt < 500ms);
 }
